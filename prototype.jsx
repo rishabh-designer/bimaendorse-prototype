@@ -1886,8 +1886,8 @@ function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children,
         <header className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${C.subtle}` }}>
           {Icon && <Icon size={18} style={{ color: tint }} className="shrink-0" />}
           <div className="min-w-0 flex-1">
-            <div style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>{title}</div>
-            {sub && <div className="truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{sub}</div>}
+            <div style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{title}</div>
+            {sub && <div className="mt-0.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.45, color: C.figTert }}>{sub}</div>}
           </div>
           <button onClick={onClose} title="Close" className="flex shrink-0 items-center justify-center"
             style={{ width: 28, height: 28, borderRadius: 8, color: C.figInk }}><X size={18} /></button>
@@ -1917,6 +1917,29 @@ const Note = ({ icon: Icon, tone, bg, children }) => (
 );
 const Cancel = ({ onClick }) => (
   <button onClick={onClick} style={{ padding: "12px 20px", fontSize: 14, fontWeight: 600, color: C.figHint }}>Cancel</button>
+);
+/* The completion tick beside a field — blue when satisfied, muted otherwise. */
+const CheckDot = ({ on }) => (
+  <span className="flex shrink-0 items-center justify-center rounded-full"
+    style={{ width: 18, height: 18, background: on ? "#1458D2" : C.subtle }}>
+    <Check size={11} strokeWidth={3} style={{ color: C.white }} />
+  </span>
+);
+/* A modal footer that carries a completion bar (Figma 1032:147858 / 1040:157200):
+   an orange progress line, the percent, and the commit button on the right. */
+const ProgressFooter = ({ pct, onClose, onConfirm, disabled, label }) => (
+  <div className="flex w-full flex-col gap-2.5">
+    <div className="overflow-hidden" style={{ height: 3, borderRadius: 999, background: C.subtle }}>
+      <div style={{ height: "100%", width: `${pct}%`, background: C.accent, transition: "width .2s ease-out" }} />
+    </div>
+    <div className="flex items-center justify-between gap-3">
+      <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>{pct}% Complete</span>
+      <div className="flex items-center gap-2">
+        <Cancel onClick={onClose} />
+        <Btn onClick={onConfirm} disabled={disabled}>{label}</Btn>
+      </div>
+    </div>
+  </div>
 );
 
 /* Document preview. The design for this screen is not drawn yet — it keeps the
@@ -1959,47 +1982,42 @@ function QueryModal({ ctx, t, onSend, onClose }) {
     new: "",
   }[ctx.kind];
   const [text, setText] = useState(suggested);
-  const [docs, setDocs] = useState(ctx.kind === "doc" || ctx.kind === "missing" ? [ctx.target] : []);
-  const [extra, setExtra] = useState("");
-  const catalogue = [...new Set([...(TYPES[t.type]?.docs || []), ...t.missing])];
-  const toggle = (d) => setDocs((x) => x.includes(d) ? x.filter((y) => y !== d) : [...x, d]);
+  const [doc, setDoc] = useState(ctx.kind === "doc" || ctx.kind === "missing" ? ctx.target : "");
+  const options = [...new Set([...(TYPES[t.type]?.docs || []), ...t.missing, ...(ctx.target && ctx.kind !== "field" ? [ctx.target] : [])])];
   const title = { field: "Query a captured detail", doc: "Query a shared document", missing: "Request a missing item", new: "Ask the client a question" }[ctx.kind];
+  const ready = !!text.trim();
+  const pct = Math.round(((text.trim() ? 1 : 0) + (doc ? 1 : 0)) / 2 * 100);
 
   return (
-    <ModalShell icon={HelpCircle} tint={C.wait} title={title} sub={ctx.target ? `on “${ctx.target}”` : null} onClose={onClose}
-      footer={<>
-        <Cancel onClick={onClose} />
-        <Btn icon={Send} disabled={!text.trim()}
-          onClick={() => onSend({ ...ctx, text: text.trim(), docs: extra.trim() ? [...docs, extra.trim()] : docs })}>
-          Send to client
-        </Btn>
-      </>}>
-      <div className="space-y-4">
+    <ModalShell title={title} width={560}
+      sub="The client is notified by email with a portal link and answers inside the portal, against this query. The stage clock holds until they respond, and the ticket stays visible under Awaiting client."
+      onClose={onClose}
+      footer={<ProgressFooter pct={pct} onClose={onClose} disabled={!ready} label="Create Query"
+        onConfirm={() => onSend({ ...ctx, text: text.trim(), docs: doc ? [doc] : [] })} />}>
+      <div className="space-y-5">
         <label className="block">
-          <FieldLabel>Question to the client</FieldLabel>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3}
-            placeholder="What do you need from them?"
-            className="mt-1.5 w-full resize-none" style={FIELD} />
+          <FieldLabel>Question to the client <span style={{ color: C.semError }}>*</span></FieldLabel>
+          <div className="mt-1.5 flex items-start gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2}
+              placeholder="Example: Could you confirm the correct value against the policy schedule?"
+              className="min-w-0 flex-1 resize-none bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }} />
+            <CheckDot on={!!text.trim()} />
+          </div>
         </label>
         <div>
-          <FieldLabel>Documents to request</FieldLabel>
-          <div className="mt-1.5 space-y-1.5">
-            {catalogue.map((d) => (
-              <button key={d} onClick={() => toggle(d)} className="flex w-full items-center gap-2 text-left"
-                style={{ ...FIELD, borderColor: docs.includes(d) ? C.brand : C.line,
-                  background: docs.includes(d) ? C.brandBg : C.white }}>
-                {docs.includes(d) ? <Check size={14} strokeWidth={3} style={{ color: C.brand }} /> : <Paperclip size={14} style={{ color: C.figTert }} />}
-                <span className="truncate">{d}</span>
-              </button>
-            ))}
-            <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Other document - type to add"
-              className="w-full" style={FIELD} />
+          <div className="flex items-baseline justify-between gap-2">
+            <FieldLabel>Documents to request <span style={{ color: C.semError }}>*</span></FieldLabel>
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{options.length} Available for This Product</span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+            <select value={doc} onChange={(e) => setDoc(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: doc ? C.figInk : C.figPlaceholder }}>
+              <option value="">Select Document Type</option>
+              {options.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <CheckDot on={!!doc} />
           </div>
         </div>
-        <Note icon={PauseCircle} tone={C.wait} bg={C.waitSoft}>
-          The client is notified by email with a portal link and answers inside the portal, against this query.
-          The stage clock holds until they respond, and the ticket stays visible under Awaiting client.
-        </Note>
       </div>
     </ModalShell>
   );
@@ -2142,12 +2160,13 @@ const IconBtn = ({ icon: Icon, onClick, title, size = 16, tone, disabled }) => (
    outline twin. A blocked action keeps its place and states why on hover. */
 const Btn = ({ children, onClick, disabled, title, variant = "fill", tone = C.brand, icon: Icon, trailing, size = "lg" }) => {
   const fill = variant === "fill";
+  const xs = size === "xs";   /* matches SoftBtn — the in-panel, non-primary action size */
   const sm = size === "sm";
   return (
     <button onClick={onClick} disabled={disabled} title={title}
-      className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap"
-      style={{ padding: sm ? "10px 14px" : "12px 20px", borderRadius: sm ? 10 : 12,
-        fontSize: sm ? 12 : 14, fontWeight: 600,
+      className={`flex shrink-0 items-center justify-center whitespace-nowrap ${xs ? "gap-1.5" : "gap-2"}`}
+      style={{ padding: xs ? "4px 8px" : sm ? "10px 14px" : "12px 20px", borderRadius: xs ? 8 : sm ? 10 : 12,
+        fontSize: xs || sm ? 12 : 14, fontWeight: 600,
         background: disabled ? C.canvas : fill ? tone : C.white,
         color: disabled ? C.figDisabled : fill ? C.white : tone,
         border: `0.5px solid ${disabled ? C.subtle : tone}`,
@@ -2350,11 +2369,19 @@ function SlaCard({ t }) {
   const head = noClock ? (isTerminal(t) ? "Clock stopped" : "No clock on this stage")
     : held ? "On hold"
     : s.state === "breached" ? `${s.label} over` : `${s.label} left`;
+  /* Fill + colours, verbatim from Figma 1040:158796: a white→semantic-subtle
+     gradient card with a matching subtle border, and the brighter solid
+     semantics for the head text and the remaining-time bar. */
+  const sk = noClock ? { grad: C.canvas, border: C.subtle, head: C.figHint, remain: C.subtle }
+    : held ? { grad: C.waitSoft, border: "#C7CCEB", head: C.wait, remain: C.wait }
+    : s.state === "breached" ? { grad: "#FFECEC", border: "#FFABAB", head: "#CF0000", remain: "#F10000" }
+    : s.state === "atRisk" ? { grad: "#FFF9E6", border: "#FFE890", head: "#B38F0A", remain: "#FFCF0E" }
+    : { grad: "#ECFBEA", border: "#A9EAA2", head: "#007B00", remain: "#00B200" };
   return (
-    <div style={{ background: `linear-gradient(87deg, ${C.cream} 0%, ${C.white} 9.98%)`,
-      border: "0.5px solid #FFD2A8", borderRadius: 12, padding: "10.5px 16.5px" }}>
+    <div style={{ background: `linear-gradient(180deg, ${C.white} 50%, ${sk.grad} 100%)`,
+      border: `0.5px solid ${sk.border}`, borderRadius: 12, padding: "12px 16px" }}>
       <div className="flex items-baseline justify-between gap-2">
-        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>SLA</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>Ticket Stage Timeline</span>
         {st.code && (() => {
           const a = actorOf(clockActor(t), t);
           return (
@@ -2365,26 +2392,21 @@ function SlaCard({ t }) {
           );
         })()}
       </div>
-      <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: noClock ? C.figHint : held ? C.wait : tone }}>{head}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: sk.head }}>{head}</div>
       {!noClock && (() => {
-        /* The bar drains as the clock runs down, and its hue drains with it:
-           ~130° green when the whole window is left, through amber, to 0° red at
-           the deadline. A continuous hue cannot be a palette token, so it is
-           computed inline from the same `used` the SLA maths already produced -
-           this is colour, not clock: no arithmetic changes. */
-        /* 917:105652 to the letter: a SOLID brand-secondary #FF7700 fill on a
-           card-recessed track carrying the low-raised drop shadow. The sheen is
-           that shadow, not a gradient. Width tracks elapsed, as SlaBar does.
-           Breach and hold keep their tones so an over/paused clock is not a calm
-           orange; everything else is the design's orange. */
-        const barW = s.state === "breached" ? 100 : Math.max(4, Math.min(100, s.used));
-        const barBg = held ? C.wait : s.state === "breached" ? C.breach : C.accent;
+        /* The bar reads REMAINING time and drains right-to-left: a state-toned
+           segment on the LEFT (green when ok, amber at-risk) for what's left,
+           over a red track that shows through on the right for what's gone. A
+           breached clock has no remaining segment — the track is all red, no bar
+           left, just the red container (Figma 1040:158796). */
+        const usedPct = s.state === "breached" ? 100 : Math.max(0, Math.min(100, s.used));
+        const leftPct = Math.max(0, 100 - usedPct);
         return (
         <>
-          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle,
-            boxShadow: "0px 2px 16px 0px rgba(169,172,177,0.24)" }}>
-            <div style={{ height: "100%", borderRadius: 999, background: barBg,
-              width: `${barW}%`, opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
+          <div className="mt-2 overflow-hidden" style={{ height: 3, borderRadius: 999, background: "#F10000",
+            boxShadow: "0px 2px 8px 0px rgba(169,172,177,0.24)" }}>
+            <div style={{ height: "100%", background: sk.remain, width: `${leftPct}%`,
+              opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
           </div>
           <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
             <span style={{ color: held ? C.wait : tone }}>{unitLabel(s.sla, s.unit)} total</span>
@@ -2392,19 +2414,12 @@ function SlaCard({ t }) {
           </p>
           <div className="mt-2 flex items-start gap-1.5 py-1" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
             <span className="mt-0.5"><ClockFading size={14} color={C.figInk} /></span>
-            <span>
-              Started {fmtWhen(s.entered)}. {s.state === "breached" ? "Was due" : "Due"} {fmtWhen(s.due)}
-            </span>
+            <span>{s.state === "breached" ? "Was due" : "Due"} {fmtWhen(s.due)}</span>
           </div>
           {held && (
             <div className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.wait }}>
               <PauseCircle size={12} className="shrink-0" />
               {t.manualReview ? "Paused for manual review" : "Paused while the client answers an open query"}
-            </div>
-          )}
-          {s.cancelAt && (
-            <div className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
-              <AlertTriangle size={12} className="shrink-0" /> {st.terminal}
             </div>
           )}
         </>
@@ -2417,17 +2432,17 @@ function SlaCard({ t }) {
 /* Three counters beside the clock. Each is derived from the ticket — the
    prototype holds no bot-confidence figure for a non-financial endorsement,
    so intake completeness takes that slot instead of an invented number. */
-function StatCard({ label, value, tone, icon: Icon, grow, title }) {
+function StatCard({ label, value, tone, icon: Icon, grow, dense, title }) {
   return (
     <div className="min-w-0" title={title}
-      style={{ flex: grow ? "1 1 40%" : "1 1 0", minWidth: 132,
-        background: C.white, border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 17px" }}>
-      <div className="flex items-center justify-between gap-3">
+      style={{ flex: grow ? "1 1 40%" : "1 1 0", minWidth: dense ? 0 : 132,
+        background: C.white, border: `1px solid ${C.line}`, borderRadius: 12, padding: dense ? "10px 12px" : "11px 17px" }}>
+      <div className={`flex ${dense ? "items-start" : "items-center"} justify-between gap-2`}>
         <div className="min-w-0 flex-1">
-          <div className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>{label}</div>
-          <div className="bk-num truncate" style={{ fontSize: 18, fontWeight: tone ? 600 : 500, lineHeight: 1.2, color: tone || C.figHint }}>{value}</div>
+          <div className={dense ? "" : "truncate"} style={{ fontSize: dense ? 11 : 12, fontWeight: 500, color: C.figTert, lineHeight: 1.25 }}>{label}</div>
+          <div className="bk-num truncate" style={{ fontSize: dense ? 16 : 18, fontWeight: tone ? 600 : 500, lineHeight: 1.2, color: tone || C.figHint, marginTop: dense ? 4 : 0 }}>{value}</div>
         </div>
-        {Icon && <Icon size={16} className="shrink-0" style={{ color: C.figTert }} />}
+        {Icon && <Icon size={dense ? 14 : 16} className="shrink-0" style={{ color: C.figTert }} />}
       </div>
     </div>
   );
@@ -2512,11 +2527,82 @@ function TrailRow({ h, t, last }) {
   );
 }
 
-/* Ticket — Figma 917:106239 ---------------------------------------- *
- *  Header, an ikkat rule, then two panels. Left: the stage clock, three
- *  counters and the audit trail. Right: five tabs of work over a footer
- *  that carries that tab's actions. The next action also sits in the
- *  header, so it is reachable from every tab.
+/* Update Quote (M5) — the SM revises the premium; every update is stored as a
+   new version, nothing overwritten. Ported from prototype2 onto the BimaEndorse
+   modal shell. The handler (onRevise) keeps the prior versions. */
+function UpdateQuoteModal({ t, onConfirm, onClose }) {
+  const q = t.quote;
+  const [base, setBase] = useState(String(q.base));
+  const [gst, setGst] = useState(String(q.gst));
+  const [gstTouched, setGstTouched] = useState(false);
+  const [file, setFile] = useState("");
+  const [reason, setReason] = useState("");
+  const b = Number(base) || 0, g = Number(gst) || 0;
+  const setBaseAnd = (v) => { setBase(v); if (!gstTouched) setGst(String(Math.round((Number(v) || 0) * 0.18))); };
+  const changed = b !== q.base || g !== q.gst || !!file;
+  const ready = changed && b > 0 && reason.trim();
+
+  const pct = Math.round((((b > 0 && changed) ? 1 : 0) + (reason.trim() ? 1 : 0)) / 2 * 100);
+  const numField = (label, value, onChange, on) => (
+    <label className="block">
+      <FieldLabel>{label} <span style={{ color: C.semError }}>*</span></FieldLabel>
+      <div className="mt-1 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+        <span style={{ fontSize: 14, color: C.figTert }}>₹</span>
+        <span style={{ width: 1, height: 14, background: C.subtle }} />
+        <input value={value} onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
+          className="bk-num min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 15, fontWeight: 500, color: C.figInk }} />
+        <CheckDot on={on} />
+      </div>
+    </label>
+  );
+
+  return (
+    <ModalShell tint={C.brand} title="Update Quote" width={560}
+      sub={`Saving as v${q.version + 1}. The previous version is kept and remains viewable.`}
+      onClose={onClose}
+      footer={<ProgressFooter pct={pct} onClose={onClose} disabled={!ready} label={`Save v${q.version + 1}`}
+        onConfirm={() => onConfirm({ base: b, gst: g, file: file || q.file, reason: reason.trim() })} />}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-5">
+          {numField("Base premium", base, setBaseAnd, b > 0 && changed)}
+          {numField("GST", gst, (v) => { setGstTouched(true); setGst(v); }, false)}
+        </div>
+        <div className="flex items-baseline justify-between" style={{ background: C.brandBg, borderRadius: 10, padding: "12px 14px" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Revised total payable</span>
+          <span className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{money(b + g)}</span>
+        </div>
+        <label className="block">
+          <FieldLabel>Reason for Update <span style={{ color: C.semError }}>*</span></FieldLabel>
+          <div className="mt-1 flex items-start gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+              placeholder="Why is the quote being updated?"
+              className="min-w-0 flex-1 resize-none bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }} />
+            <CheckDot on={!!reason.trim()} />
+          </div>
+        </label>
+        <div>
+          <FieldLabel>Replace Quote Copy</FieldLabel>
+          <button onClick={() => setFile(`quote_${t.policy.replace(/\//g, "_")}_v${q.version + 1}.pdf`)}
+            className="mt-1 flex w-full flex-col items-center justify-center gap-1 border-2 border-dashed"
+            style={{ borderColor: file ? C.brand : C.brand200, borderRadius: 12, padding: "22px 12px",
+              background: file ? C.brandBg : "#FBFAFF", color: C.brand }}>
+            {file
+              ? <><FileCheck2 size={18} /> <span style={{ fontSize: 13, fontWeight: 600 }}>{file}</span></>
+              : <><Upload size={18} /> <span style={{ fontSize: 13, fontWeight: 600 }}>Upload Revised Quote Copy</span>
+                  <span style={{ fontSize: 12, color: C.figTert }}>click to browse or drag and drop the file here</span></>}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* Ticket — Figma 1040:158792 --------------------------------------- *
+ *  Header (id + chips, no action button), an ikkat rule, then a narrow left
+ *  stack — the stage-timeline clock and three metric counters — and a wide
+ *  Action Panel: tabs of work (Overview, Documents, Query Line, Mail Trail,
+ *  Ticket Trail, Payment, Manage) over ONE persistent footer that carries the
+ *  audit note and the primary stage action on every tab.
  * ------------------------------------------------------------------ */
 function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment }) {
   const [tab, setTab] = useState("overview");
@@ -2529,7 +2615,8 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const [note, setNote] = useState("");
   const [preview, setPreview] = useState(null);
   const [stagesOpen, setStagesOpen] = useState(false);
-  const [trailOpen, setTrailOpen] = useState(false);
+  const [updatingQuote, setUpdatingQuote] = useState(false);
+  const [quoteHistOpen, setQuoteHistOpen] = useState(false);
   const st = stageOf(t.stage);
   const s = clock(t);
   const docs = useMemo(() => docsOf(t), [t]);
@@ -2580,38 +2667,11 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
     ["docs", "Document Vault"],
     ["queries", "Query Line"],
     ["mail", "Mail Trail"],
+    ["trail", "Ticket Trail"],
     ...(t.kind === "Financial" ? [["payment", "Premium & Payment"]] : []),
     ["manage", "Manage Ticket", readOnly(t)],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
-
-  /* Conditions that outrank whichever tab is open. They sit above the clock
-     because that is where a person looks when a ticket is in trouble. */
-  const alerts = [
-    isSilent(t) && { icon: MoonStar, tone: C.breach, bg: C.breachSoft,
-      text: `No update logged for ${Math.round(t.lastAction / 24)} days - escalated to ${NOTIFY.no_action_15d.join(" and ")}` },
-    openQ.length > 0 && { icon: PauseCircle, tone: C.wait, bg: C.waitSoft,
-      text: `${openQ.length} open quer${openQ.length > 1 ? "ies" : "y"} with the client - stage clock on hold` },
-    s.state === "breached" && { icon: BellRing, tone: C.warn, bg: C.warnSoft,
-      text: `${st.code} breached by ${s.label} - follow-ups to ${st.escalate?.[0]}` },
-    pendingAll > 0 && { icon: FileClock, tone: C.warn, bg: C.warnSoft,
-      text: `${fieldGaps(t) > 0 ? `${fieldGaps(t)} field` : ""}${fieldGaps(t) > 0 && pendingDocs > 0 ? " and " : ""}${pendingDocs > 0 ? `${pendingDocs} document` : ""} pending - cannot go to insurer` },
-    t.manualReview && { icon: RefreshCw, tone: C.wait, bg: C.waitSoft,
-      text: `Manual review - ${t.manualReview.reason}. Returns to “${t.manualReview.priorStatus}” once resolved.` },
-    st.system && { icon: Cpu, tone: C.figHint, bg: C.canvas,
-      text: `Routing in progress - ${ASSIGNMENT.rule.toLowerCase()}. The ticket appears on the owner's desk once assigned.` },
-    /* `awaited` covers three different waits; say which one this is. */
-    st.awaited && !readOnly(t) && { icon: Cpu, tone: C.figHint, bg: C.canvas,
-      text: t.stage === "Awaiting Payment Link"
-        ? `Nothing to do here - the payment link attaches itself from ${t.payMode === "Portal" ? `the Operations child ticket ${t.childTicket}` : "the insurer's mail"} and goes to the customer automatically.`
-        : t.stage === "Awaiting Endorsement Copy"
-        ? `Nothing to do here - the bot watches ${t.insurer}'s mail and attaches the endorsement copy when it lands.`
-        : "Nothing to do here - the clock sits with the client until they answer in the portal." },
-    readOnly(t) && { icon: t.terminal ? XCircle : CheckCircle2, tone: t.terminal ? C.figHint : C.teal, bg: t.terminal ? C.canvas : C.tealSoft,
-      text: t.terminal
-        ? `${TERMINAL[t.terminal].label} - terminal status. This ticket is read-only and cannot be reopened.`
-        : `Closed in ${fmtDur(ageOf(t))} - read-only and cannot be reopened.` },
-  ].filter(Boolean);
 
   /* The client's own marks where we hold them: the product rosette and the
      insurer's wordmark, then the owner's photograph. Anything not on file
@@ -2621,8 +2681,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
     { text: t.policy, icon: FileText, num: true },
     { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24 },
     { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22 },
-    { text: t.owner, icon: Cpu, avatar: true,
-      title: `${ROLES[t.owner]?.pod || "Unassigned"} · ${ASSIGNMENT.rule} - ${t.insurer} routes to ${ASSIGNMENT.podOf(t.insurer)}` },
   ];
 
   /* Row chrome shared by Captured at intake and the Document Vault. */
@@ -2636,160 +2694,110 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const PEND = { tone: C.warn, bg: "rgba(255,119,0,0.08)", line: "#FFD2A8" };
 
   const noteField = (
-    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the audit trail"
+    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional Note for Audit Trail"
       className="min-w-0 flex-1 outline-none"
-      style={{ maxWidth: 380, background: C.white, border: `0.5px solid ${C.subtle}`, borderRadius: 10,
+      style={{ maxWidth: 420, background: C.white, border: `0.5px solid ${C.subtle}`, borderRadius: 10,
         padding: "12px", fontSize: 14, fontWeight: 500, color: C.figInk }} />
+  );
+
+  /* One persistent footer for the whole Action Panel: the audit note plus the
+     stage's primary action, shown on every tab. Secondary, tab-scoped actions
+     (Ask the client, Upload, Chase, Reassign) live inside their own tabs. */
+  const stageAction = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {simulate && (
+        <SoftBtn onClick={simulate.run} title="Demo control - stands in for the outside party">▶ {simulate.label}</SoftBtn>
+      )}
+      {t.stage === "Awaiting Endorsement Copy" && !endo && !readOnly(t) && (
+        <Btn variant="outline" tone={C.figHint} onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
+      )}
+      {showAdvance && (
+        <Btn onClick={doAdvance} disabled={advBlocked} title={advHint}>{advLabel}</Btn>
+      )}
+    </div>
+  );
+  const panelFooter = (
+    <>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {!readOnly(t) && noteField}
+        {showAdvance && advBlocked && (
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.warn }}>{advHint}</span>
+        )}
+      </div>
+      {!readOnly(t) && stageAction}
+    </>
   );
 
   return (
     <div>
-      {/* header */}
-      <div className="flex items-start justify-between gap-6">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="bk-num" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1, color: C.brand }}>{t.id}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
-              <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
-              <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
-              {editType
-                ? <select autoFocus value={t.type} onChange={(e) => { onChangeType(t.id, e.target.value); setEditType(false); }}
-                    onBlur={() => setEditType(false)} className="bg-white outline-none"
-                    style={{ padding: "3px 6px", borderRadius: 8, border: `1px solid ${C.brand}`, fontSize: 14, color: C.figInk }}>
-                    {(PRODUCTS[t.product] || Object.keys(TYPES)).map((x) => <option key={x}>{x}</option>)}
-                  </select>
-                : <Indicator thick label={t.type} ind="neutral" />}
-              {canEditType && !editType && (
-                <button onClick={() => setEditType(true)}
-                  title="Classification can only be corrected before the request goes to the insurer (BR-058)"
-                  style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Correct type</button>
-              )}
-            </div>
-          </div>
+      {/* header — id + status on the left; classification chips and the people
+          on the right. No action button here: the primary action lives at the
+          bottom of the Action Panel, reachable from every tab. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <span className="bk-num" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1, color: C.brand }}>{t.id}</span>
+          <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
         </div>
-
-        <div className="flex shrink-0 items-center">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {/* Header carries the primary action only. Customer Withdrawn lives in
-                Manage Ticket, which owns the same setWithdrawing → WithdrawModal path. */}
-            {showAdvance && (
-              <Btn size="sm" onClick={doAdvance} disabled={advBlocked} title={advHint}>{advLabel}</Btn>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
+          <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+          {editType
+            ? <select autoFocus value={t.type} onChange={(e) => { onChangeType(t.id, e.target.value); setEditType(false); }}
+                onBlur={() => setEditType(false)} className="bg-white outline-none"
+                style={{ padding: "3px 6px", borderRadius: 8, border: `1px solid ${C.brand}`, fontSize: 14, color: C.figInk }}>
+                {(PRODUCTS[t.product] || Object.keys(TYPES)).map((x) => <option key={x}>{x}</option>)}
+              </select>
+            : <Indicator thick label={t.type} ind="neutral" />}
+          {canEditType && !editType && (
+            <button onClick={() => setEditType(true)}
+              title="Classification can only be corrected before the request goes to the insurer (BR-058)"
+              style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Correct type</button>
+          )}
+          <Participants t={t} />
         </div>
       </div>
 
-      {/* The meta row spans the whole header rather than sharing a line with the
-          actions, so five items stay on one line instead of wrapping under. */}
+      {/* meta row: client · policy · product · insurer */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4">
         {meta.map((m) => (
           <span key={m.text} title={m.title} className="flex items-center gap-1.5">
             <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
-            {m.avatar
-              ? <img src={AVATAR} alt="" title={t.owner} className="shrink-0 rounded-full object-cover" style={{ width: 20, height: 20 }} />
-              : m.img
+            {m.img
               ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
               : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
           </span>
         ))}
-        <span className="ml-auto"><Participants t={t} /></span>
       </div>
 
       <div className="bk-rule my-5" aria-hidden />
 
-      {/* two panels */}
-      {/* Two panels in the design's own proportion: 917:105649 splits the 1388
-          panel (24px inset each side) as 523 : 65 : 752. Reproduced as flex-grow
-          523/752 so the ratio holds at any width, with the 65px gap fixed. The
-          left keeps a 320 floor; the right may shrink to 0 and its tab row
-          scrolls. */}
-      <div className="flex" style={{ gap: 65, height: "calc(100vh - 288px)", minHeight: 480 }}>
+      {/* Two panels: a narrow left rail — the stage-timeline clock and three
+          metric counters — beside the wide Action Panel where the work happens. */}
+      <div className="flex" style={{ gap: 28, height: "calc(100vh - 288px)", minHeight: 480 }}>
 
-        {/* left - the clock, the counters, the trail */}
-        <div className="scroll-slim flex min-h-0 flex-col gap-6 overflow-y-auto pr-1"
-          style={{ flex: "523 1 0", minWidth: 320 }}>
-          <div className="flex flex-col gap-2">
-            <SlaCard t={t} />
-            <div className="flex flex-wrap items-stretch gap-2">
-              <StatCard grow label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
-                title="Fields and documents the endorsement type requires"
-                value={mandTotal ? `${mandTotal - mandGaps} of ${mandTotal}` : "none required"}
-                tone={mandTotal === 0 ? undefined : mandGaps ? C.warn : "#007B00"} />
-              <StatCard label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
-                title="Clarification cycles raised with the client" />
-              <StatCard label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
-                title="Times this ticket has sat on an insurer clock" />
-            </div>
-          </div>
-
-          {alerts.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {alerts.map((a, i) => (
-                <div key={i} className="flex items-start gap-2"
-                  style={{ background: a.bg, borderRadius: 10, padding: "8px 10px", fontSize: 13, fontWeight: 500, color: a.tone }}>
-                  <a.icon size={13} className="mt-0.5 shrink-0" />
-                  <span>{a.text}</span>
-                  {t.manualReview && a.icon === RefreshCw && !readOnly(t) && (
-                    <button onClick={() => onManualReview(t.id)} className="ml-auto shrink-0"
-                      style={{ fontSize: 12, fontWeight: 600, color: C.brand }}>Resolve &amp; resume</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
+        {/* left - the stage timeline and the metrics */}
+        <div className="scroll-slim flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
+          style={{ flex: "0 0 340px", minWidth: 300 }}>
+          <SlaCard t={t} />
           <div className="bk-rule" aria-hidden />
-
-          <Drawer icon={History} title="Audit trail" open={trailOpen} setOpen={setTrailOpen}
-            badge={<MiniTag>{(t.history || []).length}</MiniTag>}>
-            <div>
-              {(t.history || []).slice().reverse().map((h, i, all) => (
-                <TrailRow key={i} h={h} t={t} last={i === all.length - 1} />
-              ))}
-              {!(t.history || []).length && <Empty>Nothing logged yet.</Empty>}
-            </div>
-          </Drawer>
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard dense label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
+              title="Fields and documents the endorsement type requires"
+              value={mandTotal ? `${mandTotal - mandGaps} of ${mandTotal}` : "none required"}
+              tone={mandTotal === 0 ? undefined : mandGaps ? C.warn : "#007B00"} />
+            <StatCard dense label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
+              title="Clarification cycles raised with the client" />
+            <StatCard dense label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
+              title="Times this ticket has sat on an insurer clock" />
+          </div>
         </div>
 
-        {/* right - the work */}
-        <div className="flex min-h-0 min-w-0 flex-col" style={{ flex: "752 1 0" }}>
+        {/* right - the Action Panel: tabs of work over one persistent footer */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TabBar tabs={TABS_T} tab={live} setTab={setTab} />
 
-          {live === "overview" && (
-            <PanelCard footer={
-              <>
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  {showAdvance && noteField}
-                  <span style={{ fontSize: 12, fontWeight: 500, color: showAdvance && advBlocked ? C.warn : C.figTert }}>
-                    {showAdvance ? (advBlocked ? advHint : "")
-                      : readOnly(t) ? "Closed - the record is read-only."
-                      : simulate ? "Waiting on an outside party - nothing for the desk to do until they act."
-                      : st.awaited ? "Waiting on an outside party. Nothing to advance from here."
-                      : st.system ? "Routing in progress - the ticket reaches a desk once assigned."
-                      : "No action available at this stage."}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {/* Demo control — the prototype has no insurer and no Operations,
-                      so the external actor gets a stand-in. */}
-                  {simulate && (
-                    <SoftBtn onClick={simulate.run} title="Demo control - stands in for the outside party">
-                      ▶ {simulate.label}
-                    </SoftBtn>
-                  )}
-                  {canAsk && (
-                    <Btn variant="outline" tone={C.wait} icon={HelpCircle} onClick={() => setAsk({ kind: "new", target: null })}>Ask the client</Btn>
-                  )}
-                  {t.stage === "Awaiting Endorsement Copy" && !endo && !readOnly(t) && (
-                    <Btn variant="outline" tone={C.figHint} icon={Paperclip} onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
-                  )}
-                  {showAdvance && (
-                    <Btn variant="outline" onClick={doAdvance} disabled={advBlocked} title={advHint} icon={ArrowRight} trailing>{advLabel}</Btn>
-                  )}
-                </div>
-              </>
-            }>
+          <PanelCard footer={panelFooter}>
+            {live === "overview" && (
               <div className="space-y-5">
                 <SectionTitle>Ticket Workflow</SectionTitle>
                 <PhaseBar t={t} />
@@ -2804,26 +2812,30 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   fieldGaps(t) > 0
                     ? <MiniTag {...PEND}>{fieldGaps(t)} not captured</MiniTag>
                     : <MiniTag {...OK}>complete</MiniTag>
-                }>Captured at intake</SectionTitle>
-                <div className="flex flex-col gap-1">
+                }>Captured at Ticket Intake</SectionTitle>
+                <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
                   {intake.map((f) => (
-                    <div key={f.label} className="flex items-start gap-3" style={{ borderRadius: 8, padding: 8 }}>
-                      <FileTile />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{f.label}</span>
-                          {f.value === null ? <MiniTag {...PEND}>Not captured</MiniTag> : <MiniTag {...OK}>Verified</MiniTag>}
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: f.value === null ? C.figTert : C.figInk }}>
-                          {f.value === null ? "Nothing supplied by the client" : f.value}
-                        </div>
+                    <div key={f.label} className="min-w-0">
+                      <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{f.label}</div>
+                      <div className="mt-1 flex items-center gap-2" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+                        <span className="min-w-0 flex-1 truncate" style={{ fontSize: 15, fontWeight: 500, color: f.value === null ? C.warn : C.figInk }}>
+                          {f.value === null ? "Not captured" : f.value}
+                        </span>
+                        {f.value === null
+                          ? (canAsk && <SoftBtn onClick={() => setAsk({ kind: "missing", target: f.label })} tone={C.warn} bg={C.warnSoft} line="#FFD2A8">Request</SoftBtn>)
+                          : <>
+                              <span className="shrink-0" style={{ width: 1, height: 16, background: C.subtle }} />
+                              <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 18, height: 18, background: "#1458D2" }}>
+                                <Check size={11} strokeWidth={3} style={{ color: C.white }} />
+                              </span>
+                            </>}
                       </div>
-                      {canAsk && (
-                        <SoftBtn onClick={() => setAsk({ kind: f.value === null ? "missing" : "field", target: f.label })}
-                          tone={f.value === null ? C.warn : C.figInk}>
-                          {f.value === null ? "Request" : "Query"}
-                        </SoftBtn>
-                      )}
+                      <div className="mt-1.5 flex items-center gap-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+                        <span>{f.value === null ? "Nothing supplied by the client" : "Captured at Ticket Intake"}</span>
+                        {f.value !== null && canAsk && (
+                          <button onClick={() => setAsk({ kind: "field", target: f.label })} style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Query</button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {!intake.length && <Empty>This endorsement type has no mandatory fields.</Empty>}
@@ -2852,7 +2864,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                         {!qcDone && !readOnly(t) && (
                           <SoftBtn onClick={() => onQc(t.id)} tone={C.warn} bg={C.warnSoft} line={C.warnSoft}>Pass QC</SoftBtn>
                         )}
-                        <Btn size="sm" onClick={() => onSendCopy(t.id)} disabled={!qcDone || readOnly(t)} icon={Send}
+                        <Btn size="xs" onClick={() => onSendCopy(t.id)} disabled={!qcDone || readOnly(t)}
                           title={qcDone ? "Mails the copy to the client" : "Pass QC first - the client should not receive an unchecked copy"}>
                           Send to customer
                         </Btn>
@@ -2875,21 +2887,10 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   </>
                 )}
               </div>
-            </PanelCard>
-          )}
+            )}
 
-          {live === "docs" && (
-            <PanelCard footer={
-              <>
-                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
-                  Mandatory list comes from the endorsement type. Anything awaiting blocks submission to the insurer.
-                </span>
-                <SoftBtn disabled={readOnly(t)} tone={C.brand}
-                  title={readOnly(t) ? "This ticket is closed - the record is read-only" : "Upload is not wired up in this prototype"}>
-                  <Upload size={12} /> Upload
-                </SoftBtn>
-              </>
-            }>
+            {live === "docs" && (
+              <div className="flex min-h-full flex-col gap-4">
               <div className="space-y-4">
                 <SectionTitle right={
                   pendingDocs > 0 ? <MiniTag {...PEND}>{pendingDocs} awaiting</MiniTag> : <MiniTag {...OK}>all received</MiniTag>
@@ -2937,21 +2938,17 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   {!docs.length && <Empty>No documents on this ticket.</Empty>}
                 </div>
               </div>
-            </PanelCard>
+              <div className="mt-auto flex justify-end pt-1">
+                <SoftBtn disabled={readOnly(t)} tone={C.brand}
+                  title={readOnly(t) ? "This ticket is closed - the record is read-only" : "Upload is not wired up in this prototype"}>
+                  Upload
+                </SoftBtn>
+              </div>
+            </div>
           )}
 
           {live === "queries" && (
-            <PanelCard footer={
-              <>
-                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
-                  Each open query holds the stage clock. Clients answer in the portal against the query itself.
-                </span>
-                <Btn onClick={() => setAsk({ kind: "new", target: null })} disabled={!canAsk} icon={Plus}
-                  title={canAsk ? "Raise a query with the client" : "Available while the ticket is under verification"}>
-                  Ask a question
-                </Btn>
-              </>
-            }>
+            <div className="flex min-h-full flex-col gap-4">
               <div className="space-y-4">
                 <SectionTitle right={openQ.length > 0 ? <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}>{openQ.length} open</MiniTag> : null}>
                   Queries with the client
@@ -3022,26 +3019,17 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   </div>
                 )}
               </div>
-            </PanelCard>
+              <div className="mt-auto flex justify-end pt-1">
+                <Btn size="xs" onClick={() => setAsk({ kind: "new", target: null })} disabled={!canAsk}
+                  title={canAsk ? "Raise a query with the client" : "Available while the ticket is under verification"}>
+                  Ask Client
+                </Btn>
+              </div>
+            </div>
           )}
 
           {live === "mail" && (
-            <PanelCard footer={
-              <>
-                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
-                  <span className="bk-num">{thread.length}</span> messages in this trail · email only, plus portal notices to the client
-                </span>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {!readOnly(t) && (
-                    <Btn variant="outline" tone={C.figHint} icon={CornerUpLeft} onClick={() => onChase(t.id)}>Chase insurer</Btn>
-                  )}
-                  <Btn variant="outline" icon={summary ? Mail : Sparkles} trailing
-                    onClick={() => setSummary(summary ? null : summariseThread(t))}>
-                    {summary ? "Read mail trail" : "Summarise this trail"}
-                  </Btn>
-                </div>
-              </>
-            }>
+            <div className="flex min-h-full flex-col gap-4">
               {summary ? (
                 <div className="space-y-4">
                   <SectionTitle>Mail Trail Summary</SectionTitle>
@@ -3105,196 +3093,195 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   </div>
                 </div>
               )}
-            </PanelCard>
+              <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-1">
+                {!readOnly(t) && (
+                  <Btn size="xs" variant="outline" tone={C.figHint} onClick={() => onChase(t.id)}>Chase insurer</Btn>
+                )}
+                <Btn size="xs" variant="outline"
+                  onClick={() => setSummary(summary ? null : summariseThread(t))}>
+                  {summary ? "Read mail trail" : "Summarise this trail"}
+                </Btn>
+              </div>
+            </div>
+          )}
+
+          {/* Ticket Trail — the audit history, relocated from the left rail into
+              its own tab. Reverse-chronological, actor + timestamp on the right. */}
+          {live === "trail" && (
+            <div className="space-y-1">
+              <SectionTitle right={<MiniTag>{(t.history || []).length} entries</MiniTag>}>Ticket Trail</SectionTitle>
+              <div>
+                {(t.history || []).slice().reverse().map((h, i, all) => (
+                  <TrailRow key={i} h={h} t={t} last={i === all.length - 1} />
+                ))}
+                {!(t.history || []).length && <Empty>Nothing logged yet.</Empty>}
+              </div>
+            </div>
           )}
 
           {live === "payment" && (
-            <PanelCard>
-              <div className="space-y-3">
-                {/* M5 — quote and premium */}
-                <Panel title="Quote &amp; premium" hint={t.quote ? `Version ${t.quote.version} · extracted by the mail bot at ${Math.round(t.quote.confidence * 100)}% confidence.` : "Nothing received from the insurer yet."}
-                  action={t.quote && <Chip color={C.teal} bg={C.tealSoft}><FileCheck2 size={10} /> {t.quote.file}</Chip>}>
+            <div className="space-y-3">
+                {/* M5 — quote & premium */}
+                <div className="space-y-4">
+                  <SectionTitle right={t.quote && <MiniTag {...OK}><FileCheck2 size={10} /> {t.quote.file}</MiniTag>}>Quote &amp; premium</SectionTitle>
                   {t.quote ? (
-                    <div className="p-3">
-                      <div className="grid sm:grid-cols-4 gap-3 mb-3">
-                        {[["Base premium", money(t.quote.base)], ["GST @ 18%", money(t.quote.gst)],
-                          ["Total payable", money(t.quote.total)], ["Quote version", `v${t.quote.version}`]].map(([k, v], i) => (
+                    <>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                        {[["Base premium", money(t.quote.base)], ["GST (18%)", money(t.quote.gst)],
+                          ["Total payable", money(t.quote.total), true], ["Quote version", `v${t.quote.version}`]].map(([k, v, big]) => (
                           <div key={k}>
-                            <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>{k}</div>
-                            <div className={`mt-0.5 bk-num ${i === 2 ? "text-lg font-semibold" : "text-sm"}`} style={{ color: i === 2 ? C.ink : C.ink2 }}>{v}</div>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{k}</div>
+                            <div className="bk-num mt-0.5" style={{ fontSize: big ? 18 : 14, fontWeight: big ? 600 : 500, color: big ? C.brand : C.figInk }}>{v}</div>
                           </div>
                         ))}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => setPreview({ name: "Insurer quote", kind: "Insurer issued", file: t.quote.file, size: "184 KB", by: t.insurer, status: "Verified", at: t.quote.at })}
-                          className="px-2.5 py-1.5 rounded-lg text-sm font-medium" style={{ background: C.tealSoft, color: C.teal }}>View quote</button>
+                      <Drawer icon={ListChecks} title="Version history" open={quoteHistOpen} setOpen={setQuoteHistOpen}
+                        badge={<MiniTag>{(t.quoteVersions || [t.quote]).length}</MiniTag>}>
+                        <div className="flex flex-col px-3 py-1">
+                          {[...(t.quoteVersions || [t.quote])].reverse().map((v) => (
+                            <div key={v.version} className="flex items-center gap-2 py-1.5" style={{ fontSize: 14, fontWeight: 500 }}>
+                              <span className="bk-num shrink-0" style={{ width: 26, color: C.figTert }}>v{v.version}</span>
+                              <span className="bk-num" style={{ color: v.version === t.quote.version ? C.figInk : C.figTert }}>{money(v.total)}</span>
+                              <span style={{ fontSize: 13, color: C.figTert }}>· {v.source === "manual" ? `updated by ${v.by || t.owner}` : "mail bot"} · {fmtAgo(Math.max(v.at, 0.02))}</span>
+                              <span className="ml-auto"><SoftBtn onClick={() => setPreview({ name: `Quote v${v.version}`, kind: "Insurer issued", file: v.file, size: "184 KB", by: t.insurer, status: "Verified", at: v.at })}>View</SoftBtn></span>
+                            </div>
+                          ))}
+                        </div>
+                      </Drawer>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <SoftBtn onClick={() => setPreview({ name: "Insurer quote", kind: "Insurer issued", file: t.quote.file, size: "184 KB", by: t.insurer, status: "Verified", at: t.quote.at })}>View Quote</SoftBtn>
                         {!readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
-                          <button onClick={() => onRevise(t.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium border"
-                            style={{ borderColor: C.line, color: C.ink2 }}><RotateCcw size={13} /> Log revised quote</button>
+                          <Btn size="xs" onClick={() => setUpdatingQuote(true)}>Update Quote</Btn>
                         )}
                       </div>
                       {!atOrPast(t, "Awaiting Payment") && (
-                        <div className="mt-3 text-xs flex items-start gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: C.warnSoft, color: C.warn }}>
-                          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                        <Note icon={AlertTriangle} tone={C.warn} bg={C.warnSoft}>
                           Premium is withheld from the customer until the payment link is ready (BR-026, FR-061).
-                        </div>
+                        </Note>
                       )}
-                    </div>
+                    </>
                   ) : <Empty>Waiting on the insurer's quote.</Empty>}
-                </Panel>
+                </div>
 
                 {/* M6 — payment link */}
                 {t.quote && (
-                  <Panel title="Payment link" hint={`${t.payMode} flow for ${t.insurer} - configured per insurer (BR-030).`}
-                    action={t.payLink
-                      ? <Chip color={payExpired ? C.breach : C.teal} bg={payExpired ? C.breachSoft : C.tealSoft}>
-                          {payExpired ? "expired" : `expires in ${fmtDur(payLeft)}`}
-                        </Chip>
-                      : <Chip color={C.warn} bg={C.warnSoft}><Clock size={10} /> being generated</Chip>}>
-                    <div className="p-3">
-                      <div className="grid sm:grid-cols-3 gap-3 mb-3">
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <div className="space-y-4">
+                      <SectionTitle right={
+                        <span className="flex items-center gap-2.5">
+                          <span className="flex items-center gap-1.5" title="Payment links are issued through BimaPlacement">
+                            <span className="flex shrink-0 items-center justify-center rounded-full"
+                              style={{ width: 18, height: 18, background: C.ink, color: C.white, fontFamily: SERIF, fontStyle: "italic", fontSize: 11, lineHeight: 1 }}>P</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1 }}>
+                              <span style={{ color: C.figInk }}>Bima</span><span style={{ color: "#1458D2" }}>Placement</span>
+                            </span>
+                          </span>
+                          {t.payLink
+                            ? <MiniTag tone={payExpired ? C.breach : C.warn} bg={payExpired ? C.breachSoft : C.warnSoft} line={payExpired ? C.breachSoft : "#FFD2A8"}>
+                                <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, marginRight: 5, background: payExpired ? C.breach : C.warn }} />{payExpired ? "Expired" : `Expires in ${fmtDur(payLeft)}`}
+                              </MiniTag>
+                            : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">
+                                <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, marginRight: 5, background: C.warn }} />Being generated
+                              </MiniTag>}
+                        </span>
+                      }>Payment link</SectionTitle>
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
                         <div>
-                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Mode</div>
-                          <div className="text-sm mt-0.5 flex items-center gap-1" style={{ color: C.ink }}>
-                            {t.payMode === "Portal" ? <Globe size={12} style={{ color: C.wait }} /> : <Mail size={12} style={{ color: C.wait }} />}
-                            Payment link via {t.payMode.toLowerCase()}
-                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Mode</div>
+                          <div className="mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>Payment link via {t.payMode.toLowerCase()}</div>
                         </div>
                         {t.childTicket && (
                           <div>
-                            <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Operations child ticket</div>
-                            <div className="bk-num text-sm mt-0.5" style={{ color: C.link }}>{t.childTicket}</div>
-                            <div className="text-xs" style={{ color: t.payLink ? C.teal : C.warn }}>
-                              {t.payLink ? "closed - link uploaded" : "open with Operations"}
-                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Operations child ticket</div>
+                            <div className="bk-num mt-0.5" style={{ fontSize: 14, color: C.link }}>{t.childTicket}</div>
+                            <div style={{ fontSize: 12, color: t.payLink ? C.teal : C.warn }}>{t.payLink ? "closed - link uploaded" : "open with Operations"}</div>
                           </div>
                         )}
                         <div>
-                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Link reference</div>
-                          <div className="bk-num text-sm mt-0.5" style={{ color: t.payLink ? C.ink : C.ink3 }}>{t.payLink ? t.payLink.ref : "not yet received"}</div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Link reference</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, color: t.payLink ? C.link : C.figTert }}>{t.payLink ? t.payLink.ref : "not yet received"}</div>
                           {t.payLink && (
-                            <div className="text-xs mt-0.5 flex items-center gap-1" style={{ color: C.ink3 }}>
+                            <div className="mt-0.5 flex items-center gap-1" style={{ fontSize: 12, color: C.figTert }}>
                               {t.payLink.source === "child-ticket" ? <Globe size={10} /> : <Sparkles size={10} />}
-                              {t.payLink.source === "child-ticket"
-                                ? `auto-attached from ${t.childTicket}`
-                                : `auto-filled by bot${t.payLink.confidence ? ` · ${Math.round(t.payLink.confidence * 100)}%` : ""}`}
+                              {t.payLink.source === "child-ticket" ? `auto-attached from ${t.childTicket}` : `auto-filled by bot${t.payLink.confidence ? ` · ${Math.round(t.payLink.confidence * 100)}%` : ""}`}
                             </div>
                           )}
                         </div>
                       </div>
-
-                      {t.payLink && (
-                        <>
-                          {(t.payLink.regens || []).map((r, i) => (
-                            <div key={i} className="text-xs flex items-center gap-1.5 py-0.5" style={{ color: C.ink3 }}>
-                              <RotateCcw size={11} /> Regenerated {fmtAgo(r.at)} by {r.by} - {r.reason}
-                            </div>
-                          ))}
-                          {!readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <button onClick={() => onRegenerate(t.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium"
-                                style={{ background: payExpired ? C.breach : C.lineSoft, color: payExpired ? C.white : C.ink2 }}>
-                                <RotateCcw size={13} /> Regenerate payment link
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      <div className="mt-3 pt-3 border-t" style={{ borderColor: C.lineSoft }}>
-                        <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.ink3 }}>NEFT alternative shown to the customer</div>
-                        <div className="grid sm:grid-cols-4 gap-2 text-xs" style={{ color: C.ink2 }}>
+                      <div style={{ background: C.canvas, borderRadius: 10, padding: "12px 14px" }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.figTert, marginBottom: 6 }}>NEFT alternative shown to the customer</div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                           {Object.entries(NEFT(t)).map(([k, v]) => (
-                            <div key={k}><span style={{ color: C.ink3 }}>{k}: </span><span className="bk-num">{v}</span></div>
+                            <div key={k} style={{ fontSize: 12, color: C.figHint }}><span style={{ color: C.figTert }}>{k}: </span><span className="bk-num">{v}</span></div>
                           ))}
                         </div>
                       </div>
+                      {t.payLink && (t.payLink.regens || []).map((r, i) => (
+                        <div key={i} className="flex items-center gap-1.5" style={{ fontSize: 12, color: C.figTert }}>
+                          <RotateCcw size={11} /> Regenerated {fmtAgo(r.at)} by {r.by} - {r.reason}
+                        </div>
+                      ))}
+                      {t.payLink && !readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
+                        <div className="flex justify-end">
+                          <Btn size="xs" variant={payExpired ? "fill" : "outline"} tone={payExpired ? C.semError : C.figInk} onClick={() => onRegenerate(t.id)}>Regenerate Payment Link</Btn>
+                        </div>
+                      )}
                     </div>
-                  </Panel>
+                  </>
                 )}
 
                 {t.stage === "Awaiting Payment Link" && (
-                  <Panel title="Awaiting the link" hint="No manual entry - the link attaches itself and goes out to the customer the moment it lands.">
-                    <div className="p-3">
-                      <div className="flex items-start gap-3 mb-3">
-                        <span className="p-2 rounded-lg shrink-0" style={{ background: C.waitSoft }}>
-                          {t.payMode === "Portal" ? <Globe size={16} style={{ color: C.wait }} /> : <Mail size={16} style={{ color: C.wait }} />}
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <div className="space-y-3">
+                      <SectionTitle>Awaiting the link</SectionTitle>
+                      <div className="flex items-start gap-3">
+                        <span className="flex shrink-0 items-center justify-center" style={{ width: 40, height: 40, borderRadius: 10, background: C.brandBg }}>
+                          {t.payMode === "Portal" ? <Globe size={16} style={{ color: C.brand }} /> : <Mail size={16} style={{ color: C.brand }} />}
                         </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium" style={{ color: C.ink }}>
-                            {t.payMode === "Portal"
-                              ? `Operations to upload the link on ${t.childTicket}`
-                              : `Bot watching ${t.insurerMail} for the link`}
-                          </div>
-                          <div className="text-xs mt-0.5" style={{ color: C.ink3 }}>
-                            {t.payMode === "Portal"
-                              ? "Uploading it on the child ticket auto-attaches it here and closes the child."
-                              : "The bot extracts the link from the insurer's reply and auto-fills it here."}
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <div style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{t.payMode === "Portal" ? `Operations to upload the link on ${t.childTicket}` : `Bot watching ${t.insurerMail} for the link`}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{t.payMode === "Portal" ? "Uploading it on the child ticket auto-attaches it here and closes the child." : "The bot extracts the link from the insurer's reply and auto-fills it here."}</div>
                         </div>
                       </div>
                       {!readOnly(t) && (
-                        <button onClick={() => onReceiveLink(t.id)} className="px-3 py-1.5 rounded-lg text-sm font-medium border"
-                          style={{ borderColor: C.line, color: C.ink2, background: C.white }}
-                          title="Demo control - simulates the link arriving from its configured source">
-                          ▶ Simulate {t.payMode === "Portal" ? "Operations upload" : "bot fetch from insurer mail"}
-                        </button>
+                        <div className="flex justify-end">
+                          <SoftBtn onClick={() => onReceiveLink(t.id)} title="Demo control - simulates the link arriving from its configured source">
+                            ▶ Simulate {t.payMode === "Portal" ? "Operations upload" : "bot fetch from insurer mail"}
+                          </SoftBtn>
+                        </div>
                       )}
                     </div>
-                  </Panel>
+                  </>
                 )}
 
                 {/* M6 FR-075 / FR-157 — proof and the revert path */}
                 {t.payment && (
-                  <Panel title="Payment received" hint="Uploaded by the customer in BimaKendra and emailed to the insurer for verification."
-                    action={!readOnly(t) && <button onClick={() => onRevertPayment(t.id)} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg"
-                      style={{ background: C.warnSoft, color: C.warn }}><RotateCcw size={12} /> Revert to payment pending</button>}>
-                    <div className="p-3 grid sm:grid-cols-4 gap-3">
-                      {[["Mode", t.payment.mode], ["Transaction / UTR", t.payment.utr], ["Payment date", t.payment.date], ["Amount", money(t.quote.total)]].map(([k, v]) => (
-                        <div key={k}>
-                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>{k}</div>
-                          <div className="bk-num text-sm mt-0.5" style={{ color: C.ink }}>{v}</div>
-                        </div>
-                      ))}
-                      <div className="sm:col-span-4">
-                        <button onClick={() => setPreview({ name: "Payment proof", kind: "Customer upload", file: t.payment.file, size: "96 KB", by: t.client, status: "Received", at: t.payment.at })}
-                          className="px-2.5 py-1.5 rounded-lg text-sm font-medium" style={{ background: C.tealSoft, color: C.teal }}>View proof</button>
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <div className="space-y-3">
+                      <SectionTitle right={!readOnly(t) && <SoftBtn tone={C.warn} bg={C.warnSoft} line={C.warnSoft} onClick={() => onRevertPayment(t.id)}>Revert to payment pending</SoftBtn>}>Payment received</SectionTitle>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                        {[["Mode", t.payment.mode], ["Transaction / UTR", t.payment.utr], ["Payment date", t.payment.date], ["Amount", money(t.quote.total)]].map(([k, v]) => (
+                          <div key={k}>
+                            <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{k}</div>
+                            <div className="bk-num mt-0.5" style={{ fontSize: 14, color: C.figInk }}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-start">
+                        <SoftBtn onClick={() => setPreview({ name: "Payment proof", kind: "Customer upload", file: t.payment.file, size: "96 KB", by: t.client, status: "Received", at: t.payment.at })}>View proof</SoftBtn>
                       </div>
                     </div>
-                  </Panel>
+                  </>
                 )}
               </div>
-            </PanelCard>
           )}
 
           {live === "manage" && (
-            <PanelCard footer={
-              <>
-                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
-                  Reassignment keeps the stage clock running. Withdrawal is terminal.
-                </span>
-                {!readOnly(t) && <Btn variant="outline" icon={User} onClick={() => setReassigning(true)}>Reassign</Btn>}
-              </>
-            }>
+            <div className="flex min-h-full flex-col gap-3">
               <div className="space-y-3">
-              {!readOnly(t) && (
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {[
-                    { icon: User, label: "Reassign", sub: "SLA continues, reason audited", tone: C.ink, bg: C.white, border: C.line, onClick: () => setReassigning(true) },
-                    { icon: UserMinus, label: "Customer withdrawn", sub: "Terminal - needs withdrawal email", tone: C.breach, bg: C.white, border: C.line, onClick: () => setWithdrawing(true) },
-                  ].map((a) => (
-                    <button key={a.label} onClick={a.onClick}
-                      className="text-left p-3 rounded-xl border-2 hover:border-slate-400 transition-colors"
-                      style={{ background: a.bg, borderColor: a.border }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <a.icon size={16} style={{ color: a.tone }} />
-                        <span className="text-sm font-semibold" style={{ color: a.tone }}>{a.label}</span>
-                      </div>
-                      <div className="text-xs" style={{ color: C.ink3 }}>{a.sub}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {t.manualReview && (
                 <div className="rounded-xl border p-3 flex flex-wrap items-center gap-3 text-sm" style={{ background: C.waitSoft, borderColor: C.line, color: C.wait }}>
@@ -3352,12 +3339,20 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
               )}
 
                 </div>
-            </PanelCard>
+              {!readOnly(t) && (
+                <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-1">
+                  <Btn size="xs" variant="outline" onClick={() => setReassigning(true)}>Reassign Ticket</Btn>
+                  <Btn size="xs" variant="outline" tone={C.semError} onClick={() => setWithdrawing(true)}>Mark Customer Withdrawn</Btn>
+                </div>
+              )}
+            </div>
           )}
+          </PanelCard>
         </div>
       </div>
 
       <DocViewer doc={preview} onClose={() => setPreview(null)} />
+      {updatingQuote && t.quote && <UpdateQuoteModal t={t} onClose={() => setUpdatingQuote(false)} onConfirm={(x) => { onRevise(t.id, x); setUpdatingQuote(false); }} />}
       {ask && <QueryModal ctx={ask} t={t} onClose={() => setAsk(null)} onSend={(q) => { onQuery(t.id, q); setAsk(null); setTab("queries"); }} />}
       {withdrawing && <WithdrawModal t={t} onClose={() => setWithdrawing(false)} onConfirm={(x) => { onWithdraw(t.id, x); setWithdrawing(false); }} />}
       {reassigning && <ReassignModal t={t} onClose={() => setReassigning(false)} onConfirm={(x) => { onReassign(t.id, x); setReassigning(false); }} />}
@@ -3838,7 +3833,7 @@ const readRoute = () => { try { return routeOf(window.location.pathname); } catc
 const NAV = [
   ["home",    "Home",          HeartHandshake],
   ["list",    "My Tickets",    ListChecks],
-  ["review",  "Manual Review", SquareDashedMousePointer],
+  ["review",  "Manual Review", SquareDashedMousePointer, true],   /* disabled for now */
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
 ];
 
@@ -3893,7 +3888,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                   <button
                     disabled={off}
                     onClick={off ? undefined : () => go(k, k === "list" ? "attention" : undefined)}
-                    title={off ? "Reports is not built in this prototype" : collapsed ? label : undefined}
+                    title={off ? (k === "review" ? "Manual Review is turned off for now" : "Reports is not built in this prototype") : collapsed ? label : undefined}
                     className={`bk-item flex items-center rounded-lg ${row} ${collapsed ? "" : "w-full"}`}
                     style={{ ...stagger(i),
                       width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
@@ -3903,7 +3898,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                       cursor: off ? "not-allowed" : "pointer" }}>
                     <Icon size={collapsed ? 20 : 24} className="shrink-0" />
                     {!collapsed && <span className="flex-1 text-left text-sm font-semibold">{label}</span>}
-                    {!collapsed && k === "review" && mails.length > 0 && (
+                    {!collapsed && k === "review" && !off && mails.length > 0 && (
                       <span className="bk-num rounded-full px-1.5 text-xs font-semibold"
                         style={{ background: C.accent, color: C.white }}>{mails.length}</span>
                     )}
@@ -4020,7 +4015,7 @@ export default function App() {
   const [prefill, setPrefill] = useState(null);
   const [preset, setPreset] = useState(null);
   const [toast, setToast] = useState(null);
-  const [collapsed, setCollapsed] = useState(false);   /* React state — no browser storage here */
+  const [collapsed, setCollapsed] = useState(true);   /* Collapsed by default; React state — no browser storage here */
   const [authed, setAuthed] = useState(false);
   const [user, setUser] = useState(null);
   const [createFrom, setCreateFrom] = useState("list");   /* the view the Create modal sits over */
@@ -4211,16 +4206,21 @@ export default function App() {
     flash("Payment link attached automatically and sent to the customer.");
   };
 
-  /* M5 edge case — revised quote is a new version, premium updated and logged */
-  const reviseQuote = (id) => {
+  /* M5 — the SM revises the premium in the Update Quote modal. Every update is
+     stored as a new version; nothing is overwritten in place, and the previous
+     versions stay viewable in the version-history drawer. */
+  const reviseQuote = (id, { base, gst, file, reason } = {}) => {
     setTickets((ts) => ts.map((t) => {
       if (t.id !== id || !t.quote) return t;
-      const base = Math.round(t.quote.base * 1.12), gst = Math.round(base * 0.18);
-      const quote = { ...t.quote, base, gst, total: base + gst, version: t.quote.version + 1, at: 0, confidence: 0.9 };
-      return { ...t, quote, lastAction: 0,
-        history: [...t.history, { text: `Revised quote v${quote.version} received - premium now ${money(quote.total)}`, by: "Mail bot", at: 0, note: `Previous ${money(t.quote.total)}` }] };
+      const prev = t.quote;
+      const b = base ?? prev.base, g = gst ?? prev.gst;
+      const quote = { base: b, gst: g, total: b + g, file: file || prev.file,
+        version: prev.version + 1, at: 0, source: "manual", by: t.owner, confidence: null };
+      return { ...t, quote, quoteVersions: [...(t.quoteVersions || [prev]), quote].slice(-6), lastAction: 0,
+        history: [...t.history, { text: `Revised quote v${quote.version} - premium now ${money(quote.total)}`, by: t.owner, at: 0,
+          note: (file && file !== prev.file ? `Copy replaced with ${file} · ` : "") + `${reason || "Premium revised"} · previous ${money(prev.total)}` }] };
     }));
-    flash("Revised quote stored as a new version.");
+    flash("Quote updated and saved as a new version.");
   };
 
   /* M6 FR-079/080, BR-032/033 — unlimited regeneration, every attempt logged */

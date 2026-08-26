@@ -143,12 +143,14 @@ Withdrawn* as a red outline, both in the **small variant** (`917:105586` - 14/10
 SemiBold). The footer keeps the default size, as the frame draws it. The **participant stack rides the
 right end of the meta row**, centred on it (`917:105560`), rather than stacking under the buttons.
 
-The next action appears twice — filled in the header, outline in the Overview footer. Both are driven
-by one set of predicates, so they cannot disagree, and the header copy keeps it reachable from every tab.
+The primary stage action now lives in **one persistent Action Panel footer**, shown on every tab, with
+the audit note beside it (Figma `1040:158792`). It is still driven by one set of predicates. There is
+**no action button in the header**; the classification chips and the participant stack sit at the right
+of the header's top row instead.
 
-**Left panel** (523px, shrinks to 320)
+**Left rail** (narrow, ~340px) — the stage-timeline clock and three metric counters only.
 
-- **`SlaCard`** — Figma `917:105652`. `SLA` and the code, then **whose clock it is named as a party,
+- **`SlaCard`** (labelled **Ticket Stage Timeline**) — Figma `917:105652`. The label and the code, then **whose clock it is named as a party,
   not a role**: `clockActor` resolves the stage's owner to Nanditha (with her photograph), the insurer,
   the customer, Operations or the product, and draws it with the audit trail's own `ActorMark` /
   `ActorName` — **the party alone**: the SLA code and its allowance move to the tooltip, because every
@@ -161,11 +163,13 @@ by one set of predicates, so they cannot disagree, and the header copy keeps it 
   rule says so.
 - **Three `StatCard`s** — Mandatory intake (`n of m`, green complete / amber with gaps), Customer
   cycles, Insurer cycles. All three are derived; see `DATA-MASTERS.md`.
-- **Alert rows** — silence, open query, breach, intake gaps, manual review, routing, awaiting an
-  outside party, terminal. These outrank whichever tab is open, so they sit beside the clock rather
-  than inside a tab. Manual review carries its *Resolve & resume* control.
-- **`Drawer` — Audit trail** — Figma `802:65143`. The ticket's story, newest first. Each line is an
-  orange ikkat mark, the sentence in `figInk`, its evidence beneath in `figTert`, and on the right the
+- The old **left-rail alert rows** (silence, open query, breach, intake gaps, routing, awaiting an
+  outside party, terminal) are **dropped**: their meaning now reads from the timeline card's colour, the
+  persistent footer's disabled action + reason, and the Manage tab. Manual review keeps its
+  *Resolve & resume* control inside the Manage tab.
+- **`TrailRow` — the Ticket Trail tab** (Figma `1019:138151`; component `802:65143`). The ticket's
+  story, newest first, moved out of the left rail into its own Action-Panel tab. Each line is an orange
+  ikkat mark, the sentence in `figInk`, its evidence beneath in `figTert`, and on the right the
   **actor's mark, name and how long ago** — `Nanditha P` with her photograph, `BimaEndorse` as the
   wordmark on a black serif *E*, `Customer` / `Operations` / `Notifications` on brand circles. Rows are
   parted by the **trail divider** (`964:119381`), a sparser, lighter ikkat than the page rule.

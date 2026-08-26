@@ -198,6 +198,8 @@ minutes while the ones we wait on take days. That falls out of the legs; do not 
 
 Every one writes a `history` entry. That is the audit trail — no silent mutations.
 
+`reviseQuote(id, { base, gst, file, reason })` (M5) replaces the quote with a **new version** and keeps every prior one in `quoteVersions` — nothing is overwritten in place. The SM enters the change in the Update Quote modal; the version-history drawer on the Payment tab reads that array.
+
 ---
 
 ## 6a. Reaching Closed

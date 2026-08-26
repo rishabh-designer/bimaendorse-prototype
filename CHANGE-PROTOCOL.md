@@ -36,9 +36,9 @@ npx esbuild prototype.jsx --loader:.jsx=jsx --outfile=/dev/null --jsx=automatic
 - [ ] A Critical ticket is visually distinct in every list it appears in
 - [ ] SLA states render in all five forms: ok, at risk, breached, held, closed
 - [ ] Deadlines still respect BH / WD / CD / MIN — a `1 WD` ticket and a `24 CD` ticket show different maths
-- [ ] The ticket screen renders header · rule · two panels, with the next action in **both** the header and the Overview footer
+- [ ] The ticket screen renders header · rule · a narrow left rail (stage-timeline clock + three metric counters) · a wide Action Panel; the primary stage action lives in one **persistent Action Panel footer** shown on every tab (there is **no** action button in the header)
 - [ ] `PhaseBar` shows four phases on a non-financial ticket and five on a financial one; `StageList` lists every stage of that flow with owner, SLA code, allowance and time taken
-- [ ] Audit trail and Workflow Stages both open and close; the breadcrumb and the ticket pager both navigate
+- [ ] The **Ticket Trail** tab shows the audit history; Workflow Stages opens and closes; the breadcrumb and the ticket pager both navigate
 - [ ] Blocked controls still state their reason
 - [ ] Submit is blocked with intake gaps or an open query; Close is blocked until copy + QC + sent
 - [ ] **Every open ticket walks to `Closed`** — the three stages that need an outside party carry a ▶ control
