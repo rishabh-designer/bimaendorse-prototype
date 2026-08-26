@@ -8,7 +8,7 @@ import {
   MailOpen, Globe, Phone, MessageSquare, Hourglass, HelpCircle, MessageCircleQuestion, Cpu, Sparkles, UserMinus, RefreshCw, SlidersHorizontal, IndianRupee, Link as LinkIcon, Landmark, RotateCcw,
   HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
   Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
-  Check, Minus, History, SmilePlus, MoreVertical, BadgeCheck, ChevronUp, CornerDownRight
+  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -1283,16 +1283,64 @@ function DeskCard({ count, pills, tint, onOpen }) {
   );
 }
 
-function DeskRow({ count, label, ind, onOpen }) {
+/* One ticket inside an open queue accordion — the priority card boiled down to
+   its id, its clock line and the way in. */
+function QueueMiniCard({ t, onOpen }) {
+  const c = clock(t), over = c.state === "breached";
   return (
-    <button onClick={onOpen} className="flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-left"
-      style={{ borderColor: C.subtle, background: C.white }}>
-      <span className="bk-num shrink-0 leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
-        {count} {count === 1 ? "Ticket" : "Tickets"} in
-      </span>
-      <Indicator label={label} ind={ind} outline />
-      <span className="flex flex-1 justify-end"><ChevronRight size={14} style={{ color: C.figHint }} /></span>
-    </button>
+    <div className="flex flex-col gap-3 border p-3"
+      style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 12,
+        background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 55%)` }}>
+      <div>
+        <div className="bk-num" style={{ fontSize: 16, fontWeight: 600, color: C.brand }}>{t.id}</div>
+        <div className="mt-2 flex items-start gap-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>
+          <Clock size={13} className="mt-px shrink-0" style={{ color: C.figHint }} />
+          <span className="min-w-0">
+            <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : toneOf(c.state) }}>
+              {c.state === "held" ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
+            </span>
+            <span className="bk-num" style={{ color: C.figHint }}>
+              {` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}`}
+            </span>
+          </span>
+        </div>
+      </div>
+      <button onClick={onOpen} className="flex w-full items-center justify-between border"
+        style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 10, background: C.white,
+          padding: "10px 14px", fontSize: 12, fontWeight: 600, color: C.figInk }}>
+        Take Action <ArrowRight size={12} />
+      </button>
+    </div>
+  );
+}
+
+/* A queue as an accordion: the same count-and-label header as before, but it
+   opens in place to reveal its tickets rather than routing to a filtered list.
+   The buckets (bucketOf 1/2/3) are unchanged — only how Home surfaces them. */
+function QueueAccordion({ label, ind, list, openTicket }) {
+  const [open, setOpen] = useState(false);
+  const count = list.length;
+  const canOpen = count > 0;
+  return (
+    <div className="border" style={{ borderColor: C.subtle, borderRadius: 12, background: C.white }}>
+      <button onClick={() => canOpen && setOpen((o) => !o)}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+        style={{ cursor: canOpen ? "pointer" : "default" }}>
+        <span className="bk-num shrink-0 leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
+          {count} {count === 1 ? "Ticket" : "Tickets"} in
+        </span>
+        <Indicator label={label} ind={ind} outline />
+        <span className="flex flex-1 justify-end">
+          {canOpen && <ChevronDown size={16} style={{ color: C.figHint,
+            transform: open ? "rotate(180deg)" : "none", transition: "transform .2s ease" }} />}
+        </span>
+      </button>
+      {open && canOpen && (
+        <div className="flex flex-col gap-3 px-3 pb-3">
+          {list.map((t) => <QueueMiniCard key={t.id} t={t} onOpen={() => openTicket(t.id)} />)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1431,21 +1479,41 @@ function Home({ tickets, scope, setScope, go, openTicket, user }) {
   const riskQ = open.filter((t) => bucketOf(t) === 2).sort(riskSort);
   const freshQ = open.filter((t) => bucketOf(t) === 3).sort(riskSort);
 
-  return (
-    <div className="space-y-6">
-      <Greeting user={user} right={
-        <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
-          {["mine", "team"].map((s) => (
-            <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
-              style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
-          ))}
-        </div>
-      } />
+  const queues = [
+    { label: "Overdue", ind: "error", list: breachQ },
+    { label: "Due Today", ind: "brand", list: riskQ },
+    { label: "Freshly Assigned", ind: "success", list: freshQ },
+  ];
 
-      <div>
-        <h2 className="mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="flex flex-col gap-4">
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Fixed masthead — the greeting and the ikkat divider it carries stay put
+          while the feed below scrolls. */}
+      <div className="shrink-0 pt-5">
+        <Greeting user={user} right={
+          /* Mine/Team is a supervisor control. A Servicing Executive owns a single
+             desk — she sees only her own queue and never the toggle. A manager's
+             view (e.g. Umesh) keeps it. Gated on the user-role master (ROLES). */
+          ROLES[user?.name]?.role === "Servicing executive" ? null : (
+            <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
+              {["mine", "team"].map((s) => (
+                <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
+                  style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
+              ))}
+            </div>
+          )
+        } />
+      </div>
+
+      {/* The feed — Your Desk, Priority Cases and the three queue accordions —
+          is the only part that scrolls. */}
+      <div className="scroll-slim min-h-0 flex-1 space-y-6 overflow-y-auto pt-6 pb-6">
+        <div>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
+            <MoreHorizontal size={18} style={{ color: C.figHint }} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <DeskCard count={hotQ.length} tint="#FFECEC"
               pills={[{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }]}
               onOpen={() => go("list", "open", { prio: "hot" })} />
@@ -1453,23 +1521,24 @@ function Home({ tickets, scope, setScope, go, openTicket, user }) {
               pills={[{ label: "Pending Action", ind: "caution", outline: true }]}
               onOpen={() => go("list", "attention", { slice: "silent" })} />
           </div>
-          {/* the three queues, collapsed to a glance — same buckets as before */}
-          <div className="flex flex-col gap-2">
-            <DeskRow count={breachQ.length} label="Overdue" ind="error"
-              onOpen={() => go("list", "open", { slice: "qOverdue" })} />
-            <DeskRow count={riskQ.length} label="Due Today" ind="brand"
-              onOpen={() => go("list", "open", { slice: "qDueToday" })} />
-            <DeskRow count={freshQ.length} label="Freshly Assigned" ind="success"
-              onOpen={() => go("list", "open", { slice: "qFresh" })} />
-          </div>
+        </div>
+
+        <div className="bk-rule" aria-hidden />
+
+        {hotQ.length
+          ? <PriorityCases list={hotQ} openTicket={openTicket} />
+          : <Empty>Nothing Critical or High on your desk.</Empty>}
+
+        <div className="bk-rule" aria-hidden />
+
+        {/* The three queues, now below Priority Cases as accordions that open in
+            place. Same buckets (bucketOf 1/2/3) — revealed rather than routed to. */}
+        <div className="grid items-start gap-4 md:grid-cols-3">
+          {queues.map((q) => (
+            <QueueAccordion key={q.label} label={q.label} ind={q.ind} list={q.list} openTicket={openTicket} />
+          ))}
         </div>
       </div>
-
-      <div className="bk-rule" aria-hidden />
-
-      {hotQ.length
-        ? <PriorityCases list={hotQ} openTicket={openTicket} />
-        : <Empty>Nothing Critical or High on your desk.</Empty>}
     </div>
   );
 }
@@ -2618,12 +2687,10 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
         <div className="flex shrink-0 items-center">
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Header carries the primary action only. Customer Withdrawn lives in
+                Manage Ticket, which owns the same setWithdrawing → WithdrawModal path. */}
             {showAdvance && (
               <Btn size="sm" onClick={doAdvance} disabled={advBlocked} title={advHint}>{advLabel}</Btn>
-            )}
-            {!readOnly(t) && (
-              <Btn size="sm" variant="outline" tone={C.semError} onClick={() => setWithdrawing(true)}
-                title="Terminal - needs the customer's withdrawal email on file">Mark Customer Withdrawn</Btn>
             )}
           </div>
         </div>
@@ -4276,7 +4343,9 @@ export default function App() {
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
 
-        <main className="scroll-slim flex-1 overflow-y-auto px-8 py-6">
+        <main className="flex flex-1 flex-col overflow-hidden px-8">
+          {/* Fixed top nav — the breadcrumb bar stays put; the routed body below scrolls. */}
+          <div className="shrink-0 pt-6">
           <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
             <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
           ) : (
@@ -4295,14 +4364,20 @@ export default function App() {
               </button>
             </div>
           )} />
+          </div>
 
-          <div key={view + (openId || "")} className="bk-route mt-5">
-            {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user} />}
-            {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
-            {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-            {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
-            {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
-            {view === "create" && <Create onCreate={create} back={() => setView(createFrom)} prefill={prefill} />}
+          <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col">
+            {view === "home" ? (
+              <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user} />
+            ) : (
+              <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-5 pb-6">
+                {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
+                {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
+                {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
+                {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
+                {view === "create" && <Create onCreate={create} back={() => setView(createFrom)} prefill={prefill} />}
+              </div>
+            )}
           </div>
         </main>
       </div>
