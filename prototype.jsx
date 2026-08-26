@@ -2298,7 +2298,8 @@ function SlaCard({ t }) {
     : held ? "On hold"
     : s.state === "breached" ? `${s.label} over` : `${s.label} left`;
   return (
-    <div style={{ background: C.white, border: `0.5px solid ${C.line}`, borderRadius: 12, padding: "10.5px 16.5px" }}>
+    <div style={{ background: `linear-gradient(87deg, ${C.cream} 0%, ${C.white} 9.98%)`,
+      border: "0.5px solid #FFD2A8", borderRadius: 12, padding: "10.5px 16.5px" }}>
       <div className="flex items-baseline justify-between gap-2">
         <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>SLA</span>
         {st.code && (() => {
@@ -2318,23 +2319,18 @@ function SlaCard({ t }) {
            the deadline. A continuous hue cannot be a palette token, so it is
            computed inline from the same `used` the SLA maths already produced -
            this is colour, not clock: no arithmetic changes. */
-        const rem = Math.max(0, 100 - s.used);
-        const hue = Math.round(1.3 * rem);
-        const barW = s.state === "breached" ? 100 : Math.max(4, rem);
-        /* A visible sheen like 917:105652 — deep at the base, bright at the
-           leading edge — carried on the remaining-time hue, with a soft glow
-           under the tip. The green→red mapping stays; only the fill reads as a
-           gradient now instead of a flat colour. */
-        const barBg = held ? `linear-gradient(90deg, ${C.wait}, ${C.wait})`
-          : s.state === "breached" ? "linear-gradient(90deg, #B3261E 0%, #F10000 100%)"
-          : `linear-gradient(90deg, hsl(${hue}, 85%, 38%) 0%, hsl(${hue}, 96%, 57%) 100%)`;
-        const glow = held ? "none"
-          : s.state === "breached" ? "0 1px 6px rgba(241,0,0,0.35)"
-          : `0 1px 6px hsla(${hue}, 92%, 50%, 0.38)`;
+        /* 917:105652 to the letter: a SOLID brand-secondary #FF7700 fill on a
+           card-recessed track carrying the low-raised drop shadow. The sheen is
+           that shadow, not a gradient. Width tracks elapsed, as SlaBar does.
+           Breach and hold keep their tones so an over/paused clock is not a calm
+           orange; everything else is the design's orange. */
+        const barW = s.state === "breached" ? 100 : Math.max(4, Math.min(100, s.used));
+        const barBg = held ? C.wait : s.state === "breached" ? C.breach : C.accent;
         return (
         <>
-          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle }}>
-            <div style={{ height: "100%", borderRadius: 999, background: barBg, boxShadow: glow,
+          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle,
+            boxShadow: "0px 2px 16px 0px rgba(169,172,177,0.24)" }}>
+            <div style={{ height: "100%", borderRadius: 999, background: barBg,
               width: `${barW}%`, opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
           </div>
           <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
