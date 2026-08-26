@@ -2321,13 +2321,20 @@ function SlaCard({ t }) {
         const rem = Math.max(0, 100 - s.used);
         const hue = Math.round(1.3 * rem);
         const barW = s.state === "breached" ? 100 : Math.max(4, rem);
-        const barBg = held ? C.wait
-          : s.state === "breached" ? "linear-gradient(90deg, #F10000, #B3261E)"
-          : `linear-gradient(90deg, hsl(${hue}, 72%, 52%), hsl(${hue}, 82%, 42%))`;
+        /* A visible sheen like 917:105652 — deep at the base, bright at the
+           leading edge — carried on the remaining-time hue, with a soft glow
+           under the tip. The green→red mapping stays; only the fill reads as a
+           gradient now instead of a flat colour. */
+        const barBg = held ? `linear-gradient(90deg, ${C.wait}, ${C.wait})`
+          : s.state === "breached" ? "linear-gradient(90deg, #B3261E 0%, #F10000 100%)"
+          : `linear-gradient(90deg, hsl(${hue}, 85%, 38%) 0%, hsl(${hue}, 96%, 57%) 100%)`;
+        const glow = held ? "none"
+          : s.state === "breached" ? "0 1px 6px rgba(241,0,0,0.35)"
+          : `0 1px 6px hsla(${hue}, 92%, 50%, 0.38)`;
         return (
         <>
-          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
-            <div style={{ height: "100%", borderRadius: 999, background: barBg,
+          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle }}>
+            <div style={{ height: "100%", borderRadius: 999, background: barBg, boxShadow: glow,
               width: `${barW}%`, opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
           </div>
           <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
