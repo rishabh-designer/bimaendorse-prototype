@@ -1,0 +1,4301 @@
+import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
+import {
+  AlertTriangle, Inbox, Clock, CheckCircle2, ChevronRight, ChevronDown, ArrowLeft,
+  Plus, Search, Building2, FileText, MailQuestion, Send, ShieldCheck,
+  PauseCircle, User, Paperclip, CircleDot, ArrowRight, Layers, XCircle,
+  BellRing, Mail, Download, X, FileCheck2, FileClock, CornerUpLeft, Link2, MoonStar, Flame,
+  MailOpen, Globe, Phone, MessageSquare, Hourglass, HelpCircle, MessageCircleQuestion, Cpu, Sparkles, UserMinus, RefreshCw, SlidersHorizontal, IndianRupee, Link as LinkIcon, Landmark, RotateCcw,
+  HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
+  Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
+  Check, Minus, History, SmilePlus, MoreVertical, BadgeCheck, ChevronUp, CornerDownRight
+} from "lucide-react";
+
+/* ------------------------------------------------------------------ *
+ *  BimaKavach TMS — non-financial endorsement
+ *  SLA is stage-wise only. Ticket age is shown but never judged.
+ * ------------------------------------------------------------------ */
+
+const C = {
+  ink: "#0E1A1F", ink2: "#3D5058", ink3: "#7C8F97",
+  line: "#D2D5D8", lineSoft: "#ECECF1", subtle: "#E6E8EA",
+  canvas: "#F4F5F6", white: "#FFFFFF",
+  teal: "#0B6E5F", tealSoft: "#E4F0ED",
+  link: "#1458D2",
+  breach: "#B3261E", breachSoft: "#FBEAE8",
+  warn: "#A15C00", warnSoft: "#FDF2E1",
+  wait: "#4B5EAA", waitSoft: "#EAECF7",
+
+  /* Chrome — carried across from V001.1. Semantic tones above are untouched:
+     colour still means what docs/DESIGN-SYSTEM.md says it means. Purple dresses
+     the shell only; it never states a ticket's condition. */
+  brand: "#4100CF", brand600: "#320099", brand400: "#7A4DEB",
+  brand200: "#EDE6FF", brandBg: "#F4F1FF",
+  cream: "#FFF6ED",   /* brand-secondary-subtle — V001.1 used it as the page ground; unused here */
+  accent: "#FF7700", greet: "#9082B3",
+  figInk: "#1C1D1F", figHint: "#6F7378", figTert: "#A9ACB1", figPlaceholder: "#BEC2C6",
+  figDisabled: "rgba(169,172,177,0.48)",
+  /* label/semantic — the countdown colours in Stage due */
+  semError: "#CF0000", semCaution: "#B38F0A",
+};
+
+/* ------------------------------------------------------------------ *
+ *  CHROME PRIMITIVES — the V001.1 treatments, hand-rolled.
+ *  figma-squircle, framer-motion and the /public assets are not
+ *  available here, so each is reproduced inside this file.
+ * ------------------------------------------------------------------ */
+
+/* Figma corner smoothing. Ported from figma-squircle (MIT, Tien Pham) after
+   figma.com/blog/desperately-seeking-squircles. Only the uniform-radius case
+   is needed — every element here carries one radius on all four corners. */
+const SQ_SMOOTHING = 0.6;
+const rad = (deg) => (deg * Math.PI) / 180;
+
+function squirclePath(w, h, radius, smoothing) {
+  const budget = Math.min(w, h) / 2;
+  const r = Math.min(radius, budget);
+  let p = (1 + smoothing) * r;
+  const arcMeasure = 90 * (1 - smoothing);
+  const arc = Math.sin(rad(arcMeasure / 2)) * r * Math.SQRT2;
+  const p3ToP4 = r * Math.tan(rad((90 - arcMeasure) / 2 / 2));
+  const angleBeta = 45 * smoothing;
+  const c = p3ToP4 * Math.cos(rad(angleBeta));
+  const d = c * Math.tan(rad(angleBeta));
+  let b = (p - arc - c - d) / 3, a = 2 * b;
+  if (p > budget) {                       /* preserveSmoothing */
+    const span = budget - d - arc - c;
+    b = Math.min(b, span - span / 6);
+    a = span - b;
+    p = budget;
+  }
+  const n = (v) => v.toFixed(4);
+  return [
+    `M ${n(w - p)} 0`,
+    `c ${n(a)} 0 ${n(a + b)} 0 ${n(a + b + c)} ${n(d)}`,
+    `a ${n(r)} ${n(r)} 0 0 1 ${n(arc)} ${n(arc)}`,
+    `c ${n(d)} ${n(c)} ${n(d)} ${n(b + c)} ${n(d)} ${n(a + b + c)}`,
+    `L ${n(w)} ${n(h - p)}`,
+    `c 0 ${n(a)} 0 ${n(a + b)} ${n(-d)} ${n(a + b + c)}`,
+    `a ${n(r)} ${n(r)} 0 0 1 ${n(-arc)} ${n(arc)}`,
+    `c ${n(-c)} ${n(d)} ${n(-(b + c))} ${n(d)} ${n(-(a + b + c))} ${n(d)}`,
+    `L ${n(p)} ${n(h)}`,
+    `c ${n(-a)} 0 ${n(-(a + b))} 0 ${n(-(a + b + c))} ${n(-d)}`,
+    `a ${n(r)} ${n(r)} 0 0 1 ${n(-arc)} ${n(-arc)}`,
+    `c ${n(-d)} ${n(-c)} ${n(-d)} ${n(-(b + c))} ${n(-d)} ${n(-(a + b + c))}`,
+    `L 0 ${n(p)}`,
+    `c 0 ${n(-a)} 0 ${n(-(a + b))} ${n(d)} ${n(-(a + b + c))}`,
+    `a ${n(r)} ${n(r)} 0 0 1 ${n(arc)} ${n(-arc)}`,
+    `c ${n(c)} ${n(-d)} ${n(b + c)} ${n(-d)} ${n(a + b + c)} ${n(-d)}`,
+    "Z",
+  ].join(" ");
+}
+
+/* Global manager, mirroring V001.1's src/lib/squircle.ts: masks every rounded-lg
+   element with its own radius, using mask-image rather than clip-path so the
+   shadows survive. Skips pills, already-masked nodes, and overflow-visible
+   containers holding a positioned child — masking those would clip an open
+   dropdown or a tooltip. */
+function useSquircle() {
+  useEffect(() => {
+    if (typeof window === "undefined" || !("ResizeObserver" in window)) return;
+    const cache = new WeakMap();
+    let raf = 0;
+    const clear = (el) => {
+      el.style.removeProperty("mask-image");
+      el.style.removeProperty("-webkit-mask-image");
+      delete el.dataset.sq;
+      cache.delete(el);
+    };
+    const hasPositionedChild = (el) => {
+      const kids = el.querySelectorAll("*");
+      for (let i = 0; i < kids.length; i++) {
+        const p = getComputedStyle(kids[i]).position;
+        if (p === "absolute" || p === "fixed") return true;
+      }
+      return false;
+    };
+    const applyOne = (el) => {
+      if (el.hasAttribute("data-no-squircle")) { if (el.dataset.sq) clear(el); return; }
+      const cs = getComputedStyle(el);
+      if (cs.maskImage !== "none" && !el.dataset.sq) return;   /* ikkat marks, fades */
+      const r = parseFloat(cs.borderTopLeftRadius) || 0;
+      const rect = el.getBoundingClientRect();
+      const w = Math.round(rect.width), h = Math.round(rect.height);
+      if (!w || !h) return;
+      if (r < 5 || r >= Math.min(w, h) / 2 - 0.5) { if (el.dataset.sq) clear(el); return; }
+      if (cs.overflow === "visible" && cs.overflowX === "visible" &&
+          cs.overflowY === "visible" && hasPositionedChild(el)) {
+        if (el.dataset.sq) clear(el); return;
+      }
+      const key = `${w}x${h}x${r}`;
+      if (cache.get(el) === key) return;
+      cache.set(el, key);
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'>` +
+        `<path d='${squirclePath(w, h, r, SQ_SMOOTHING)}' fill='black'/></svg>`;
+      const uri = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+      el.style.setProperty("mask-image", uri);
+      el.style.setProperty("-webkit-mask-image", uri);
+      el.style.setProperty("mask-size", "100% 100%");
+      el.style.setProperty("-webkit-mask-size", "100% 100%");
+      el.style.setProperty("mask-repeat", "no-repeat");
+      el.dataset.sq = "1";
+      ro.observe(el);
+    };
+    const scan = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() =>
+        document.querySelectorAll('[class*="rounded-lg"]').forEach(applyOne));
+    };
+    const ro = new ResizeObserver(scan);
+    const mo = new MutationObserver(scan);
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", scan);
+    scan();
+    return () => {
+      mo.disconnect(); ro.disconnect();
+      window.removeEventListener("resize", scan);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+}
+
+/* Anek Latin. docs/DESIGN-SYSTEM.md previously forbade font loading; that rule
+   is now an explicit exception, recorded there. The fallback stack is real, so
+   an offline render degrades rather than breaks. */
+function useAnek() {
+  useEffect(() => {
+    if (document.getElementById("bk-anek")) return;
+    const l = document.createElement("link");
+    l.id = "bk-anek";
+    l.rel = "stylesheet";
+    /* Anek Kannada rides alongside Latin so a Kannadiga user can be greeted in
+       her own script. Anek covers ten Indic scripts; add the face when a user
+       arrives who needs another. */
+    /* Instrument Serif Italic is the display face — it sets initials on the
+       participant marks and the mail avatars, and nothing else. */
+    l.href = "https://fonts.googleapis.com/css2?family=Anek+Latin:wght@100..800&family=Anek+Kannada:wght@100..800&family=Instrument+Serif:ital@1&display=swap";
+    document.head.appendChild(l);
+  }, []);
+}
+const FONT = '"Anek Latin", "Anek Kannada", system-ui, -apple-system, "Segoe UI", sans-serif';
+const SERIF = '"Instrument Serif", Georgia, "Times New Roman", serif';
+
+/* Ikkat — the block-print motif. v1 is outlined, v2 solid; the rule alternates
+   them on a 20px pitch. Inlined as data URIs because /public does not exist here. */
+const IKKAT_V1 = "M1.33962 1.5283C1.55845 1.5283 1.73585 1.35091 1.73585 1.13208C1.73585 0.913246 1.91325 0.735849 2.13208 0.735849H2.68868C2.89188 0.735849 3.0566 0.571124 3.0566 0.367924C3.0566 0.164725 3.22133 0 3.42453 0H4.57547C4.77867 0 4.9434 0.164725 4.9434 0.367924C4.9434 0.571124 5.10812 0.735849 5.31132 0.735849H6.01887C6.2377 0.735849 6.41509 0.913246 6.41509 1.13208C6.41509 1.35091 6.59249 1.5283 6.81132 1.5283L7.5283 1.5283C7.78881 1.5283 8 1.73949 8 2C8 2.26051 7.78881 2.4717 7.5283 2.4717H6.81132C6.59249 2.4717 6.41509 2.64909 6.41509 2.86792C6.41509 3.08675 6.2377 3.26415 6.01887 3.26415H5.31132C5.10812 3.26415 4.9434 3.42888 4.9434 3.63208C4.9434 3.83527 4.77867 4 4.57547 4L3.42453 4C3.22133 4 3.0566 3.83527 3.0566 3.63208C3.0566 3.42888 2.89188 3.26415 2.68868 3.26415H2.13208C1.91325 3.26415 1.73585 3.08675 1.73585 2.86792C1.73585 2.64909 1.55845 2.4717 1.33962 2.4717H0.471698C0.211187 2.4717 0 2.26051 0 2C0 1.73949 0.211186 1.5283 0.471698 1.5283H1.33962ZM3.24528 1.99071C3.24528 2.21467 3.42684 2.39623 3.6508 2.39623H4.38694C4.6109 2.39623 4.79245 2.21467 4.79245 1.99071C4.79245 1.76675 4.6109 1.5852 4.38694 1.5852L3.6508 1.5852C3.42684 1.5852 3.24528 1.76675 3.24528 1.99071Z";
+const IKKAT_V2 = "M1.33962 1.5283C1.55845 1.5283 1.73585 1.35091 1.73585 1.13208C1.73585 0.913245 1.91325 0.735849 2.13208 0.735849H2.68868C2.89188 0.735849 3.0566 0.571124 3.0566 0.367924C3.0566 0.164725 3.22133 -7.38057e-08 3.42453 -7.38057e-08H4.57547C4.77867 -7.38057e-08 4.9434 0.164725 4.9434 0.367924C4.9434 0.571124 5.10812 0.735849 5.31132 0.735849H6.01887C6.2377 0.735849 6.41509 0.913245 6.41509 1.13208C6.41509 1.35091 6.59249 1.5283 6.81132 1.5283L7.5283 1.5283C7.78881 1.5283 8 1.73949 8 2C8 2.26051 7.78881 2.4717 7.5283 2.4717H6.81132C6.59249 2.4717 6.41509 2.64909 6.41509 2.86792C6.41509 3.08675 6.2377 3.26415 6.01887 3.26415H5.31132C5.10812 3.26415 4.9434 3.42888 4.9434 3.63208C4.9434 3.83527 4.77867 4 4.57547 4L3.42453 4C3.22133 4 3.0566 3.83527 3.0566 3.63208C3.0566 3.42888 2.89188 3.26415 2.68868 3.26415H2.13208C1.91325 3.26415 1.73585 3.08675 1.73585 2.86792C1.73585 2.64909 1.55845 2.4717 1.33962 2.4717H0.471698C0.211187 2.4717 0 2.26051 0 2C0 1.73949 0.211186 1.5283 0.471698 1.5283H1.33962Z";
+const svgUri = (w, body) => `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='4' viewBox='0 0 ${w} 4'>${body}</svg>`)}")`;
+const pathEl = (d, tx) => `<path${tx ? ` transform='translate(${tx} 0)'` : ""} fill-rule='evenodd' clip-rule='evenodd' d='${d}' fill='black'/>`;
+const IKKAT_RULE_URI = svgUri(40, pathEl(IKKAT_V1) + pathEl(IKKAT_V2, 20));
+const IKKAT_MARK_URI = svgUri(8, pathEl(IKKAT_V1));
+/* One mark on a 32-wide canvas: masked at 16px the mark lands 4px wide with 12px
+   of air, which is the trail's divider (964:119381) rather than the page rule. */
+const IKKAT_TRAIL_URI = svgUri(32, pathEl(IKKAT_V1));
+
+/* Motion. staggerChildren .06 / delayChildren .1 / fadeUp .45s, reproduced with
+   keyframes and an inline delay. Every animation collapses under
+   prefers-reduced-motion, exactly as V001.1's MotionConfig did. */
+const stagger = (i) => ({ animationDelay: `${(0.1 + Math.min(i, 6) * 0.06).toFixed(2)}s` });
+
+const GLOBAL_CSS = `
+@keyframes bkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes bkRoute  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
+.bk-item  { animation: bkFadeUp .45s cubic-bezier(.22,1,.36,1) backwards; }
+.bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
+.bk-num   { font-variant-numeric: tabular-nums; }
+.bk-opt:hover { background: #F4F1FF; }
+.bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
+            -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
+            mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
+.bk-trail { height: 2px; width: 100%; flex: none; background-color: ${"#D2D5D8"};
+            -webkit-mask: ${IKKAT_TRAIL_URI} repeat-x left center / 16px 2px;
+            mask: ${IKKAT_TRAIL_URI} repeat-x left center / 16px 2px; }
+.bk-mark  { flex: none; width: 12px; height: 6px; background-color: ${"#FF7700"};
+            -webkit-mask: ${IKKAT_MARK_URI} no-repeat center / contain;
+            mask: ${IKKAT_MARK_URI} no-repeat center / contain; }
+.bk-fade  { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), #FFFFFF); }
+.scroll-slim { scrollbar-width: thin; scrollbar-color: ${"#D2D5D8"} transparent; }
+.scroll-slim::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-slim::-webkit-scrollbar-thumb { background: ${"#ECECF1"}; border-radius: 999px; }
+.scroll-slim::-webkit-scrollbar-track { background: transparent; }
+@keyframes bkSpin { to { transform: rotate(360deg); } }
+.bk-spin { animation: bkSpin .7s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; }
+  /* the spinner still has to read as "working" — slow it, do not freeze it */
+  .bk-spin { animation-duration: 1.6s !important; }
+}
+`;
+
+
+/* ------------------------------------------------------------------ *
+ *  MASTERS — mirrors the tabs of Endorsement_master.
+ *  Everything below is configuration, not code. When the sheet is
+ *  filled, these blocks are what gets replaced (or fetched at runtime).
+ * ------------------------------------------------------------------ */
+
+/* Tab: Insurer list — endorsement desk contact + working calendar owner */
+const INSURERS = {
+  "ICICI Lombard": { desk: "endorsement@icicilombard.com", pod: "Pod A", payMode: "Email", linkExpiryH: 48 },
+  "Bajaj Allianz": { desk: "corp.endo@bajajallianz.co.in", pod: "Pod A", payMode: "Email", linkExpiryH: 48 },
+  "HDFC ERGO": { desk: "endorsements@hdfcergo.com", pod: "Pod A", payMode: "Portal", linkExpiryH: 24 },
+  "TATA AIG": { desk: "endorsements@tataaig.com", pod: "Pod B", payMode: "Email", linkExpiryH: 48 },
+  "Chola MS": { desk: "servicing@cholams.murugappa.com", pod: "Pod B", payMode: "Portal", linkExpiryH: 72 },
+  "New India": { desk: "endorsement@newindia.co.in", pod: "Pod B", payMode: "Email", linkExpiryH: 48 },
+  "IFFCO Tokio": { desk: "endo.desk@iffcotokio.co.in", pod: "Pod C", payMode: "Email", linkExpiryH: 48 },
+  "Kotak General": { desk: "endo@kotakgi.com", pod: "Pod C", payMode: "Portal", linkExpiryH: 24 },
+  "Future Generali": { desk: "endo@futuregenerali.in", pod: "Pod C", payMode: "Email", linkExpiryH: 48 },
+};
+
+/* Tab: User role Master */
+const ROLES = {
+  "Nanditha P": { role: "Servicing executive", pod: "Pod A" },
+  "Rahul K": { role: "Servicing executive", pod: "Pod B" },
+  "Anil S": { role: "Relationship manager", pod: null },
+};
+const ESCALATION = { podLead: "Service Manager Head", serviceHead: "Service Head", insurerHead: "Insurer Head + Service Head", opsHead: "Operations Head", rm: "Relationship manager" };
+
+/* Manual review escalation. Taken from Figma 917:106299 — "1 Que over 8Hrs ·
+   Escalated to Endorsements Head" and the Status column's "Endorsements Manager
+   Notified". The 8-hour threshold and the Endorsements Head / Manager roles are
+   NOT in the master workbook; they come from the design and need confirming. */
+const MR_ESCALATION = { overH: 8, to: "Endorsements Head", by: "Umesh Bagri", label: "Endorsements Manager Notified" };
+
+/* Tab: Ticket Assignment parameters */
+const ASSIGNMENT = { rule: "By insurer → pod, then round-robin within pod", podOf: (insurer) => INSURERS[insurer]?.pod || "Unassigned" };
+
+/* Tab: Reminder Schedule Master + Escalation Matrix (Appendix E #6, #7).
+   Values are working hours into the stage. */
+/* Keyed to the SLA Master's status names — the Reminder Schedule tab labels the
+   same statuses differently, and one vocabulary has to win. Not yet wired:
+   remindersOf() derives from ALL_STAGES.followUp. */
+const REMINDERS = {
+  "New / Unassigned": { at: [0.5], escalateAfter: 1 },
+  "Under Verification": { at: [1, 1.5], escalateAfter: 2 },
+  "Submitted to Insurer": { at: [8, 16, 24], escalateAfter: 3 },
+  "Awaiting Quote": { at: [8, 16, 24], escalateAfter: 3 },
+  "Awaiting Payment Link": { at: [0.5, 1], escalateAfter: 2 },
+  "Awaiting Payment": { at: [6, 12, 18], escalateAfter: 3 },
+  "Awaiting Endorsement Copy": { at: [9, 18, 27], escalateAfter: 3 },
+};
+
+/* Tab: Notification event Map */
+const NOTIFY = {
+  ticket_raised: ["Client", "RM"],
+  sent_to_insurer: ["Insurer desk"],
+  stage_breached: [ESCALATION.podLead],
+  no_action_15d: [ESCALATION.serviceHead, ESCALATION.rm],
+  endorsement_delivered: ["Client", "RM"],
+};
+
+/* Tab: SLA Master and breach behaviour — verbatim from the master.
+   unit: BH = business hours (10:00–19:00 Mon–Fri) · WD = working days, same
+   clock time on the Nth working day · CD = calendar days 24×7 · MIN = minutes. */
+const ALL_STAGES = {
+  "New / Unassigned": {
+    code: "SLA-01", label: "New / unassigned", sla: 1, unit: "MIN", owner: "system", verb: null, system: true, ind: "neutral",
+    followUp: null, escalate: ["Service Head"], terminal: "Assign to fallback owner at +5 min",
+  },
+  "Under Verification": {
+    code: "SLA-02", label: "Under verification", sla: 4, unit: "BH", owner: "Service Manager", verb: "Verify & submit to insurer", ind: "caution",
+    followUp: { every: 0.5, unit: "BH", max: 3 }, escalate: ["Owning SM + Service Head", "+2 BH", "+4 BH", "+1 WD"],
+    terminal: "Remains open - no auto-termination",
+  },
+  "Awaiting Customer Information": {
+    code: "SLA-04", label: "Awaiting customer information", sla: 24, unit: "CD", owner: "customer", verb: null, awaited: true, ind: "error",
+    followUp: { every: 48, unit: "CD", max: 4 }, escalate: ["Customer + RM + Service Head", "+2 CD", "+4 CD", "+10 CD"],
+    terminal: "Auto-close as Cancelled at 30 CD from clock start, if unpaid. Cannot be reopened.", cancelAtCD: 30,
+  },
+  "Submitted to Insurer": {
+    code: "SLA-05", label: "Submitted to insurer", sla: 1, unit: "WD", owner: "insurer", verb: "Log insurer acceptance", ind: "info",
+    followUp: { every: 1, unit: "WD", max: 3 }, escalate: ["Insurer POC + POC head + Service Head", "+1 WD", "+1 WD", "+1 WD"],
+    terminal: "Remains open - no auto-termination insurer-side",
+  },
+  "Awaiting Quote": {
+    code: "SLA-06", label: "Awaiting quote", sla: 2, unit: "WD", owner: "insurer", verb: "Log quote received", ind: "info",
+    followUp: { every: 1, unit: "WD", max: 3 }, escalate: ["Insurer POC + POC head + Service Head", "+1 WD", "+1 WD", "+1 WD"],
+    terminal: "Remains open - no auto-termination insurer-side",
+  },
+  "Awaiting Payment Link": {
+    code: "SLA-07", label: "Awaiting payment link", sla: 1, unit: "BH", owner: "operations", verb: null, awaited: true, ind: "info",
+    followUp: { every: 0.5, unit: "BH", max: 3 }, escalate: ["Operations + Ops head + Service Head", "+1 BH", "+4 BH", "+1 WD"],
+    terminal: "Remains open",
+  },
+  "Awaiting Payment": {
+    code: "SLA-08", label: "Awaiting payment", sla: 24, unit: "CD", owner: "customer", verb: "Log payment confirmed", ind: "caution",
+    followUp: { every: 24, unit: "CD", max: 3 }, escalate: ["Customer + RM + Service Head", "+2 CD", "+4 CD", "+12 CD"],
+    terminal: "Terminate as Cancelled at 30 CD from clock start", cancelAtCD: 30,
+  },
+  "Awaiting Endorsement Copy": {
+    code: "SLA-09", label: "Awaiting endorsement copy", sla: 3, unit: "WD", owner: "insurer", verb: null, awaited: true, ind: "caution",
+    followUp: { every: 1, unit: "WD", max: 2 }, escalate: ["Insurer POC + POC head + Service Head", "+1 WD", "+2 WD", "+2 WD"],
+    terminal: "Remains open - no auto-termination insurer-side",
+  },
+  "Copy Received": {
+    code: "SLA-11", label: "Copy received", sla: 1, unit: "BH", owner: "Service Manager", verb: "Publish & close", ind: "success",
+    followUp: { every: 0.5, unit: "BH", max: 3 }, escalate: ["Owning SM + Service Head", "+30 min BH", "+2 BH", "+4 BH"],
+    terminal: "Remains open",
+  },
+  "Closed": { label: "Closed", sla: null, unit: null, owner: null, verb: null, terminal: true, ind: "muted" },
+};
+
+const FLOW = {
+  "Non-Financial": ["New / Unassigned", "Under Verification", "Submitted to Insurer", "Awaiting Endorsement Copy", "Copy Received", "Closed"],
+  "Financial": ["New / Unassigned", "Under Verification", "Submitted to Insurer", "Awaiting Quote",
+                "Awaiting Payment Link", "Awaiting Payment", "Awaiting Endorsement Copy", "Copy Received", "Closed"],
+};
+
+const stageOf = (k) => ALL_STAGES[k] || ALL_STAGES["Closed"];
+const seqOf = (t) => FLOW[t.kind] || FLOW["Non-Financial"];
+const posOf = (t, k) => seqOf(t).indexOf(k || t.stage);
+const nextOf = (t) => seqOf(t)[(posOf(t) >= 0 ? posOf(t) : posOf(t, t.priorStage || "Under Verification")) + 1];
+const atOrPast = (t, k) => (posOf(t) >= 0 ? posOf(t) : posOf(t, t.priorStage || "Under Verification")) >= posOf(t, k);
+
+const TERMINAL = {
+  "Customer Withdrawn": { label: "Customer withdrawn", color: C.ink2 },
+  "Cancelled": { label: "Cancelled", color: C.ink2 },
+};
+const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
+const readOnly = (t) => isTerminal(t);
+
+/* One deadline function, four units. inStage is CALENDAR hours in the stage. */
+function dueFrom(entered, sla, unit) {
+  if (unit === "BH") return addBiz(entered, sla);
+  if (unit === "WD") return addWD(entered, sla);
+  if (unit === "CD") return new Date(entered.getTime() + sla * 3600000);
+  return new Date(entered.getTime() + (sla / 60) * 3600000);      // MIN
+}
+const unitLabel = (n, u) => u === "BH" ? `${n} BH` : u === "WD" ? `${n} WD` : u === "CD" ? `${n} CD Hrs` : `${n} Min`;
+
+const PRIORITY = {
+  Critical: { rank: 0, color: C.breach, bg: C.breachSoft },
+  High: { rank: 1, color: C.warn, bg: C.warnSoft },
+  Medium: { rank: 2, color: C.ink2, bg: C.lineSoft },
+  Low: { rank: 3, color: C.ink3, bg: C.lineSoft },
+};
+
+/* Tab: Product x Endorsement list — 32 canonical endorsement types.
+   Mandatory fields and documents depend on the TYPE only (verified against
+   the master: no type's requirements differ by product). Product decides
+   which types are offered. Classification is not a column in the sheet —
+   the values below are assumed and need confirming. */
+const TYPES = {
+  "Hypothecation - Addition": { kind: "Non-Financial", fields: ["Bank name"], docs: [] },
+  "Address Change / Correction / Update": { kind: "Non-Financial", fields: ["Complete address with PIN code"], docs: ["GST certificate"] },
+  "Location Addition / Deletion": { kind: "Financial", fields: ["Location details", "PIN code"], docs: [] },
+  "Sum Insured / Limit Enhancement": { kind: "Financial", fields: ["Amount of sum insured to be enhanced"], docs: [] },
+  "Asset Addition": { kind: "Financial", fields: ["Asset category / type", "Value of asset"], docs: [] },
+  "Contact Details Update (Email / Mobile)": { kind: "Non-Financial", fields: ["Email ID", "Contact number"], docs: [] },
+  "Name / Entity Change": { kind: "Non-Financial", fields: ["Name"], docs: ["GST certificate", "Certificate of Incorporation"] },
+  "Tax Invoice / Invoice Request": { kind: "Non-Financial", fields: ["Policy Number"], docs: [] },
+  "Hypothecation - Removal": { kind: "Non-Financial", fields: [], docs: ["NOC from financier"] },
+  "Refund - Excess Premium": { kind: "Return-Premium", fields: [], docs: ["Cancelled cheque", "Payment screenshot"] },
+  "Business Description Correction": { kind: "Non-Financial", fields: ["Exact business description to be added in the policy"], docs: [] },
+  "GST Details Update": { kind: "Non-Financial", fields: [], docs: ["GST certificate"] },
+  "Policy Cancellation": { kind: "Return-Premium", fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
+  "Policy Cancellation + Refund": { kind: "Return-Premium", fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
+  "Correction in Policy": { kind: "Non-Financial", fields: ["Provide exact wording of the correction/changes to be added"], docs: [] },
+  "Retrieve Policy document": { kind: "Non-Financial", fields: ["Policy Number"], docs: [] },
+  "Policy Genuineness Verification": { kind: "Non-Financial", fields: ["Mail confirmation from insurer to client"], docs: [] },
+  "Policy Period Extension / Reinstatement": { kind: "Financial", fields: ["Number of months"], docs: [] },
+  "Risk Location Addition / Deletion / Change": { kind: "Financial", fields: ["Complete address with PIN code"], docs: [] },
+  "Marine Certificate Issuance": { kind: "Financial", fields: ["Draft number"], docs: ["Commercial invoice"] },
+  "Balance Transfer / Ledger Statement": { kind: "Non-Financial", fields: [], docs: ["Declaration till date"] },
+  "Portal Access / Credentials / Training": { kind: "Non-Financial", fields: ["Email ID", "Mobile number"], docs: [] },
+  "Declaration Submission": { kind: "Non-Financial", fields: [], docs: ["Declaration till date"] },
+  "Trade Credit - Buyer Addition / Limit Assessment": { kind: "Financial", fields: ["Buyer details with address", "Buyer limits"], docs: [] },
+  "Vendor Registration / Audit Documentation": { kind: "Non-Financial", fields: [], docs: [] },
+  "Certificate of Insurance (COI) / Certificate": { kind: "Non-Financial", fields: ["Certificate holder name", "Certificate holder address"], docs: [] },
+  "Coverage Wording / Policy Clause Addition or Correction": { kind: "Financial", fields: ["Exact wording of the coverage / clause to be added"], docs: [] },
+  "Subsidiary Addition / Change": { kind: "Financial", fields: ["Ownership %", "Nature of work"], docs: [] },
+  "Employee / Headcount Addition": { kind: "Financial", fields: ["Count of employees", "Monthly average salary", "Skilled and unskilled split"], docs: [] },
+  "Annexure Update": { kind: "Non-Financial", fields: ["Name", "Age and monthly wages"], docs: [] },
+  "Employee / Headcount Deletion": { kind: "Return-Premium", fields: ["Count of employees", "Skilled and unskilled split"], docs: [] },
+  "Asset Deletion": { kind: "Return-Premium", fields: ["Asset category / type", "Value of asset"], docs: [] },
+  "Others": { kind: "Non-Financial", fields: ["Describe the change required"], docs: [] },
+};
+
+const PRODUCTS = {
+  "Fire & Burglary": ["Hypothecation - Addition", "Address Change / Correction / Update", "Location Addition / Deletion", "Sum Insured / Limit Enhancement", "Asset Addition", "Contact Details Update (Email / Mobile)", "Name / Entity Change", "Tax Invoice / Invoice Request", "Hypothecation - Removal", "Refund - Excess Premium", "Business Description Correction", "GST Details Update", "Policy Cancellation", "Policy Cancellation + Refund", "Correction in Policy", "Retrieve Policy document", "Policy Genuineness Verification", "Policy Period Extension / Reinstatement", "Risk Location Addition / Deletion / Change", "Others"],
+  "Marine Cargo": ["Marine Certificate Issuance", "Sum Insured / Limit Enhancement", "Balance Transfer / Ledger Statement", "Portal Access / Credentials / Training", "Declaration Submission", "Address Change / Correction / Update", "GST Details Update", "Refund - Excess Premium", "Tax Invoice / Invoice Request", "Asset Addition", "Business Description Correction", "Hypothecation - Addition", "Location Addition / Deletion", "Name / Entity Change", "Policy Cancellation", "Correction in Policy", "Retrieve Policy document", "Policy Period Extension / Reinstatement", "Trade Credit - Buyer Addition / Limit Assessment", "Vendor Registration / Audit Documentation", "Others"],
+  "Professional Indemnity (PI)": ["Certificate of Insurance (COI) / Certificate", "Sum Insured / Limit Enhancement", "Address Change / Correction / Update", "Coverage Wording / Policy Clause Addition or Correction", "Contact Details Update (Email / Mobile)", "Name / Entity Change", "Business Description Correction", "GST Details Update", "Location Addition / Deletion", "Tax Invoice / Invoice Request", "Policy Cancellation + Refund", "Correction in Policy", "Retrieve Policy document", "Refund - Excess Premium", "Risk Location Addition / Deletion / Change", "Subsidiary Addition / Change", "Vendor Registration / Audit Documentation", "Others"],
+  "Commercial General Liability (CGL)": ["Certificate of Insurance (COI) / Certificate", "Sum Insured / Limit Enhancement", "Address Change / Correction / Update", "Coverage Wording / Policy Clause Addition or Correction", "Location Addition / Deletion", "Policy Cancellation + Refund", "Contact Details Update (Email / Mobile)", "Hypothecation - Addition", "Name / Entity Change", "Subsidiary Addition / Change", "Correction in Policy", "Policy Genuineness Verification", "Retrieve Policy document", "Refund - Excess Premium", "Risk Location Addition / Deletion / Change", "Tax Invoice / Invoice Request", "Others"],
+  "Workmen Compensation (WC)": ["Address Change / Correction / Update", "Employee / Headcount Addition", "Annexure Update", "Policy Cancellation", "Correction in Policy", "Retrieve Policy document", "Risk Location Addition / Deletion / Change", "Contact Details Update (Email / Mobile)", "Coverage Wording / Policy Clause Addition or Correction", "Employee / Headcount Deletion", "Business Description Correction", "GST Details Update", "Name / Entity Change", "Policy Period Extension / Reinstatement", "Sum Insured / Limit Enhancement", "Refund - Excess Premium", "Others"],
+  "Directors & Officers (D&O)": ["Address Change / Correction / Update", "Subsidiary Addition / Change", "Sum Insured / Limit Enhancement", "GST Details Update", "Tax Invoice / Invoice Request", "Contact Details Update (Email / Mobile)", "Policy Cancellation", "Correction in Policy", "Retrieve Policy document", "Business Description Correction", "Certificate of Insurance (COI) / Certificate", "Coverage Wording / Policy Clause Addition or Correction", "Employee / Headcount Addition", "Hypothecation - Addition", "Name / Entity Change", "Others"],
+  "Cyber": ["Certificate of Insurance (COI) / Certificate", "Address Change / Correction / Update", "Sum Insured / Limit Enhancement", "Subsidiary Addition / Change", "Contact Details Update (Email / Mobile)", "Coverage Wording / Policy Clause Addition or Correction", "Name / Entity Change", "Policy Cancellation", "Refund - Excess Premium", "Tax Invoice / Invoice Request", "Others"],
+  "Trade Credit": ["Trade Credit - Buyer Addition / Limit Assessment", "Correction in Policy", "Retrieve Policy document", "Sum Insured / Limit Enhancement", "Others"],
+  "Errors & Omissions (E&O)": ["Sum Insured / Limit Enhancement", "Coverage Wording / Policy Clause Addition or Correction", "Address Change / Correction / Update", "Certificate of Insurance (COI) / Certificate", "Correction in Policy", "Retrieve Policy document", "Subsidiary Addition / Change", "Tax Invoice / Invoice Request", "Others"],
+  "Crime": ["Address Change / Correction / Update", "Location Addition / Deletion", "Certificate of Insurance (COI) / Certificate", "GST Details Update", "Others"],
+  "Engineering (CAR / EAR / CPM)": ["Policy Period Extension / Reinstatement", "GST Details Update", "Policy Cancellation", "Others"],
+  "Office / Package Policy": ["Hypothecation - Addition", "Address Change / Correction / Update", "Asset Addition", "Asset Deletion", "Tax Invoice / Invoice Request", "Others"],
+  "Public Liability": ["Sum Insured / Limit Enhancement", "Certificate of Insurance (COI) / Certificate", "Others"],
+  "Motor": ["Address Change / Correction / Update", "Others"],
+};
+
+/* Tab: brand assets — the client's own marks, from Public/. */
+/* Insurer wordmarks — Public/Insurance.Comp, downscaled and inlined because the
+   artifact has no /public. Keys are the INSURERS master; an insurer with no mark
+   on file falls back to the shield glyph rather than a stand-in. */
+const INSURER_LOGO = {
+  "ICICI Lombard": "data:image/webp;base64,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",
+  "Bajaj Allianz": "data:image/webp;base64,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",
+  "HDFC ERGO": "data:image/webp;base64,UklGRlQEAABXRUJQVlA4WAoAAAAQAAAANAAALwAAQUxQSFQAAAABYNxGkqJaSHqD2D0KjjJhfk2/T4oIBWkbMLsWqgHA2Rqpnbf15wJp6ic791MiQKQ7bd0RX+V93u087/mrcq6nndez/D4lAwQRioigR4FXQpLTICNWUDgg2gMAABAXAJ0BKjUAMAA+YSiQRaQioZVcBnxABgS2AFqQ4H8A/ADrhrn+O/GDBvtBG2vVHtnfMB/AP5R/xv9L76voa9AD+7ecV7DHoAfrN6Z/7Y/Bv+5H7Aezz/96bb9C/IrJn/mNtJ8jn98/iGUa/Ov619tPOB8wHqI/l/+q45KPjzoO0D2ofRn/U9wX+Tf2XfK0LSl7zYiDTIHi4BhzEpJfj6ALZnKV9UtDcJIvRN7PUUXIGnaeMRYQNaPCbGBtbwoztAAA/vuEpGMzqNyglu3hnukVnPILSkuOLf2KSk26U9FY++zUJqSg43Wkbnqt2XfXB/AMQZmiayNutGM3244kZtf9PZV4Tk7t4h9/DLanAfUDys+Nb/9DMIR5uOCLGN4mIO9+bFhd7nurrgPP8bXjY1ooQ3bFpmp81Yy0Z+oNHEV3egPFp7MB9pIaOLRwWzQ2JZI+zlu9EqPKeIbkHnEp/+bl68M3KlK4wy8Lbkmw9s/M+9ogS/NY/xSTim3gVbsn4TVkMp/576oHjfi6NWepiyn/jVv9BMEgXh2m7/q6+v7PEJurlOTWfuRJsVccp15t/CQD+X3W4DWlBGsXyIXz8pcXRpCgEnjtRSlti8sKHp0Kpp1LrI/g+Ya8iC944R4bEnokkHjdPN5n1PEC75uh5kEhVzL9Ktfj8shumeJ5+cUVAttkUymsM0bKlFJiDLNzvq8v/XEV0rtK1E9/Of8x0xRnKKsQ/7XQ4EZ9TAN8XpFHGRPwp0PEMStH2bXqv8sQRkW+flFnh/+U62YfJmKAFlaIeevBv6lLXxJlZ1GOL+Ai46cd0XLMnxHlqIev3qjmJ9V+zHs0MDzXfV81BY39dGgpcGLvPCEy2gHr7Wo670eL4F+i8QDyQ8oc46HgHO/gsNWaqWP0WpMsDC9qqXx4f8eWa2k4eczc1LtnwFSLrsS5LXzv4sXfThe2aPjbdlh9yZdY69WvT2OZRhm4F7+Pra1liyNl+5eAfuQPRg+1VvKx0XhQsWZxO0lCxP7nzS1rxtTpCMcAHsLmt2Svr6xBG+c3flIym/8Ry7pn2Jke0JmZBl+pp53jry3sRyIsFIqJy+BO47ib/fVG3U25/tmbCSc+uzO0Vk/GIprMpBapuBMff+tY7c1HhHu2HfvkMwt8XMwIKIcjuaTQG+dxg32U/wezkq4B1RFmxw4CUmWIWlrJPIs5c/0w/+uLtZxCdgHtzA17GGQTvfHnWC648QzWoVxoBEFhezIB1VQ+3Kxs41p1hMylNhU3OaagGb1Hwxt5c/PSZGl1OvdupFtkR+LvW5YKmMspt2EgqsAA",
+  "TATA AIG": "data:image/webp;base64,UklGRtoDAABXRUJQVlA4WAoAAAAQAAAAKQAALwAAQUxQSC4AAAABYBvJVhug/9q8pxEvKf8mUxAREyABC8AKcIebPsAP3PHBXX9vD9zxAQ5wtWAeVlA4IIYDAAAQFACdASoqADAAPmEskkakIiGhJzgKSIAMCWwAnTLoPxek8lpzO5mcvNk/pT7gNtF5ifPA9DO8H/wD/gewB5XH/O/1XwUf33/ofq7YROUKPlfuPgk7bjJGvlndB/wHGN/2zWDf5t/s/Sjzs/SP/U9wz9U/+LwGf7ACi3Xhv8vkFnlIVBCU9ff5oecsxlEkzpGELlmrNW7KrC5e7sP4szDi9D3oewoKH1xkAP7Qn7f/ALeS7/mNWbT42k8Hi5WtyEfTdV6ACVavfWL1Ne0nVcGJvlVko//tXCEjzF2Yf/6gMRqfchIYPYB5a6xHvWl8Gx//FJe16rc/p2fx+kv5dweX/uhb7OyWnOH/AgFnBnjcgL5eaST/0OZdsm9lsivf11uxL6HL3TTBxZC/+CB42LDc/eCCB4IRwHIQS38i49Q0grex5uEAxFfH+Qyidz+8fOf4/DTpiWSv3aO/lMqkhRtPeejNyyZgpPG8jaroSZTug46bQRtsWAEFMeny1P/1IL4FPv+tQEg4H7ojlEY+XVxGZ409BfXubH/gpsQdDwno7opeWNG5UtDSydNW65IjECHnuzTMNxL866Ttf3VQO9FFV90hblnNzQ/VpCngkVE3df2Y4tsvxlAtPfY9cYHr3cAjIhOQqWHh7ec1GbV/p6htT29IUqgTIzWjD4F/V+pBa1dK/aJpiJu4dvCRXG1cYVKdIyXhhya0u17PjZ8f/BqVNGNz6ZwOIcJy1tAI422EiEjvJaDXkYTSTP3M31KBtacWGBbUAvu1m/a/mwV6Fm5Mbm7aGw7ssCOrgUCmtaH17NDVQ3GAYa+BJOe7yqfvXG04OncGYMvFUvdVrZgP4OHXpGvt2heS1Mb1wHt8VLpJjEKyDOJ/eum+KKaDTt/xfBWWlwQPyY0m4WUyCNIrvH2fNW1mXj7pyvsn8e7RN687/OEVXiQeo0CZ9CzVt+/YVbc2W8+wO9NOwIoQ75jV9V3S8QJ23DJlijHzQy+HyYkJLfErh5tGWwDiGzOngWlCOGOhc7x5NxO2U27GRjL//4ZExAjAirE3/h9mnR/ngI38dL43XEK3wbUyIpwo8a+hFsB95QAJ2QBBhgJc9aSjnqPNKTIDr9/5lH7HHj8Wnva/gWh42e44EpigCmwNOdjBTLI2YdHSFGlVEE5f8RoL/6zMOKyfuKRppX/OaUaOOgEOP/ZEiwAAAA==",
+  "Chola MS": "data:image/webp;base64,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",
+  "New India": "data:image/webp;base64,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",
+  "IFFCO Tokio": "data:image/webp;base64,UklGRggIAABXRUJQVlA4WAoAAAAQAAAASwAALwAAQUxQSD4CAAABDsm2bZu2c+65ttFes3UR27Zt27ZtJ7/gVFPKB1il9w35hItXME6sue/ae5+ImAB8F6td2QBGnQxNTXXdpCxENCVkpzZ15aF436SRaXqBOZTRhlyWBhs+5TRC0kNlVpMkbczSg42NuaxGaC3STEN+GwaHhmgpWOPRR03QiAxNUp6T1AaZe4ORlGEaQVPxkjKkka8wirpyvKY2kWyo40T1KRBxXi9QyxMixYWIi7BSmEqIBsG4BIn6Gog4CQjU8oRI1ZMgnmJMsOoaEvWcK7GAAqOLA1YYAM4tEB47AEJzhpZtYIAu0ZwBHicAEwCB5rGgAsH56rJhDeri8QMtddfKpxbEdgytVRcPWTSSojuGKDUjAYNqoiX23nfKphaEV/Jh6oJCZZ06e/yMmap/60TwS/HBAxxzS5Mlxj3D+q0Lj1mpLhlQY+w1JX4pULgpLg2LKkaPMK8duSNcPNPvVMlEK61DpvW+HigcP3yJOn1Q+Wqa27P/POPKseuYb3nV5b6u+aFkXN2TqLRVFPsVj0+H0Y4CIOLVoQM6PDA5DCVhqwLABbNNKVJQVOhWUFKhwgZweAEndEQFHFXlpAQ97qCXBcLMl9elnxz5vFN4uGAsL+Bz6UZFp0hUyiAPsZiXE/MHosRYSOoSeiQArnOJvB7VvYykX+dNHZ+jz9ahTV37y+XmV9p7tfmla1OUMUcO6MfbfOp0i2c4EZ0939YLlxljV45AU02daYQqO9Qih+2Uedmh6IYGBIz4RmWa8u0NVlA4IKQFAABwHACdASpMADAAPmEqkUakIiGhKrZqaIAMCWwAp0emR2e1/jd+IHWhxd4q0iNt7+y/5n2J/bNpAP4R/Xf9v/d/fj9AG8Lc91+znwhf5bzlbvC+y9Dz5t9n8n5+e8pf874M+5L928ln+G38DkX9O/x/2zeiNqBdQHnC8bR4B7AH42/x/5Vf4D6Rf3D/lf4/8pvZ99E+wd+qP/Q9aL2GejL+0pmO4izVX5wIC2KcSqAAqsXKlbooTOHkQSsTWDTPblthIFhfVaeJOgZ2GdydPLHxkg0Lz+I90afmgZ+Xn7i/+A6tGe6Mo4Pn4bbAIAD+zor3NZTrr5Q7Wl4jUhrRncUUqMBxY5lqih1Uy5Htp0PfFFRZZt4kJG/N8HjYtOMXeDPz31xJORDBf/rEGT4CDvKOtVOOjdIiIcOy/BqeISQFXWKVO4gxgm63/U5cX9hz7UaBWpucRz/WGGppeBza8hLX4Tj5CPGsFE/HAD7OXwGZnlBlN1JQyKuBbAqBhSMosQxI/nr5aORZj6zP6+5KBKiz93aXpD0FRFnoQDYogh5T35u73QZlyn4hIEVGVqyfU9iHafDQX8rsivC7k5wwrY9vpvpzSSEl1OGbljuwkmEUfs9crfR5oJjLRS6ncy6oVaCtyW2ZLlXQs7Op19clX0ARSiv+Ut/1bnlNdHB6OLXL4jrwbFQ+Gfzq1BV5/8hk/c/F3aLAMca8naZ3ZCrwIGOoyd5t4ddiyxfwJKUZEdZPU3J77lpJtOYkM+ugDDrxjGgaXlwILYdF8PmvHS/Y5fyqdKNScV2fOyFKjPDPyosVwyz7Y0GedlsF3lCiDc2ijs/0DfRghu5nHSouSs7cjhWbitlvUzRtq+c43nv/9/IPR4nUVrv0fDH104vZ0i0qlP1P67ydcT+A2vBs//+uguWiEiyb9j5bMwHyc1Uj5O3yv/ZLhqMzLeki9DgBuWHx6iF/Ba4vCERKaBZKfKbrq7yInnAU5t11d5D+zdBCmaqGGFodJ53bf/k4UeUt54cXu4gzA82VTh/O8rrJIjbgdr4/eFTRyZ2gcR4y4nG9mAmWRBZ+elqhwrlEk7RcX8zCysjZ9jM7ez42tQygK8U99yXmpv5QxSREwavvn/45vgJQgK7ly2jCgJiHGCIxqYuzCTDIShjd4gbT6cTP+RNwa7YJJKDbKP/K2j10vFsOsZTo0Pu3cY+Ymev+J3yAD0gYrRAC6AlA7Vi9wYVBXdNQX6ioH/n2UuVHzn55A/Yq+ODUaG7eDcTeZTFO7Tmlwg6TuoARFTs0jELgqKJFqF6uFNXXHX6famEmnKcMQZTD+y8v3b/TyEgO/4mHt3Rq4+KyPyY2NrLPwkPDljgY/Ws9cgMM/fhiisE2CwzsT+7yI+D20Emj9K7r0pHGt/weZBVMd0y2FdfkEpWzg8aEOG8F3Gsn3Gs4ARVcSU22Qogv//eCA8HmHV/5kxcyVV1uoi75vyeI8kKD9A9Q1BnC0etP94tPfGxyF/mwSmlgj+xmvlsaAb5veJBef5mXMa3dWovjRjssP0YdeJHzDV/D5Z4cayuwtYIdCMiv7SNepI03vC9NxRN5tPX2rBh7T+3a8oXco5tQbAb3J+liYrxGnxz/JgGmuDy4JlOVCoEvlAhdU5y7WLDk8+aoUWEFKbtJW5/paJg/N5OzjOcY1+uXASOG+BaNkIsn4Wu/9t1MYFD74EAwiyv4CFUWEvhDR3fbymsqDDioPV2i7XBY6gpwZpKlEQnfAyBSQ+94wnuwh6rNYZ39HboUlKvK6CgXmFWbfe7d+Cwfzxq8YzNe/9eLDfybdDn/QyCMaItufNZJSedIr9RxxnGXwzXe/5Ep1Y3CWWatXhbKuRWGpf6LZhcMAvIKBuuRtgv7pyAxHCz6tLDn+9M1ytqYX6DDJktkMGm5DVcPHEJFgAAA",
+  "Future Generali": "data:image/webp;base64,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",
+};
+
+/* Product marks — Public/Prod.Icon. Keys are the PRODUCTS master. Four products
+   have no mark on file (Trade Credit, E&O, Public Liability, Motor); they render
+   the layers glyph instead — the near-matches in the folder are different covers. */
+const PRODUCT_ICON = {
+  "Fire & Burglary": "data:image/webp;base64,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",
+  "Marine Cargo": "data:image/webp;base64,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",
+  "Professional Indemnity (PI)": "data:image/webp;base64,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",
+  "Commercial General Liability (CGL)": "data:image/webp;base64,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",
+  "Workmen Compensation (WC)": "data:image/webp;base64,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",
+  "Directors & Officers (D&O)": "data:image/webp;base64,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",
+  "Cyber": "data:image/webp;base64,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",
+  "Crime": "data:image/webp;base64,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",
+  "Engineering (CAR / EAR / CPM)": "data:image/webp;base64,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",
+  "Office / Package Policy": "data:image/webp;base64,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",
+};
+
+const SEED = [
+  { id: "END-1041", client: "Acme Logistics Pvt Ltd", short: "acmelogistics", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Address Change / Correction / Update", kind: "Non-Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 1.5, lastAction: 1.5, touched: false, legs: [{ s: "New / Unassigned", h: 0.2 }], missing: [] },
+  { id: "END-1043", client: "Vertex Pharma Ltd", short: "vertexpharma", policy: "FIRE/2026/00947", insurer: "Bajaj Allianz", insurerMail: "corp.endo@bajajallianz.co.in", product: "Fire & Burglary", type: "Name / Entity Change", kind: "Non-Financial", priority: "Critical", stage: "Under Verification", owner: "Nanditha P", inStage: 30, lastAction: 30, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }], missing: ["Certificate of Incorporation"], missingFields: ["Name"] },
+  { id: "END-1048", client: "Sunrise Chemicals Ltd", short: "sunrisechem", policy: "MAR/2026/00655", insurer: "IFFCO Tokio", insurerMail: "endo.desk@iffcotokio.co.in", product: "Marine Cargo", type: "Business Description Correction", kind: "Non-Financial", priority: "High", stage: "Submitted to Insurer", owner: "Nanditha P", inStage: 384, lastAction: 384, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Under Verification", h: 6 }], missing: [] },
+  { id: "END-1050", client: "Pinnacle Retail Ltd", short: "pinnacleretail", policy: "PI/2026/00092", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Professional Indemnity (PI)", type: "Contact Details Update (Email / Mobile)", kind: "Non-Financial", priority: "Medium", stage: "Closed", owner: "Nanditha P", inStage: 0, lastAction: 20, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Under Verification", h: 6 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 20 }, { s: "Copy Received", h: 0.6 }], missing: [] },
+  { id: "END-1062", client: "Vanguard Textiles Pvt Ltd", short: "vanguardtex", policy: "FIRE/2026/00922", insurer: "Chola MS", insurerMail: "servicing@cholams.murugappa.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "Critical", stage: "Awaiting Payment Link", owner: "Nanditha P", inStage: 22, lastAction: 22, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 0.6 }, { s: "Under Verification", h: 1.8 }, { s: "Submitted to Insurer", h: 18 }, { s: "Awaiting Quote", h: 20 }], missing: [],
+    quote: { base: 18800, gst: 3384, total: 22184, file: "quote_FIRE_2026_00922.pdf", version: 1, at: 1.4, source: "bot", confidence: 0.94 },
+    payMode: "Portal", childTicket: "PAY-1062", payLink: null },
+  { id: "END-1063", client: "Redwood Logistics Ltd", short: "redwoodlog", policy: "WC/2026/00744", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Workmen Compensation (WC)", type: "Employee / Headcount Addition", kind: "Financial", priority: "Medium", stage: "Awaiting Payment", owner: "Nanditha P", inStage: 20, lastAction: 20, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 0.9 }, { s: "Under Verification", h: 1.6 }, { s: "Submitted to Insurer", h: 19 }, { s: "Awaiting Quote", h: 16 }, { s: "Awaiting Payment Link", h: 0.8 }], missing: [],
+    quote: { base: 26400, gst: 4752, total: 31152, file: "quote_GMC_2026_00744.pdf", version: 2, at: 14.8, source: "bot", confidence: 0.91 },
+    payMode: "Email", childTicket: null, payLink: { ref: "PL-1063-1", at: 14, expiresIn: 48, source: "bot-email", by: "Mail bot", confidence: 0.95, regens: [] } },
+  { id: "END-1065", client: "Nimbus Engineering", short: "nimbuseng", policy: "OFF/2026/00390", insurer: "Bajaj Allianz", insurerMail: "corp.endo@bajajallianz.co.in", product: "Office / Package Policy", type: "Asset Addition", kind: "Financial", priority: "Medium", stage: "Awaiting Endorsement Copy", owner: "Nanditha P", inStage: 40, lastAction: 40, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 0.8 }, { s: "Under Verification", h: 1.4 }, { s: "Submitted to Insurer", h: 17 }, { s: "Awaiting Quote", h: 15 }, { s: "Awaiting Payment Link", h: 0.7 }, { s: "Awaiting Payment", h: 11 }], missing: [],
+    quote: { base: 15200, gst: 2736, total: 17936, file: "quote_GMC_2026_00390.pdf", version: 1, at: 18, source: "bot", confidence: 0.96 },
+    payMode: "Email", payLink: { ref: "PL-1065-1", at: 17, expiresIn: 48, source: "bot-email", by: "Mail bot", confidence: 0.97, regens: [] },
+    payment: { mode: "NEFT", utr: "UTR106588421903", date: "Fri 21 Aug, 3:40 PM", file: "payment_proof_nimbuseng.pdf", at: 6 } },
+];
+
+const SEED_MAILS = [
+  { id: "MB-2291", from: "accounts@vertexpharma.in", subject: "Re: Fwd: kindly update the address in our policy", received: 2, reason: "No policy number in mail or thread", guess: "Vertex Pharma Ltd - 3 active policies" },
+  { id: "MB-2284", from: "ravi.menon@gmail.com", subject: "Nominee update for my company policy", received: 19, reason: "Sender domain not linked to a client", guess: "No confident match" },
+];
+
+/* Clock — stage only ---------------------------------------------- */
+const fmtAgo = (h) => h < 1 ? `${Math.round(h * 60)}m ago` : h < 24 ? `${Math.round(h)}h ago` : (Math.round(h / 24) === 1 ? "yesterday" : `${Math.round(h / 24)}d ago`);
+/* The trail spells it out — it is a record, and a record reads in words. */
+const fmtAgoLong = (h) => {
+  const u = (v, w) => `${v} ${w}${v === 1 ? "" : "s"} Ago`;
+  if (h < 1) return u(Math.max(0, Math.round(h * 60)), "Min");
+  if (h < 24) return u(Math.round(h), "Hr");
+  return u(Math.round(h / 24), "Day");
+};
+const fmtDur = (h) => {
+  const a = Math.abs(h);
+  if (a < 1) return `${Math.max(1, Math.round(a * 60))}m`;
+  if (a < 24) { const hh = Math.floor(a), mm = Math.round((a - hh) * 60); return mm ? `${hh}h ${mm}m` : `${hh}h`; }
+  return `${Math.floor(a / 24)}d ${Math.round(a % 24)}h`;
+};
+const isOpen = (t) => t.stage !== "Closed" && !t.terminal;
+const isRouting = (t) => stageOf(t.stage).system === true;   // not yet on anyone's desk
+const ageOf = (t) => t.legs.reduce((a, l) => a + l.h, 0) + (isOpen(t) ? t.inStage : 0);
+
+function clock(t) {
+  const st = stageOf(t.stage);
+  if (!st || st.sla === null) return { state: "closed" };
+  const entered = new Date(NOW.getTime() - t.inStage * 3600000);   // inStage = calendar hours
+  const due = dueFrom(entered, st.sla, st.unit);
+  const span = due - entered, gone = NOW - entered;
+  const leftMs = due - NOW;
+  const used = Math.min(100, Math.max(0, (gone / span) * 100));
+  /* how much is left, expressed in the unit the SLA is written in */
+  const label = st.unit === "BH"
+    ? fmtBiz(leftMs >= 0 ? bizBetween(NOW, due) : bizBetween(due, NOW))
+    : fmtDur(Math.abs(leftMs) / 3600000);
+  const cancelAt = st.cancelAtCD ? new Date(entered.getTime() + st.cancelAtCD * 24 * 3600000) : null;
+  const base = { entered, due, used, sla: st.sla, unit: st.unit, label, cancelAt,
+    external: st.owner === "insurer" || st.owner === "customer" || st.owner === "operations",
+    left: leftMs / 3600000 };
+  if (t.manualReview) return { ...base, state: "held", heldSince: t.manualReview.at, heldCount: 1 };
+  return { ...base, state: leftMs < 0 ? "breached" : used >= 75 ? "atRisk" : "ok" };
+}
+
+const breached = (t) => isOpen(t) && clock(t).state === "breached";
+const atRisk = (t) => isOpen(t) && clock(t).state === "atRisk";
+const isFresh = (t) => isOpen(t) && !isRouting(t) && !t.touched;
+const isSilent = (t) => isOpen(t) && t.lastAction >= 360;
+/* PRD §5.1 — the displayed status is the stage, overlaid with sub-states.
+   Pending Customer Response and Manual Review both return the ticket to the
+   status it held before, so they are derived rather than stored as stages. */
+function statusOf(t) {
+  if (t.terminal) return { label: TERMINAL[t.terminal].label, tone: C.ink2, bg: C.lineSoft, terminal: true };
+  if (t.manualReview) return { label: "Manual review", tone: C.wait, bg: C.waitSoft, sub: true };
+  if ((t.queries || []).some((q) => q.status === "open")) return { label: ALL_STAGES["Awaiting Customer Information"].label, tone: C.wait, bg: C.waitSoft, sub: true };
+  const st = stageOf(t.stage);
+  /* `terminal` carries a sentence on every stage but Closed, so it is only a flag
+     when it is literally true. Reading it as truthy made every stage read Closed. */
+  const done = st.terminal === true;
+  return { label: st.label, tone: done ? C.teal : C.ink2, bg: done ? C.tealSoft : C.lineSoft, ind: st.ind };
+}
+
+/* Who is on this ticket so far. Grows as it moves: the owner from the start,
+   the insurer once it has been submitted, the client once they have been asked
+   something. Derived, never stored — FUNCTIONAL-SPEC §4. */
+function participantsOf(t) {
+  const who = [{ kind: "owner", name: t.owner }];
+  if (atOrPast(t, "Submitted to Insurer")) who.push({ kind: "insurer", name: t.insurer });
+  if ((t.queries || []).length) who.push({ kind: "client", name: t.client });
+  return who;
+}
+
+const openQueries = (t) => (t.queries || []).filter((q) => q.status === "open");
+const onHold = (t) => isOpen(t) && openQueries(t).length > 0;
+const blocked = (t) => isOpen(t) && (t.missing.length + (t.missingFields || []).length) > 0;
+
+/* Silence outranks a blown stage clock: 15 days of nothing is the worse
+   failure, and it is the one no dashboard usually surfaces. */
+function bucketOf(t) {
+  if (isSilent(t)) return 0;
+  if (breached(t)) return 1;
+  if (atRisk(t)) return 2;
+  if (isFresh(t)) return 3;
+  return 4;
+}
+function riskSort(a, b) {
+  const d = bucketOf(a) - bucketOf(b);
+  if (d) return d;
+  const p = PRIORITY[a.priority].rank - PRIORITY[b.priority].rank;
+  if (p) return p;
+  return (clock(a).left ?? 0) - (clock(b).left ?? 0);
+}
+
+/* Derived documents + mail trail ---------------------------------- */
+
+/* What the client actually supplied against each mandatory field.
+   Values live on the ticket; the field list comes from the type master. */
+/* Sample captured values, keyed by field name so every type is covered. */
+const FIELD_VALUES = {
+  "Bank name": "HDFC Bank Ltd, MG Road branch, Bengaluru",
+  "Complete address with PIN code": "Plot 42, Bommasandra Phase II, Bengaluru 560099",
+  "Location details": "Unit 3, Bommasandra Industrial Area",
+  "PIN code": "560099",
+  "Amount of sum insured to be enhanced": "₹1,50,00,000",
+  "Asset category / type": "Plant and machinery - CNC machining centre",
+  "Value of asset": "₹1,15,00,000",
+  "Email ID": "insurance@client.com",
+  "Contact number": "+91 80 4471 2100",
+  "Name": "Sterling Industries Limited",
+  "Policy Number": "as per the policy schedule",
+  "Reason for cancellation": "Asset disposed; cover no longer required",
+  "Exact business description to be added in the policy": "Manufacture and export of precision engineering components",
+  "Provide exact wording of the correction/changes to be added": "Insured name to read 'Pvt Ltd' in place of 'Private Limited'",
+  "Number of months": "3",
+  "Count of employees": "5",
+  "Monthly average salary": "₹42,000",
+  "Skilled and unskilled split": "3 skilled, 2 unskilled",
+  "Name, Age and monthly wages": "As per the attached annexure",
+  "Age and monthly wages": "As per the attached annexure",
+  "Certificate holder name": "Larsen & Toubro Limited",
+  "Certificate holder address": "Manapakkam, Chennai 600089",
+  "Exact wording of the coverage / clause to be added": "Waiver of subrogation in favour of the principal employer",
+  "Ownership %": "74%",
+  "Nature of work": "Software development services",
+  "Buyer details with address": "Meridian Traders, Ludhiana 141003",
+  "Buyer limits": "₹50,00,000",
+  "Draft number": "DRF/2026/00812",
+  "Mail confirmation from insurer to client": "Received 12 Aug 2026",
+  "Describe the change required": "Please refer to the attached request letter",
+};
+
+const kindOfType = (type) => TYPES[type]?.kind || "Non-Financial";
+
+function intakeOf(t) {
+  const fields = TYPES[t.type]?.fields || [];
+  const gaps = t.missingFields || [];
+  return fields.map((f) => ({ label: f, value: gaps.includes(f) ? null : (FIELD_VALUES[f] || "Provided by client") }));
+}
+const fieldGaps = (t) => (t.missingFields || []).length;
+const gapCount = (t) => t.missing.length + fieldGaps(t);
+
+/* The endorsement copy is the deliverable, so it is tracked in its own right —
+   how it arrived, and every time it went out to the client. */
+/* Reminder and escalation history, derived from elapsed working hours against
+   the schedule — no scheduler needed to demonstrate the behaviour. */
+function remindersOf(t) {
+  const st = stageOf(t.stage);
+  if (!st.followUp || !isOpen(t)) return { fired: [], next: null, cfg: null };
+  const c = clock(t);
+  const { every, unit, max } = st.followUp;
+  /* Follow-ups begin on breach and repeat at the configured cadence */
+  const overMs = NOW - c.due;
+  const stepMs = unit === "BH" ? every * 3600000 : unit === "WD" ? every * 24 * 3600000 : every * 3600000;
+  const n = overMs > 0 ? Math.min(max, Math.floor(overMs / stepMs) + 1) : 0;
+  const fired = Array.from({ length: n }, (_, i) => ({ n: i + 1, at: (overMs - i * stepMs) / 3600000 }));
+  const next = overMs > 0
+    ? (n < max ? (n * stepMs - overMs) / 3600000 : null)
+    : (c.due - NOW) / 3600000;
+  return { fired, next, max, cfg: st.followUp, paused: c.state === "held",
+    escalated: n >= max, ladder: st.escalate, to: st.escalate?.[0], terminal: st.terminal, cancelAt: c.cancelAt };
+}
+
+function endoOf(t) {
+  if (t.endo !== undefined) return t.endo;
+  if (!atOrPast(t, "Copy Received")) return null;
+  const wi = t.legs.findIndex((l) => l.s === "Submitted to Insurer");
+  const at = wi >= 0 ? t.legs.slice(wi + 1).reduce((a, l) => a + l.h, 0) + t.inStage : 2;
+  return { file: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`, size: "312 KB", source: "bot", at, by: t.insurer };
+}
+function sendsOf(t) {
+  if (t.sends?.length) return t.sends;
+  if (!isOpen(t) && endoOf(t)) return [{ mode: "manual", at: t.lastAction, by: t.owner }];
+  return [];
+}
+
+/* "Summarise email" — the bot reads the whole trail and returns a précis.
+   Built deterministically from the thread so the prototype needs no model call. */
+function summariseThread(t) {
+  const m = mailOf(t);
+  const out = m.filter((x) => x.dir === "out"), inn = m.filter((x) => x.dir === "in");
+  const qs = t.queries || [];
+  const e = endoOf(t);
+  const lines = [];
+  lines.push(`${m.length} messages over ${fmtDur(ageOf(t))} - ${out.length} sent, ${inn.length} received.`);
+  lines.push(`Request: ${t.type.toLowerCase()} on ${t.policy} for ${t.client}, raised by the client and routed to ${t.owner}.`);
+  if (qs.length) {
+    const openN = qs.filter((q) => q.status === "open").length;
+    lines.push(`${qs.length} clarification cycle${qs.length > 1 ? "s" : ""} with the client${openN ? `, ${openN} still open` : ", all answered in the portal"}${qs[0].target ? ` - most recently on ${qs[0].target.toLowerCase()}` : ""}.`);
+  }
+  if (atOrPast(t, "Submitted to Insurer")) {
+    lines.push(`Sent to ${t.insurer} at ${t.insurerMail}; acknowledged with a reference number.`);
+    if (t.query) lines.push(`${t.insurer} raised a clarification on the entity name against the policy schedule.`);
+  }
+  if (e) lines.push(`Endorsement copy ${e.source === "bot" ? "fetched from the insurer's mail by the bot" : "uploaded manually"} - ${e.file}.`);
+  if (sendsOf(t).length) lines.push("Copy delivered to the client.");
+  else if (e) lines.push("Copy not yet sent to the client.");
+  const st = statusOf(t);
+  lines.push(`Current status: ${st.label.toLowerCase()}.`);
+  return lines;
+}
+
+function docsOf(t) {
+  const req = TYPES[t.type]?.docs || [];
+  const start = ageOf(t);
+  const out = req.map((name, i) => {
+    const miss = t.missing.includes(name);
+    return {
+      name, kind: "Client submission",
+      file: `${name.toLowerCase().replace(/[^a-z]+/g, "_")}_${t.short}.pdf`,
+      status: miss ? "Awaiting" : atOrPast(t, "Under Verification") ? "Verified" : "Received",
+      by: "RM · Anil S", at: miss ? null : start - 0.5 - i * 0.2, size: `${(120 + i * 47) % 900 + 100} KB`,
+    };
+  });
+  for (const q of (t.queries || [])) {
+    for (const f of (q.reply?.files || [])) {
+      const i = out.findIndex((d) => d.name === f.name);
+      const row = { name: f.name, kind: "Client portal", file: f.file, status: "Received", by: "Client portal", at: q.reply.at, size: f.size };
+      if (i >= 0) out[i] = row; else out.push(row);
+    }
+  }
+  const e = endoOf(t);
+  if (e) out.push({ name: "Endorsement copy", kind: e.source === "bot" ? "Fetched by bot" : "Uploaded manually",
+    file: e.file, status: "Verified", by: e.by, at: e.at, size: e.size });
+  return out;
+}
+
+function mailOf(t) {
+  const start = ageOf(t);
+  let acc = 0; const at = {};
+  for (const l of t.legs) { at[l.s] = { in: start - acc, out: start - acc - l.h }; acc += l.h; }
+  if (isOpen(t)) at[t.stage] = { in: start - acc, out: 0 };
+  const m = [];
+  m.push({ dir: "in", who: `ops@${t.short}.com`, name: t.client, subject: `${t.type} - ${t.policy}`, at: start,
+    body: `Hi team,\n\nPlease process a ${t.type.toLowerCase()} on the above policy. Details and supporting documents are attached.\n\nRegards,\nOperations`, att: (TYPES[t.type]?.docs || []).length, link: "auto" });
+  if (at["Submitted to Insurer"]) {
+    m.push({ dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: t.insurerMail, subject: `Endorsement request - ${t.policy} - ${t.type}`, at: at["Submitted to Insurer"].in,
+      body: `Dear Team,\n\nRequest you to process the following endorsement:\n\nPolicy: ${t.policy}\nInsured: ${t.client}\nType: ${t.type}\n\nSupporting documents attached. Kindly share the endorsement copy at the earliest.\n\nRegards,\nServicing Desk`, att: (TYPES[t.type]?.docs || []).length, link: "auto" });
+    m.push({ dir: "in", who: t.insurerMail, name: t.insurer, subject: `RE: Endorsement request - ${t.policy}`, at: at["Submitted to Insurer"].in - 2,
+      body: `Dear Partner,\n\nYour request has been registered under reference ${t.insurer.slice(0, 3).toUpperCase()}/ENDO/${t.id.slice(4)}. Expected turnaround 3 working days.\n\nRegards,\nEndorsement Desk`, att: 0, link: "auto" });
+    if (t.query) {
+      m.push({ dir: "in", who: t.insurerMail, name: t.insurer, subject: `RE: Endorsement request - ${t.policy} - clarification needed`, at: at["Submitted to Insurer"].in - 30,
+        body: `Dear Partner,\n\nThe name on the incorporation certificate does not match the policy schedule. Kindly confirm which entity name should appear on the endorsement.\n\nRegards,\nEndorsement Desk`, att: 0, link: "manual" });
+    }
+    if (t.inStage > 200 && t.stage === "Submitted to Insurer") {
+      m.push({ dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: t.insurerMail, subject: `Reminder 2 - Endorsement request - ${t.policy}`, at: at["Submitted to Insurer"].in - 200,
+        body: `Dear Team,\n\nGentle reminder on the endorsement request below, pending since our mail of ${Math.round(at["Submitted to Insurer"].in / 24)} days ago. Kindly share status.\n\nRegards,\nServicing Desk`, att: 0, link: "auto" });
+    }
+  }
+  if (atOrPast(t, "Copy Received") && at["Submitted to Insurer"]) {
+    m.push({ dir: "in", who: t.insurerMail, name: t.insurer, subject: `Endorsement copy - ${t.policy}`, at: at["Submitted to Insurer"].out,
+      body: `Dear Partner,\n\nPlease find attached the endorsement copy for the above policy. No premium impact on this endorsement.\n\nRegards,\nEndorsement Desk`, att: 1, link: "auto" });
+  }
+  if (!isOpen(t)) {
+    m.push({ dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: `ops@${t.short}.com`, subject: `Endorsement copy - ${t.policy}`, at: t.lastAction,
+      body: `Dear Sir/Madam,\n\nYour requested ${t.type.toLowerCase()} has been processed. Endorsement copy attached for your records.\n\nRegards,\nServicing Desk`, att: 1, link: "auto" });
+  }
+  return [...m, ...(t.extraMail || [])].sort((a, b) => b.at - a.at);
+}
+
+
+/* ---- Financial flow state (PRD M5, M6, M7) ------------------------ *
+   Side effects applied when a ticket enters each financial status. */
+const money = (n) => `₹${n.toLocaleString("en-IN")}`;
+const NEFT = (t) => ({
+  bank: "HDFC Bank", branch: `${t.insurer} collections, Mumbai`,
+  account: `00${t.id.slice(4)}0${t.policy.length}4471902`, ifsc: "HDFC0000123",
+});
+
+const FIN_ON_ENTER = {
+  /* M5 FR-056/057/058 — bot reads the quote and extracts the premium */
+  "Awaiting Payment Link": (t) => {
+    const base = 8000 + (t.id.charCodeAt(6) % 9) * 2350;
+    const gst = Math.round(base * 0.18);
+    const quote = { base, gst, total: base + gst, file: `quote_${t.policy.replace(/\//g, "_")}.pdf`,
+      version: 1, at: 0, source: "bot", confidence: 0.94 };
+    const mode = INSURERS[t.insurer]?.payMode || "Email";
+    return { quote, payLink: null, payMode: mode,
+      childTicket: mode === "Portal" ? `PAY-${t.id.slice(4)}` : null,
+      __log: TRAIL.quoteIn(t, quote, mode).map((l) => ({ ...l, at: 0 })) };
+  },
+  /* Awaiting Payment is entered by the link arriving — see receiveLink */
+  /* M6 FR-083 / M7 — leaving Awaiting Payment banks the proof and clears the copy
+     slot for the insurer. Non-financial tickets reach here from the insurer's
+     acceptance instead, so they only get the reset. */
+  "Awaiting Endorsement Copy": (t) => (t.kind !== "Financial" ? { endo: null } : {
+    endo: null,
+    payment: { mode: t.payMode === "Portal" ? "Payment link" : "NEFT", utr: `UTR${t.id.slice(4)}8842190`,
+      date: fmtWhen(NOW), file: `payment_proof_${t.short}.pdf`, at: 0 },
+    __log: TRAIL.paidIn(t).map((l) => ({ ...l, at: 0 })),
+  }),
+};
+
+
+/* ── The audit trail — Figma 802:65143 ------------------------------ *
+ *  The trail is the ticket's story, so each sentence has exactly one
+ *  home. A seeded ticket replays what a driven one writes — same words,
+ *  same actor — and only the timestamps differ between them.
+ * ------------------------------------------------------------------ */
+
+/* "Under verification after 36m". The destination is named only when the ticket
+   lands somewhere terminal, because that is the whole point of that sentence. */
+const legLine = (from, h, to) =>
+  `${stageOf(from).label} after ${fmtDur(h)}${to && stageOf(to).terminal === true ? `: ${stageOf(to).label}` : ""}`;
+
+const trailLine = (text, by, note = null) => ({ text, by, note });
+
+const TRAIL = {
+  raised: (t) => trailLine("Ticket raised from client mail", "Auto-linked by policy number", `${t.type} · ${t.policy}`),
+  leg: (from, h, to, by) => trailLine(legLine(from, h, to), by),
+
+  /* M5 FR-056/057/058 — the bot reads the quote and the link is requested */
+  quoteIn: (t, quote, mode) => [
+    trailLine(`Quote received - premium ${money(quote.total)} extracted by bot`, "Mail bot",
+      `Confidence ${Math.round(quote.confidence * 100)}% · ${quote.file}`),
+    trailLine(mode === "Portal"
+      ? `Payment link child ticket PAY-${t.id.slice(4)} raised for Operations`
+      : `Payment link requested from ${t.insurer} by email`, "Workflow engine", `${mode} flow (BR-030)`),
+    trailLine("Premium withheld from the customer until the link is ready", "System", "BR-026 / FR-061"),
+  ],
+  /* M6 — the link lands from whichever source the insurer is configured for */
+  linkIn: (t, confidence) => [
+    t.payMode === "Portal"
+      ? trailLine(`Payment link uploaded by Operations on ${t.childTicket}`, "Operations", "Portal flow · child ticket closed")
+      : trailLine("Payment link extracted from insurer mail by bot and auto-filled", "Mail bot",
+          `Confidence ${Math.round((confidence || 0.95) * 100)}% · Email flow`),
+    trailLine("Premium and link now visible to the customer", "Notification engine", "Email + WhatsApp + BimaKendra (FR-071)"),
+  ],
+  /* M6 FR-083 / FR-085 / FR-086 — proof in, proof out, insurer confirms */
+  paidIn: (t) => [
+    trailLine("Payment proof uploaded by customer in BimaKendra", t.client, null),
+    trailLine("Payment proof emailed to insurer for verification", "Workflow engine", "FR-085 / FR-086"),
+    trailLine("Insurer confirmed payment - awaiting endorsement copy", "Mail bot", null),
+  ],
+  /* M7 FR-091/093 */
+  copyIn: (t, manual, file) => [
+    trailLine(manual ? "Endorsement copy uploaded manually" : "Endorsement copy fetched from insurer",
+      manual ? t.owner : "Mail bot", file || null),
+    trailLine("Awaiting QC before the copy goes to the client", "System", null),
+  ],
+  qc: (t) => trailLine("Endorsement copy passed QC", t.owner, "Checked against the request"),
+  sent: (t, resend, file) => trailLine(resend ? "Endorsement copy resent to client" : "Endorsement copy sent to client", t.owner, file || null),
+};
+
+/* What the desk logs when a ticket lands in a stage. Called by the seed replay
+   and, through TRAIL, written by the mutators that actually move it there. */
+function onEnterTrail(t, stage) {
+  const out = [];
+  if (stage === "Awaiting Payment Link" && t.quote) out.push(...TRAIL.quoteIn(t, t.quote, t.payMode || INSURERS[t.insurer]?.payMode || "Email"));
+  if (stage === "Awaiting Payment" && t.payLink) out.push(...TRAIL.linkIn(t, t.payLink.confidence));
+  if (stage === "Awaiting Endorsement Copy" && t.kind === "Financial") out.push(...TRAIL.paidIn(t));
+  if (stage === "Copy Received") out.push(...TRAIL.copyIn(t, false, endoOf(t)?.file));
+  if (stage === "Closed") out.push(TRAIL.qc(t), TRAIL.sent(t, false, endoOf(t)?.file));
+  return out;
+}
+
+/* Replay a seeded ticket's life from its own legs, so its trail reads like one
+   that was worked rather than one that was invented. `at` is hours ago, and it
+   falls out of the legs — which is why the story is honest about pace: the
+   stages we own close in minutes, the ones we wait on take days. */
+function seedTrail(t) {
+  const out = [];
+  let cursor = ageOf(t) + (isOpen(t) ? 0 : t.lastAction);
+  const push = (at, l) => out.push({ ...l, at: Math.max(0, at) });
+  push(cursor, TRAIL.raised(t));
+  (t.legs || []).forEach((l, i) => {
+    const to = (t.legs[i + 1] || {}).s || t.stage;
+    const endAt = cursor - l.h;
+    push(endAt, TRAIL.leg(l.s, l.h, to, t.owner));
+    onEnterTrail(t, to).forEach((x) => push(endAt, x));
+    cursor = endAt;
+  });
+  return out;
+}
+
+/* Who signed a line. A person, or one of the desk's system personas — the
+   product itself, Operations, the notification engine, or the client. */
+const PRODUCT_ACTOR = { name: "BimaEndorse", kind: "product" };
+const ACTORS = {
+  "Mail bot": PRODUCT_ACTOR, "System": PRODUCT_ACTOR, "Workflow engine": PRODUCT_ACTOR,
+  "Routing rule": PRODUCT_ACTOR, "Auto-linked by policy number": PRODUCT_ACTOR,
+  "Notification engine": { name: "Notifications", kind: "system" },
+  "Operations": { name: "Operations", kind: "system" },
+};
+const actorOf = (by, t) => ACTORS[by]
+  || (by === t.client ? { name: "Customer", kind: "system" }
+  : { name: by, kind: ROLES[by] ? "person" : "system" });
+
+const ActorMark = ({ a, size = 20 }) => a.kind === "person" && a.name === "Nanditha P"
+  ? <img src={AVATAR} alt="" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+  : <span className="flex shrink-0 items-center justify-center rounded-full"
+      style={{ width: size, height: size, background: a.kind === "product" ? C.figInk : C.brand, color: C.white,
+        fontFamily: SERIF, fontStyle: "italic", fontSize: Math.round(size * 0.65), lineHeight: 1 }}>{a.name[0]}</span>;
+
+const ActorName = ({ a }) => a.kind === "product"
+  ? <><span style={{ color: C.figInk }}>Bima</span><span style={{ color: C.accent }}>Endorse</span></>
+  : <span style={{ color: C.figInk }}>{a.name}</span>;
+
+/* Primitives ------------------------------------------------------ */
+const Eyebrow = ({ children, right }) => (
+  <div className="flex items-baseline justify-between mb-2">
+    <div className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.figTert }}>{children}</div>{right}
+  </div>
+);
+
+/* Page header — title, one line of orientation, then the ikkat rule. */
+function PageHead({ title, hint, right, ruleFirst }) {
+  return (
+    <div className="mb-5">
+      {ruleFirst && <div className="bk-rule mb-6" aria-hidden />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate" style={{ fontSize: 32, fontWeight: 600, lineHeight: 1.2, letterSpacing: "-0.8px", color: C.brand }}>{title}</h1>
+          {hint && <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{hint}</p>}
+        </div>
+        {right}
+      </div>
+      {!ruleFirst && <div className="bk-rule mt-4" aria-hidden />}
+    </div>
+  );
+}
+
+/* Table controls — Figma 888:88939. Filters live in the column headings; the
+   lifecycle slices are pills on the title row; sorting stands apart. */
+
+/* The desk clock, deliberately not the wall clock. NOW is pinned to 11:00 on the
+   next working day and every deadline on screen derives from it; a live clock
+   here would disagree with the SLA countdowns sitting inches below. */
+function Greeting({ right, user }) {
+  const h = NOW.getHours();
+  const word = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  /* The greeting is the user's, not the page's — see PORTAL_USERS. */
+  const hello = user?.greeting || `${word}, ${user?.first || "there"}.`;
+  const when = NOW.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long" }) +
+    " · " + NOW.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <img src={AVATAR} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 38, height: 38 }} />
+          <div>
+            <p className="bk-num mb-1 leading-none" style={{ fontSize: 12, fontWeight: 500, color: C.greet }}>{when}</p>
+            <h1 className="leading-none" style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.6px", color: C.brand }}>{hello}</h1>
+          </div>
+        </div>
+        {right}
+      </div>
+      <div className="bk-rule mt-4" aria-hidden />
+    </div>
+  );
+}
+const toneOf = (s) => s === "breached" ? C.breach : s === "atRisk" ? C.warn : s === "held" ? C.wait : C.teal;
+const Chip = ({ children, color, bg, mono }) => (
+  <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg ${mono ? "bk-num" : "font-medium"}`}
+    style={{ color: color || C.ink2, background: bg || C.subtle }}>{children}</span>
+);
+
+function KindTag({ kind, small }) {
+  const fin = kind === "Financial";
+  return (
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg font-semibold uppercase tracking-wide ${small ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"}`}
+      style={fin ? { background: C.warnSoft, color: C.warn } : { background: C.subtle, color: C.figHint }}>
+      {fin ? <><IndianRupee size={9} />Financial</> : "Non-financial"}
+    </span>
+  );
+}
+
+function PriorityTag({ p, big }) {
+  const c = PRIORITY[p], hot = c.rank <= 1;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-lg font-bold uppercase tracking-wider ${big ? "px-2 py-1 text-xs" : "px-2 py-0.5 text-xs"}`}
+      style={{ background: hot ? c.color : C.subtle, color: hot ? C.white : C.figHint }}>
+      {p === "Critical" && <AlertTriangle size={big ? 12 : 10} />}{p}
+    </span>
+  );
+}
+
+function SlaBar({ t }) {
+  const c = clock(t);
+  if (c.state === "closed") return null;
+  const st = stageOf(t.stage);
+  const over = c.state === "breached";
+  const tone = c.state === "held" ? C.wait : c.state === "atRisk" ? C.warn : C.teal;
+  const allowPct = over ? Math.max(8, 100 / (1 + Math.abs(c.left) / (c.due - c.entered) * 3600000)) : 100;
+  return (
+    <div>
+      <div className="relative h-2 rounded-sm overflow-hidden" style={{ background: C.lineSoft }}>
+        <div className="absolute inset-y-0 left-0" style={{ width: `${over ? allowPct : c.used}%`, background: tone, opacity: over ? 0.4 : 1 }} />
+        {over && <div className="absolute inset-y-0" style={{ left: `${allowPct}%`, right: 0, background: C.breach }} />}
+        <div className="absolute -top-0.5 -bottom-0.5 w-px" style={{ left: `${allowPct}%`, background: C.ink2 }} />
+      </div>
+      <div className="flex items-baseline justify-between mt-1 text-xs">
+        <span style={{ color: C.ink3 }}>{st.code} · {unitLabel(st.sla, st.unit)}</span>
+        {c.state === "held" ? <span style={{ color: C.wait }}>paused</span>
+          : over ? <span style={{ color: C.breach }}>+{c.label} over</span>
+          : <span style={{ color: tone }}>{c.label} left</span>}
+      </div>
+    </div>
+  );
+}
+
+function Metric({ icon: Icon, label, value, tone, onClick, note }) {
+  const c = { breach: [C.breach, C.breachSoft], warn: [C.warn, C.warnSoft], teal: [C.teal, C.tealSoft], wait: [C.wait, C.waitSoft] }[tone || "teal"];
+  return (
+    <button onClick={onClick} className="text-left p-4 rounded-xl border transition-colors hover:border-slate-400" style={{ background: C.white, borderColor: C.line }}>
+      <div className="flex items-center gap-2">
+        <Icon size={14} className="shrink-0" style={{ color: c[0] }} />
+        <span className="text-xs font-semibold uppercase tracking-wider leading-tight" style={{ color: C.figTert }}>{label}</span>
+      </div>
+      <div className="bk-num mt-2 leading-none" style={{ fontSize: 26, fontWeight: 600, color: c[0] }}>{value}</div>
+      <div className="text-xs mt-2 flex items-center gap-0.5" style={{ color: C.figTert }}>{note || "open list"} <ChevronRight size={11} /></div>
+    </button>
+  );
+}
+
+/* Indicator — Figma 900:96152. The dot and the hairline carry the meaning; the
+   label always stays basic ink. Tokens are the Peetal semantic set. */
+/* `fill` is the table/type treatment; `tint` is the status treatment — a status
+   pill always carries its tone as a wash (Figma 179:3672). */
+const IND = {
+  error:   { dot: "#F10000", line: "#FFABAB", fill: "rgba(241,0,0,0.08)",    tint: "rgba(241,0,0,0.08)" },
+  caution: { dot: "#FFCF0E", line: "#FFE890", fill: "rgba(255,207,14,0.12)", tint: "rgba(255,207,14,0.12)" },
+  info:    { dot: "#1869F4", line: "#B9D1FF", fill: "#FFFFFF",               tint: "rgba(24,105,244,0.08)" },
+  neutral: { dot: "#6F7378", line: "#D2D5D8", fill: "#FFFFFF",               tint: "rgba(169,172,177,0.16)" },
+  success: { dot: "#00B200", line: "#A9EAA2", fill: "#FFFFFF",               tint: "rgba(0,178,0,0.08)" },
+  brand:   { dot: "#4100CF", line: "#D1C6FF", fill: "#FFFFFF",               tint: "rgba(65,0,207,0.08)" },
+  muted:   { dot: "#A9ACB1", line: "#E6E8EA", fill: "#F4F5F6",               tint: "#F4F5F6" },
+};
+const PRIO_IND = { Critical: "error", High: "caution", Medium: "neutral", Low: "neutral" };
+const KIND_IND = { Financial: "success", "Non-Financial": "info", "Return-Premium": "caution" };
+/* One spelling of the classification. The master calls a refund "Return-Premium";
+   every surface shows "Refund", and it used to be remapped in three places. */
+/* A ticket raised in the app carries no `kind` at all — see OPEN-QUESTIONS —
+   so the fallback keeps the pill from rendering blank until that is decided. */
+const kindLabel = (k) => k === "Return-Premium" ? "Refund" : (k || "Non-Financial");
+/* Stage: awaiting an outside party reads info, terminal reads neutral, anything
+   still moving reads caution. Derived from statusOf so the meaning is unchanged. */
+const stageInd = (t) => {
+  if (t.terminal) return "muted";                                   /* withdrawn / cancelled */
+  if (t.manualReview) return "error";
+  if (openQueries(t).length) return ALL_STAGES["Awaiting Customer Information"].ind;
+  return stageOf(t.stage).ind || "neutral";
+};
+
+/* `outline` is the desk-row / priority-card variant: white fill, a 1px hairline
+   and the label in the tone itself, rather than the table's black-on-tint. */
+const IND_TEXT = { error: "#CF0000", caution: "#B38F0A", info: "#1868F4", success: "#007B00",
+  brand: "#4100CF", neutral: "#6F7378", muted: "#A9ACB1" };
+/* Three sizes, all from the design and all deliberate:
+     default — table row pill:        6px pad · r8  · 0.5px
+     big     — card status pill:      8px pad · r10 · 0.5px   (874:83812)
+     thick   — card type/priority:  3/6px pad · r8  · 1px     (874:83823) */
+const IND_SIZE = {
+  default: { padding: "6px", borderRadius: 8, bw: "0.5px" },
+  big:     { padding: "8px", borderRadius: 10, bw: "0.5px" },
+  thick:   { padding: "3px 6px", borderRadius: 8, bw: "1px" },
+};
+const Indicator = ({ label, ind, outline, big, thick, status, size = 14 }) => {
+  const k = IND[ind] || IND.neutral;
+  const s = IND_SIZE[big ? "big" : thick ? "thick" : "default"];
+  return (
+    <span title={label} className="inline-flex max-w-full items-center justify-center gap-1"
+      style={{ padding: s.padding, borderRadius: s.borderRadius,
+        ...(outline
+          ? { background: C.white, border: `1px solid ${k.line}` }
+          : { background: status ? k.tint : k.fill, border: `${s.bw} solid ${k.line}` }) }}>
+      <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, background: k.dot }} />
+      <span className="truncate" style={{ fontSize: size, fontWeight: 500, lineHeight: 1,
+        color: outline ? (IND_TEXT[ind] || IND_TEXT.neutral) : ind === "muted" ? C.figTert : "#1C1C1C" }}>{label}</span>
+    </span>
+  );
+};
+
+function StagePills({ counts, active, onPick }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {TABS.map((x) => {
+        const on = active === x.key;
+        return (
+          <button key={x.key} onClick={() => onPick(x.key)}
+            className="flex items-center whitespace-nowrap rounded-full border px-3 py-1.5 text-sm"
+            style={{ borderColor: on ? C.brand : C.line, color: on ? C.brand : C.figHint, background: C.white, fontWeight: 500 }}>
+            <span className="mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: on ? C.brand : C.figTert }} />
+            {x.label}<span className="bk-num">({counts[x.key]})</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Action list item — Figma 900:97172. px-8 py-12, r8, 16/500, selected on brandBg. */
+const MenuOpt = ({ label, on, onClick }) => (
+  <button onClick={onClick} className="bk-opt flex w-full items-center justify-between gap-6 rounded-lg px-2 py-3 text-left"
+    style={{ fontSize: 16, fontWeight: 500, color: C.figHint, background: on ? C.brandBg : "transparent", lineHeight: 1 }}>
+    <span className="truncate">{label}</span>
+    <CheckCircle2 size={16} className="shrink-0" fill={on ? "#1F9D6B" : C.white} color={on ? C.white : C.figPlaceholder} />
+  </button>
+);
+
+const MenuCard = ({ children, right }) => (
+  <div className="scroll-slim absolute top-full z-30 mt-3 max-h-80 overflow-y-auto rounded-2xl border px-2 py-3"
+    style={{ [right ? "right" : "left"]: 0, minWidth: 240, background: C.white, borderColor: "#DFE0E2",
+      boxShadow: "0 2px 16px rgba(169,172,177,0.24)" }}>{children}</div>
+);
+
+/* A filterable column heading. Empty selection means All. */
+function HeaderFilter({ id, label, options, selected, setSelected, openKey, setOpenKey }) {
+  const open = openKey === id;
+  const allOn = selected.size === 0;
+  const toggle = (v) => {
+    const next = new Set(selected);
+    next.has(v) ? next.delete(v) : next.add(v);
+    setSelected(next);
+  };
+  return (
+    <div className="relative flex min-w-0 items-center gap-1" data-menu>
+      <button onClick={() => setOpenKey(open ? null : id)} className="flex min-w-0 items-center gap-1" title={`Filter by ${label.toLowerCase()}`}>
+        <span className="flex shrink-0 items-center justify-center border"
+          style={{ width: 16, height: 16, borderRadius: 5, background: C.white, borderColor: C.subtle, color: C.figHint }}>
+          <ChevronDown size={11} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        </span>
+        <span className="truncate" style={{ fontSize: 14, fontWeight: 600, color: "#1C1C1C" }}>{label}</span>
+      </button>
+      {!allOn && (
+        <span className="bk-num shrink-0 rounded-full px-1.5 text-xs font-semibold" style={{ background: C.brandBg, color: C.brand }}>{selected.size}</span>
+      )}
+      {open && (
+        <MenuCard>
+          <MenuOpt label="All" on={allOn} onClick={() => setSelected(new Set())} />
+          {options.map((o) => <MenuOpt key={o.value} label={o.label} on={selected.has(o.value)} onClick={() => toggle(o.value)} />)}
+        </MenuCard>
+      )}
+    </div>
+  );
+}
+
+/* Sort — Figma 900:97172, rendered to its stated properties: 187px wide, a
+   0.5px brand underline, label at 16/500 in brand, then chevron · divider ·
+   sort bars. Open swaps the chevron for a cross. */
+function SortControl({ sort, setSort, openKey, setOpenKey }) {
+  const open = openKey === "sort";
+  return (
+    <div className="relative" data-menu style={{ minWidth: 187 }}>
+      <button onClick={() => setOpenKey(open ? null : "sort")}
+        className="flex w-full items-center gap-1 p-3"
+        style={{ background: open ? "rgba(65,0,207,0.02)" : C.white, borderBottom: `1px solid ${C.brand}` }}>
+        <span className="flex-1 whitespace-nowrap text-left" style={{ fontSize: 16, fontWeight: 500, color: C.brand, lineHeight: 1 }}>
+          Sort by: {SORTS[sort].label}
+        </span>
+        <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+          {open ? <X size={16} /> : <ChevronDown size={16} />}
+          <span style={{ width: 1, height: 16, background: C.line }} />
+          {/* lucide 0.469 has no list-sort-descending; this is its nearest glyph */}
+          <ArrowDownWideNarrow size={16} style={{ color: C.figInk }} />
+        </span>
+      </button>
+      {open && (
+        <MenuCard right>
+          {["priority", "urgency", "oldest", "newest"].map((k) => (
+            <MenuOpt key={k} label={SORTS[k].label} on={sort === k} onClick={() => { setSort(k); setOpenKey(null); }} />
+          ))}
+        </MenuCard>
+      )}
+    </div>
+  );
+}
+
+function Pager({ page, pages, setPage }) {
+  const btn = (on) => ({ width: 20, height: 20, background: on ? C.white : C.subtle,
+    border: `1px solid ${C.line}`, color: on ? C.figHint : C.figPlaceholder, cursor: on ? "pointer" : "not-allowed" });
+  return (
+    <div className="flex items-center justify-end gap-2 px-1 text-xs" style={{ color: C.figTert }}>
+      <span className="bk-num">Page {page + 1} of {pages}</span>
+      <button disabled={page === 0} onClick={() => setPage(page - 1)}
+        className="flex items-center justify-center rounded-md" style={btn(page > 0)}><ChevronLeft size={12} /></button>
+      <button disabled={page >= pages - 1} onClick={() => setPage(page + 1)}
+        className="flex items-center justify-center rounded-md" style={btn(page < pages - 1)}><ChevronRight size={12} /></button>
+    </div>
+  );
+}
+
+/* Queue cards, in the shape of the reference layout:
+   channel icon · title · requester · meta line · assignee */
+const SOURCES = [
+  { icon: MailOpen, color: "#2E9E5B", label: "Email" },
+  { icon: Mail, color: "#6B7B84", label: "Email" },
+  { icon: Globe, color: "#2E7D9E", label: "Client portal" },
+  { icon: Phone, color: "#8A6D3B", label: "Phone" },
+  { icon: MessageSquare, color: "#3B7ACF", label: "RM relay" },
+];
+const srcOf = (t) => SOURCES[t.id.charCodeAt(t.id.length - 1) % SOURCES.length];
+const initials = (n) => n.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
+function TicketCard({ t, onOpen, mode, i = 0 }) {
+  const S = srcOf(t), Icon = S.icon;
+  const hot = PRIORITY[t.priority].rank <= 1;
+  const mailCount = mailOf(t).length;
+  return (
+    <button onClick={() => onOpen(t.id)} className="bk-item w-full text-left px-4 py-3 flex gap-3 border-b hover:bg-slate-50"
+      style={{ ...stagger(i), borderColor: C.lineSoft }}>
+      <Icon size={17} className="shrink-0 mt-0.5" style={{ color: S.color }} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="bk-num text-sm" style={{ color: C.ink2 }}>{t.id}</span>
+          <KindTag kind={t.kind} />
+        </div>
+        <div className="text-base leading-snug" style={{ color: C.ink }}>{t.type}</div>
+        <div className="text-sm mt-1 truncate" style={{ color: C.link }}>{t.client}</div>
+        <div className="mt-2"><SlaCell t={t} stacked /></div>
+        <div className="flex items-center gap-1.5 mt-1.5 text-xs flex-wrap" style={{ color: C.figTert }}>
+          <span>{statusOf(t).label}</span>
+          {hot && <><span>·</span><span className="font-semibold uppercase tracking-wide" style={{ color: PRIORITY[t.priority].color }}>{t.priority}</span></>}
+          <span>·</span>
+          <span className="flex items-center gap-0.5"><MessageSquare size={11} />{mailCount}</span>
+          {blocked(t) && <><span>·</span><span className="flex items-center gap-0.5" style={{ color: C.warn }}><FileClock size={11} />{gapCount(t)} pending</span></>}
+          {mode === "team" && <><span>·</span><span>{t.owner}</span></>}
+        </div>
+      </div>
+      <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold"
+        style={{ background: C.subtle, color: C.figHint }}>{initials(t.owner)}</div>
+    </button>
+  );
+}
+
+function Column({ title, tone, list, onOpen, mode, empty }) {
+  return (
+    <section className="rounded-2xl border flex flex-col shrink-0 overflow-hidden"
+      style={{ background: C.white, borderColor: C.line, width: 366, maxHeight: 560 }}>
+      <header className="px-4 py-3 border-b shrink-0 flex items-baseline gap-1.5" style={{ borderColor: C.lineSoft }}>
+        <span className="text-sm font-semibold" style={{ color: tone || C.figInk }}>{title}</span>
+        <span className="bk-num text-sm" style={{ color: C.figTert }}>({list.length})</span>
+      </header>
+      <div className="scroll-slim overflow-y-auto">
+        {list.length ? list.map((t, i) => <TicketCard key={t.id} t={t} i={i} onOpen={onOpen} mode={mode} />) : <Empty>{empty}</Empty>}
+      </div>
+    </section>
+  );
+}
+
+function Collapsible({ title, count, hint, badge, children, action }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ background: C.white, borderColor: C.line }}>
+      <div className="px-3 py-2.5 flex items-center gap-2 border-b" style={{ borderColor: open ? C.lineSoft : "transparent", background: C.canvas }}>
+        <button onClick={() => setOpen(!open)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+          <ChevronDown size={14} style={{ color: C.ink3, transform: open ? "none" : "rotate(-90deg)", transition: "transform .15s" }} />
+          <span className="text-sm font-semibold" style={{ color: C.ink }}>
+            {title} {count !== undefined && <span className="bk-num font-normal" style={{ color: C.ink3 }}>({count})</span>}
+          </span>
+          {badge}
+          {!open && hint && <span className="text-xs truncate hidden sm:inline" style={{ color: C.ink3 }}>· {hint}</span>}
+        </button>
+        {open && action}
+      </div>
+      {open && children}
+    </section>
+  );
+}
+
+function Panel({ title, count, hint, children, action }) {
+  return (
+    <section className="rounded-xl border overflow-hidden" style={{ background: C.white, borderColor: C.line }}>
+      <header className="px-3.5 py-3 flex items-center justify-between gap-2 border-b" style={{ borderColor: C.lineSoft, background: C.canvas }}>
+        <div>
+          <div className="text-sm font-semibold" style={{ color: C.ink }}>
+            {title} {count !== undefined && <span className="bk-num font-normal" style={{ color: C.ink3 }}>({count})</span>}
+          </div>
+          {hint && <div className="text-xs mt-0.5" style={{ color: C.ink3 }}>{hint}</div>}
+        </div>{action}
+      </header>{children}
+    </section>
+  );
+}
+const Empty = ({ children }) => <div className="px-3 py-8 text-center text-sm" style={{ color: C.figTert }}>{children}</div>;
+
+/* Home — Figma 874:83640. Two blocks: Your Desk counts what is waiting and
+   links into a pre-set My Tickets; Priority Cases pages the hot ones three at a
+   time. Home reads and links; it never mutates a ticket. */
+
+const DESK_ARROW = { background: "#FFFFFF", border: "0.5px solid #E6E8EA", borderRadius: 10 };
+
+function DeskCard({ count, pills, tint, onOpen }) {
+  return (
+    <button onClick={onOpen} className="flex w-full items-end gap-3 rounded-xl border text-left"
+      style={{ borderColor: C.subtle, borderWidth: "0.5px", padding: 12.5,
+        backgroundImage: `linear-gradient(59.34deg, ${C.white} 49.85%, ${tint} 99.918%)` }}>
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+        <span className="bk-num leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
+          {count} {count === 1 ? "Ticket" : "Tickets"} in
+        </span>
+        <span className="flex flex-wrap items-center gap-2">
+          {pills.map((p) => <Indicator key={p.label} label={p.label} ind={p.ind} outline={p.outline} />)}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center justify-center px-3.5 py-2.5" style={DESK_ARROW}>
+        <ArrowRight size={12} style={{ color: C.figInk }} />
+      </span>
+    </button>
+  );
+}
+
+function DeskRow({ count, label, ind, onOpen }) {
+  return (
+    <button onClick={onOpen} className="flex w-full items-center gap-2 rounded-xl border px-4 py-3 text-left"
+      style={{ borderColor: C.subtle, background: C.white }}>
+      <span className="bk-num shrink-0 leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
+        {count} {count === 1 ? "Ticket" : "Tickets"} in
+      </span>
+      <Indicator label={label} ind={ind} outline />
+      <span className="flex flex-1 justify-end"><ChevronRight size={14} style={{ color: C.figHint }} /></span>
+    </button>
+  );
+}
+
+/* The people on a ticket, stacked. Only Nanditha and Umesh have photographs;
+   everyone else is an initials mark. */
+/* One tint per role, so the stack reads without a legend. */
+const MARK_BG = { owner: C.brand200, insurer: "#DDE8FF", client: "#D4F5CF" };
+const MARK_FG = { owner: C.brand, insurer: "#1458D2", client: "#007B00" };
+
+/* A participant mark. Initials are set in the display face, italic. */
+const Mark = ({ kind, name, size = 20, ring = true, style, title }) => (
+  <span title={title === null ? undefined : title || `${name} · ${kind}`}
+    className="flex shrink-0 items-center justify-center overflow-hidden rounded-full"
+    style={{ width: size, height: size, background: MARK_BG[kind] || C.subtle, color: MARK_FG[kind] || C.brand,
+      border: ring ? `1.5px solid ${C.white}` : undefined,
+      fontFamily: SERIF, fontStyle: "italic", fontSize: Math.round(size * 0.8), lineHeight: 1, ...style }}>
+    {/* Only Nanditha has a photograph. Reassign the ticket and the mark must
+       change with it, not keep wearing her face. */}
+    {kind === "owner" && name === "Nanditha P"
+      ? <img src={AVATAR} alt="" className="h-full w-full rounded-full object-cover" />
+      : initials(name).slice(0, 1)}
+  </span>
+);
+
+/* Peetal tooltip 87:23267 - recessed ground, 8/4 padding, r8, arrow beneath.
+   The stack sits at the right edge of its row, so the body grows leftward and
+   the arrow is scrubbed to land on the mark - the same trick the frame uses. */
+const Tip = ({ children }) => (
+  <span className="pointer-events-none absolute flex flex-col items-end"
+    style={{ bottom: "calc(100% + 3px)", right: -6, zIndex: 50 }}>
+    <span className="whitespace-nowrap" style={{ background: C.subtle, borderRadius: 8, padding: "4px 8px",
+      fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{children}</span>
+    <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
+      borderRight: "6px solid transparent", borderTop: `7px solid ${C.subtle}` }} />
+  </span>
+);
+
+/* Hovering one mark isolates it: the rest fall to 10% and a tooltip above names
+   the one under the cursor. Figma 968:119943. */
+function Participants({ t, size = 20 }) {
+  const who = participantsOf(t);
+  const [over, setOver] = useState(-1);
+  return (
+    <span className="flex shrink-0 items-center" onMouseLeave={() => setOver(-1)}>
+      {who.map((p, i) => (
+        <span key={p.kind} className="relative flex" onMouseEnter={() => setOver(i)}
+          style={{ marginLeft: i ? -6 : 0, zIndex: over === i ? who.length + 1 : who.length - i }}>
+          <Mark kind={p.kind} name={p.name} size={size} title={null}
+            style={{ opacity: over >= 0 && over !== i ? 0.1 : 1,
+              boxShadow: over === i ? "0 0 4px rgba(65,0,207,0.25)" : undefined,
+              transition: "opacity .15s ease-out" }} />
+          {over === i && <Tip>{p.name}</Tip>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+const PRIO_PER_PAGE = 3;
+
+function PriorityCases({ list, openTicket }) {
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(list.length / PRIO_PER_PAGE));
+  const at = Math.min(page, pages - 1);
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Priority Cases</h2>
+        {list.length > PRIO_PER_PAGE && <Pager page={at} pages={pages} setPage={setPage} />}
+      </div>
+      {/* the first three slide out of the container's width as the next page comes in */}
+      <div className="overflow-hidden">
+        <div className="flex" style={{ width: `${pages * 100}%`,
+          transform: `translateX(-${at * (100 / pages)}%)`, transition: "transform .35s cubic-bezier(.22,1,.36,1)" }}>
+          {Array.from({ length: pages }, (_, p) => (
+            <div key={p} className="grid gap-4 md:grid-cols-3" style={{ width: `${100 / pages}%`, paddingRight: 2 }}>
+              {list.slice(p * PRIO_PER_PAGE, p * PRIO_PER_PAGE + PRIO_PER_PAGE).map((t, i) => {
+                const st = statusOf(t), c = clock(t), over = c.state === "breached";
+                return (
+                  <div key={t.id} className="bk-item flex flex-col gap-4 border p-4"
+                    style={{ ...stagger(i), borderColor: C.subtle, borderRadius: 16,
+                      background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 50%)` }}>
+                    <div>
+                      <div className="mb-4 flex justify-end">
+                        <Indicator status label={st.label} ind={stageInd(t)} big />
+                      </div>
+                      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{t.id}</div>
+                      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+                        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
+                        <span className="truncate">{t.client}</span>
+                      </div>
+                      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.type}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-1">
+                        <Indicator thick label={kindLabel(t.kind)}
+                          ind={KIND_IND[t.kind]} />
+                        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
+                      </div>
+                      <div className="mt-4 flex items-end gap-4">
+                        <span className="flex min-w-0 flex-1 items-start gap-1">
+                          <Clock size={14} className="mt-px shrink-0" style={{ color: C.figHint }} />
+                          <span className="min-w-0" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
+                            <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : toneOf(c.state) }}>
+                              {c.state === "held" ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
+                            </span>
+                            <span className="bk-num" style={{ color: C.figHint }}>
+                              {` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}`}
+                            </span>
+                          </span>
+                        </span>
+                        <Participants t={t} />
+                      </div>
+                    </div>
+                    <button onClick={() => openTicket(t.id)}
+                      className="mt-auto flex w-full items-center justify-between border"
+                      style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 10, background: C.white,
+                        padding: "10px 14px", fontSize: 12, fontWeight: 600, color: C.figInk }}>
+                      Take Action <ArrowRight size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Home({ tickets, scope, setScope, go, openTicket, user }) {
+  const mine = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
+  const open = mine.filter(isOpen);
+  const hotQ = open.filter((t) => PRIORITY[t.priority].rank <= 1).sort((a, b) => PRIORITY[a.priority].rank - PRIORITY[b.priority].rank || riskSort(a, b));
+  const silentQ = open.filter((t) => bucketOf(t) === 0).sort(riskSort);
+  const breachQ = open.filter((t) => bucketOf(t) === 1).sort(riskSort);
+  const riskQ = open.filter((t) => bucketOf(t) === 2).sort(riskSort);
+  const freshQ = open.filter((t) => bucketOf(t) === 3).sort(riskSort);
+
+  return (
+    <div className="space-y-6">
+      <Greeting user={user} right={
+        <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
+          {["mine", "team"].map((s) => (
+            <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
+              style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
+          ))}
+        </div>
+      } />
+
+      <div>
+        <h2 className="mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            <DeskCard count={hotQ.length} tint="#FFECEC"
+              pills={[{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }]}
+              onOpen={() => go("list", "open", { prio: "hot" })} />
+            <DeskCard count={silentQ.length} tint="#FFF9E6"
+              pills={[{ label: "Pending Action", ind: "caution", outline: true }]}
+              onOpen={() => go("list", "attention", { slice: "silent" })} />
+          </div>
+          {/* the three queues, collapsed to a glance — same buckets as before */}
+          <div className="flex flex-col gap-2">
+            <DeskRow count={breachQ.length} label="Overdue" ind="error"
+              onOpen={() => go("list", "open", { slice: "qOverdue" })} />
+            <DeskRow count={riskQ.length} label="Due Today" ind="brand"
+              onOpen={() => go("list", "open", { slice: "qDueToday" })} />
+            <DeskRow count={freshQ.length} label="Freshly Assigned" ind="success"
+              onOpen={() => go("list", "open", { slice: "qFresh" })} />
+          </div>
+        </div>
+      </div>
+
+      <div className="bk-rule" aria-hidden />
+
+      {hotQ.length
+        ? <PriorityCases list={hotQ} openTicket={openTicket} />
+        : <Empty>Nothing Critical or High on your desk.</Empty>}
+    </div>
+  );
+}
+
+const PAGE_SIZE = 10;
+
+const TABS = [
+  { key: "attention", label: "Needs Attention", test: (t) => isOpen(t) && bucketOf(t) <= 2 },
+  { key: "open", label: "All Open", test: isOpen },
+  { key: "closed", label: "Closed & Terminal", test: (t) => !isOpen(t) },
+  { key: "recent", label: "Recently Worked", test: () => true },
+];
+
+const SORTS = {
+  urgency: { label: "Urgency", fn: riskSort },
+  priority: { label: "Priority", fn: (a, b) => PRIORITY[a.priority].rank - PRIORITY[b.priority].rank || riskSort(a, b) },
+  oldest: { label: "Oldest First", fn: (a, b) => ageOf(b) - ageOf(a) },
+  newest: { label: "Newest First", fn: (a, b) => ageOf(a) - ageOf(b) },
+  touched: { label: "Last worked", fn: (a, b) => a.lastAction - b.lastAction },
+};
+
+const SLICES = {
+  all: { label: "Everything", fn: () => true },
+  breached: { label: "Overdue only", fn: breached },
+  risk: { label: "Due today only", fn: atRisk },
+  silent: { label: "Pending 15d+ only", fn: isSilent },
+  blocked: { label: "Intake gaps only", fn: blocked },
+  held: { label: "Awaiting client only", fn: onHold },
+  /* Queue slices — the three collapsed rows on Home. They mirror bucketOf, which
+     is a mutually exclusive cascade (silent outranks breached), so a row's count
+     always equals what clicking it opens. Not due-date slices, so `queue: true`
+     keeps them out of the Stage due menu. */
+  qOverdue: { label: "Overdue queue", queue: true, fn: (t) => bucketOf(t) === 1 },
+  qDueToday: { label: "Due today queue", queue: true, fn: (t) => bucketOf(t) === 2 },
+  qFresh: { label: "Freshly assigned", queue: true, fn: (t) => bucketOf(t) === 3 },
+};
+
+/* Tab: Working hours and holidays — the stage clock only runs inside these
+   hours, so a ticket raised 6 PM Saturday is not late by Monday morning. */
+const BIZ = {
+  days: [1, 2, 3, 4, 5],             // Mon–Fri (PRD §8.1)
+  startH: 10, endH: 19,              // 10:00–19:00 → 9 working hours/day
+  // Tab: Working hours and holidays — Keka 2026 list
+  holidays: ["2026-01-01", "2026-01-14", "2026-01-26", "2026-03-04", "2026-03-31",
+             "2026-05-28", "2026-09-14", "2026-10-02", "2026-10-20", "2026-11-09", "2026-12-25"],
+};
+const DAY_LEN = BIZ.endH - BIZ.startH;
+const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const isWorkday = (d) => BIZ.days.includes(d.getDay()) && !BIZ.holidays.includes(keyOf(d));
+const atH = (d, h) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(h), Math.round((h % 1) * 60), 0, 0);
+
+/* Working hours between two instants */
+function bizBetween(a, b) {
+  if (b <= a) return 0;
+  let total = 0, cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+  for (let i = 0; i < 400 && cur <= b; i++) {
+    if (isWorkday(cur)) {
+      const s = atH(cur, BIZ.startH), e = atH(cur, BIZ.endH);
+      const from = a > s ? a : s, to = b < e ? b : e;
+      if (to > from) total += (to - from) / 3600000;
+    }
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+  }
+  return total;
+}
+/* The instant reached after adding N working hours */
+function addBiz(from, hours) {
+  let left = hours, cur = new Date(from);
+  for (let i = 0; i < 400; i++) {
+    if (isWorkday(cur)) {
+      const s = atH(cur, BIZ.startH), e = atH(cur, BIZ.endH);
+      const pos = cur > s ? cur : s;
+      if (pos < e) {
+        const avail = (e - pos) / 3600000;
+        if (left <= avail) return new Date(pos.getTime() + left * 3600000);
+        left -= avail;
+      }
+    }
+    cur = atH(new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1), BIZ.startH);
+  }
+  return cur;
+}
+
+/* WD — "firing at the same clock time on the next working day" */
+function addWD(from, days) {
+  let left = days, cur = new Date(from);
+  for (let i = 0; i < 400 && left > 0; i++) {
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1, cur.getHours(), cur.getMinutes());
+    if (isWorkday(cur)) left -= 1;
+  }
+  return cur;
+}
+
+/* The instant N working hours before a given one */
+function subBiz(from, hours) {
+  let left = hours, cur = new Date(from);
+  for (let i = 0; i < 400; i++) {
+    if (isWorkday(cur)) {
+      const s = atH(cur, BIZ.startH), e = atH(cur, BIZ.endH);
+      const pos = cur < e ? cur : e;
+      if (pos > s) {
+        const avail = (pos - s) / 3600000;
+        if (left <= avail) return new Date(pos.getTime() - left * 3600000);
+        left -= avail;
+      }
+    }
+    cur = atH(new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() - 1), BIZ.endH);
+  }
+  return cur;
+}
+
+/* Fixed demo clock: 11:00 on the next working day, so the prototype reads the
+   same whenever it is opened. Production would use the live time. */
+const NOW = (() => {
+  let d = new Date();
+  for (let i = 0; i < 10 && !isWorkday(d); i++) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  return atH(d, 11);
+})();
+const dueAt = (h) => new Date(NOW.getTime() + h * 3600000);
+function fmtWhen(d) {
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  const diff = Math.round((day(d) - day(NOW)) / 86400000);
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  const label = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday"
+    : d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+  return `${label} ${time}`;
+}
+/* Working hours read badly past a day — 27h means nothing, 3 working days does */
+const fmtBiz = (h) => {
+  const a = Math.abs(h);
+  if (a < 1) return `${Math.max(1, Math.round(a * 60))}m`;   // under an hour reads in minutes
+  if (a < DAY_LEN) {
+    const hh = Math.floor(a), mm = Math.round((a - hh) * 60);
+    return mm ? `${hh}h ${mm}m` : `${hh}h`;
+  }
+  const d = Math.floor(a / DAY_LEN), r = Math.round(a % DAY_LEN);
+  return r ? `${d}wd ${r}h` : `${d}wd`;
+};
+
+/* The SLA cell: state pill first, absolute deadline second.
+   A countdown says how long; a deadline says when — the second is what you
+   can actually plan a day around. Proportion moves to the ticket detail. */
+function SlaCell({ t, stacked }) {
+  const c = clock(t);
+  if (c.state === "closed") return <span className="text-xs" style={{ color: C.teal }}>closed</span>;
+  const over = c.state === "breached", held = c.state === "held";
+  const tone = toneOf(c.state);
+  const soft = over ? C.breachSoft : c.state === "atRisk" ? C.warnSoft : held ? C.waitSoft : C.tealSoft;
+  return (
+    <div title={held
+      ? "Clock paused - item in manual review"
+      : `${stageOf(t.stage).code} · ${unitLabel(c.sla, c.unit)} allowed in ${stageOf(t.stage).label}`}>
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bk-num text-xs font-medium"
+        style={{ background: soft, color: tone }}>
+        {held ? <PauseCircle size={10} /> : over ? <AlertTriangle size={10} /> : <Clock size={10} />}
+        {held ? `on hold · ${c.label} left` : over ? `${c.label} over` : `${c.label} left`}
+      </span>
+      {stacked && (
+        <div className="text-xs mt-1 truncate" style={{ color: C.figTert }}>
+          {held ? `awaiting client · asked ${fmtAgo(c.heldSince)}` : `${over ? "was due " : "due "}${fmtWhen(c.due)}${c.external ? " · insurer" : ""}`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Column widths, verbatim from Figma 900:96152. Stage due takes the remainder —
+   it holds the longest string, Client the shortest. They shrink rather than drop,
+   so every column stays on screen at laptop widths. */
+const COLS = {
+  id:     { w: 100 },
+  prio:   { w: 100 },
+  stage:  { w: 200 },
+  kind:   { w: 120, pr: 8 },
+  client: { w: 200, pl: 8 },
+  req:    { w: 250 },
+};
+const cell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0,
+  paddingLeft: c.pl, paddingRight: c.pr, ...extra });
+const dueCell = { flex: "1 1 0", minWidth: 130 };
+
+/* Stage due, as one line: the countdown in its tone, the deadline behind it.
+   All five clock states still render — ok, at risk, breached, held, closed. */
+function StageDue({ t }) {
+  const c = clock(t);
+  if (c.state === "closed") return <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Closed</span>;
+  const over = c.state === "breached", held = c.state === "held";
+  const tone = toneOf(c.state);
+  return (
+    <p className="leading-snug" style={{ fontSize: 14, fontWeight: 500 }}>
+      <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : tone }}>
+        {held ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
+      </span>
+      <span className="bk-num" style={{ color: C.figHint }}>
+        {held ? ` Asked ${fmtAgo(c.heldSince)}` : ` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}${c.external ? " · insurer" : ""}`}
+      </span>
+    </p>
+  );
+}
+
+function TableRow({ t, onOpen, showOwner, i = 0, last }) {
+  return (
+    <div>
+      <button onClick={() => onOpen(t.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50"
+        style={stagger(i)}>
+        <span className="bk-num truncate" style={cell(COLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>{t.id}</span>
+        <span className="flex" style={cell(COLS.prio)}><Indicator label={t.priority} ind={PRIO_IND[t.priority]} /></span>
+        <span className="flex" style={cell(COLS.stage)}><Indicator status label={statusOf(t).label} ind={stageInd(t)} /></span>
+        <span className="flex" style={cell(COLS.kind)}>
+          <Indicator label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+        </span>
+        <span className="truncate" style={cell(COLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{t.client}</span>
+        <span className="flex" style={cell(COLS.req)}><Indicator label={t.type} ind="neutral" /></span>
+        <span style={dueCell}><StageDue t={t} /></span>
+        {showOwner && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+            style={{ background: C.subtle, color: C.figHint }} title={t.owner}>{initials(t.owner)}</span>
+        )}
+      </button>
+      {!last && <div style={{ height: 1, background: C.lineSoft }} />}
+    </div>
+  );
+}
+
+function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset }) {
+  const [sort, setSort] = useState("urgency");
+  /* Empty set means All — the same thing the old "All priorities" option meant. */
+  const [prio, setPrio] = useState(() =>
+    preset?.prio === "hot" ? new Set(["Critical", "High"]) : preset?.prio ? new Set([preset.prio]) : new Set());
+  const [stage, setStage] = useState(new Set());
+  const [slice, setSlice] = useState(() =>
+    preset?.slice && preset.slice !== "all" ? new Set([preset.slice]) : new Set());
+  const [kind, setKind] = useState(() => (preset?.kind ? new Set([preset.kind]) : new Set()));
+  const [req, setReq] = useState(new Set());
+  const [win, setWin] = useState(168);
+  const [page, setPage] = useState(0);
+  const [openKey, setOpenKey] = useState(null);
+
+  const tab = TABS.find((x) => x.key === filter) ? filter : "attention";
+
+  /* One menu open at a time; click-away and Escape close it. */
+  useEffect(() => {
+    if (!openKey) return;
+    const away = (e) => { if (!e.target.closest("[data-menu]")) setOpenKey(null); };
+    const esc = (e) => { if (e.key === "Escape") setOpenKey(null); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [openKey]);
+
+  /* A filter change must not leave you stranded on a page that no longer exists. */
+  useEffect(() => { setPage(0); }, [tab, prio, stage, slice, kind, req, win]);
+
+  const scoped = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
+  const counts = Object.fromEntries(TABS.map((x) => [x.key, scoped.filter(x.key === "recent" ? (t) => t.lastAction <= win : x.test).length]));
+
+  const has = (s, v) => s.size === 0 || s.has(v);
+  const rows = scoped
+    .filter(tab === "recent" ? (t) => t.lastAction <= win : TABS.find((x) => x.key === tab).test)
+    .filter((t) => slice.size === 0 || [...slice].some((k) => SLICES[k].fn(t)))
+    .filter((t) => has(kind, t.kind))
+    .filter((t) => has(prio, t.priority))
+    .filter((t) => has(stage, statusOf(t).label))
+    .filter((t) => has(req, t.type))
+    .sort(SORTS[tab === "recent" ? "touched" : sort].fn);
+
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const at = Math.min(page, pages - 1);
+  const view = rows.slice(at * PAGE_SIZE, at * PAGE_SIZE + PAGE_SIZE);
+  const filtered = prio.size || stage.size || slice.size || kind.size || req.size;
+
+  const PRIO_OPTS = Object.keys(PRIORITY).map((p) => ({ value: p, label: p }));
+  const KIND_OPTS = [
+    { value: "Financial", label: "Financial" },
+    { value: "Non-Financial", label: "Non-Financial" },
+    { value: "Return-Premium", label: "Refund" },
+  ];
+  /* Filter on what the column actually prints, so the derived statuses — awaiting
+     customer information, manual review, the terminal ones — are selectable. */
+  const STAGE_OPTS = [...new Set(scoped.map((t) => statusOf(t).label))].sort().map((v) => ({ value: v, label: v }));
+  const SLICE_OPTS = Object.entries(SLICES).filter(([k, v]) => k !== "all" && !v.queue)
+    .map(([k, v]) => ({ value: k, label: v.label.replace(" only", "") }));
+  /* Only the endorsement types actually present — nothing invented. */
+  const REQ_OPTS = [...new Set(scoped.map((t) => t.type))].sort().map((v) => ({ value: v, label: v }));
+
+  const hf = { openKey, setOpenKey };
+  const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
+
+  return (
+    <div className="space-y-4">
+      <PageHead title="My Tickets"
+        right={<StagePills counts={counts} active={tab} onPick={setFilter} />} />
+
+      <div className="flex justify-end">
+        {tab === "recent" ? (
+          <div className="flex items-center gap-2 p-3" style={{ minWidth: 187, borderBottom: `1px solid ${C.brand}` }}>
+            <select value={win} onChange={(e) => setWin(+e.target.value)}
+              className="w-full bg-transparent outline-none" style={{ fontSize: 16, fontWeight: 500, color: C.brand }}>
+              <option value={24}>Worked: Yesterday</option><option value={168}>Worked: Last week</option><option value={720}>Worked: Last month</option>
+            </select>
+          </div>
+        ) : (
+          <SortControl sort={sort} setSort={setSort} {...hf} />
+        )}
+      </div>
+
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
+          <span style={cell(COLS.id, head)}>ID</span>
+          <span style={cell(COLS.prio)}>
+            <HeaderFilter id="prio" label="Priority" options={PRIO_OPTS} selected={prio} setSelected={setPrio} {...hf} />
+          </span>
+          <span style={cell(COLS.stage)}>
+            <HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} />
+          </span>
+          <span style={cell(COLS.kind)}>
+            <HeaderFilter id="kind" label="Type" options={KIND_OPTS} selected={kind} setSelected={setKind} {...hf} />
+          </span>
+          <span className="truncate" style={cell(COLS.client, head)}>Client</span>
+          <span style={cell(COLS.req)}>
+            <HeaderFilter id="req" label="Request" options={REQ_OPTS} selected={req} setSelected={setReq} {...hf} />
+          </span>
+          <span style={dueCell}>
+            <HeaderFilter id="slice" label="Stage due" options={SLICE_OPTS} selected={slice} setSelected={setSlice} {...hf} />
+          </span>
+          {scope === "team" && <span className="w-8 shrink-0" />}
+        </div>
+        {view.length
+          ? view.map((t, i) => <TableRow key={t.id} t={t} i={i} last={i === view.length - 1} onOpen={openTicket} showOwner={scope === "team"} />)
+          : <Empty>No tickets match these filters.</Empty>}
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs" style={{ color: C.figTert }}>
+        <span>
+          <span className="bk-num">{rows.length}</span> of <span className="bk-num">{scoped.length}</span> tickets
+          {filtered ? " · filters applied" : ""}
+        </span>
+        {rows.length > PAGE_SIZE && <Pager page={at} pages={pages} setPage={setPage} />}
+      </div>
+    </div>
+  );
+}
+
+/* Modals ----------------------------------------------------------- *
+ *  Chrome only. Portalled to <body>: the shell card carries a squircle
+ *  mask, which establishes a stacking context and would otherwise clip a
+ *  fixed overlay. V001.1 solves this the same way, with createPortal.
+ *  The portal also supplies the font, which does not cross into <body>.
+ * ------------------------------------------------------------------ */
+const Overlay = ({ children, style, ...rest }) => createPortal(
+  <div style={{ fontFamily: FONT, ...style }} {...rest}>{children}</div>, document.body);
+
+/* One shell for all five: title row with a close cross (900:100703), a
+   scrolling body, and a footer strip on the sunken ground. */
+function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children, footer, width = 520, z = 40 }) {
+  return (
+    <Overlay className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: z, background: "rgba(28,29,31,0.45)" }} onClick={onClose}>
+      <div className="w-full overflow-hidden" style={{ maxWidth: width, background: C.white, borderRadius: 16 }}
+        onClick={(e) => e.stopPropagation()}>
+        <header className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${C.subtle}` }}>
+          {Icon && <Icon size={18} style={{ color: tint }} className="shrink-0" />}
+          <div className="min-w-0 flex-1">
+            <div style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>{title}</div>
+            {sub && <div className="truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{sub}</div>}
+          </div>
+          <button onClick={onClose} title="Close" className="flex shrink-0 items-center justify-center"
+            style={{ width: 28, height: 28, borderRadius: 8, color: C.figInk }}><X size={18} /></button>
+        </header>
+        <div className="scroll-slim overflow-y-auto p-5" style={{ maxHeight: "68vh" }}>{children}</div>
+        {footer && (
+          <footer className="flex flex-wrap items-center justify-end gap-2 px-5 py-4"
+            style={{ background: C.canvas, borderTop: `1px solid ${C.subtle}` }}>{footer}</footer>
+        )}
+      </div>
+    </Overlay>
+  );
+}
+
+const FIELD = { background: C.white, border: `0.5px solid ${C.line}`, borderRadius: 10,
+  padding: "10px 12px", fontSize: 14, fontWeight: 500, color: C.figInk, outline: "none" };
+const FieldLabel = ({ children }) => (
+  <span className="block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{children}</span>
+);
+/* A tinted note that says what the action will do before it is taken. */
+const Note = ({ icon: Icon, tone, bg, children }) => (
+  <div className="flex items-start gap-2" style={{ background: bg, borderRadius: 10, padding: "10px 12px",
+    fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: tone }}>
+    <Icon size={13} className="mt-0.5 shrink-0" />
+    <span>{children}</span>
+  </div>
+);
+const Cancel = ({ onClick }) => (
+  <button onClick={onClick} style={{ padding: "12px 20px", fontSize: 14, fontWeight: 600, color: C.figHint }}>Cancel</button>
+);
+
+/* Document preview. The design for this screen is not drawn yet — it keeps the
+   page treatment so the sheet reads as the file it stands for. */
+function DocViewer({ doc, onClose }) {
+  if (!doc) return null;
+  return (
+    <ModalShell z={30} width={720} icon={FileText} title={doc.name} sub={`${doc.file} · ${doc.size} · ${doc.by}`}
+      onClose={onClose}
+      footer={<>
+        <span className="mr-auto" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{doc.kind}</span>
+        <Btn variant="outline" icon={Download} title="Download is not wired up in this prototype">Download</Btn>
+      </>}>
+      <div style={{ background: C.canvas, borderRadius: 12, padding: 24 }}>
+        <div className="mx-auto" style={{ background: C.white, borderRadius: 10, padding: 24, maxWidth: 460, minHeight: 300,
+          boxShadow: "0 1px 3px rgba(28,29,31,0.08)" }}>
+          <div className="mb-4" style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: C.figTert }}>{doc.kind}</div>
+          <div className="mb-4" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{doc.name}</div>
+          {[100, 92, 96, 60, 88, 94, 70, 84, 40].map((w, i) => (
+            <div key={i} className="mb-2" style={{ height: 8, width: `${w}%`, borderRadius: 4, background: C.canvas }} />
+          ))}
+          <div className="mt-6 flex justify-between pt-3" style={{ borderTop: `1px solid ${C.subtle}`, fontSize: 12, fontWeight: 500, color: C.figTert }}>
+            <span>Preview placeholder</span><span className="bk-num">page 1 of 2</span>
+          </div>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* Raise a query with the client. Three entry points, one composer:
+   a fresh question, a challenge on a captured field, or a challenge on a
+   document already shared. */
+function QueryModal({ ctx, t, onSend, onClose }) {
+  const suggested = {
+    field: `The ${String(ctx.target).toLowerCase()} you shared does not match the policy schedule. Could you confirm the correct value?`,
+    doc: `The ${String(ctx.target).toLowerCase()} shared is not legible / appears incomplete. Could you re-share a clear copy?`,
+    missing: `We still need the ${String(ctx.target).toLowerCase()} to process this endorsement. Could you share it?`,
+    new: "",
+  }[ctx.kind];
+  const [text, setText] = useState(suggested);
+  const [docs, setDocs] = useState(ctx.kind === "doc" || ctx.kind === "missing" ? [ctx.target] : []);
+  const [extra, setExtra] = useState("");
+  const catalogue = [...new Set([...(TYPES[t.type]?.docs || []), ...t.missing])];
+  const toggle = (d) => setDocs((x) => x.includes(d) ? x.filter((y) => y !== d) : [...x, d]);
+  const title = { field: "Query a captured detail", doc: "Query a shared document", missing: "Request a missing item", new: "Ask the client a question" }[ctx.kind];
+
+  return (
+    <ModalShell icon={HelpCircle} tint={C.wait} title={title} sub={ctx.target ? `on “${ctx.target}”` : null} onClose={onClose}
+      footer={<>
+        <Cancel onClick={onClose} />
+        <Btn icon={Send} disabled={!text.trim()}
+          onClick={() => onSend({ ...ctx, text: text.trim(), docs: extra.trim() ? [...docs, extra.trim()] : docs })}>
+          Send to client
+        </Btn>
+      </>}>
+      <div className="space-y-4">
+        <label className="block">
+          <FieldLabel>Question to the client</FieldLabel>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3}
+            placeholder="What do you need from them?"
+            className="mt-1.5 w-full resize-none" style={FIELD} />
+        </label>
+        <div>
+          <FieldLabel>Documents to request</FieldLabel>
+          <div className="mt-1.5 space-y-1.5">
+            {catalogue.map((d) => (
+              <button key={d} onClick={() => toggle(d)} className="flex w-full items-center gap-2 text-left"
+                style={{ ...FIELD, borderColor: docs.includes(d) ? C.brand : C.line,
+                  background: docs.includes(d) ? C.brandBg : C.white }}>
+                {docs.includes(d) ? <Check size={14} strokeWidth={3} style={{ color: C.brand }} /> : <Paperclip size={14} style={{ color: C.figTert }} />}
+                <span className="truncate">{d}</span>
+              </button>
+            ))}
+            <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Other document - type to add"
+              className="w-full" style={FIELD} />
+          </div>
+        </div>
+        <Note icon={PauseCircle} tone={C.wait} bg={C.waitSoft}>
+          The client is notified by email with a portal link and answers inside the portal, against this query.
+          The stage clock holds until they respond, and the ticket stays visible under Awaiting client.
+        </Note>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* Logging receipt manually requires the copy itself — otherwise the stage moves
+   forward with nothing to send the client. */
+function UploadModal({ t, onConfirm, onClose }) {
+  const [file, setFile] = useState("");
+  const suggested = `endorsement_${t.policy.replace(/\//g, "_")}.pdf`;
+  return (
+    <ModalShell icon={FileCheck2} title="Upload endorsement copy" sub={`${t.policy} · ${t.insurer}`} onClose={onClose}
+      footer={<>
+        <Cancel onClick={onClose} />
+        <Btn disabled={!file} onClick={() => onConfirm(file)}>Log receipt</Btn>
+      </>}>
+      <div className="space-y-4">
+        <button onClick={() => setFile(suggested)}
+          className="flex w-full items-center justify-center gap-2"
+          style={{ padding: "28px 12px", borderRadius: 12, fontSize: 14, fontWeight: 500,
+            border: `2px dashed ${file ? C.brand : C.line}`,
+            color: file ? C.brand : C.figTert, background: file ? C.brandBg : C.white }}>
+          {file ? <><FileCheck2 size={16} /> {file}</> : <><Paperclip size={16} /> Choose the endorsement copy</>}
+        </button>
+        <Note icon={Send} tone={C.brand} bg={C.brandBg}>
+          On confirm the copy is attached to the ticket and queued for QC. Nothing is sent to the client until you send it.
+        </Note>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* Customer Withdrawn (M3 FR-036/037, BR-017) — terminal, and blocked until the
+   customer's withdrawal email is on file. */
+function WithdrawModal({ t, onConfirm, onClose }) {
+  const [file, setFile] = useState("");
+  const [reason, setReason] = useState("");
+  const ready = !!file && !!reason.trim();
+  return (
+    <ModalShell icon={XCircle} tint={C.semError} title="Mark customer withdrawn" sub={`${t.id} · ${t.client}`} onClose={onClose}
+      footer={<>
+        <Cancel onClick={onClose} />
+        <Btn tone={C.semError} disabled={!ready} onClick={() => onConfirm({ file, reason: reason.trim() })}>Mark withdrawn</Btn>
+      </>}>
+      <div className="space-y-4">
+        <label className="block">
+          <FieldLabel>Reason recorded on the ticket</FieldLabel>
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+            placeholder="What did the customer ask for?" className="mt-1.5 w-full resize-none" style={FIELD} />
+        </label>
+        <button onClick={() => setFile(`withdrawal_request_${t.short}.eml`)}
+          className="flex w-full items-center justify-center gap-2"
+          style={{ padding: "22px 12px", borderRadius: 12, fontSize: 14, fontWeight: 500,
+            border: `2px dashed ${file ? C.brand : C.line}`,
+            color: file ? C.brand : C.figTert, background: file ? C.brandBg : C.white }}>
+          {file ? <><FileCheck2 size={16} /> {file}</> : <><Paperclip size={16} /> Upload the customer's withdrawal email</>}
+        </button>
+        <Note icon={AlertTriangle} tone={C.semError} bg={C.breachSoft}>
+          Terminal status. Insurer communication stops, the ticket becomes read-only and cannot be reopened.
+        </Note>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* Reassignment (M2 FR-020/021, BR-008/010) — reason mandatory, SLA continues. */
+function ReassignModal({ t, onConfirm, onClose }) {
+  const [to, setTo] = useState("");
+  const [reason, setReason] = useState("");
+  const targets = Object.keys(ROLES).filter((r) => r !== t.owner && ROLES[r].role === "Servicing executive").concat([ESCALATION.serviceHead]);
+  return (
+    <ModalShell icon={User} title="Reassign ticket" sub={`currently ${t.owner}`} onClose={onClose}
+      footer={<>
+        <Cancel onClick={onClose} />
+        <Btn disabled={!to || !reason} onClick={() => onConfirm({ to, reason })}>Reassign</Btn>
+      </>}>
+      <div className="space-y-4">
+        <label className="block">
+          <FieldLabel>New owner</FieldLabel>
+          <select value={to} onChange={(e) => setTo(e.target.value)} className="mt-1.5 w-full bg-white" style={FIELD}>
+            <option value="">Select…</option>
+            {targets.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <FieldLabel>Reason (mandatory, audited)</FieldLabel>
+          <select value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1.5 w-full bg-white" style={FIELD}>
+            <option value="">Select…</option>
+            {["Out of office", "Urgent - owner unavailable", "Workload rebalancing", "Escalated to Service Head"].map((r) => <option key={r}>{r}</option>)}
+          </select>
+        </label>
+        <Note icon={Clock} tone={C.figHint} bg={C.canvas}>
+          The stage SLA continues from where it is - reassignment does not reset the clock.
+        </Note>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* ------------------------------------------------------------------ *
+ *  TICKET SCREEN — Figma 917:106239
+ *  Two panels. The left one is the clock and the record of who did what;
+ *  the right one is the work. Neither stores anything: every figure is
+ *  read off the ticket by the derived functions above.
+ * ------------------------------------------------------------------ */
+
+/* 10px metadata pill — Verified, v1, a filename, a stage owner. */
+const MiniTag = ({ children, tone, bg, line, title }) => (
+  <span title={title} className="inline-flex shrink-0 items-center whitespace-nowrap"
+    style={{ padding: "1px 4px", borderRadius: 4, fontSize: 10, fontWeight: 500, lineHeight: "14px",
+      color: tone || C.figHint, background: bg || C.canvas, border: `0.5px solid ${line || C.subtle}` }}>
+    {children}
+  </span>
+);
+
+/* Quiet control — View, Upload, Download. */
+const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
+  <button onClick={onClick} disabled={disabled} title={title}
+    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+    style={{ padding: "4px 8px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+      color: disabled ? C.figDisabled : tone || C.figInk,
+      background: disabled ? C.canvas : bg || C.canvas,
+      border: `0.5px solid ${disabled ? C.subtle : line || C.subtle}`,
+      cursor: disabled ? "not-allowed" : "pointer" }}>
+    {children}
+  </button>
+);
+
+const IconBtn = ({ icon: Icon, onClick, title, size = 16, tone, disabled }) => (
+  <button onClick={onClick} disabled={disabled} title={title} className="shrink-0"
+    style={{ color: disabled ? C.figDisabled : tone || C.figTert, cursor: disabled ? "not-allowed" : "pointer" }}>
+    <Icon size={size} />
+  </button>
+);
+
+/* The two button weights this screen uses: a filled brand action and its
+   outline twin. A blocked action keeps its place and states why on hover. */
+const Btn = ({ children, onClick, disabled, title, variant = "fill", tone = C.brand, icon: Icon, trailing, size = "lg" }) => {
+  const fill = variant === "fill";
+  const sm = size === "sm";
+  return (
+    <button onClick={onClick} disabled={disabled} title={title}
+      className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap"
+      style={{ padding: sm ? "10px 14px" : "12px 20px", borderRadius: sm ? 10 : 12,
+        fontSize: sm ? 12 : 14, fontWeight: 600,
+        background: disabled ? C.canvas : fill ? tone : C.white,
+        color: disabled ? C.figDisabled : fill ? C.white : tone,
+        border: `0.5px solid ${disabled ? C.subtle : tone}`,
+        cursor: disabled ? "not-allowed" : "pointer" }}>
+      {Icon && !trailing && <Icon size={12} className="shrink-0" />}
+      {children}
+      {Icon && trailing && <Icon size={12} className="shrink-0" />}
+    </button>
+  );
+};
+
+/* lucide `clock-fading` (ISC). Not in lucide-react 0.469, so the paths are
+   inlined rather than moving the whole icon package. */
+const ClockFading = ({ size = 14, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+    <path d="M12 2a10 10 0 0 1 7.38 16.75" />
+    <path d="M12 6v6l4 2" />
+    <path d="M2.5 8.875a10 10 0 0 0-.5 3" />
+    <path d="M2.83 16a10 10 0 0 0 2.43 3.4" />
+    <path d="M4.636 5.235a10 10 0 0 1 .891-.857" />
+    <path d="M8.644 21.42a10 10 0 0 0 7.631-.38" />
+  </svg>
+);
+
+/* Whose clock it is, as a person or a party rather than a role name — the same
+   vocabulary the audit trail signs its lines with. */
+const stageActor = (t, k) => {
+  const o = stageOf(k).owner;
+  return o === "insurer" ? t.insurer
+    : o === "customer" ? t.client
+    : o === "operations" ? "Operations"
+    : o === "system" ? "Workflow engine"
+    : t.owner;
+};
+const clockActor = (t) => stageActor(t, t.stage);
+
+const SectionTitle = ({ children, right }) => (
+  <div className="flex items-center justify-between gap-3">
+    <h3 style={{ fontSize: 18, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>{children}</h3>
+    {right}
+  </div>
+);
+
+/* A drawer: tinted icon, title, and a chevron that becomes a close cross once
+   open. Audit trail and Workflow Stages are the same object in two places. */
+function Drawer({ icon: Icon, tint = C.accent, title, open, setOpen, badge, children }) {
+  return (
+    <section className="w-full" style={{ background: C.white, border: `1px solid ${C.subtle}`, borderRadius: 12 }}>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2"
+        style={{ padding: "12px 16px", borderBottom: open ? `1px solid ${C.subtle}` : "none" }}>
+        <Icon size={14} style={{ color: tint }} className="shrink-0" />
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{title}</span>
+        {badge}
+        <span className="flex-1" />
+        {open ? <X size={14} style={{ color: C.figHint }} /> : <ChevronDown size={14} style={{ color: C.figHint }} />}
+      </button>
+      {open && children}
+    </section>
+  );
+}
+
+/* Stage marker — closed, running, not yet reached. */
+const StageCheck = ({ state }) => {
+  const box = { width: 18, height: 18, borderRadius: 6 };
+  if (state === "done") return (
+    <span className="flex shrink-0 items-center justify-center" style={{ ...box, background: C.brand }}>
+      <Check size={12} strokeWidth={3} color={C.white} />
+    </span>
+  );
+  if (state === "now") return (
+    <span className="flex shrink-0 items-center justify-center" style={{ ...box, background: C.brand600 }}>
+      <Minus size={12} strokeWidth={3} color={C.white} />
+    </span>
+  );
+  return <span className="block shrink-0" style={{ ...box, background: C.white, border: `1px solid ${C.brand400}` }} />;
+};
+
+/* Eleven statuses do not fit on a strip. Group them into the phases a person
+   actually thinks in, show where the ticket is, and keep the full stage-by-stage
+   detail one click away. A flow that never reaches Payment loses that phase. */
+const PHASES = [
+  { label: "Ticket Intake",  stages: ["New / Unassigned"] },
+  { label: "Verification",   stages: ["Under Verification"] },
+  { label: "Insurer",        stages: ["Submitted to Insurer", "Awaiting Quote"] },
+  { label: "Payment",        stages: ["Awaiting Payment Link", "Awaiting Payment"] },
+  { label: "Ticket Closure", stages: ["Awaiting Endorsement Copy", "Copy Received", "Closed"] },
+];
+
+/* A stage ran over if the leg it actually took exceeds a generous calendar
+   allowance for its SLA. Same conversion the strip has always used. */
+function overStage(t, k) {
+  const l = (t.legs || []).find((x) => x.s === k), sg = stageOf(k);
+  /* System routing (SLA-01, 1 min) is not on anyone's desk; a 12-min route is
+     not a servicing breach, so it never colours the phase bar. */
+  if (!l || sg.sla === null || sg.system) return false;
+  const cap = sg.unit === "BH" ? sg.sla * 2.7 : sg.unit === "WD" ? sg.sla * 24 : sg.unit === "CD" ? sg.sla : sg.sla / 60;
+  return l.h > cap;
+}
+
+const hereOf = (t) => Math.max(0, posOf(t) >= 0 ? posOf(t) : posOf(t, t.priorStage || "Under Verification"));
+const phasesOf = (t) => {
+  const seq = seqOf(t);
+  return PHASES.map((p) => ({ ...p, stages: p.stages.filter((k) => seq.includes(k)) })).filter((p) => p.stages.length);
+};
+
+function PhaseBar({ t }) {
+  const seq = seqOf(t), here = hereOf(t);
+  return (
+    <div className="flex gap-3">
+      {phasesOf(t).map((p) => {
+        const idxs = p.stages.map((k) => seq.indexOf(k));
+        const done = Math.max(...idxs) < here;
+        const current = idxs.some((i) => i === here);
+        const anyOver = p.stages.some((k) => overStage(t, k));
+        const fill = current ? ((here - Math.min(...idxs) + 1) / p.stages.length) * 100 : done ? 100 : 0;
+        const tone = anyOver ? IND.error.dot : current ? IND.caution.dot : IND.success.dot;
+        return (
+          <div key={p.label} className="min-w-0 flex-1">
+            <div style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${fill}%`, borderRadius: 999, background: tone }} />
+            </div>
+            <div className="mt-2 truncate" title={p.stages.map((k) => stageOf(k).label).join(" → ")}
+              style={{ fontSize: 14, fontWeight: current ? 600 : 500, color: current ? C.figInk : C.figHint }}>
+              {p.label}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Every stage of this ticket's flow, in order. Struck through once closed,
+   LIVE while it runs. Owner, SLA code and allowance sit on the row so the
+   countdown in the left panel is traceable to a rule. */
+function StageList({ t }) {
+  const seq = seqOf(t), here = hereOf(t);
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      {seq.map((k, i) => {
+        const sg = stageOf(k), leg = (t.legs || []).find((x) => x.s === k);
+        const done = i < here, now = i === here, over = overStage(t, k);
+        return (
+          <div key={k} className="flex items-stretch gap-3">
+            <span className="relative flex shrink-0 items-center justify-center"
+              style={{ width: 28, height: 40, borderRadius: 8, background: "transparent" }}>
+              <span className="flex items-center justify-center"
+                style={{ width: 28, height: 28, borderRadius: 8, background: now ? C.brandBg : C.canvas }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: now ? C.brand : C.figTert }} />
+              </span>
+              {i < seq.length - 1 && (
+                <span className="absolute" style={{ top: 34, bottom: -8, left: 13.5, width: 0, borderLeft: `1px dashed ${C.line}` }} />
+              )}
+            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-2"
+              style={{ padding: "10px 12px", borderRadius: 8,
+                background: done ? C.canvas : now ? C.brand200 : C.white,
+                border: `1px solid ${done || now ? "transparent" : C.subtle}` }}>
+              <span className="truncate" style={{ fontSize: 14, fontWeight: now ? 600 : 500,
+                color: over ? C.semError : done ? C.figHint : C.figInk,
+                textDecoration: done ? "line-through" : "none" }}>{sg.label}</span>
+              <span className="flex-1" />
+              {sg.owner && (() => {
+                const a = actorOf(stageActor(t, k), t);
+                return (
+                  <span className="flex shrink-0 items-center gap-1">
+                    <ActorMark a={a} size={16} />
+                    <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500 }}><ActorName a={a} /></span>
+                  </span>
+                );
+              })()}
+              <span className="bk-num whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+                {sg.sla !== null ? `${sg.code} · ${unitLabel(sg.sla, sg.unit)}` : "no clock"}
+              </span>
+              <span className="bk-num w-20 shrink-0 whitespace-nowrap text-right"
+                style={{ fontSize: 13, fontWeight: 500, color: over ? C.semError : now ? C.figInk : C.figHint }}>
+                {leg ? fmtDur(leg.h) : now && isOpen(t) ? `LIVE · ${fmtDur(t.inStage)}` : "-"}
+              </span>
+              <StageCheck state={done ? "done" : now ? "now" : "next"} />
+            </div>
+          </div>
+        );
+      })}
+      <p className="px-1 pt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+        The middle figure is the SLA in its own unit (BH / WD / CD / min); the right one is calendar time actually taken.
+        A dash means the ticket has not reached that stage.
+      </p>
+    </div>
+  );
+}
+
+/* The stage clock, in the unit its SLA is written in. Renders ok, at risk,
+   breached, held, and stages that carry no clock at all. */
+function SlaCard({ t }) {
+  const st = stageOf(t.stage), s = clock(t);
+  const tone = toneOf(s.state);
+  const held = s.state === "held" || onHold(t);
+  const noClock = st.sla === null || s.state === "closed";
+  const head = noClock ? (isTerminal(t) ? "Clock stopped" : "No clock on this stage")
+    : held ? "On hold"
+    : s.state === "breached" ? `${s.label} over` : `${s.label} left`;
+  return (
+    <div style={{ background: C.white, border: `0.5px solid ${C.line}`, borderRadius: 12, padding: "10.5px 16.5px" }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>SLA</span>
+        {st.code && (() => {
+          const a = actorOf(clockActor(t), t);
+          return (
+            <span className="flex items-center gap-1.5" title={`${st.code} · ${unitLabel(st.sla, st.unit)}`}>
+              <ActorMark a={a} />
+              <span style={{ fontSize: 12, fontWeight: 500 }}><ActorName a={a} /></span>
+            </span>
+          );
+        })()}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: noClock ? C.figHint : held ? C.wait : tone }}>{head}</div>
+      {!noClock && (
+        <>
+          <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 999, background: held ? C.wait : tone,
+              width: `${s.state === "breached" ? 100 : Math.max(2, s.used)}%`, opacity: held ? 0.5 : 1 }} />
+          </div>
+          <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
+            <span style={{ color: held ? C.wait : tone }}>{unitLabel(s.sla, s.unit)} total</span>
+            {` • ${fmtDur(Math.max(0, (NOW - s.entered) / 3600000))} elapsed`}
+          </p>
+          <div className="mt-2 flex items-start gap-1.5 py-1" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+            <span className="mt-0.5"><ClockFading size={14} color={C.figInk} /></span>
+            <span>
+              Started {fmtWhen(s.entered)}. {s.state === "breached" ? "Was due" : "Due"} {fmtWhen(s.due)}
+            </span>
+          </div>
+          {held && (
+            <div className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.wait }}>
+              <PauseCircle size={12} className="shrink-0" />
+              {t.manualReview ? "Paused for manual review" : "Paused while the client answers an open query"}
+            </div>
+          )}
+          {s.cancelAt && (
+            <div className="flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+              <AlertTriangle size={12} className="shrink-0" /> {st.terminal}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Three counters beside the clock. Each is derived from the ticket — the
+   prototype holds no bot-confidence figure for a non-financial endorsement,
+   so intake completeness takes that slot instead of an invented number. */
+function StatCard({ label, value, tone, icon: Icon, grow, title }) {
+  return (
+    <div className="min-w-0" title={title}
+      style={{ flex: grow ? "1 1 40%" : "1 1 0", minWidth: 132,
+        background: C.white, border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 17px" }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>{label}</div>
+          <div className="bk-num truncate" style={{ fontSize: 18, fontWeight: tone ? 600 : 500, lineHeight: 1.2, color: tone || C.figHint }}>{value}</div>
+        </div>
+        {Icon && <Icon size={16} className="shrink-0" style={{ color: C.figTert }} />}
+      </div>
+    </div>
+  );
+}
+
+/* Insurer round-trips: how many times this ticket has sat on an insurer clock.
+   Derived from the legs, never stored. Customer cycles are the query count. */
+const insurerCycles = (t) =>
+  (t.legs || []).filter((l) => stageOf(l.s).owner === "insurer").length +
+  (isOpen(t) && stageOf(t.stage).owner === "insurer" ? 1 : 0);
+
+/* Tabs sit above the panel and share its top edge. */
+function TabBar({ tabs, tab, setTab }) {
+  return (
+    /* Right-aligned when they fit; when they do not, `ml-auto` collapses to zero
+       and the row scrolls from the left, so the active tab is never hidden. */
+    <div className="scroll-slim flex min-w-0 overflow-x-auto px-3">
+      <div className="ml-auto flex items-center gap-1">
+      {tabs.map(([k, label, off]) => {
+        const on = tab === k;
+        return (
+          <button key={k} disabled={off} onClick={off ? undefined : () => setTab(k)}
+            title={off ? "Nothing to manage on a closed ticket" : undefined}
+            className="flex h-10 shrink-0 items-center justify-center whitespace-nowrap"
+            style={{ background: on ? "rgba(65,0,207,0.08)" : "transparent",
+              borderBottom: `2px solid ${on ? C.brand : "transparent"}`,
+              borderTopLeftRadius: 8, borderTopRightRadius: 8,
+              /* six tabs only appear on a financial ticket; give them room */
+              padding: tabs.length > 5 ? "0 8px" : "0 12px",
+              fontSize: 14, fontWeight: 500,
+              color: off ? C.figDisabled : on ? C.brand : C.greet,
+              cursor: off ? "not-allowed" : "pointer" }}>
+            {label}
+          </button>
+        );
+      })}
+      </div>
+    </div>
+  );
+}
+
+/* The work panel: a scrolling body between a fixed top edge and a footer
+   strip that carries this tab's actions. */
+function PanelCard({ children, footer }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      style={{ background: C.white, border: `1px solid ${C.brand200}`, borderRadius: 12 }}>
+      <div className="scroll-slim min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
+      {footer && (
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 p-3"
+          style={{ background: C.canvas, borderTop: `1px solid ${C.subtle}` }}>{footer}</div>
+      )}
+    </div>
+  );
+}
+
+/* One line of the story: what happened, its evidence beneath, then who signed
+   it and how long ago. Figma 802:65143. */
+function TrailRow({ h, t, last }) {
+  const a = actorOf(h.by, t);
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-4 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <span className="bk-mark shrink-0" style={{ marginTop: 7 }} aria-hidden />
+            <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, color: C.figInk }}>{h.text}</span>
+          </div>
+          {h.note && (
+            <div style={{ paddingLeft: 20, fontSize: 12, fontWeight: 500, lineHeight: 1.4, color: C.figTert }}>{h.note}</div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+          <ActorMark a={a} />
+          <span className="hidden sm:inline" style={{ fontSize: 13, fontWeight: 500 }}><ActorName a={a} /></span>
+          <span className="hidden sm:inline" style={{ fontSize: 13, color: C.figTert }}>·</span>
+          <span className="bk-num whitespace-nowrap" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{fmtAgoLong(h.at)}</span>
+        </div>
+      </div>
+      {!last && <div className="bk-trail" aria-hidden />}
+    </div>
+  );
+}
+
+/* Ticket — Figma 917:106239 ---------------------------------------- *
+ *  Header, an ikkat rule, then two panels. Left: the stage clock, three
+ *  counters and the audit trail. Right: five tabs of work over a footer
+ *  that carries that tab's actions. The next action also sits in the
+ *  header, so it is reachable from every tab.
+ * ------------------------------------------------------------------ */
+function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment }) {
+  const [tab, setTab] = useState("overview");
+  const [ask, setAsk] = useState(null);
+  const [upload, setUpload] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
+  const [editType, setEditType] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [note, setNote] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [stagesOpen, setStagesOpen] = useState(false);
+  const [trailOpen, setTrailOpen] = useState(false);
+  const st = stageOf(t.stage);
+  const s = clock(t);
+  const docs = useMemo(() => docsOf(t), [t]);
+  const intake = useMemo(() => intakeOf(t), [t]);
+  const queries = t.queries || [];
+  const endo = endoOf(t);
+  const sends = sendsOf(t);
+  const qcDone = !!t.qcPassed;
+  const openQ = queries.filter((q) => q.status === "open");
+  const canAsk = t.stage === "Under Verification" && !readOnly(t);
+  const rem = remindersOf(t);
+  const canEditType = !atOrPast(t, "Submitted to Insurer") && !readOnly(t);
+  const payLeft = t.payLink ? t.payLink.expiresIn - (t.stage === "Awaiting Payment" ? t.inStage : 0) : 0;
+  const payExpired = !!t.payLink && payLeft <= 0;
+  const thread = useMemo(() => mailOf(t), [t]);
+  const pendingDocs = docs.filter((d) => d.status === "Awaiting").length;
+  const pendingAll = pendingDocs + fieldGaps(t);
+
+  /* Mandatory intake, straight off the type master — the figure the Intake
+     counter reports and the thing that blocks submission to the insurer. */
+  const mandTotal = (TYPES[t.type]?.fields || []).length + (TYPES[t.type]?.docs || []).length;
+  const mandGaps = gapCount(t);
+
+  /* The next action, resolved once and used in both the header and the footer
+     so the two can never disagree. Predicates unchanged. */
+  const advBlocked = (t.stage === "Under Verification" && (pendingAll > 0 || openQ.length > 0)) ||
+    (t.stage === "Copy Received" && (!endo || !qcDone || !sends.length));
+  const advLabel = st.verb;
+  const advHint = t.stage === "Copy Received" && (!endo || !qcDone || !sends.length)
+    ? "Blocked: send the endorsement copy to the client before closing."
+    : t.stage === "Under Verification" && (pendingAll > 0 || openQ.length > 0)
+    ? (openQ.length > 0 ? "Blocked: waiting on the client to answer an open query." : "Blocked: mandatory intake is incomplete. Raise a query to request it.")
+    : "Advancing closes this stage's clock and stamps its duration on the ticket.";
+  const doAdvance = () => { onAdvance(t.id, note); setNote(""); };
+  const showAdvance = st.verb && !readOnly(t);
+
+  /* Stages the desk cannot leave on its own: an outside party has to act first.
+     The prototype has no insurer and no Operations, so it offers a ▶ stand-in. */
+  const simulate = readOnly(t) ? null
+    : t.stage === "Awaiting Endorsement Copy"
+      ? { label: `Simulate ${t.insurer} sending the copy`, run: () => onAttachCopy(t.id, {}) }
+    : t.stage === "Awaiting Payment Link"
+      ? { label: `Simulate the link arriving ${t.payMode === "Portal" ? `from ${t.childTicket}` : "in the insurer's mail"}`, run: () => onReceiveLink(t.id) }
+    : null;
+
+  const TABS_T = [
+    ["overview", "Overview"],
+    ["docs", "Document Vault"],
+    ["queries", "Query Line"],
+    ["mail", "Mail Trail"],
+    ...(t.kind === "Financial" ? [["payment", "Premium & Payment"]] : []),
+    ["manage", "Manage Ticket", readOnly(t)],
+  ];
+  const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
+
+  /* Conditions that outrank whichever tab is open. They sit above the clock
+     because that is where a person looks when a ticket is in trouble. */
+  const alerts = [
+    isSilent(t) && { icon: MoonStar, tone: C.breach, bg: C.breachSoft,
+      text: `No update logged for ${Math.round(t.lastAction / 24)} days - escalated to ${NOTIFY.no_action_15d.join(" and ")}` },
+    openQ.length > 0 && { icon: PauseCircle, tone: C.wait, bg: C.waitSoft,
+      text: `${openQ.length} open quer${openQ.length > 1 ? "ies" : "y"} with the client - stage clock on hold` },
+    s.state === "breached" && { icon: BellRing, tone: C.warn, bg: C.warnSoft,
+      text: `${st.code} breached by ${s.label} - follow-ups to ${st.escalate?.[0]}` },
+    pendingAll > 0 && { icon: FileClock, tone: C.warn, bg: C.warnSoft,
+      text: `${fieldGaps(t) > 0 ? `${fieldGaps(t)} field` : ""}${fieldGaps(t) > 0 && pendingDocs > 0 ? " and " : ""}${pendingDocs > 0 ? `${pendingDocs} document` : ""} pending - cannot go to insurer` },
+    t.manualReview && { icon: RefreshCw, tone: C.wait, bg: C.waitSoft,
+      text: `Manual review - ${t.manualReview.reason}. Returns to “${t.manualReview.priorStatus}” once resolved.` },
+    st.system && { icon: Cpu, tone: C.figHint, bg: C.canvas,
+      text: `Routing in progress - ${ASSIGNMENT.rule.toLowerCase()}. The ticket appears on the owner's desk once assigned.` },
+    /* `awaited` covers three different waits; say which one this is. */
+    st.awaited && !readOnly(t) && { icon: Cpu, tone: C.figHint, bg: C.canvas,
+      text: t.stage === "Awaiting Payment Link"
+        ? `Nothing to do here - the payment link attaches itself from ${t.payMode === "Portal" ? `the Operations child ticket ${t.childTicket}` : "the insurer's mail"} and goes to the customer automatically.`
+        : t.stage === "Awaiting Endorsement Copy"
+        ? `Nothing to do here - the bot watches ${t.insurer}'s mail and attaches the endorsement copy when it lands.`
+        : "Nothing to do here - the clock sits with the client until they answer in the portal." },
+    readOnly(t) && { icon: t.terminal ? XCircle : CheckCircle2, tone: t.terminal ? C.figHint : C.teal, bg: t.terminal ? C.canvas : C.tealSoft,
+      text: t.terminal
+        ? `${TERMINAL[t.terminal].label} - terminal status. This ticket is read-only and cannot be reopened.`
+        : `Closed in ${fmtDur(ageOf(t))} - read-only and cannot be reopened.` },
+  ].filter(Boolean);
+
+  /* The client's own marks where we hold them: the product rosette and the
+     insurer's wordmark, then the owner's photograph. Anything not on file
+     falls back to a glyph rather than a stand-in logo. */
+  const meta = [
+    { text: t.client, icon: User },
+    { text: t.policy, icon: FileText, num: true },
+    { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24 },
+    { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22 },
+    { text: t.owner, icon: Cpu, avatar: true,
+      title: `${ROLES[t.owner]?.pod || "Unassigned"} · ${ASSIGNMENT.rule} - ${t.insurer} routes to ${ASSIGNMENT.podOf(t.insurer)}` },
+  ];
+
+  /* Row chrome shared by Captured at intake and the Document Vault. */
+  const FileTile = ({ icon: Icon = FileText }) => (
+    <span className="flex shrink-0 items-center justify-center"
+      style={{ width: 32, height: 32, borderRadius: 8, background: C.cream, border: "0.5px solid #FFD2A8" }}>
+      <Icon size={16} style={{ color: C.brand }} />
+    </span>
+  );
+  const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
+  const PEND = { tone: C.warn, bg: "rgba(255,119,0,0.08)", line: "#FFD2A8" };
+
+  const noteField = (
+    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the audit trail"
+      className="min-w-0 flex-1 outline-none"
+      style={{ maxWidth: 380, background: C.white, border: `0.5px solid ${C.subtle}`, borderRadius: 10,
+        padding: "12px", fontSize: 14, fontWeight: 500, color: C.figInk }} />
+  );
+
+  return (
+    <div>
+      {/* header */}
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="bk-num" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1, color: C.brand }}>{t.id}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
+              <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
+              <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+              {editType
+                ? <select autoFocus value={t.type} onChange={(e) => { onChangeType(t.id, e.target.value); setEditType(false); }}
+                    onBlur={() => setEditType(false)} className="bg-white outline-none"
+                    style={{ padding: "3px 6px", borderRadius: 8, border: `1px solid ${C.brand}`, fontSize: 14, color: C.figInk }}>
+                    {(PRODUCTS[t.product] || Object.keys(TYPES)).map((x) => <option key={x}>{x}</option>)}
+                  </select>
+                : <Indicator thick label={t.type} ind="neutral" />}
+              {canEditType && !editType && (
+                <button onClick={() => setEditType(true)}
+                  title="Classification can only be corrected before the request goes to the insurer (BR-058)"
+                  style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Correct type</button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {showAdvance && (
+              <Btn size="sm" onClick={doAdvance} disabled={advBlocked} title={advHint}>{advLabel}</Btn>
+            )}
+            {!readOnly(t) && (
+              <Btn size="sm" variant="outline" tone={C.semError} onClick={() => setWithdrawing(true)}
+                title="Terminal - needs the customer's withdrawal email on file">Mark Customer Withdrawn</Btn>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* The meta row spans the whole header rather than sharing a line with the
+          actions, so five items stay on one line instead of wrapping under. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4">
+        {meta.map((m) => (
+          <span key={m.text} title={m.title} className="flex items-center gap-1.5">
+            <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
+            {m.avatar
+              ? <img src={AVATAR} alt="" title={t.owner} className="shrink-0 rounded-full object-cover" style={{ width: 20, height: 20 }} />
+              : m.img
+              ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
+              : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
+          </span>
+        ))}
+        <span className="ml-auto"><Participants t={t} /></span>
+      </div>
+
+      <div className="bk-rule my-5" aria-hidden />
+
+      {/* two panels */}
+      {/* Two panels in the design's own proportion: 917:105649 splits the 1388
+          panel (24px inset each side) as 523 : 65 : 752. Reproduced as flex-grow
+          523/752 so the ratio holds at any width, with the 65px gap fixed. The
+          left keeps a 320 floor; the right may shrink to 0 and its tab row
+          scrolls. */}
+      <div className="flex" style={{ gap: 65, height: "calc(100vh - 288px)", minHeight: 480 }}>
+
+        {/* left - the clock, the counters, the trail */}
+        <div className="scroll-slim flex min-h-0 flex-col gap-6 overflow-y-auto pr-1"
+          style={{ flex: "523 1 0", minWidth: 320 }}>
+          <div className="flex flex-col gap-2">
+            <SlaCard t={t} />
+            <div className="flex flex-wrap items-stretch gap-2">
+              <StatCard grow label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
+                title="Fields and documents the endorsement type requires"
+                value={mandTotal ? `${mandTotal - mandGaps} of ${mandTotal}` : "none required"}
+                tone={mandTotal === 0 ? undefined : mandGaps ? C.warn : "#007B00"} />
+              <StatCard label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
+                title="Clarification cycles raised with the client" />
+              <StatCard label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
+                title="Times this ticket has sat on an insurer clock" />
+            </div>
+          </div>
+
+          {alerts.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {alerts.map((a, i) => (
+                <div key={i} className="flex items-start gap-2"
+                  style={{ background: a.bg, borderRadius: 10, padding: "8px 10px", fontSize: 13, fontWeight: 500, color: a.tone }}>
+                  <a.icon size={13} className="mt-0.5 shrink-0" />
+                  <span>{a.text}</span>
+                  {t.manualReview && a.icon === RefreshCw && !readOnly(t) && (
+                    <button onClick={() => onManualReview(t.id)} className="ml-auto shrink-0"
+                      style={{ fontSize: 12, fontWeight: 600, color: C.brand }}>Resolve &amp; resume</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="bk-rule" aria-hidden />
+
+          <Drawer icon={History} title="Audit trail" open={trailOpen} setOpen={setTrailOpen}
+            badge={<MiniTag>{(t.history || []).length}</MiniTag>}>
+            <div>
+              {(t.history || []).slice().reverse().map((h, i, all) => (
+                <TrailRow key={i} h={h} t={t} last={i === all.length - 1} />
+              ))}
+              {!(t.history || []).length && <Empty>Nothing logged yet.</Empty>}
+            </div>
+          </Drawer>
+        </div>
+
+        {/* right - the work */}
+        <div className="flex min-h-0 min-w-0 flex-col" style={{ flex: "752 1 0" }}>
+          <TabBar tabs={TABS_T} tab={live} setTab={setTab} />
+
+          {live === "overview" && (
+            <PanelCard footer={
+              <>
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  {showAdvance && noteField}
+                  <span style={{ fontSize: 12, fontWeight: 500, color: showAdvance && advBlocked ? C.warn : C.figTert }}>
+                    {showAdvance ? (advBlocked ? advHint : "")
+                      : readOnly(t) ? "Closed - the record is read-only."
+                      : simulate ? "Waiting on an outside party - nothing for the desk to do until they act."
+                      : st.awaited ? "Waiting on an outside party. Nothing to advance from here."
+                      : st.system ? "Routing in progress - the ticket reaches a desk once assigned."
+                      : "No action available at this stage."}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {/* Demo control — the prototype has no insurer and no Operations,
+                      so the external actor gets a stand-in. */}
+                  {simulate && (
+                    <SoftBtn onClick={simulate.run} title="Demo control - stands in for the outside party">
+                      ▶ {simulate.label}
+                    </SoftBtn>
+                  )}
+                  {canAsk && (
+                    <Btn variant="outline" tone={C.wait} icon={HelpCircle} onClick={() => setAsk({ kind: "new", target: null })}>Ask the client</Btn>
+                  )}
+                  {t.stage === "Awaiting Endorsement Copy" && !endo && !readOnly(t) && (
+                    <Btn variant="outline" tone={C.figHint} icon={Paperclip} onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
+                  )}
+                  {showAdvance && (
+                    <Btn variant="outline" onClick={doAdvance} disabled={advBlocked} title={advHint} icon={ArrowRight} trailing>{advLabel}</Btn>
+                  )}
+                </div>
+              </>
+            }>
+              <div className="space-y-5">
+                <SectionTitle>Ticket Workflow</SectionTitle>
+                <PhaseBar t={t} />
+                <Drawer icon={ListChecks} title="Workflow Stages" open={stagesOpen} setOpen={setStagesOpen}
+                  badge={<MiniTag>{seqOf(t).length} stages</MiniTag>}>
+                  <StageList t={t} />
+                </Drawer>
+
+                <div className="bk-rule" aria-hidden />
+
+                <SectionTitle right={
+                  fieldGaps(t) > 0
+                    ? <MiniTag {...PEND}>{fieldGaps(t)} not captured</MiniTag>
+                    : <MiniTag {...OK}>complete</MiniTag>
+                }>Captured at intake</SectionTitle>
+                <div className="flex flex-col gap-1">
+                  {intake.map((f) => (
+                    <div key={f.label} className="flex items-start gap-3" style={{ borderRadius: 8, padding: 8 }}>
+                      <FileTile />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{f.label}</span>
+                          {f.value === null ? <MiniTag {...PEND}>Not captured</MiniTag> : <MiniTag {...OK}>Verified</MiniTag>}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: f.value === null ? C.figTert : C.figInk }}>
+                          {f.value === null ? "Nothing supplied by the client" : f.value}
+                        </div>
+                      </div>
+                      {canAsk && (
+                        <SoftBtn onClick={() => setAsk({ kind: f.value === null ? "missing" : "field", target: f.label })}
+                          tone={f.value === null ? C.warn : C.figInk}>
+                          {f.value === null ? "Request" : "Query"}
+                        </SoftBtn>
+                      )}
+                    </div>
+                  ))}
+                  {!intake.length && <Empty>This endorsement type has no mandatory fields.</Empty>}
+                </div>
+
+                {endo && (
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <SectionTitle right={qcDone ? <MiniTag {...OK}>QC passed</MiniTag> : <MiniTag {...PEND}>awaiting QC</MiniTag>}>
+                      Endorsement copy
+                    </SectionTitle>
+                    <div className="flex flex-wrap items-start gap-3" style={{ borderRadius: 8, padding: 8 }}>
+                      <FileTile icon={FileCheck2} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>Endorsement copy</span>
+                          <MiniTag>{endo.file}</MiniTag>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>
+                          {endo.size} · {endo.source === "bot" ? `fetched from ${t.insurer}'s mail by the bot` : `uploaded by ${endo.by}`} · {fmtAgo(endo.at)}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <SoftBtn onClick={() => setPreview({ name: "Endorsement copy", kind: endo.source === "bot" ? "Fetched by bot" : "Uploaded manually", file: endo.file, size: endo.size, by: endo.by, status: "Verified", at: endo.at })}>View</SoftBtn>
+                        <IconBtn icon={Download} title="Download is not wired up in this prototype" />
+                        {!qcDone && !readOnly(t) && (
+                          <SoftBtn onClick={() => onQc(t.id)} tone={C.warn} bg={C.warnSoft} line={C.warnSoft}>Pass QC</SoftBtn>
+                        )}
+                        <Btn size="sm" onClick={() => onSendCopy(t.id)} disabled={!qcDone || readOnly(t)} icon={Send}
+                          title={qcDone ? "Mails the copy to the client" : "Pass QC first - the client should not receive an unchecked copy"}>
+                          Send to customer
+                        </Btn>
+                      </div>
+                    </div>
+                    <div className="px-2">
+                      {sends.map((x, i) => (
+                        <div key={i} className="flex items-center gap-2 py-1" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+                          {i === 0 ? <Send size={12} style={{ color: C.teal }} /> : <CornerUpLeft size={12} style={{ color: C.wait }} />}
+                          {i === 0 ? `Sent by ${x.by}` : `Resent by ${x.by}`}
+                          <span style={{ color: C.figTert }}>· {fmtAgo(x.at)}</span>
+                        </div>
+                      ))}
+                      {!sends.length && (
+                        <div className="flex items-center gap-1.5" style={{ fontSize: 14, fontWeight: 500, color: qcDone ? C.warn : C.figTert }}>
+                          <FileClock size={12} /> {qcDone ? "Passed QC but not sent - the client is still waiting." : "Not sent - awaiting QC."}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </PanelCard>
+          )}
+
+          {live === "docs" && (
+            <PanelCard footer={
+              <>
+                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+                  Mandatory list comes from the endorsement type. Anything awaiting blocks submission to the insurer.
+                </span>
+                <SoftBtn disabled={readOnly(t)} tone={C.brand}
+                  title={readOnly(t) ? "This ticket is closed - the record is read-only" : "Upload is not wired up in this prototype"}>
+                  <Upload size={12} /> Upload
+                </SoftBtn>
+              </>
+            }>
+              <div className="space-y-4">
+                <SectionTitle right={
+                  pendingDocs > 0 ? <MiniTag {...PEND}>{pendingDocs} awaiting</MiniTag> : <MiniTag {...OK}>all received</MiniTag>
+                }>Documents</SectionTitle>
+                <div className="flex flex-col gap-1">
+                  {docs.map((d, i) => (
+                    <div key={i} className="flex items-start gap-3" style={{ borderRadius: 8, padding: 8 }}>
+                      <FileTile icon={d.status === "Awaiting" ? FileClock : FileCheck2} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{d.name}</span>
+                          {d.status === "Awaiting"
+                            ? <MiniTag {...PEND}>Not received</MiniTag>
+                            : <MiniTag {...OK}>{d.status} · {d.kind.toLowerCase()}</MiniTag>}
+                          {d.status !== "Awaiting" && <MiniTag>{d.file}</MiniTag>}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>
+                          {d.status === "Awaiting" ? "Nothing shared by the client yet" : `${d.size} · ${d.by} · ${fmtAgo(d.at)}`}
+                        </div>
+                        {d.status === "Verified" && (
+                          <div className="flex items-center gap-1" style={{ fontSize: 14, fontWeight: 500, color: C.brand }}>
+                            <BadgeCheck size={14} className="shrink-0" />
+                            {{ "Client submission": "Verified against the request",
+                               "Client portal": "Answered in the client portal",
+                               "Fetched by bot": `Fetched from ${t.insurer}'s mail by the bot`,
+                               "Uploaded manually": "Logged manually by the owner" }[d.kind] || d.kind}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {canAsk && (
+                          <SoftBtn onClick={() => setAsk({ kind: d.status === "Awaiting" ? "missing" : "doc", target: d.name })}
+                            tone={d.status === "Awaiting" ? C.warn : C.figInk}>
+                            {d.status === "Awaiting" ? "Request" : "Query"}
+                          </SoftBtn>
+                        )}
+                        <SoftBtn disabled={d.status === "Awaiting"} onClick={() => setPreview(d)}
+                          title={d.status === "Awaiting" ? "Nothing to preview until the client shares it" : undefined}>View</SoftBtn>
+                        <IconBtn icon={Eye} title="Quick look" disabled={d.status === "Awaiting"} onClick={() => setPreview(d)} />
+                        <IconBtn icon={Download} disabled={d.status === "Awaiting"}
+                          title={d.status === "Awaiting" ? "Nothing to download until the client shares it" : "Download is not wired up in this prototype"} />
+                      </div>
+                    </div>
+                  ))}
+                  {!docs.length && <Empty>No documents on this ticket.</Empty>}
+                </div>
+              </div>
+            </PanelCard>
+          )}
+
+          {live === "queries" && (
+            <PanelCard footer={
+              <>
+                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+                  Each open query holds the stage clock. Clients answer in the portal against the query itself.
+                </span>
+                <Btn onClick={() => setAsk({ kind: "new", target: null })} disabled={!canAsk} icon={Plus}
+                  title={canAsk ? "Raise a query with the client" : "Available while the ticket is under verification"}>
+                  Ask a question
+                </Btn>
+              </>
+            }>
+              <div className="space-y-4">
+                <SectionTitle right={openQ.length > 0 ? <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}>{openQ.length} open</MiniTag> : null}>
+                  Queries with the client
+                </SectionTitle>
+                {queries.length ? (
+                  <div className="flex flex-col gap-1">
+                    {queries.map((q) => (
+                      <div key={q.id} style={{ borderRadius: 8, padding: 8 }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                              {q.status === "open"
+                                ? <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}>Awaiting client</MiniTag>
+                                : <MiniTag {...OK}>Answered</MiniTag>}
+                              <MiniTag>{{ field: "On a captured detail", doc: "On a shared document", missing: "Missing item", new: "New question" }[q.kind]}</MiniTag>
+                              {q.target && <MiniTag>{q.target}</MiniTag>}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{q.text}</div>
+                            {q.docs?.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {q.docs.map((d) => <MiniTag key={d}><Paperclip size={9} /> {d}</MiniTag>)}
+                              </div>
+                            )}
+                            <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+                              {q.by} · asked {fmtAgo(q.at)}{q.status === "answered" ? ` · answered ${fmtAgo(q.answeredAt)}` : ""}
+                            </div>
+                          </div>
+                          {q.status === "open" && (
+                            <SoftBtn onClick={() => onAnswer(t.id, q.id)}
+                              title="Demo control - the client answers this query in the portal">▶ Simulate portal response</SoftBtn>
+                          )}
+                        </div>
+
+                        {q.reply && (
+                          <div className="mt-3 pl-3" style={{ borderLeft: `2px solid ${C.brand200}` }}>
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                              <Globe size={12} style={{ color: C.brand }} />
+                              <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>Client portal response</span>
+                              <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>{q.reply.by} · {fmtAgo(q.reply.at)}</span>
+                              <MiniTag tone={C.brand} bg={C.brandBg} line={C.brand200}><Link2 size={9} /> against {q.id}</MiniTag>
+                            </div>
+                            {Object.entries(q.reply.values || {}).map(([k, v]) => (
+                              <div key={k} className="mb-2">
+                                <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{k}</div>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{v}</div>
+                              </div>
+                            ))}
+                            {q.reply.note && (
+                              <div className="mb-2" style={{ background: C.canvas, borderRadius: 8, padding: 10, fontSize: 14, fontWeight: 500, color: C.figInk }}>{q.reply.note}</div>
+                            )}
+                            {q.reply.files?.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {q.reply.files.map((f) => (
+                                  <SoftBtn key={f.name} onClick={() => setPreview({ name: f.name, kind: "Client portal upload", file: f.file, size: f.size, by: q.reply.by, status: "Received", at: q.reply.at })}>
+                                    <Paperclip size={10} style={{ color: C.brand }} /> {f.file}
+                                  </SoftBtn>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center" style={{ background: C.canvas, borderRadius: 8, minHeight: 260, padding: 24 }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>No queries raised. The client has given us everything we asked for.</span>
+                  </div>
+                )}
+              </div>
+            </PanelCard>
+          )}
+
+          {live === "mail" && (
+            <PanelCard footer={
+              <>
+                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+                  <span className="bk-num">{thread.length}</span> messages in this trail · email only, plus portal notices to the client
+                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {!readOnly(t) && (
+                    <Btn variant="outline" tone={C.figHint} icon={CornerUpLeft} onClick={() => onChase(t.id)}>Chase insurer</Btn>
+                  )}
+                  <Btn variant="outline" icon={summary ? Mail : Sparkles} trailing
+                    onClick={() => setSummary(summary ? null : summariseThread(t))}>
+                    {summary ? "Read mail trail" : "Summarise this trail"}
+                  </Btn>
+                </div>
+              </>
+            }>
+              {summary ? (
+                <div className="space-y-4">
+                  <SectionTitle>Mail Trail Summary</SectionTitle>
+                  <div className="flex items-start gap-3">
+                    <span className="flex shrink-0 items-center justify-center"
+                      style={{ width: 40, height: 40, borderRadius: 999, background: C.brand200 }}>
+                      <Sparkles size={16} style={{ color: C.brand }} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>Endorsement workflow bot</span>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Summary generated {fmtWhen(NOW)}</span>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>Internal · ticket log</div>
+                      <div className="mt-3 space-y-2">
+                        {summary.map((l, i) => (
+                          <p key={i} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: C.figInk }}>{l}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <SectionTitle>Mail Trail</SectionTitle>
+                  <div>
+                    {thread.map((m, i) => {
+                      const kind = m.dir === "out" ? "owner" : m.name === t.insurer ? "insurer" : "client";
+                      return (
+                        <div key={i}>
+                          <div className="flex items-start gap-3">
+                            <Mark kind={kind} name={m.name} size={40} ring={false} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{m.name}</span>
+                                <span className="bk-num shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{fmtAgo(m.at)}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>
+                                {m.dir === "out" ? `to ${m.to}` : m.who}
+                                {m.link === "manual" && <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}><Link2 size={9} /> linked manually</MiniTag>}
+                                {m.queryRef && <MiniTag tone={C.brand} bg={C.brandBg} line={C.brand200}><Globe size={9} /> portal · {m.queryRef}</MiniTag>}
+                              </div>
+                              <div className="mt-2" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{m.subject}</div>
+                              <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: C.figInk }}>{m.body}</div>
+                              {m.att > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {docs.slice(0, m.att).map((d, j) => (
+                                    <SoftBtn key={j} onClick={() => setPreview(d)}>
+                                      <Paperclip size={10} style={{ color: C.figTert }} /> {d.file}
+                                    </SoftBtn>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {i < thread.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
+                        </div>
+                      );
+                    })}
+                    {!thread.length && <Empty>Nothing on the mail trail yet.</Empty>}
+                  </div>
+                </div>
+              )}
+            </PanelCard>
+          )}
+
+          {live === "payment" && (
+            <PanelCard>
+              <div className="space-y-3">
+                {/* M5 — quote and premium */}
+                <Panel title="Quote &amp; premium" hint={t.quote ? `Version ${t.quote.version} · extracted by the mail bot at ${Math.round(t.quote.confidence * 100)}% confidence.` : "Nothing received from the insurer yet."}
+                  action={t.quote && <Chip color={C.teal} bg={C.tealSoft}><FileCheck2 size={10} /> {t.quote.file}</Chip>}>
+                  {t.quote ? (
+                    <div className="p-3">
+                      <div className="grid sm:grid-cols-4 gap-3 mb-3">
+                        {[["Base premium", money(t.quote.base)], ["GST @ 18%", money(t.quote.gst)],
+                          ["Total payable", money(t.quote.total)], ["Quote version", `v${t.quote.version}`]].map(([k, v], i) => (
+                          <div key={k}>
+                            <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>{k}</div>
+                            <div className={`mt-0.5 bk-num ${i === 2 ? "text-lg font-semibold" : "text-sm"}`} style={{ color: i === 2 ? C.ink : C.ink2 }}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setPreview({ name: "Insurer quote", kind: "Insurer issued", file: t.quote.file, size: "184 KB", by: t.insurer, status: "Verified", at: t.quote.at })}
+                          className="px-2.5 py-1.5 rounded-lg text-sm font-medium" style={{ background: C.tealSoft, color: C.teal }}>View quote</button>
+                        {!readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
+                          <button onClick={() => onRevise(t.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium border"
+                            style={{ borderColor: C.line, color: C.ink2 }}><RotateCcw size={13} /> Log revised quote</button>
+                        )}
+                      </div>
+                      {!atOrPast(t, "Awaiting Payment") && (
+                        <div className="mt-3 text-xs flex items-start gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: C.warnSoft, color: C.warn }}>
+                          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                          Premium is withheld from the customer until the payment link is ready (BR-026, FR-061).
+                        </div>
+                      )}
+                    </div>
+                  ) : <Empty>Waiting on the insurer's quote.</Empty>}
+                </Panel>
+
+                {/* M6 — payment link */}
+                {t.quote && (
+                  <Panel title="Payment link" hint={`${t.payMode} flow for ${t.insurer} - configured per insurer (BR-030).`}
+                    action={t.payLink
+                      ? <Chip color={payExpired ? C.breach : C.teal} bg={payExpired ? C.breachSoft : C.tealSoft}>
+                          {payExpired ? "expired" : `expires in ${fmtDur(payLeft)}`}
+                        </Chip>
+                      : <Chip color={C.warn} bg={C.warnSoft}><Clock size={10} /> being generated</Chip>}>
+                    <div className="p-3">
+                      <div className="grid sm:grid-cols-3 gap-3 mb-3">
+                        <div>
+                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Mode</div>
+                          <div className="text-sm mt-0.5 flex items-center gap-1" style={{ color: C.ink }}>
+                            {t.payMode === "Portal" ? <Globe size={12} style={{ color: C.wait }} /> : <Mail size={12} style={{ color: C.wait }} />}
+                            Payment link via {t.payMode.toLowerCase()}
+                          </div>
+                        </div>
+                        {t.childTicket && (
+                          <div>
+                            <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Operations child ticket</div>
+                            <div className="bk-num text-sm mt-0.5" style={{ color: C.link }}>{t.childTicket}</div>
+                            <div className="text-xs" style={{ color: t.payLink ? C.teal : C.warn }}>
+                              {t.payLink ? "closed - link uploaded" : "open with Operations"}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>Link reference</div>
+                          <div className="bk-num text-sm mt-0.5" style={{ color: t.payLink ? C.ink : C.ink3 }}>{t.payLink ? t.payLink.ref : "not yet received"}</div>
+                          {t.payLink && (
+                            <div className="text-xs mt-0.5 flex items-center gap-1" style={{ color: C.ink3 }}>
+                              {t.payLink.source === "child-ticket" ? <Globe size={10} /> : <Sparkles size={10} />}
+                              {t.payLink.source === "child-ticket"
+                                ? `auto-attached from ${t.childTicket}`
+                                : `auto-filled by bot${t.payLink.confidence ? ` · ${Math.round(t.payLink.confidence * 100)}%` : ""}`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {t.payLink && (
+                        <>
+                          {(t.payLink.regens || []).map((r, i) => (
+                            <div key={i} className="text-xs flex items-center gap-1.5 py-0.5" style={{ color: C.ink3 }}>
+                              <RotateCcw size={11} /> Regenerated {fmtAgo(r.at)} by {r.by} - {r.reason}
+                            </div>
+                          ))}
+                          {!readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <button onClick={() => onRegenerate(t.id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium"
+                                style={{ background: payExpired ? C.breach : C.lineSoft, color: payExpired ? C.white : C.ink2 }}>
+                                <RotateCcw size={13} /> Regenerate payment link
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: C.lineSoft }}>
+                        <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.ink3 }}>NEFT alternative shown to the customer</div>
+                        <div className="grid sm:grid-cols-4 gap-2 text-xs" style={{ color: C.ink2 }}>
+                          {Object.entries(NEFT(t)).map(([k, v]) => (
+                            <div key={k}><span style={{ color: C.ink3 }}>{k}: </span><span className="bk-num">{v}</span></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
+
+                {t.stage === "Awaiting Payment Link" && (
+                  <Panel title="Awaiting the link" hint="No manual entry - the link attaches itself and goes out to the customer the moment it lands.">
+                    <div className="p-3">
+                      <div className="flex items-start gap-3 mb-3">
+                        <span className="p-2 rounded-lg shrink-0" style={{ background: C.waitSoft }}>
+                          {t.payMode === "Portal" ? <Globe size={16} style={{ color: C.wait }} /> : <Mail size={16} style={{ color: C.wait }} />}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium" style={{ color: C.ink }}>
+                            {t.payMode === "Portal"
+                              ? `Operations to upload the link on ${t.childTicket}`
+                              : `Bot watching ${t.insurerMail} for the link`}
+                          </div>
+                          <div className="text-xs mt-0.5" style={{ color: C.ink3 }}>
+                            {t.payMode === "Portal"
+                              ? "Uploading it on the child ticket auto-attaches it here and closes the child."
+                              : "The bot extracts the link from the insurer's reply and auto-fills it here."}
+                          </div>
+                        </div>
+                      </div>
+                      {!readOnly(t) && (
+                        <button onClick={() => onReceiveLink(t.id)} className="px-3 py-1.5 rounded-lg text-sm font-medium border"
+                          style={{ borderColor: C.line, color: C.ink2, background: C.white }}
+                          title="Demo control - simulates the link arriving from its configured source">
+                          ▶ Simulate {t.payMode === "Portal" ? "Operations upload" : "bot fetch from insurer mail"}
+                        </button>
+                      )}
+                    </div>
+                  </Panel>
+                )}
+
+                {/* M6 FR-075 / FR-157 — proof and the revert path */}
+                {t.payment && (
+                  <Panel title="Payment received" hint="Uploaded by the customer in BimaKendra and emailed to the insurer for verification."
+                    action={!readOnly(t) && <button onClick={() => onRevertPayment(t.id)} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg"
+                      style={{ background: C.warnSoft, color: C.warn }}><RotateCcw size={12} /> Revert to payment pending</button>}>
+                    <div className="p-3 grid sm:grid-cols-4 gap-3">
+                      {[["Mode", t.payment.mode], ["Transaction / UTR", t.payment.utr], ["Payment date", t.payment.date], ["Amount", money(t.quote.total)]].map(([k, v]) => (
+                        <div key={k}>
+                          <div className="text-xs uppercase tracking-wide" style={{ color: C.ink3 }}>{k}</div>
+                          <div className="bk-num text-sm mt-0.5" style={{ color: C.ink }}>{v}</div>
+                        </div>
+                      ))}
+                      <div className="sm:col-span-4">
+                        <button onClick={() => setPreview({ name: "Payment proof", kind: "Customer upload", file: t.payment.file, size: "96 KB", by: t.client, status: "Received", at: t.payment.at })}
+                          className="px-2.5 py-1.5 rounded-lg text-sm font-medium" style={{ background: C.tealSoft, color: C.teal }}>View proof</button>
+                      </div>
+                    </div>
+                  </Panel>
+                )}
+              </div>
+            </PanelCard>
+          )}
+
+          {live === "manage" && (
+            <PanelCard footer={
+              <>
+                <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+                  Reassignment keeps the stage clock running. Withdrawal is terminal.
+                </span>
+                {!readOnly(t) && <Btn variant="outline" icon={User} onClick={() => setReassigning(true)}>Reassign</Btn>}
+              </>
+            }>
+              <div className="space-y-3">
+              {!readOnly(t) && (
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {[
+                    { icon: User, label: "Reassign", sub: "SLA continues, reason audited", tone: C.ink, bg: C.white, border: C.line, onClick: () => setReassigning(true) },
+                    { icon: UserMinus, label: "Customer withdrawn", sub: "Terminal - needs withdrawal email", tone: C.breach, bg: C.white, border: C.line, onClick: () => setWithdrawing(true) },
+                  ].map((a) => (
+                    <button key={a.label} onClick={a.onClick}
+                      className="text-left p-3 rounded-xl border-2 hover:border-slate-400 transition-colors"
+                      style={{ background: a.bg, borderColor: a.border }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <a.icon size={16} style={{ color: a.tone }} />
+                        <span className="text-sm font-semibold" style={{ color: a.tone }}>{a.label}</span>
+                      </div>
+                      <div className="text-xs" style={{ color: C.ink3 }}>{a.sub}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {t.manualReview && (
+                <div className="rounded-xl border p-3 flex flex-wrap items-center gap-3 text-sm" style={{ background: C.waitSoft, borderColor: C.line, color: C.wait }}>
+                  <RefreshCw size={14} className="shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div>Raised by the email bot - {t.manualReview.reason}</div>
+                    <div className="text-xs mt-0.5" style={{ color: C.ink3 }}>Returns to “{t.manualReview.priorStatus}” once resolved.</div>
+                  </div>
+                  {!readOnly(t) && (
+                    <button onClick={() => onManualReview(t.id)} className="px-3 py-1.5 rounded-lg text-sm font-medium shrink-0"
+                      style={{ background: C.brand, color: C.white }}>Resolve &amp; resume</button>
+                  )}
+                </div>
+              )}
+
+              {rem.cfg && (
+                <Collapsible title="Reminders &amp; escalation" count={rem.fired.length}
+                  badge={rem.escalated
+                    ? <Chip color={C.breach} bg={C.breachSoft}><AlertTriangle size={10} /> escalated</Chip>
+                    : rem.paused
+                      ? <Chip color={C.wait} bg={C.waitSoft}><PauseCircle size={10} /> paused</Chip>
+                      : rem.next !== null ? <Chip>next in {fmtDur(rem.next)}</Chip> : null}
+                  hint={`${stageOf(t.stage).code} · follow-up every ${unitLabel(rem.cfg.every, rem.cfg.unit)} after breach, max ${rem.max}, then escalation to ${rem.to}`}
+                  action={!readOnly(t) && <button onClick={() => onRemind(t.id)} className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg"
+                    style={{ background: C.tealSoft, color: C.teal }}><BellRing size={12} /> Send reminder now</button>}>
+                  <div className="p-3">
+                    {rem.paused && <div className="text-xs mb-2 px-2 py-1 rounded-lg inline-flex items-center gap-1.5" style={{ background: C.waitSoft, color: C.wait }}>
+                      <PauseCircle size={11} /> Schedule paused while the clock is on hold</div>}
+                    {rem.fired.length ? rem.fired.map((f) => (
+                      <div key={f.n} className="flex items-center gap-2 py-1 text-sm" style={{ color: C.ink2 }}>
+                        <BellRing size={12} style={{ color: C.warn }} /> Follow-up {f.n} of {rem.max}
+                        <span className="text-xs" style={{ color: C.ink3 }}>· {fmtAgo(Math.max(f.at, 0.02))}</span>
+                      </div>
+                    )) : <div className="text-sm" style={{ color: C.ink3 }}>Inside SLA - follow-ups start on breach.</div>}
+                    {rem.next !== null && (
+                      <div className="flex items-center gap-2 py-1 text-sm" style={{ color: C.ink3 }}>
+                        <Clock size={12} /> {rem.fired.length ? "Next follow-up" : "SLA due"} in {fmtDur(rem.next)}
+                      </div>
+                    )}
+                    {rem.escalated && (
+                      <div className="mt-2 space-y-1">
+                        {(rem.ladder || []).slice(1).map((step, i) => (
+                          <div key={i} className="text-sm flex items-center gap-1.5 px-2 py-1.5 rounded-lg" style={{ background: C.breachSoft, color: C.breach }}>
+                            <AlertTriangle size={12} /> ESC-{i + 1} to {rem.to} · {step} after the previous step
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-xs mt-2 pt-2 border-t" style={{ borderColor: C.lineSoft, color: C.ink3 }}>
+                      Terminal action: {rem.terminal}
+                      {rem.cancelAt && <> · auto-cancels {fmtWhen(rem.cancelAt)}</>}
+                    </div>
+                  </div>
+                </Collapsible>
+              )}
+
+                </div>
+            </PanelCard>
+          )}
+        </div>
+      </div>
+
+      <DocViewer doc={preview} onClose={() => setPreview(null)} />
+      {ask && <QueryModal ctx={ask} t={t} onClose={() => setAsk(null)} onSend={(q) => { onQuery(t.id, q); setAsk(null); setTab("queries"); }} />}
+      {withdrawing && <WithdrawModal t={t} onClose={() => setWithdrawing(false)} onConfirm={(x) => { onWithdraw(t.id, x); setWithdrawing(false); }} />}
+      {reassigning && <ReassignModal t={t} onClose={() => setReassigning(false)} onConfirm={(x) => { onReassign(t.id, x); setReassigning(false); }} />}
+      {upload && <UploadModal t={t} onClose={() => setUpload(false)} onConfirm={(file) => { onAttachCopy(t.id, { source: "manual", file }); setUpload(false); setNote(""); }} />}
+    </div>
+  );
+}
+
+/* Review + Create ------------------------------------------------- */
+/* Manual review queue — Figma 917:106299 / 917:107326. Same table treatment as
+   My Tickets: no border, no outer padding, 14px, header on a canvas strip. This
+   queue is not filterable, so the headings carry no chevrons. */
+const MR_COLS = {
+  id:     { w: 120 },
+  guess:  { w: 150 },
+  age:    { w: 100 },
+  action: { w: 150 },
+};
+
+function Review({ mails, onClaim }) {
+  const over = mails.filter((m) => m.received >= MR_ESCALATION.overH).length;
+  const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
+  const body = { fontSize: 14, fontWeight: 500, color: C.figHint };
+  const flexCell = { flex: "1 1 0", minWidth: 0 };
+
+  return (
+    <div className="space-y-4">
+      <PageHead title="Manual Review Queue" right={
+        over > 0 ? (
+          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2" style={{ background: C.brandBg }}>
+            <span className="rounded-lg px-2 py-0.5" style={{ background: C.breachSoft, color: C.breach, fontSize: 12, fontWeight: 600 }}>
+              <span className="bk-num">{over}</span> Que over {MR_ESCALATION.overH}Hrs
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>Escalated to {MR_ESCALATION.to}</span>
+          </div>
+        ) : null
+      } />
+
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
+          <span style={cell(MR_COLS.id, head)}>ID</span>
+          <span style={{ ...flexCell, ...head }}>From</span>
+          <span style={cell(MR_COLS.guess, head)}>Bot guess</span>
+          <span style={{ ...flexCell, ...head }}>Review Condition</span>
+          <span style={cell(MR_COLS.age, head)}>Age</span>
+          <span style={{ ...flexCell, ...head }}>Status</span>
+          <span style={cell(MR_COLS.action, head)}>Actions</span>
+        </div>
+
+        {mails.length ? mails.map((m, i) => {
+          const matched = m.guess && m.guess !== "No confident match";
+          const late = m.received >= MR_ESCALATION.overH;
+          return (
+            <div key={m.id} className="bk-item" style={stagger(i)}>
+              <div className="flex items-center rounded-xl px-2 py-3">
+                <span className="bk-num truncate" style={cell(MR_COLS.id, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{m.id}</span>
+                <span className="truncate" style={{ ...flexCell, ...body }} title={m.subject}>{m.from}</span>
+                <span style={cell(MR_COLS.guess)}>
+                  <span title={m.guess} className="inline-flex max-w-full items-center justify-center rounded-lg px-2 py-1"
+                    style={matched
+                      ? { background: "rgba(65,0,207,0.08)", border: "1px solid #E8E2FF", color: C.brand }
+                      : { background: "rgba(169,172,177,0.48)", border: "1px solid rgba(169,172,177,0.56)", color: C.figInk }}>
+                    <span className="truncate" style={{ fontSize: 14, fontWeight: 500 }}>
+                      {matched ? m.guess.split(" - ")[0] : "N/A"}
+                    </span>
+                  </span>
+                </span>
+                <span className="truncate" style={{ ...flexCell, ...body }}>{m.reason}</span>
+                <span className="bk-num truncate" style={cell(MR_COLS.age, { fontSize: 14, fontWeight: 500, color: late ? C.semError : C.figHint })}>
+                  {fmtAgo(m.received)}
+                </span>
+                <span className="flex min-w-0 items-center gap-2" style={flexCell}>
+                  {late ? (
+                    <>
+                      <img src={AVATAR_UMESH} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 20, height: 20 }} title={MR_ESCALATION.by} />
+                      <span className="truncate" style={body}>{MR_ESCALATION.label}</span>
+                    </>
+                  ) : <span style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>-</span>}
+                </span>
+                <span style={cell(MR_COLS.action)}>
+                  <button onClick={() => onClaim(m.id)}
+                    className="inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
+                    style={{ background: C.white, borderColor: C.subtle, fontSize: 12, fontWeight: 600, color: C.figInk }}>
+                    Create Ticket <ArrowRight size={12} />
+                  </button>
+                </span>
+              </div>
+              {i < mails.length - 1 && <div style={{ height: 1, background: C.lineSoft }} />}
+            </div>
+          );
+        }) : <Empty>Queue empty. Every inbound mail matched a policy.</Empty>}
+      </section>
+    </div>
+  );
+}
+
+/* Upload field — Peetal 3316:80930, four states. The illustrations are the
+   design's own, inlined. The disabled art exported blank from Figma, so it is
+   the error art desaturated — same drawing, which is what the spec shows. */
+const UP_ART = {
+  default: "data:image/webp;base64,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",
+  success: "data:image/webp;base64,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",
+  error:   "data:image/webp;base64,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",
+};
+const UP_STATE = {
+  default:  { line: "#1869F4", dash: "dashed", to: "#EEF4FF", art: "default", tone: "#1869F4" },
+  disabled: { line: "#D2D5D8", dash: "dashed", to: "#F4F5F6", art: "error",   tone: "rgba(169,172,177,0.48)", grey: true },
+  success:  { line: "#00B200", dash: "solid",  to: "#ECFBEA", art: "success", tone: "#007B00" },
+  error:    { line: "#F10000", dash: "solid",  to: "#FFECEC", art: "error",   tone: "#CF0000" },
+};
+
+function UploadField({ label, doc, state = "default", file, onPick, onReset }) {
+  const s = UP_STATE[state];
+  const dead = state === "disabled";
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center px-2 py-3 text-sm font-medium leading-none">
+        <span style={{ color: C.figHint }}>{label}</span><span style={{ color: "#F10000" }}>*</span>
+      </div>
+      <div onClick={dead || state === "success" ? undefined : onPick}
+        className="flex flex-col items-center justify-center gap-2 rounded-3xl px-6 py-4 text-center"
+        style={{ border: `1px ${s.dash} ${s.line}`, minHeight: 168,
+          background: `linear-gradient(to bottom, ${C.white}, ${s.to})`,
+          cursor: dead || state === "success" ? "default" : "pointer" }}>
+        <img src={UP_ART[s.art]} alt="" style={{ width: 64, height: 64, filter: s.grey ? "grayscale(1) opacity(.55)" : undefined }} />
+        <div>
+          <div className="flex items-center justify-center gap-1" style={{ fontSize: 14, fontWeight: 600, color: s.tone }}>
+            {state === "default" && <Upload size={13} />}
+            {state === "default" ? `Upload ${doc}`
+              : state === "disabled" ? `Unable to Upload ${doc}`
+              : state === "success" ? "Successfully Uploaded!" : "Upload Failed"}
+          </div>
+          <p className="mt-0.5" style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12px",
+            color: dead ? s.tone : C.figInk }}>
+            {state === "default" ? "click to browse or drag and drop the file here"
+              : state === "disabled" ? "Please Refresh or Try Again Later"
+              : <><span style={{ color: state === "success" ? C.brand : C.figPlaceholder }}>{file}</span>
+                  {state === "success" ? " has been uploaded." : " is larger than 2MB"}</>}
+          </p>
+        </div>
+        {(state === "success" || state === "error") && (
+          <button onClick={(e) => { e.stopPropagation(); onReset(); }}
+            className="rounded-xl border px-4 py-2" style={{ borderColor: "#DFE0E2", background: C.white,
+              fontSize: 12, fontWeight: 600, letterSpacing: "0.12px", color: "#1C1C1C" }}>
+            {state === "success" ? "Cancel and Upload again" : "Try Again"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Create endorsement ticket — Figma 900:99062 / 917:104341. A modal over the
+   list, not a page. Type is chosen here and drives the classification, the
+   mandatory fields and the documents beneath it. */
+function Create({ onCreate, back, prefill }) {
+  const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "ICICI Lombard",
+    product: "Fire & Burglary", type: "Address Change / Correction / Update", priority: "Medium" });
+  const [vals, setVals] = useState({});
+  const [ups, setUps] = useState({});
+  const meta = TYPES[f.type] || { fields: [], docs: [] };
+  const offered = PRODUCTS[f.product] || [];
+  const refund = meta.kind === "Return-Premium";
+  const ready = f.client && f.policy && f.insurer && f.product && f.priority && f.type && !refund;
+
+  /* Everything the form asks for, and how much of it is answered. */
+  const core = ["client", "policy", "insurer", "product", "priority", "type"];
+  const wanted = core.length + meta.fields.length + meta.docs.length;
+  const done = core.filter((k) => f[k]).length
+    + meta.fields.filter((x) => (vals[x] || "").trim()).length
+    + meta.docs.filter((d) => ups[d]?.state === "success").length;
+  const pct = Math.round((done / wanted) * 100);
+
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const okStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
+    background: v ? "rgba(65,0,207,0.02)" : "transparent" });
+
+  /* The cross clears the field back to its idle state. Single selects hide the
+     native chevron, so the cross is the only control — as the spec asks. */
+  const Field = ({ label, hint, value, onClear, trail, children }) => (
+    <div className="min-w-0">
+      <div className="flex items-center px-2 py-3 text-sm font-medium leading-none">
+        <span style={{ color: C.figHint }}>{label}</span><span style={{ color: "#F10000" }}>*</span>
+      </div>
+      <div className="flex items-center gap-2 px-2 py-2.5" style={okStyle(value)}>
+        {children}
+        {trail}
+        <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+          {value ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
+          <CheckCircle2 size={15} fill={value ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
+        </span>
+      </div>
+      <div className="flex h-6 items-center justify-end px-2" style={{ fontSize: 12, color: C.figTert }}>{hint}</div>
+    </div>
+  );
+  const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
+  const selCls = "min-w-0 flex-1 appearance-none bg-transparent outline-none";
+  const inputSt = { fontSize: 16, fontWeight: 500, color: C.brand };
+  const ph = (label) => <option value="" disabled>{`Select ${label}`}</option>;
+
+  return (
+    <Overlay className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
+      style={{ background: "rgba(14,26,31,0.45)" }} onClick={back}>
+      <div onClick={(e) => e.stopPropagation()} className="scroll-slim my-auto w-full max-w-3xl overflow-hidden rounded-2xl"
+        style={{ background: C.white, boxShadow: "0 24px 64px rgba(28,27,31,0.24)" }}>
+
+        <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
+          <div>
+            <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand, lineHeight: 1.2 }}>Create endorsement ticket</h2>
+            <p className="mt-1" style={{ fontSize: 14, fontWeight: 500, color: C.figTert, lineHeight: 1.4 }}>
+              Endorsement Type is what lets the form demand the right fields<br />and documents upfront and cannot be changed.
+            </p>
+          </div>
+          <button onClick={back} title="Close" className="flex shrink-0 items-center justify-center rounded-md border"
+            style={{ width: 24, height: 24, background: C.white, borderColor: C.subtle, color: C.figHint }}><X size={12} /></button>
+        </div>
+
+        <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
+          <div className="grid gap-x-6 sm:grid-cols-2">
+            <Field label="Client" value={f.client} onClear={() => setF({ ...f, client: "" })}>
+              <input value={f.client} onChange={set("client")} placeholder="Client name" className={inputCls} style={inputSt} />
+            </Field>
+            <Field label="Policy Number" value={f.policy} onClear={() => setF({ ...f, policy: "" })}>
+              <input value={f.policy} onChange={set("policy")} placeholder="Policy number" className={inputCls} style={inputSt} />
+            </Field>
+            <Field label="Insurer" value={f.insurer} onClear={() => setF({ ...f, insurer: "" })}
+              trail={INSURER_LOGO[f.insurer] && <img src={INSURER_LOGO[f.insurer]} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
+              <select value={f.insurer} onChange={set("insurer")} className={selCls} style={inputSt}>
+                {ph("insurer")}
+                {Object.keys(INSURERS).map((i) => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </Field>
+            <Field label="Product" value={f.product} onClear={() => setF({ ...f, product: "", type: "" })}
+              trail={PRODUCT_ICON[f.product] && <img src={PRODUCT_ICON[f.product]} alt="" className="shrink-0" style={{ height: 22, width: 22 }} />}>
+              <select value={f.product} onChange={(e) => setF({ ...f, product: e.target.value, type: (PRODUCTS[e.target.value] || [])[0] || "" })}
+                className={selCls} style={inputSt}>
+                {ph("product")}
+                {Object.keys(PRODUCTS).map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </Field>
+            <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
+              <select value={f.priority} onChange={set("priority")} className={selCls} style={inputSt}>
+                {ph("priority")}
+                {Object.keys(PRIORITY).map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </Field>
+            <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
+              hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
+              <select value={f.type} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
+                className={selCls} style={inputSt}>
+                {ph("endorsement type")}
+                {offered.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+          </div>
+
+          {meta.fields.length > 0 && (
+            <div className="grid gap-x-6 sm:grid-cols-2">
+              {meta.fields.map((x) => (
+                <Field key={x} label={x} value={vals[x]} onClear={() => setVals({ ...vals, [x]: "" })}>
+                  <input value={vals[x] || ""} onChange={(e) => setVals({ ...vals, [x]: e.target.value })}
+                    placeholder={x} className={inputCls} style={inputSt} />
+                </Field>
+              ))}
+            </div>
+          )}
+
+          {meta.docs.length > 0 && (
+            <div className="grid gap-x-6 gap-y-2 pb-4 sm:grid-cols-2">
+              {meta.docs.map((d) => (
+                <UploadField key={d} label={d} doc={d} state={ups[d]?.state || "default"} file={ups[d]?.file}
+                  onPick={() => setUps({ ...ups, [d]: { state: "success", file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}.pdf` } })}
+                  onReset={() => setUps({ ...ups, [d]: undefined })} />
+              ))}
+            </div>
+          )}
+
+          {refund && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: C.warnSoft, color: C.warn, fontSize: 13 }}>
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              Return-premium endorsements are offered but not yet built - the refund path has no stages behind it.
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-4 border-t px-6 py-4" style={{ borderColor: C.lineSoft }}>
+          <div className="min-w-0 flex-1">
+            <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: C.subtle }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: C.accent, transition: "width .2s" }} />
+            </div>
+            <div className="mt-1.5 bk-num" style={{ fontSize: 13, fontWeight: 500, color: C.accent }}>{pct}% Complete</div>
+          </div>
+          <button disabled={!ready} onClick={() => onCreate(f)}
+            className="shrink-0 rounded-xl px-7 py-3.5" style={{ fontSize: 16, fontWeight: 600,
+              background: ready ? C.brand : "rgba(169,172,177,0.24)", color: ready ? C.white : C.figPlaceholder,
+              cursor: ready ? "pointer" : "not-allowed" }}>
+            Create Ticket
+          </button>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
+/* Login ------------------------------------------------------------ *
+ *  BI-Admin login (Figma 900:95161). The console is reached through the
+ *  BimaKavach admin portal, so the address is recognised rather than
+ *  registered: typing a known one names the user and their environment.
+ * ------------------------------------------------------------------ */
+
+/* Tab: Admin portal access. Only these addresses may sign in.
+   `envLocked` is what Nanditha sees — she holds BimaEndorse only, so the
+   environment chevron renders disabled. An admin would unlock it. */
+const PORTAL_USERS = {
+  "nanditha.p@bimakavach.com": {
+    name: "Nanditha P", first: "Nanditha", env: ["Bima", "Endorse"], envLocked: true,
+    /* Servicing runs out of several states. Nanditha is Kannadiga, so she is
+       greeted in Kannada — "Welcome, Nanditha." The next user may need Tamil
+       or Odia; both are Anek faces. */
+    greeting: "ಸ್ವಾಗತ, ನಂದಿತಾ.", lang: "kn",
+  },
+};
+const PORTAL_PASSWORD = "pass-word";
+const AVATAR = "data:image/webp;base64,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";
+const AVATAR_UMESH = "data:image/webp;base64,UklGRnADAABXRUJQVlA4IGQDAACwEgCdASpAAEAAPlEijUQjoiEY+q5IOAUEtgBgErZ/APxA7Oa9XKfxA/KrpluEO+vILHC69f0n3Hdq3bb+YD9d+pN6AH9Q6i30APLY9lT9ufSeu/D1R01TOaODpYrVrpB6HiMTKKUL1eK3CIOuP9EQEdbs4meOCKBazb5Sr4xlzR2S2Xvvuyh9aC5yPjskIJUFbEnJ6S0logVXi3Z/AAD+8CoPU+Ch8FD8M0h/ljffxcSuVcVHy2VtjYz+juzkM+oDWOzfFP/pj5ZYbarr/AxRn9LumdXBoylFbOvssh+Qwt9rG2n6qGFpUiR6tEkl4GF79975mfv4mTCnacuN675eOWQeQP3dlwq3QeUk5lKmOzqZw7AuKrW5Kp5XNQtQm+yHZk1/3+grmirzL3JKR54EZm9dRgFsBU1wBj3MnTyfnNPhB56HmC2RTi6qlFbt1L2dttq9rpb6CUQFwvO95Y1cHeMXnne+jVZnNFqQY1u2dL5e9fET5ry/HQf8xJC/Ar36QtCO1Zii1aL63M8dUsLt9F2nI4W0O7JIEYQ3Jyh5pLYLxSoYfTAAnuNLtW9f2Khp7GOrsUxWCediahIAP/zZef2R+/sB2xeAm9x037wyAq/qje/H2LFo/Cf8W4AIgom50nlem9O6VGcxc7TQZ+cz0xzlUMg76itKZQLBnXOYvQsKn2cd0y+QcDwphiqgdNvQVvj2zo8ZLo9cjQ555M2vZgo8iS8wS6pbrMD1duGCyx8imRKw3PrijvgZoiXv7bli6OhigTNTEu9xeZTc5/rLJcIZ5/erFV+v1HUwVqHzOg7/y6oRE9nYCrVm9gUGIsP8lgNJWaxlF/YTjo1mLeubJT+lXwbwFM2jRdxi4LpmObOKQLdBxKFrO4zwbn8DIL5O43YetbuJmiK7bhk9g+MksZWdaGVVHXVY9fJbEO/FHJ70MfnCLp6mOkPjJmdsGC4Xj/md1voGPXlIh+RLUL00Q0E3cTA06dzi4GI82t8FaVaqZIpejz+zWlk2WmocRn6AEEXe3U3FdbDhzv0DioJKjveq7B69romRkVFizJO6Syaxfrgdws5T+Xmrf3dnpwyMYKsh/td6ToCB8s3Fm9e78Q0OcWyHCdF2jcXkDu/ZfpV1cys34u2/7H2+m50xxuUnHoAA";
+
+/* Peetal interactive.input/alphanumeric — label, a bottom-ruled field, a suffix
+   stack, and a right-aligned help line. Three states: idle · success · error. */
+function LoginField({ label, value, onChange, placeholder, masked, reveal, onReveal, state, help, onSubmit, autoFocus }) {
+  const ok = state === "ok", bad = state === "error";
+  const rule = bad ? "#F10000" : ok ? C.brand : C.line;
+  const fill = bad ? "rgba(241,0,0,0.02)" : ok ? "rgba(65,0,207,0.02)" : "transparent";
+  const tick = bad ? ["#CF0000", XCircle] : ok ? ["#1F9D6B", CheckCircle2] : [C.figPlaceholder, CheckCircle2];
+  const Tick = tick[1];
+  return (
+    <div className="w-full">
+      <div className="flex items-center px-2 py-3 text-sm font-medium leading-none">
+        <span style={{ color: "#1C1C1C" }}>{label}</span>
+        <span style={{ color: "#CF0000" }}>*</span>
+      </div>
+      <div className="flex w-full items-center gap-2 p-3" style={{ background: fill, borderBottom: `1px solid ${rule}` }}>
+        <input
+          value={value}
+          autoFocus={autoFocus}
+          type={masked && !reveal ? "password" : "text"}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onSubmit?.(); }}
+          placeholder={placeholder}
+          className="min-w-0 flex-1 bg-transparent leading-none outline-none"
+          style={{ fontSize: 18, fontWeight: 500, color: ok && !masked ? C.brand : C.figInk }}
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          {value && (
+            <button onClick={() => onChange("")} title="Clear" style={{ color: C.figHint }}><X size={12} /></button>
+          )}
+          <span title={masked ? "The demo password is pass-word" : "Only registered admin addresses can sign in"}>
+            <Info size={12} style={{ color: bad ? "#CF0000" : C.link }} />
+          </span>
+          <span className="w-px self-stretch" style={{ background: C.line }} />
+          {masked && (
+            <button onClick={onReveal} title={reveal ? "Hide password" : "Show password"} style={{ color: reveal ? C.figInk : C.figTert }}>
+              {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          )}
+          <Tick size={14} fill={tick[0]} color={C.white} />
+        </div>
+      </div>
+      <div className="flex h-7 items-center justify-end px-2">
+        {help && <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12px", color: "#CF0000" }}>{help}</span>}
+      </div>
+    </div>
+  );
+}
+
+function Login({ onSignIn }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [reveal, setReveal] = useState(false);
+  const [pwErr, setPwErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const user = PORTAL_USERS[email.trim().toLowerCase()] || null;
+  /* Only judge the address once it looks finished — no shouting mid-keystroke. */
+  const looksDone = /@.+\..+/.test(email.trim());
+  const emailState = user ? "ok" : looksDone ? "error" : "idle";
+  const ready = !!user && pw.length > 0;
+
+  const submit = () => {
+    if (!ready || busy) return;
+    if (pw !== PORTAL_PASSWORD) { setPwErr("Incorrect Password"); return; }
+    setPwErr(null);
+    setBusy(true);
+    setTimeout(() => onSignIn(user), 900);
+  };
+
+  return (
+    <div className="h-screen overflow-hidden p-7" style={{ background: C.canvas }}>
+      <div className="flex h-full w-full items-center justify-center rounded-3xl" style={{ background: C.brand }}>
+        <div className="bk-route w-full max-w-2xl rounded-2xl border p-6"
+          style={{ background: C.white, borderColor: C.subtle, boxShadow: "0 8px 24px rgba(28,27,31,0.10)" }}>
+
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="leading-none" style={{ fontSize: 30, fontWeight: 600, color: C.brand }}>Log in</h1>
+            {user && (
+              <div className="bk-item flex items-center gap-3">
+                <div className="flex items-center gap-1.5 rounded-xl border p-1.5" style={{ borderColor: C.subtle, background: C.white }}>
+                  <img src={AVATAR} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+                  <span className="text-sm font-medium leading-none" style={{ color: C.figInk }}>{user.name}</span>
+                  <span className="text-xs font-medium leading-none" style={{ color: C.figHint }}>{email.trim().toLowerCase()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="leading-none" style={{ fontSize: 16, fontWeight: 500 }}>
+                    <span style={{ color: C.figInk }}>{user.env[0]}</span>
+                    <span style={{ color: C.accent }}>{user.env[1]}</span>
+                  </span>
+                  {/* Nanditha holds one environment, so the control is inert and says why. */}
+                  <span className="flex h-4 w-4 items-center justify-center rounded-md border"
+                    title={user.envLocked ? `${user.env.join("")} is your only environment` : "Switch environment"}
+                    style={{ background: "rgba(169,172,177,0.24)", borderColor: "rgba(169,172,177,0.56)", color: C.figTert }}>
+                    <ChevronDown size={12} />
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <p className="pt-4" style={{ fontSize: 18, fontWeight: 500, lineHeight: "28px", color: C.figHint }}>
+            Welcome to Bimakavach Admin panel
+          </p>
+
+          <div className="pt-4">
+            <LoginField label="Email Address" value={email} autoFocus
+              onChange={(v) => setEmail(v)} onSubmit={submit}
+              placeholder="Enter Email Address" state={emailState}
+              help={emailState === "error" ? "Not a registered admin address" : null} />
+
+            <LoginField label="Password" value={pw} masked reveal={reveal} onReveal={() => setReveal(!reveal)}
+              onChange={(v) => { setPw(v); if (pwErr) setPwErr(null); }} onSubmit={submit}
+              placeholder="Enter Password" state={pwErr ? "error" : pw ? "ok" : "idle"} help={pwErr} />
+
+            <div className="pt-2">
+              <button onClick={submit} disabled={!ready || busy}
+                className="flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
+                style={busy
+                  ? { background: C.brandBg, color: C.brand }
+                  : ready
+                    ? { background: C.brand, color: C.white, fontSize: 16, fontWeight: 600 }
+                    : { background: "rgba(169,172,177,0.24)", color: C.figPlaceholder, fontSize: 16, fontWeight: 600 }}>
+                {busy ? <Loader2 size={18} className="bk-spin" /> : "Login"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Shell ------------------------------------------------------------ *
+ *  V001.1's app frame: a cream page with the whole console inside one
+ *  floating white card. Nav and identity live in the sidebar; the
+ *  actions live in the breadcrumb's right slot.
+ * ------------------------------------------------------------------ */
+
+const ROUTES = { home: "/", list: "/tickets", review: "/review", create: "/tickets/new" };
+const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` : ROUTES[view] || "/";
+function routeOf(path) {
+  const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
+  if (m) return { view: "ticket", openId: m[1] };
+  if (/^\/tickets\/new\/?$/.test(path)) return { view: "create" };
+  if (/^\/tickets\/?$/.test(path)) return { view: "list" };
+  if (/^\/review\/?$/.test(path)) return { view: "review" };
+  return { view: "home" };
+}
+/* Reading the address bar can throw in a sandboxed frame; the app must not. */
+const readRoute = () => { try { return routeOf(window.location.pathname); } catch { return { view: "home" }; } };
+
+const NAV = [
+  ["home",    "Home",          HeartHandshake],
+  ["list",    "My Tickets",    ListChecks],
+  ["review",  "Manual Review", SquareDashedMousePointer],
+  ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
+];
+
+/* Sidebar — Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
+   the rail reads as chrome and the content area keeps the warmth. 237px open,
+   92px collapsed; the collapse state is React state, since storage is unavailable. */
+function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut }) {
+  const row = collapsed ? "justify-center" : "gap-2";
+  return (
+    <aside className="relative flex h-full shrink-0 flex-col justify-between border-r"
+      style={{ width: collapsed ? 92 : 237, background: C.canvas, borderColor: C.lineSoft, transition: "width .2s ease-out" }}>
+
+      <div className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-7 ${collapsed ? "items-center px-7" : "items-end pl-8 pr-3"}`}>
+
+        {/* BimaEndorse + environment, the same lockup the login uses */}
+        <div className={`flex w-full items-center ${collapsed ? "justify-center" : "justify-between"}`}>
+          {!collapsed && (
+            <div className="flex items-center gap-2">
+              <span className="leading-none" style={{ fontSize: 20, fontWeight: 500 }}>
+                <span style={{ color: C.figInk }}>Bima</span><span style={{ color: C.accent }}>Endorse</span>
+              </span>
+              {/* one environment, so the control is inert and says why — as on the login */}
+              <span className="flex items-center justify-center rounded-md border"
+                title="BimaEndorse is your only environment"
+                style={{ width: 18, height: 18, background: C.white, borderColor: C.subtle, color: C.figTert }}>
+                <ChevronDown size={12} />
+              </span>
+            </div>
+          )}
+          <button onClick={() => setCollapsed(!collapsed)} style={{ color: C.figTert }}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+        </div>
+
+        {/* Chrome only — nothing is wired behind it, and it says so on hover. */}
+        <button title="Search is not wired up in this prototype"
+          className={`flex items-center rounded-lg border ${collapsed ? "justify-center" : "w-full justify-between"}`}
+          style={{ width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
+            padding: collapsed ? 0 : 8, background: C.white, borderColor: "#D5D5D5", cursor: "default" }}>
+          {!collapsed && <span style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>Search Anything</span>}
+          <Search size={12} style={{ color: C.figHint }} />
+        </button>
+
+        <div className="flex w-full flex-col gap-1">
+          {!collapsed && <div className="px-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Menu</div>}
+          <nav className={`flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
+            {NAV.map(([k, label, Icon, off], i) => {
+              const on = view === k || (k === "list" && view === "ticket");
+              return (
+                <div key={k} className={collapsed ? "" : "w-full"}>
+                  <button
+                    disabled={off}
+                    onClick={off ? undefined : () => go(k, k === "list" ? "attention" : undefined)}
+                    title={off ? "Reports is not built in this prototype" : collapsed ? label : undefined}
+                    className={`bk-item flex items-center rounded-lg ${row} ${collapsed ? "" : "w-full"}`}
+                    style={{ ...stagger(i),
+                      width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
+                      padding: collapsed ? 0 : "6px 8px",
+                      background: on ? C.subtle : "transparent",
+                      color: off ? "rgba(169,172,177,0.48)" : on ? C.figInk : C.figHint,
+                      cursor: off ? "not-allowed" : "pointer" }}>
+                    <Icon size={collapsed ? 20 : 24} className="shrink-0" />
+                    {!collapsed && <span className="flex-1 text-left text-sm font-semibold">{label}</span>}
+                    {!collapsed && k === "review" && mails.length > 0 && (
+                      <span className="bk-num rounded-full px-1.5 text-xs font-semibold"
+                        style={{ background: C.accent, color: C.white }}>{mails.length}</span>
+                    )}
+                  </button>
+                  {/* collapsed, the open ticket is a caption under its icon — the
+                      design's sidebar/ticket variant */}
+                  {collapsed && k === "list" && view === "ticket" && openId && (
+                    <button onClick={() => openTicket(openId)} title={openId}
+                      className="bk-num mt-1 block w-full truncate text-center"
+                      style={{ fontSize: 11, fontWeight: 600, color: C.brand }}>{openId}</button>
+                  )}
+                  {/* the open ticket, nested under its list */}
+                  {!collapsed && k === "list" && view === "ticket" && openId && (
+                    <button onClick={() => openTicket(openId)}
+                      className="mt-1 flex w-full items-center gap-1.5 rounded-lg py-1.5 pl-9 pr-2 text-left text-xs font-semibold"
+                      style={{ color: C.brand }}>
+                      <CornerDownRight size={11} className="shrink-0" />
+                      <span className="bk-num truncate">{openId}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      <div className={`flex flex-col gap-3 pb-8 pt-7 ${collapsed ? "items-center px-5" : "pl-8 pr-3"}`}>
+        {!collapsed && (
+          <div className="flex items-center gap-1.5 px-1 text-xs" style={{ color: C.figHint }}
+            title="Stage clocks pause outside these hours and on declared holidays">
+            <Clock size={11} style={{ color: C.figTert }} />
+            <span className="bk-num">Mon–Fri 10:00–19:00</span>
+          </div>
+        )}
+        <div className={`flex shrink-0 items-start rounded-xl border p-1.5 ${collapsed ? "justify-center" : "w-full justify-between"}`}
+          style={{ background: C.white, borderColor: C.subtle, borderWidth: "0.5px" }}>
+          <div className="flex shrink-0 flex-col gap-1.5">
+            <img src={AVATAR} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 36, height: 36, minWidth: 36 }} />
+            {!collapsed && (
+              <div className="leading-none">
+                <div className="text-sm font-medium" style={{ color: C.figInk }}>Nanditha P</div>
+                <div className="mt-1 text-xs font-medium" style={{ color: C.figHint }}>{ROLES["Nanditha P"].role}</div>
+              </div>
+            )}
+          </div>
+          {!collapsed && (
+            <button onClick={onSignOut} title="Sign out" style={{ color: C.figHint }}><LogOut size={12} /></button>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* Breadcrumb — the way back out of a ticket, so the screen needs no Back
+   button of its own. A segment with an onClick is a link; the last is not. */
+function Breadcrumb({ segments, right }) {
+  return (
+    <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: C.canvas }}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
+        {segments.map((s, i) => {
+          const last = i === segments.length - 1;
+          return (
+            <span key={i} className="flex items-center gap-2">
+              {i > 0 && <span style={{ color: C.figDisabled }}>/</span>}
+              {s.onClick && !last
+                ? <button onClick={s.onClick} className="uppercase" style={{ color: C.figPlaceholder }}>{s.label}</button>
+                : <span style={{ color: last ? C.figInk : C.figPlaceholder }}>{s.label}</span>}
+            </span>
+          );
+        })}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+/* Step through the desk in the order the queues use, without going back to the
+   list. Reads only — the ticket it lands on is unchanged. */
+function TicketPager({ id, list, onOpen }) {
+  const i = list.findIndex((x) => x.id === id);
+  const box = { width: 18, height: 18, borderRadius: 6, background: C.white, border: `0.5px solid ${C.subtle}` };
+  const step = (d) => list[i + d] && onOpen(list[i + d].id);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="bk-num" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>{id}</span>
+      <div className="flex items-center gap-2">
+        <button disabled={i <= 0} onClick={() => step(-1)} title="Previous ticket, in urgency order"
+          className="flex items-center justify-center" style={{ ...box, color: i <= 0 ? C.figDisabled : C.figHint, cursor: i <= 0 ? "not-allowed" : "pointer" }}>
+          <ChevronUp size={12} />
+        </button>
+        <button disabled={i < 0 || i >= list.length - 1} onClick={() => step(1)} title="Next ticket, in urgency order"
+          className="flex items-center justify-center" style={{ ...box, color: i >= list.length - 1 ? C.figDisabled : C.figHint, cursor: i >= list.length - 1 ? "not-allowed" : "pointer" }}>
+          <ChevronDown size={12} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [tickets, setTickets] = useState(() =>
+    SEED.map((t) => {
+      return { ...t, history: seedTrail(t) };
+    })
+  );
+  const [mails, setMails] = useState(SEED_MAILS);
+  const boot = useMemo(readRoute, []);
+  const [view, setView] = useState(boot.view);
+  const [filter, setFilter] = useState("attention");
+  const [openId, setOpenId] = useState(boot.openId || null);
+  const [scope, setScope] = useState("mine");
+  const [prefill, setPrefill] = useState(null);
+  const [preset, setPreset] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);   /* React state — no browser storage here */
+  const [authed, setAuthed] = useState(false);
+  const [user, setUser] = useState(null);
+  const [createFrom, setCreateFrom] = useState("list");   /* the view the Create modal sits over */
+
+  const go = (v, f, p) => { if (f) setFilter(f); setPreset(p || null); setView(v); };
+  const openTicket = (id) => { setOpenId(id); setView("ticket"); };
+  const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 3000); };
+
+  const advance = (id, note) => {
+    const t0 = tickets.find((x) => x.id === id);
+    const c = clock(t0);
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const next = { key: nextOf(t), ...stageOf(nextOf(t)) };
+      const extra = FIN_ON_ENTER[next.key] ? FIN_ON_ENTER[next.key](t) : {};
+      return { ...t, ...extra, stage: next.key, legs: [...t.legs, { s: t.stage, h: t.inStage }], inStage: 0, lastAction: 0, touched: true,
+        history: [...t.history, ...(extra.__log || []),
+          { text: legLine(t.stage, t.inStage, next.key), by: t.owner, at: 0, note: note || null }] };
+    }));
+    flash(c.state === "breached" ? `${stageOf(t0.stage).code} closed ${c.label} over SLA.` : "Stage closed inside SLA.");
+  };
+
+  /* M7 FR-091/093 — the copy arriving IS the transition: it closes SLA-09 and
+     opens SLA-11 (Copy received), where QC and delivery happen. */
+  const attachCopy = (id, opts) => {
+    const manual = opts?.source === "manual";
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const endo = { file: opts?.file || `endorsement_${t.policy.replace(/\//g, "_")}.pdf`, size: "312 KB",
+        source: manual ? "manual" : "bot", at: 0, by: manual ? t.owner : t.insurer };
+      const moved = t.stage === "Awaiting Endorsement Copy";
+      return { ...t, endo, sends: [], lastAction: 0, touched: true,
+        ...(moved ? { stage: "Copy Received", legs: [...t.legs, { s: t.stage, h: t.inStage }], inStage: 0 } : {}),
+        extraMail: [...(t.extraMail || []),
+          ...(manual ? [] : [{ dir: "in", who: t.insurerMail, name: t.insurer, subject: `Endorsement copy - ${t.policy}`, at: 0, att: 1, link: "auto",
+            body: `Dear Partner,\n\nPlease find attached the endorsement copy for the above policy.\n\nRegards,\nEndorsement Desk` }])],
+        history: [...t.history,
+          ...(moved ? [{ ...TRAIL.leg(t.stage, t.inStage, "Copy Received", manual ? t.owner : "Mail bot"), at: 0 }] : []),
+          ...TRAIL.copyIn(t, manual, opts?.file || endo.file).map((l) => ({ ...l, at: 0 }))] };
+    }));
+    flash(manual ? "Copy uploaded. Check it at QC, then send to the client." : "Bot fetched and attached the copy. Check it at QC, then send.");
+  };
+
+  /* QC on the insurer's copy, now a flag rather than a stage */
+  const passQc = (id) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, qcPassed: true, lastAction: 0,
+      history: [...t.history, { ...TRAIL.qc(t), at: 0 }] } : t));
+    flash("QC passed. You can send the copy to the customer.");
+  };
+
+  /* Manual resend, for when the client asks for the copy again */
+  const sendCopy = (id) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const e = endoOf(t);
+      return { ...t, lastAction: 0, sends: [...sendsOf(t), { mode: "manual", at: 0, by: t.owner }],
+        extraMail: [...(t.extraMail || []), { dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing",
+          to: `ops@${t.short}.com`, subject: `Endorsement copy - ${t.policy}${sendsOf(t).length ? " (resent)" : ""}`, at: 0, att: 1, link: "auto",
+          body: sendsOf(t).length
+            ? `Dear Sir/Madam,\n\nAs requested, resending the endorsement copy for ${t.policy}.\n\nRegards,\nServicing Desk`
+            : `Dear Sir/Madam,\n\nYour requested ${t.type.toLowerCase()} has been processed. The endorsement copy is attached and is also available on your portal.\n\nRegards,\nServicing Desk` }],
+        history: [...t.history, { ...TRAIL.sent(t, sendsOf(t).length > 0, e?.file), at: 0 }] };
+    }));
+    flash("Endorsement copy sent to the client.");
+  };
+
+  const chase = (id) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, lastAction: 0,
+      history: [...t.history, { text: "Reminder sent to insurer", by: t.owner, at: 0, note: "Auto-drafted from the mail trail" }] } : t));
+    flash("Reminder sent. Ticket no longer counts as pending action.");
+  };
+
+  const raiseQuery = (id, q) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const qid = `Q${(t.queries || []).length + 1}`;
+      return { ...t, lastAction: 0, priorStage: t.stage, stage: "Awaiting Customer Information", inStage: 0,
+        queries: [...(t.queries || []), { id: qid, kind: q.kind, target: q.target, text: q.text, docs: q.docs, status: "open", by: t.owner, at: 0 }],
+        extraMail: [...(t.extraMail || []), {
+          dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: `ops@${t.short}.com`,
+          subject: `Action needed on ${t.type} - ${t.policy}`, at: 0, att: 0, link: "auto", queryRef: qid, portal: true,
+          body: `Dear Sir/Madam,\n\n${q.text}${q.docs.length ? `\n\nDocuments required:\n${q.docs.map((d) => `• ${d}`).join("\n")}` : ""}\n\nPlease respond through your BimaKavach portal - open ticket ${t.id} and answer the pending query. Uploading there attaches your response to the request directly.\n\nWe will resume processing as soon as you respond.\n\nRegards,\nServicing Desk`,
+        }],
+        history: [...t.history, { text: `Query ${qid} published to client portal${q.target ? ` - ${q.target}` : ""}`, by: t.owner, at: 0, note: q.text }] };
+    }));
+    flash("Query published. Ticket moved to SLA-04 - Awaiting customer information.");
+  };
+
+  /* The client answers through the portal, against a specific query, so the
+     response is structurally bound to the query — no matching, no confidence,
+     no chance of it landing on the wrong one. */
+  const receiveReply = (id, qid) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const q = (t.queries || []).find((x) => x.id === qid);
+      if (!q) return t;
+      const values = {};
+      if (q.target && (t.missingFields || []).includes(q.target)) {
+        values[q.target] = FIELD_VALUES[q.target] || "Provided by client";
+      } else if (q.target) {
+        values[q.target] = "Confirmed as correct - no change required";
+      }
+      const reply = {
+        at: 0, via: "portal", by: `ops@${t.short}.com`,
+        note: q.kind === "new" ? "Responded to your question in the portal." : null,
+        values, files: q.docs.map((d) => ({ name: d, file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}_${t.short}.pdf`, size: "248 KB" })),
+      };
+      const back = t.priorStage || "Under Verification";
+      return { ...t, lastAction: 0, stage: back, inStage: 0, priorStage: null,
+        queries: t.queries.map((x) => x.id === qid ? { ...x, status: "answered", answeredAt: 0, reply } : x),
+        missing: t.missing.filter((d) => !q.docs.includes(d)),
+        missingFields: (t.missingFields || []).filter((f) => f !== q.target),
+        history: [...t.history, { text: `Client responded to ${qid} via portal`, by: t.client, at: 0, note: null }] };
+    }));
+    flash("Portal response received. Back to SLA-03 - re-verification, fresh 4 BH clock.");
+  };
+
+  /* M3 FR-036/037 — terminal, blocked without the withdrawal email */
+  const withdraw = (id, { file, reason }) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, terminal: "Customer Withdrawn", lastAction: 0,
+      queries: (t.queries || []).map((q) => q.status === "open" ? { ...q, status: "closed" } : q),
+      history: [...t.history,
+        { text: "Customer Withdrawn - insurer communication halted", by: t.owner, at: 0, note: reason },
+        { text: `Withdrawal email uploaded: ${file}`, by: t.owner, at: 0, note: null }] } : t));
+    flash("Ticket marked Customer Withdrawn. It is now read-only.");
+  };
+
+  /* M2 FR-020/021 — reason mandatory, SLA continues (inStage untouched) */
+  const reassign = (id, { to, reason }) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, owner: to, lastAction: 0,
+      history: [...t.history, { text: `Reassigned from ${t.owner} to ${to}`, by: t.owner, at: 0, note: `${reason} · SLA continues, not reset` }] } : t));
+    flash(`Reassigned to ${to}. SLA continues.`);
+  };
+
+  /* M8/M9 — Manual Review is raised by the email bot, never by hand. The SM can
+     only resolve it, which returns the ticket to the status it held before. */
+  const resolveManualReview = (id) => {
+    setTickets((ts) => ts.map((t) => t.id === id && t.manualReview
+      ? { ...t, manualReview: null, lastAction: 0,
+          history: [...t.history, { text: `Manual review resolved - returned to ${stageOf(t.stage).label}`, by: t.owner, at: 0, note: null }] }
+      : t));
+    flash("Manual review resolved. Workflow resumed.");
+  };
+
+  /* M3 FR-151 / BR-058 — classification editable only before insurer submission */
+  const changeType = (id, type) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, type, missing: [], missingFields: [], lastAction: 0,
+      kind: kindOfType(type), history: [...t.history, { text: `Endorsement type corrected to ${type} (${kindOfType(type)})`, by: t.owner, at: 0, note: "Permitted only before insurer submission (BR-058)" }] } : t));
+    flash(`Type corrected to ${type}. Mandatory fields and documents re-derived.`);
+  };
+
+  /* Manual reminder, on top of the scheduled ones */
+  const sendReminder = (id) => {
+    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, lastAction: 0,
+      history: [...t.history, { text: `Reminder sent to ${stageOf(t.stage).owner === "insurer" ? "insurer POC" : "customer"}`, by: t.owner, at: 0, note: "Manual, outside the schedule" }] } : t));
+    flash("Reminder sent.");
+  };
+
+  /* M6 FR-064/065/066 — the link never arrives by hand. Portal flow: Operations
+     upload it on the child ticket and it auto-attaches. Email flow: the bot
+     extracts it from the insurer's mail. Either way the customer is told
+     automatically the moment it lands (FR-071). */
+  const receiveLink = (id) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const portal = t.payMode === "Portal";
+      const payLink = {
+        ref: `PL-${t.id.slice(4)}-1`, at: 0, expiresIn: INSURERS[t.insurer]?.linkExpiryH || 48, regens: [],
+        source: portal ? "child-ticket" : "bot-email",
+        by: portal ? `Operations · ${t.childTicket}` : "Mail bot",
+        confidence: portal ? null : 0.95,
+      };
+      const next = { key: nextOf(t), ...stageOf(nextOf(t)) };
+      return { ...t, payLink, childClosed: portal, stage: next.key,
+        legs: [...t.legs, { s: t.stage, h: t.inStage }], inStage: 0, lastAction: 0, touched: true,
+        extraMail: [
+          ...(t.extraMail || []),
+          ...(portal ? [] : [{ dir: "in", who: t.insurerMail, name: t.insurer, subject: `Payment link - ${t.policy}`, at: 0, att: 0, link: "auto",
+            body: `Dear Partner,\n\nPayment link for the endorsement on ${t.policy} is below. Premium payable ${money(t.quote.total)}.\n\nRegards,\nEndorsement Desk` }]),
+          { dir: "out", who: "no-reply@bimakavach.com", name: "BimaKavach (automatic)", to: `ops@${t.short}.com`,
+            subject: `Payment link ready - ${t.policy}`, at: 0, att: 0, link: "auto", auto: true,
+            body: `Dear Sir/Madam,\n\nYour endorsement has been approved. Premium payable is ${money(t.quote.total)}.\n\nThe payment link is available on your BimaKavach portal, along with NEFT details if you prefer a bank transfer.\n\nRegards,\nServicing Desk` },
+        ],
+        history: [...t.history,
+          ...TRAIL.linkIn(t, payLink.confidence).map((l) => ({ ...l, at: 0 })),
+          { text: legLine(t.stage, t.inStage, next.key), by: "Workflow engine", at: 0, note: null }] };
+    }));
+    flash("Payment link attached automatically and sent to the customer.");
+  };
+
+  /* M5 edge case — revised quote is a new version, premium updated and logged */
+  const reviseQuote = (id) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id || !t.quote) return t;
+      const base = Math.round(t.quote.base * 1.12), gst = Math.round(base * 0.18);
+      const quote = { ...t.quote, base, gst, total: base + gst, version: t.quote.version + 1, at: 0, confidence: 0.9 };
+      return { ...t, quote, lastAction: 0,
+        history: [...t.history, { text: `Revised quote v${quote.version} received - premium now ${money(quote.total)}`, by: "Mail bot", at: 0, note: `Previous ${money(t.quote.total)}` }] };
+    }));
+    flash("Revised quote stored as a new version.");
+  };
+
+  /* M6 FR-079/080, BR-032/033 — unlimited regeneration, every attempt logged */
+  const regenerateLink = (id) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id || !t.payLink) return t;
+      const n = (t.payLink.regens || []).length + 2;
+      const payLink = { ref: `PL-${t.id.slice(4)}-${n}`, at: 0, expiresIn: INSURERS[t.insurer]?.linkExpiryH || 48,
+        regens: [...(t.payLink.regens || []), { at: 0, by: t.owner, reason: "Regenerated by Service Manager" }] };
+      return { ...t, payLink, lastAction: 0,
+        extraMail: [...(t.extraMail || []), { dir: "out", who: "no-reply@bimakavach.com", name: "BimaKavach (automatic)", to: `ops@${t.short}.com`,
+          subject: `New payment link - ${t.policy}`, at: 0, att: 0, link: "auto", auto: true,
+          body: `Dear Sir/Madam,\n\nA fresh payment link has been generated for your endorsement request. It is available on your BimaKavach portal.\n\nRegards,\nServicing Desk` }],
+        history: [...t.history,
+          { text: `Payment link regenerated - ${payLink.ref}`, by: t.owner, at: 0, note: t.payMode === "Portal" ? "New Operations child ticket raised" : "Fresh request emailed to the insurer" },
+          { text: "Customer notified of the new link", by: "Notification engine", at: 0, note: "Email + WhatsApp + BimaKendra" }] };
+    }));
+    flash("Payment link regenerated and the customer notified.");
+  };
+
+  /* M6 FR-157 — revert a mismatched payment, reason mandatory and audited */
+  const revertPayment = (id) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const legs = t.legs.filter((l) => l.s !== "Awaiting Payment");
+      return { ...t, stage: "Awaiting Payment", payment: null, inStage: 0, lastAction: 0, legs,
+        history: [...t.history, { text: "Reverted from Payment complete to Payment pending", by: t.owner, at: 0, note: "Payment mismatch - amount does not reconcile with the quote (FR-157)" }] };
+    }));
+    flash("Reverted to Payment pending. The payment workflow is open again.");
+  };
+
+  const create = (f) => {
+    const id = `END-${1056 + tickets.length - SEED.length}`;
+    setTickets((ts) => [{ ...f, id, short: f.client.toLowerCase().replace(/[^a-z]+/g, "").slice(0, 12) || "client",
+      insurerMail: "endorsements@" + f.insurer.toLowerCase().replace(/[^a-z]+/g, "") + ".com",
+      stage: "Under Verification", owner: "Nanditha P", inStage: 0, lastAction: 0, touched: false, legs: [{ s: "New / Unassigned", h: 0.03 }],
+      missing: [], missingFields: [], queries: [], extraMail: [], endo: null, sends: [],
+      history: [
+        { ...TRAIL.raised({ type: f.type, policy: f.policy }), at: 0 },
+        { text: `Auto-assigned to ${ASSIGNMENT.podOf(f.insurer)} · Nanditha P`, by: "Routing rule", at: 0, note: ASSIGNMENT.rule },
+      ] }, ...ts]);
+    setPrefill(null); flash(`${id} raised and auto-assigned to ${ASSIGNMENT.podOf(f.insurer)}.`); setOpenId(id); setView("ticket");
+  };
+
+  const claim = (mid) => {
+    const m = mails.find((x) => x.id === mid);
+    setMails((ms) => ms.filter((x) => x.id !== mid));
+    setPrefill({ client: m.guess.includes("-") ? m.guess.split(" - ")[0] : "", type: "Address Change" });
+    setCreateFrom("review");
+    setView("create");
+  };
+
+  const current = tickets.find((t) => t.id === openId);
+  const bc = useMemo(() => tickets.filter((t) => t.owner === "Nanditha P" && breached(t)).length, [tickets]);
+
+  useAnek();
+  useSquircle();
+
+  useEffect(() => {
+    try {
+      const url = pathOf(view, openId);
+      if (window.location.pathname !== url) window.history.pushState({}, "", url);
+    } catch { /* sandboxed frame - the app still works, the address bar just will not follow */ }
+  }, [view, openId]);
+
+  useEffect(() => {
+    const back = () => { const r = readRoute(); setView(r.view); if (r.openId) setOpenId(r.openId); };
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, []);
+
+  const toList = () => setView("list");
+  const CRUMBS = {
+    home: [{ label: "Home" }],
+    list: [{ label: "My tickets" }],
+    ticket: [{ label: "My tickets", onClick: toList }, { label: openId || "" }],
+    review: [{ label: "Manual review queue" }],
+    create: createFrom === "review"
+      ? [{ label: "Manual review queue", onClick: () => setView("review") }]
+      : [{ label: "My tickets", onClick: toList }],
+  }[view] || [{ label: "Home" }];
+
+  /* The order the pager walks: the same risk order the queues use, over
+     whichever scope the desk is set to. */
+  const pagerList = useMemo(
+    () => tickets.filter((x) => scope === "team" || x.owner === "Nanditha P").slice().sort(riskSort),
+    [tickets, scope]);
+
+  if (!authed) {
+    return (
+      <div style={{ color: C.ink, fontFamily: FONT }}>
+        <style>{GLOBAL_CSS}</style>
+        <Login onSignIn={(u) => { setUser(u); setAuthed(true); }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+      <style>{GLOBAL_CSS}</style>
+      <div className="flex h-full w-full overflow-hidden rounded-2xl border"
+        style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+
+        <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
+
+        <main className="scroll-slim flex-1 overflow-y-auto px-8 py-6">
+          <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
+            <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+          ) : (
+            <div className="flex items-center gap-2">
+              {bc > 0 && (
+                <button onClick={() => go("list", "attention", { slice: "breached" })}
+                  className="hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold sm:flex"
+                  style={{ background: C.breachSoft, borderColor: C.breachSoft, color: C.breach }}>
+                  <AlertCircle size={13} /> <span className="bk-num">{bc}</span> Tickets Breached
+                </button>
+              )}
+              <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
+                className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
+                style={{ background: C.brand, color: C.white }}>
+                <span className="hidden sm:inline">Create Ticket</span>
+              </button>
+            </div>
+          )} />
+
+          <div key={view + (openId || "")} className="bk-route mt-5">
+            {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user} />}
+            {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
+            {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
+            {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
+            {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
+            {view === "create" && <Create onCreate={create} back={() => setView(createFrom)} prefill={prefill} />}
+          </div>
+        </main>
+      </div>
+
+      {toast && createPortal(
+        <div className="fixed bottom-5 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm"
+          style={{ background: C.figInk, color: C.white, boxShadow: "0 8px 24px rgba(28,27,31,0.18)" }}>
+          <CheckCircle2 size={14} className="shrink-0" style={{ color: "#6EE7B7" }} /> {toast}
+        </div>, document.body)}
+    </div>
+  );
+}
