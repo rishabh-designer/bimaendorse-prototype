@@ -2312,11 +2312,23 @@ function SlaCard({ t }) {
         })()}
       </div>
       <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: noClock ? C.figHint : held ? C.wait : tone }}>{head}</div>
-      {!noClock && (
+      {!noClock && (() => {
+        /* The bar drains as the clock runs down, and its hue drains with it:
+           ~130° green when the whole window is left, through amber, to 0° red at
+           the deadline. A continuous hue cannot be a palette token, so it is
+           computed inline from the same `used` the SLA maths already produced -
+           this is colour, not clock: no arithmetic changes. */
+        const rem = Math.max(0, 100 - s.used);
+        const hue = Math.round(1.3 * rem);
+        const barW = s.state === "breached" ? 100 : Math.max(4, rem);
+        const barBg = held ? C.wait
+          : s.state === "breached" ? "linear-gradient(90deg, #F10000, #B3261E)"
+          : `linear-gradient(90deg, hsl(${hue}, 72%, 52%), hsl(${hue}, 82%, 42%))`;
+        return (
         <>
           <div className="mt-2" style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
-            <div style={{ height: "100%", borderRadius: 999, background: held ? C.wait : tone,
-              width: `${s.state === "breached" ? 100 : Math.max(2, s.used)}%`, opacity: held ? 0.5 : 1 }} />
+            <div style={{ height: "100%", borderRadius: 999, background: barBg,
+              width: `${barW}%`, opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
           </div>
           <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
             <span style={{ color: held ? C.wait : tone }}>{unitLabel(s.sla, s.unit)} total</span>
@@ -2340,7 +2352,8 @@ function SlaCard({ t }) {
             </div>
           )}
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }
