@@ -1335,7 +1335,7 @@ function CaseCard({ t, onOpen, style }) {
    opens in place to reveal its tickets rather than routing to a filtered list.
    The buckets (bucketOf 1/2/3) are unchanged — only how Home surfaces them. */
 function QueueAccordion({ label, ind, list, openTicket }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const count = list.length;
   const canOpen = count > 0;
   return (
@@ -1385,19 +1385,21 @@ const Mark = ({ kind, name, size = 20, ring = true, style, title }) => (
 /* Peetal tooltip 87:23267 - recessed ground, 8/4 padding, r8, arrow beneath.
    The stack sits at the right edge of its row, so the body grows leftward and
    the arrow is scrubbed to land on the mark - the same trick the frame uses. */
-const Tip = ({ children }) => (
+const Tip = ({ children, down }) => (
   <span className="pointer-events-none absolute flex flex-col items-end"
-    style={{ bottom: "calc(100% + 3px)", right: -6, zIndex: 50 }}>
+    style={{ [down ? "top" : "bottom"]: "calc(100% + 3px)", right: -6, zIndex: 50 }}>
+    {down && <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
+      borderRight: "6px solid transparent", borderBottom: `7px solid ${C.subtle}` }} />}
     <span className="whitespace-nowrap" style={{ background: C.subtle, borderRadius: 8, padding: "4px 8px",
       fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{children}</span>
-    <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
-      borderRight: "6px solid transparent", borderTop: `7px solid ${C.subtle}` }} />
+    {!down && <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
+      borderRight: "6px solid transparent", borderTop: `7px solid ${C.subtle}` }} />}
   </span>
 );
 
 /* Hovering one mark isolates it: the rest fall to 10% and a tooltip above names
    the one under the cursor. Figma 968:119943. */
-function Participants({ t, size = 20 }) {
+function Participants({ t, size = 20, down }) {
   const who = participantsOf(t);
   const [over, setOver] = useState(-1);
   return (
@@ -1409,7 +1411,7 @@ function Participants({ t, size = 20 }) {
             style={{ opacity: over >= 0 && over !== i ? 0.1 : 1,
               boxShadow: over === i ? "0 0 4px rgba(65,0,207,0.25)" : undefined,
               transition: "opacity .15s ease-out" }} />
-          {over === i && <Tip>{p.name}</Tip>}
+          {over === i && <Tip down={down}>{p.name}</Tip>}
         </span>
       ))}
     </span>
@@ -1926,8 +1928,8 @@ const Cancel = ({ onClick }) => (
 /* The completion tick beside a field — blue when satisfied, muted otherwise. */
 const CheckDot = ({ on }) => (
   <span className="flex shrink-0 items-center justify-center rounded-full"
-    style={{ width: 18, height: 18, background: on ? "#1458D2" : C.subtle }}>
-    <Check size={11} strokeWidth={3} style={{ color: C.white }} />
+    style={{ width: 14, height: 14, background: on ? "#1458D2" : C.subtle }}>
+    <Check size={9} strokeWidth={3} style={{ color: C.white }} />
   </span>
 );
 /* A modal footer that carries a completion bar (Figma 1032:147858 / 1040:157200):
@@ -2150,6 +2152,18 @@ const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
       background: disabled ? C.canvas : bg || C.canvas,
       border: `0.5px solid ${disabled ? C.subtle : line || C.subtle}`,
       cursor: disabled ? "not-allowed" : "pointer" }}>
+    {children}
+  </button>
+);
+
+/* Demo control — a dashed lavender pill (Figma), deliberately unlike a real
+   action, standing in for the insurer / client / Operations. */
+const SimBtn = ({ children, onClick, title }) => (
+  <button onClick={onClick} title={title}
+    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+    style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+      color: C.brand, background: C.white, border: `1px dashed ${C.brand200}` }}>
+    <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, background: C.brand }} />
     {children}
   </button>
 );
@@ -2384,7 +2398,7 @@ function SlaCard({ t }) {
     : { grad: "#ECFBEA", border: "#A9EAA2", head: "#007B00", remain: "#00B200" };
   return (
     <div style={{ background: `linear-gradient(180deg, ${C.white} 50%, ${sk.grad} 100%)`,
-      border: `0.5px solid ${sk.border}`, borderRadius: 12, padding: "12px 16px" }}>
+      border: `0.5px solid ${sk.border}`, borderRadius: 12, padding: "14px 16px 20px" }}>
       <div className="flex items-baseline justify-between gap-2">
         <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>Ticket Stage Timeline</span>
         {st.code && (() => {
@@ -2437,15 +2451,15 @@ function SlaCard({ t }) {
 /* Three counters beside the clock. Each is derived from the ticket — the
    prototype holds no bot-confidence figure for a non-financial endorsement,
    so intake completeness takes that slot instead of an invented number. */
-function StatCard({ label, value, tone, icon: Icon, grow, dense, title }) {
+function StatCard({ label, value, tone, icon: Icon, grow, dense, stack, title }) {
   return (
     <div className="min-w-0" title={title}
-      style={{ flex: grow ? "1 1 40%" : "1 1 0", minWidth: dense ? 0 : 132,
-        background: C.white, border: `1px solid ${C.line}`, borderRadius: 12, padding: dense ? "10px 12px" : "11px 17px" }}>
-      <div className={`flex ${dense ? "items-start" : "items-center"} justify-between gap-2`}>
+      style={{ flex: stack ? "0 0 auto" : grow ? "1 1 40%" : "1 1 0", minWidth: dense || stack ? 0 : 132,
+        background: C.white, border: `1px solid ${C.line}`, borderRadius: 12, padding: dense ? "10px 12px" : stack ? "14px 16px" : "11px 17px" }}>
+      <div className={`flex ${dense || stack ? "items-start" : "items-center"} justify-between gap-2`}>
         <div className="min-w-0 flex-1">
           <div className={dense ? "" : "truncate"} style={{ fontSize: dense ? 11 : 12, fontWeight: 500, color: C.figTert, lineHeight: 1.25 }}>{label}</div>
-          <div className="bk-num truncate" style={{ fontSize: dense ? 16 : 18, fontWeight: tone ? 600 : 500, lineHeight: 1.2, color: tone || C.figHint, marginTop: dense ? 4 : 0 }}>{value}</div>
+          <div className="bk-num truncate" style={{ fontSize: dense ? 16 : 18, fontWeight: tone ? 600 : 500, lineHeight: 1.2, color: tone || C.figHint, marginTop: dense || stack ? 6 : 0 }}>{value}</div>
         </div>
         {Icon && <Icon size={dense ? 14 : 16} className="shrink-0" style={{ color: C.figTert }} />}
       </div>
@@ -2615,7 +2629,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const [upload, setUpload] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [reassigning, setReassigning] = useState(false);
-  const [editType, setEditType] = useState(false);
   const [summary, setSummary] = useState(null);
   const [note, setNote] = useState("");
   const [preview, setPreview] = useState(null);
@@ -2633,7 +2646,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const openQ = queries.filter((q) => q.status === "open");
   const canAsk = t.stage === "Under Verification" && !readOnly(t);
   const rem = remindersOf(t);
-  const canEditType = !atOrPast(t, "Submitted to Insurer") && !readOnly(t);
   const payLeft = t.payLink ? t.payLink.expiresIn - (t.stage === "Awaiting Payment" ? t.inStage : 0) : 0;
   const payExpired = !!t.payLink && payLeft <= 0;
   const thread = useMemo(() => mailOf(t), [t]);
@@ -2711,13 +2723,13 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const stageAction = (
     <div className="flex flex-wrap items-center justify-end gap-2">
       {simulate && (
-        <SoftBtn onClick={simulate.run} title="Demo control - stands in for the outside party">▶ {simulate.label}</SoftBtn>
+        <SimBtn onClick={simulate.run} title="Demo control - stands in for the outside party">{simulate.label}</SimBtn>
       )}
       {t.stage === "Awaiting Endorsement Copy" && !endo && !readOnly(t) && (
         <Btn variant="outline" tone={C.figHint} onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
       )}
       {showAdvance && (
-        <Btn onClick={doAdvance} disabled={advBlocked} title={advHint}>{advLabel}</Btn>
+        <Btn onClick={doAdvance} disabled={advBlocked} title={advBlocked ? advHint : undefined}>{advLabel}</Btn>
       )}
     </div>
   );
@@ -2725,9 +2737,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {!readOnly(t) && noteField}
-        {showAdvance && advBlocked && (
-          <span style={{ fontSize: 12, fontWeight: 500, color: C.warn }}>{advHint}</span>
-        )}
       </div>
       {!readOnly(t) && stageAction}
     </>
@@ -2746,24 +2755,16 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
           <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
-          {editType
-            ? <select autoFocus value={t.type} onChange={(e) => { onChangeType(t.id, e.target.value); setEditType(false); }}
-                onBlur={() => setEditType(false)} className="bg-white outline-none"
-                style={{ padding: "3px 6px", borderRadius: 8, border: `1px solid ${C.brand}`, fontSize: 14, color: C.figInk }}>
-                {(PRODUCTS[t.product] || Object.keys(TYPES)).map((x) => <option key={x}>{x}</option>)}
-              </select>
-            : <Indicator thick label={t.type} ind="neutral" />}
-          {canEditType && !editType && (
-            <button onClick={() => setEditType(true)}
-              title="Classification can only be corrected before the request goes to the insurer (BR-058)"
-              style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Correct type</button>
-          )}
-          <Participants t={t} />
+          <Indicator thick label={t.type} ind="neutral" />
+          <Participants t={t} down />
         </div>
       </div>
 
+      {/* a 0.5px hairline separates the identity row from the contract meta */}
+      <div className="my-4" style={{ height: 0.5, background: C.subtle }} aria-hidden />
+
       {/* meta row: client · policy · product · insurer */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {meta.map((m) => (
           <span key={m.text} title={m.title} className="flex items-center gap-1.5">
             <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
@@ -2778,21 +2779,21 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
       {/* Two panels: a narrow left rail — the stage-timeline clock and three
           metric counters — beside the wide Action Panel where the work happens. */}
-      <div className="flex" style={{ gap: 28, height: "calc(100vh - 288px)", minHeight: 480 }}>
+      <div className="flex" style={{ gap: 28, height: "calc(100vh - 264px)", minHeight: 480 }}>
 
         {/* left - the stage timeline and the metrics */}
         <div className="scroll-slim flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
-          style={{ flex: "0 0 340px", minWidth: 300 }}>
+          style={{ flex: "0 0 340px", minWidth: 300, paddingTop: 40 }}>
           <SlaCard t={t} />
           <div className="bk-rule" aria-hidden />
-          <div className="grid grid-cols-3 gap-2">
-            <StatCard dense label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
+          <div className="flex flex-col gap-3">
+            <StatCard stack label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
               title="Fields and documents the endorsement type requires"
               value={mandTotal ? `${mandTotal - mandGaps} of ${mandTotal}` : "none required"}
               tone={mandTotal === 0 ? undefined : mandGaps ? C.warn : "#007B00"} />
-            <StatCard dense label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
+            <StatCard stack label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
               title="Clarification cycles raised with the client" />
-            <StatCard dense label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
+            <StatCard stack label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
               title="Times this ticket has sat on an insurer clock" />
           </div>
         </div>
@@ -2818,7 +2819,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                     ? <MiniTag {...PEND}>{fieldGaps(t)} not captured</MiniTag>
                     : <MiniTag {...OK}>complete</MiniTag>
                 }>Captured at Ticket Intake</SectionTitle>
-                <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+                <div className="grid gap-y-5">
                   {intake.map((f) => (
                     <div key={f.label} className="min-w-0">
                       <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{f.label}</div>
@@ -2828,14 +2829,11 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                         </span>
                         {f.value === null
                           ? (canAsk && <SoftBtn onClick={() => setAsk({ kind: "missing", target: f.label })} tone={C.warn} bg={C.warnSoft} line="#FFD2A8">Request</SoftBtn>)
-                          : <>
-                              <span className="shrink-0" style={{ width: 1, height: 16, background: C.subtle }} />
-                              <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 18, height: 18, background: "#1458D2" }}>
-                                <Check size={11} strokeWidth={3} style={{ color: C.white }} />
-                              </span>
-                            </>}
+                          : <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 14, height: 14, background: "#1458D2" }}>
+                              <Check size={9} strokeWidth={3} style={{ color: C.white }} />
+                            </span>}
                       </div>
-                      <div className="mt-1.5 flex items-center gap-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+                      <div className="mt-1.5 flex items-center justify-end gap-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
                         <span>{f.value === null ? "Nothing supplied by the client" : "Captured at Ticket Intake"}</span>
                         {f.value !== null && canAsk && (
                           <button onClick={() => setAsk({ kind: "field", target: f.label })} style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Query</button>
@@ -2982,8 +2980,8 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                             </div>
                           </div>
                           {q.status === "open" && (
-                            <SoftBtn onClick={() => onAnswer(t.id, q.id)}
-                              title="Demo control - the client answers this query in the portal">▶ Simulate portal response</SoftBtn>
+                            <SimBtn onClick={() => onAnswer(t.id, q.id)}
+                              title="Demo control - the client answers this query in the portal">Simulate portal response</SimBtn>
                           )}
                         </div>
 
@@ -3252,9 +3250,9 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                       </div>
                       {!readOnly(t) && (
                         <div className="flex justify-end">
-                          <SoftBtn onClick={() => onReceiveLink(t.id)} title="Demo control - simulates the link arriving from its configured source">
-                            ▶ Simulate {t.payMode === "Portal" ? "Operations upload" : "bot fetch from insurer mail"}
-                          </SoftBtn>
+                          <SimBtn onClick={() => onReceiveLink(t.id)} title="Demo control - simulates the link arriving from its configured source">
+                            Simulate {t.payMode === "Portal" ? "Operations upload" : "bot fetch from insurer mail"}
+                          </SimBtn>
                         </div>
                       )}
                     </div>
@@ -3824,6 +3822,10 @@ function Login({ onSignIn }) {
 
 const ROUTES = { home: "/", list: "/tickets", review: "/review", create: "/tickets/new" };
 const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` : ROUTES[view] || "/";
+/* END is redundant on the sidebar rail — we are already inside BimaEndorse — so
+   the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
+   hover title and everywhere else. */
+const shortId = (id) => (id || "").replace(/^END/, "");
 function routeOf(path) {
   const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
   if (m) return { view: "ticket", openId: m[1] };
@@ -3913,7 +3915,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                   {collapsed && k === "list" && view === "ticket" && openId && (
                     <button onClick={() => openTicket(openId)} title={openId}
                       className="bk-num mt-1 block w-full truncate text-center"
-                      style={{ fontSize: 11, fontWeight: 600, color: C.brand }}>{openId}</button>
+                      style={{ fontSize: 11, fontWeight: 600, color: C.brand }}>{shortId(openId)}</button>
                   )}
                   {/* the open ticket, nested under its list */}
                   {!collapsed && k === "list" && view === "ticket" && openId && (
@@ -3921,7 +3923,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                       className="mt-1 flex w-full items-center gap-1.5 rounded-lg py-1.5 pl-9 pr-2 text-left text-xs font-semibold"
                       style={{ color: C.brand }}>
                       <CornerDownRight size={11} className="shrink-0" />
-                      <span className="bk-num truncate">{openId}</span>
+                      <span className="bk-num truncate">{shortId(openId)}</span>
                     </button>
                   )}
                 </div>
@@ -3963,8 +3965,8 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
    button of its own. A segment with an onClick is a link; the last is not. */
 function Breadcrumb({ segments, right }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3" style={{ background: C.canvas }}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
+    <div className="flex w-full items-center justify-between gap-3">
+      <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold uppercase" style={{ background: C.canvas, letterSpacing: "0.12px" }}>
         {segments.map((s, i) => {
           const last = i === segments.length - 1;
           return (
@@ -4342,11 +4344,13 @@ export default function App() {
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
 
-        <main className="flex flex-1 flex-col overflow-hidden px-8">
+        <main className="flex flex-1 flex-col overflow-hidden px-6">
           {/* Fixed top nav — the breadcrumb bar stays put; the routed body below scrolls. */}
           <div className="shrink-0 pt-6">
           <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
-            <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+            <div className="rounded-xl px-3 py-2" style={{ background: C.canvas }}>
+              <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               {bc > 0 && (
