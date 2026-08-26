@@ -1283,19 +1283,35 @@ function DeskCard({ count, pills, tint, onOpen }) {
   );
 }
 
-/* One ticket inside an open queue accordion — the priority card boiled down to
-   its id, its clock line and the way in. */
-function QueueMiniCard({ t, onOpen }) {
-  const c = clock(t), over = c.state === "breached";
+/* One ticket, as a card. The whole card is the target — a click anywhere opens
+   the ticket, so there is no separate action button. Shared by Priority Cases
+   and the queue accordions (Figma 1005:121468 / 1005:122258) so both read alike.
+   `style` lets the caller set the flex-basis for the Priority carousel. */
+function CaseCard({ t, onOpen, style }) {
+  const st = statusOf(t), c = clock(t), over = c.state === "breached";
   return (
-    <div className="flex flex-col gap-3 border p-3"
-      style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 12,
+    <div role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      className="bk-item flex flex-col border p-4 text-left transition-shadow hover:shadow-sm"
+      style={{ ...style, borderColor: C.subtle, borderRadius: 16, cursor: "pointer",
         background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 55%)` }}>
-      <div>
-        <div className="bk-num" style={{ fontSize: 16, fontWeight: 600, color: C.brand }}>{t.id}</div>
-        <div className="mt-2 flex items-start gap-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>
-          <Clock size={13} className="mt-px shrink-0" style={{ color: C.figHint }} />
-          <span className="min-w-0">
+      <div className="mb-4 flex justify-end">
+        <Indicator status label={st.label} ind={stageInd(t)} big />
+      </div>
+      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{t.id}</div>
+      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
+        <span className="truncate">{t.client}</span>
+      </div>
+      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.type}</div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
+      </div>
+      <div className="mt-4 flex items-end gap-4">
+        <span className="flex min-w-0 flex-1 items-start gap-1">
+          <Clock size={14} className="mt-px shrink-0" style={{ color: C.figHint }} />
+          <span className="min-w-0" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
             <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : toneOf(c.state) }}>
               {c.state === "held" ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
             </span>
@@ -1303,13 +1319,9 @@ function QueueMiniCard({ t, onOpen }) {
               {` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}`}
             </span>
           </span>
-        </div>
+        </span>
+        <Participants t={t} />
       </div>
-      <button onClick={onOpen} className="flex w-full items-center justify-between border"
-        style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 10, background: C.white,
-          padding: "10px 14px", fontSize: 12, fontWeight: 600, color: C.figInk }}>
-        Take Action <ArrowRight size={12} />
-      </button>
     </div>
   );
 }
@@ -1337,7 +1349,7 @@ function QueueAccordion({ label, ind, list, openTicket }) {
       </button>
       {open && canOpen && (
         <div className="flex flex-col gap-3 px-3 pb-3">
-          {list.map((t) => <QueueMiniCard key={t.id} t={t} onOpen={() => openTicket(t.id)} />)}
+          {list.map((t) => <CaseCard key={t.id} t={t} onOpen={() => openTicket(t.id)} />)}
         </div>
       )}
     </div>
@@ -1400,72 +1412,44 @@ function Participants({ t, size = 20 }) {
 }
 
 const PRIO_PER_PAGE = 3;
+const PRIO_GAP = 16;   // px — matches gap-4 on the track
+const PRIO_PEEK = 40;  // px of the next card left visible, so the queue never looks like just three
 
 function PriorityCases({ list, openTicket }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(list.length / PRIO_PER_PAGE));
   const at = Math.min(page, pages - 1);
+  const more = list.length > PRIO_PER_PAGE;
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Priority Cases</h2>
-        {list.length > PRIO_PER_PAGE && <Pager page={at} pages={pages} setPage={setPage} />}
+        {more && <Pager page={at} pages={pages} setPage={setPage} />}
       </div>
-      {/* the first three slide out of the container's width as the next page comes in */}
-      <div className="overflow-hidden">
-        <div className="flex" style={{ width: `${pages * 100}%`,
-          transform: `translateX(-${at * (100 / pages)}%)`, transition: "transform .35s cubic-bezier(.22,1,.36,1)" }}>
-          {Array.from({ length: pages }, (_, p) => (
-            <div key={p} className="grid gap-4 md:grid-cols-3" style={{ width: `${100 / pages}%`, paddingRight: 2 }}>
-              {list.slice(p * PRIO_PER_PAGE, p * PRIO_PER_PAGE + PRIO_PER_PAGE).map((t, i) => {
-                const st = statusOf(t), c = clock(t), over = c.state === "breached";
-                return (
-                  <div key={t.id} className="bk-item flex flex-col gap-4 border p-4"
-                    style={{ ...stagger(i), borderColor: C.subtle, borderRadius: 16,
-                      background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 50%)` }}>
-                    <div>
-                      <div className="mb-4 flex justify-end">
-                        <Indicator status label={st.label} ind={stageInd(t)} big />
-                      </div>
-                      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{t.id}</div>
-                      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
-                        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
-                        <span className="truncate">{t.client}</span>
-                      </div>
-                      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.type}</div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1">
-                        <Indicator thick label={kindLabel(t.kind)}
-                          ind={KIND_IND[t.kind]} />
-                        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
-                      </div>
-                      <div className="mt-4 flex items-end gap-4">
-                        <span className="flex min-w-0 flex-1 items-start gap-1">
-                          <Clock size={14} className="mt-px shrink-0" style={{ color: C.figHint }} />
-                          <span className="min-w-0" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
-                            <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : toneOf(c.state) }}>
-                              {c.state === "held" ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
-                            </span>
-                            <span className="bk-num" style={{ color: C.figHint }}>
-                              {` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}`}
-                            </span>
-                          </span>
-                        </span>
-                        <Participants t={t} />
-                      </div>
-                    </div>
-                    <button onClick={() => openTicket(t.id)}
-                      className="mt-auto flex w-full items-center justify-between border"
-                      style={{ borderColor: C.subtle, borderWidth: "0.5px", borderRadius: 10, background: C.white,
-                        padding: "10px 14px", fontSize: 12, fontWeight: 600, color: C.figInk }}>
-                      Take Action <ArrowRight size={12} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+      {more ? (
+        /* A single track, not paged grids: three cards fill the width and the
+           fourth is left peeking by PRIO_PEEK so it always reads as "more than
+           three". The pager shifts one full page, landing the next card flush
+           left (translateX(-100%) spans the container width; +PEEK keeps the
+           sliver). */
+        <div className="overflow-hidden">
+          <div className="flex gap-4"
+            style={{ transform: at ? `translateX(calc(${at} * (-100% + ${PRIO_PEEK}px)))` : "none",
+              transition: "transform .35s cubic-bezier(.22,1,.36,1)" }}>
+            {list.map((t, i) => (
+              <CaseCard key={t.id} t={t} onOpen={() => openTicket(t.id)}
+                style={{ ...stagger(i),
+                  flex: `0 0 calc((100% - ${PRIO_PER_PAGE * PRIO_GAP + PRIO_PEEK}px) / ${PRIO_PER_PAGE})` }} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-3">
+          {list.map((t, i) => (
+            <CaseCard key={t.id} t={t} onOpen={() => openTicket(t.id)} style={stagger(i)} />
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
