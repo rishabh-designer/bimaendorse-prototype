@@ -200,6 +200,8 @@ Every one writes a `history` entry. That is the audit trail — no silent mutati
 
 `reviseQuote(id, { base, gst, file, reason })` (M5) replaces the quote with a **new version** and keeps every prior one in `quoteVersions` — nothing is overwritten in place. The SM enters the change in the Update Quote modal; the version-history drawer on the Payment tab reads that array.
 
+`chase(id)` sends a reminder to the insurer: it drafts an outbound mail into `extraMail` (so `mailOf` renders it as the latest entry on the Mail Trail), writes the audit line, and resets the pending-action clock. The reminder is offered **only while an insurer stage is live** — `Submitted to Insurer`, `Awaiting Quote`, `Awaiting Endorsement Copy` (the stages the master gives `owner: "insurer"`, via `awaitingInsurer(t)`). Once the copy arrives — `Copy Received` / `Closed` — there is nothing to chase, so the control is hidden.
+
 ---
 
 ## 6a. Reaching Closed

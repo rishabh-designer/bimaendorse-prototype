@@ -359,6 +359,11 @@ const TERMINAL = {
 };
 const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
 const readOnly = (t) => isTerminal(t);
+/* A chase only makes sense while the ball is in the insurer's court — the three
+   stages the master gives owner:"insurer" (Submitted / Awaiting Quote / Awaiting
+   Endorsement Copy). Once the copy lands (Copy Received / Closed) there is nothing
+   to chase, so the Mail Trail hides the control. */
+const awaitingInsurer = (t) => stageOf(t.stage).owner === "insurer";
 
 /* One deadline function, four units. inStage is CALENDAR hours in the stage. */
 function dueFrom(entered, sla, unit) {
@@ -3094,7 +3099,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                 </div>
               )}
               <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-1">
-                {!readOnly(t) && (
+                {awaitingInsurer(t) && (
                   <Btn size="xs" variant="outline" tone={C.figHint} onClick={() => onChase(t.id)}>Chase insurer</Btn>
                 )}
                 <Btn size="xs" variant="outline"
@@ -4083,8 +4088,18 @@ export default function App() {
   };
 
   const chase = (id) => {
-    setTickets((ts) => ts.map((t) => t.id === id ? { ...t, lastAction: 0,
-      history: [...t.history, { text: "Reminder sent to insurer", by: t.owner, at: 0, note: "Auto-drafted from the mail trail" }] } : t));
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const awaiting = t.stage === "Awaiting Quote" ? "the premium quote"
+        : t.stage === "Awaiting Endorsement Copy" ? "the endorsement copy"
+        : "an update on the endorsement request";
+      return { ...t, lastAction: 0,
+        extraMail: [...(t.extraMail || []), {
+          dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: t.insurerMail,
+          subject: `Reminder - Endorsement request - ${t.policy}`, at: 0, att: 0, link: "auto",
+          body: `Dear Team,\n\nGentle reminder on the endorsement request for policy ${t.policy} (${t.type}). We are awaiting ${awaiting}. Kindly share status at the earliest.\n\nRegards,\nServicing Desk` }],
+        history: [...t.history, { text: "Reminder sent to insurer", by: t.owner, at: 0, note: "Auto-drafted from the mail trail" }] };
+    }));
     flash("Reminder sent. Ticket no longer counts as pending action.");
   };
 
