@@ -3560,12 +3560,21 @@ const POLICY_BOOK = {
   "BK-PROP-D&O-B-1968": { client: "Rahul Badoni", insurer: "ICICI Lombard", product: "Directors & Officers (D&O)" },
   "BK-WC-2026-0092":    { client: "Redwood Logistics Ltd", insurer: "ICICI Lombard", product: "Workmen Compensation (WC)" },
 };
+const DEMO_CLIENTS = ["Acme Logistics Pvt Ltd", "Vertex Pharma Ltd", "Nimbus Engineering", "Pinnacle Retail Ltd",
+  "Redwood Logistics Ltd", "Sunrise Chemicals Ltd", "Vanguard Textiles Pvt Ltd", "Meridian Foods Ltd"];
 const fetchPolicy = (policy) => {
   const key = String(policy || "").trim().toUpperCase();
   if (!key) return { client: "", insurer: "", product: "" };
   const seed = SEED.find((t) => t.policy.toUpperCase() === key);
   if (seed) return { client: seed.client, insurer: seed.insurer, product: seed.product };
-  return POLICY_BOOK[key] || { client: "Client on record", insurer: "ICICI Lombard", product: "Fire & Burglary" };
+  if (POLICY_BOOK[key]) return POLICY_BOOK[key];
+  /* Any other policy number gets a deterministic demo record — the same string
+     always resolves the same way, but different sample numbers (Example1,
+     Example2, …) return different client / insurer / product. Prototype only. */
+  const h = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const insurers = Object.keys(INSURERS), products = Object.keys(PRODUCTS);
+  return { client: DEMO_CLIENTS[h % DEMO_CLIENTS.length],
+    insurer: insurers[h % insurers.length], product: products[(h * 7) % products.length] };
 };
 
 function Create({ onCreate, back, prefill }) {
@@ -3589,9 +3598,13 @@ function Create({ onCreate, back, prefill }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   /* The three inputs the SM fills; entering the policy auto-fetches (and locks)
      Client / Insurer / Product, and resets the type since its list is per-product. */
-  const setPolicy = (e) => {
-    setF((prev) => ({ ...prev, policy: e.target.value, ...fetchPolicy(e.target.value), type: "" }));
-    setVals({}); setUps({});
+  const onPolicyChange = (e) => setF((prev) => ({ ...prev, policy: e.target.value }));
+  /* Fetch once the SM finishes entering the policy (on blur), not on every
+     keystroke — so partial input like "E" doesn't populate the trio. */
+  const onPolicyBlur = () => {
+    const rec = fetchPolicy(f.policy);
+    if (rec.product !== f.product) { setVals({}); setUps({}); }
+    setF((prev) => ({ ...prev, ...rec, type: rec.product !== prev.product ? "" : prev.type }));
   };
   const okStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
     background: v ? "rgba(65,0,207,0.02)" : "transparent" });
@@ -3604,7 +3617,7 @@ function Create({ onCreate, back, prefill }) {
         <span style={{ color: C.figHint }}>{label}</span>{required && <span style={{ color: "#F10000" }}>*</span>}
       </div>
       <div className="flex items-center gap-2 px-2 py-2.5"
-        style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}`, borderRadius: 8 } : okStyle(value)}>
+        style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}` } : okStyle(value)}>
         {children}
         {trail}
         {hint && <span className="shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{hint}</span>}
@@ -3643,7 +3656,8 @@ function Create({ onCreate, back, prefill }) {
             <div className="min-w-0">
               <Field label="Policy Number" value={f.policy}
                 onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
-                <input value={f.policy} onChange={setPolicy} placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
+                <input value={f.policy} onChange={onPolicyChange} onBlur={onPolicyBlur}
+                  placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
               </Field>
               <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
                 <select value={f.priority} onChange={set("priority")} className={selCls} style={inputSt}>
