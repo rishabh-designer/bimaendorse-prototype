@@ -1110,8 +1110,8 @@ function HeaderFilter({ id, label, options, selected, setSelected, openKey, setO
     <div className="relative flex min-w-0 items-center gap-1" data-menu>
       <button onClick={() => setOpenKey(open ? null : id)} className="flex min-w-0 items-center gap-1" title={`Filter by ${label.toLowerCase()}`}>
         <span className="flex shrink-0 items-center justify-center border"
-          style={{ width: 16, height: 16, borderRadius: 5, background: C.white, borderColor: C.subtle, color: C.figHint }}>
-          <ChevronDown size={11} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+          style={{ width: 20, height: 20, borderRadius: 6, background: C.white, borderColor: C.subtle, color: C.figHint }}>
+          <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </span>
         <span className="truncate" style={{ fontSize: 14, fontWeight: 600, color: "#1C1C1C" }}>{label}</span>
       </button>
@@ -3429,12 +3429,9 @@ function Review({ mails, onClaim }) {
     <div className="space-y-4">
       <PageHead title="Manual Review Queue" right={
         over > 0 ? (
-          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2" style={{ background: C.brandBg }}>
-            <span className="rounded-lg px-2 py-0.5" style={{ background: C.breachSoft, color: C.breach, fontSize: 12, fontWeight: 600 }}>
-              <span className="bk-num">{over}</span> Que over {MR_ESCALATION.overH}Hrs
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>Escalated to {MR_ESCALATION.to}</span>
-          </div>
+          <span className="rounded-lg px-2 py-0.5" style={{ background: C.breachSoft, color: C.breach, fontSize: 12, fontWeight: 600 }}>
+            <span className="bk-num">{over}</span> Que over {MR_ESCALATION.overH}Hrs
+          </span>
         ) : null
       } />
 
