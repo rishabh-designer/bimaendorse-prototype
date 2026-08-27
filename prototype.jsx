@@ -3552,9 +3552,25 @@ function UploadField({ label, doc, state = "default", file, onPick, onReset }) {
 /* Create endorsement ticket — Figma 900:99062 / 917:104341. A modal over the
    list, not a page. Type is chosen here and drives the classification, the
    mandatory fields and the documents beneath it. */
+/* No policy master exists in the workbook yet (see OPEN-QUESTIONS), so the Create
+   form SIMULATES the "fetch from policy" step: a couple of sample policies plus a
+   match against the SEED book, with a generic fallback for anything else. Client /
+   Insurer / Product come back read-only. This is a stub, not real lookup. */
+const POLICY_BOOK = {
+  "BK-PROP-D&O-B-1968": { client: "Rahul Badoni", insurer: "ICICI Lombard", product: "Directors & Officers (D&O)" },
+  "BK-WC-2026-0092":    { client: "Redwood Logistics Ltd", insurer: "ICICI Lombard", product: "Workmen Compensation (WC)" },
+};
+const fetchPolicy = (policy) => {
+  const key = String(policy || "").trim().toUpperCase();
+  if (!key) return { client: "", insurer: "", product: "" };
+  const seed = SEED.find((t) => t.policy.toUpperCase() === key);
+  if (seed) return { client: seed.client, insurer: seed.insurer, product: seed.product };
+  return POLICY_BOOK[key] || { client: "Client on record", insurer: "ICICI Lombard", product: "Fire & Burglary" };
+};
+
 function Create({ onCreate, back, prefill }) {
-  const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "ICICI Lombard",
-    product: "Fire & Burglary", type: "Address Change / Correction / Update", priority: "Medium" });
+  const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "",
+    product: "", type: "", priority: "" });
   const [vals, setVals] = useState({});
   const [ups, setUps] = useState({});
   const meta = TYPES[f.type] || { fields: [], docs: [] };
@@ -3571,22 +3587,30 @@ function Create({ onCreate, back, prefill }) {
   const pct = Math.round((done / wanted) * 100);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  /* The three inputs the SM fills; entering the policy auto-fetches (and locks)
+     Client / Insurer / Product, and resets the type since its list is per-product. */
+  const setPolicy = (e) => {
+    setF((prev) => ({ ...prev, policy: e.target.value, ...fetchPolicy(e.target.value), type: "" }));
+    setVals({}); setUps({});
+  };
+  const hasRight = !!f.type && (meta.fields.length + meta.docs.length) > 0;
   const okStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
     background: v ? "rgba(65,0,207,0.02)" : "transparent" });
 
   /* The cross clears the field back to its idle state. Single selects hide the
      native chevron, so the cross is the only control — as the spec asks. */
-  const Field = ({ label, hint, value, onClear, trail, children }) => (
+  const Field = ({ label, hint, value, onClear, trail, children, locked, required = true }) => (
     <div className="min-w-0">
       <div className="flex items-center px-2 py-3 text-sm font-medium leading-none">
-        <span style={{ color: C.figHint }}>{label}</span><span style={{ color: "#F10000" }}>*</span>
+        <span style={{ color: C.figHint }}>{label}</span>{required && <span style={{ color: "#F10000" }}>*</span>}
       </div>
-      <div className="flex items-center gap-2 px-2 py-2.5" style={okStyle(value)}>
+      <div className="flex items-center gap-2 px-2 py-2.5"
+        style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}`, borderRadius: 8 } : okStyle(value)}>
         {children}
         {trail}
         <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
-          {value ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
-          <CheckCircle2 size={15} fill={value ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
+          {value && !locked ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
+          <CheckCircle2 size={15} fill={value && !locked ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
         </span>
       </div>
       <div className="flex h-6 items-center justify-end px-2" style={{ fontSize: 12, color: C.figTert }}>{hint}</div>
@@ -3600,7 +3624,7 @@ function Create({ onCreate, back, prefill }) {
   return (
     <Overlay className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(14,26,31,0.45)" }} onClick={back}>
-      <div onClick={(e) => e.stopPropagation()} className="scroll-slim my-auto w-full max-w-3xl overflow-hidden rounded-2xl"
+      <div onClick={(e) => e.stopPropagation()} className={`scroll-slim my-auto w-full overflow-hidden rounded-2xl ${hasRight ? "max-w-5xl" : "max-w-xl"}`}
         style={{ background: C.white, boxShadow: "0 24px 64px rgba(28,27,31,0.24)" }}>
 
         <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
@@ -3615,64 +3639,60 @@ function Create({ onCreate, back, prefill }) {
         </div>
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
-          <div className="grid gap-x-6 sm:grid-cols-2">
-            <Field label="Client" value={f.client} onClear={() => setF({ ...f, client: "" })}>
-              <input value={f.client} onChange={set("client")} placeholder="Client name" className={inputCls} style={inputSt} />
-            </Field>
-            <Field label="Policy Number" value={f.policy} onClear={() => setF({ ...f, policy: "" })}>
-              <input value={f.policy} onChange={set("policy")} placeholder="Policy number" className={inputCls} style={inputSt} />
-            </Field>
-            <Field label="Insurer" value={f.insurer} onClear={() => setF({ ...f, insurer: "" })}
-              trail={INSURER_LOGO[f.insurer] && <img src={INSURER_LOGO[f.insurer]} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
-              <select value={f.insurer} onChange={set("insurer")} className={selCls} style={inputSt}>
-                {ph("insurer")}
-                {Object.keys(INSURERS).map((i) => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </Field>
-            <Field label="Product" value={f.product} onClear={() => setF({ ...f, product: "", type: "" })}
-              trail={PRODUCT_ICON[f.product] && <img src={PRODUCT_ICON[f.product]} alt="" className="shrink-0" style={{ height: 22, width: 22 }} />}>
-              <select value={f.product} onChange={(e) => setF({ ...f, product: e.target.value, type: (PRODUCTS[e.target.value] || [])[0] || "" })}
-                className={selCls} style={inputSt}>
-                {ph("product")}
-                {Object.keys(PRODUCTS).map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </Field>
-            <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
-              <select value={f.priority} onChange={set("priority")} className={selCls} style={inputSt}>
-                {ph("priority")}
-                {Object.keys(PRIORITY).map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </Field>
-            <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
-              hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
-              <select value={f.type} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
-                className={selCls} style={inputSt}>
-                {ph("endorsement type")}
-                {offered.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </Field>
+          <div className={hasRight ? "grid gap-x-10 sm:grid-cols-2" : ""}>
+            {/* Left — the three inputs, then the read-only trio fetched from the policy */}
+            <div className="min-w-0">
+              <Field label="Policy Number" value={f.policy}
+                onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
+                <input value={f.policy} onChange={setPolicy} placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
+                <select value={f.priority} onChange={set("priority")} className={selCls} style={inputSt}>
+                  {ph("Priority")}
+                  {Object.keys(PRIORITY).map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
+              <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
+                hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
+                <select value={f.type} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
+                  className={selCls} style={inputSt}>
+                  {ph("Endorsement Type")}
+                  {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
+                </select>
+              </Field>
+              <Field label="Client" locked required={false} value={f.client}>
+                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Insurer" locked required={false} value={f.insurer}
+                trail={INSURER_LOGO[f.insurer] && <img src={INSURER_LOGO[f.insurer]} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
+                <span className={inputCls} style={{ ...inputSt, color: f.insurer ? C.figHint : C.figPlaceholder }}>{f.insurer || "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Product" locked required={false} value={f.product}
+                trail={PRODUCT_ICON[f.product] && <img src={PRODUCT_ICON[f.product]} alt="" className="shrink-0" style={{ height: 22, width: 22 }} />}>
+                <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product || "Auto-filled from policy"}</span>
+              </Field>
+            </div>
+
+            {/* Right — the endorsement type's own fields and document uploads, kept
+                beside the core so the form stays on one screen */}
+            {hasRight && (
+              <div className="min-w-0">
+                {meta.fields.map((x) => (
+                  <Field key={x} label={x} value={vals[x]} onClear={() => setVals({ ...vals, [x]: "" })}>
+                    <input value={vals[x] || ""} onChange={(e) => setVals({ ...vals, [x]: e.target.value })}
+                      placeholder={x} className={inputCls} style={inputSt} />
+                  </Field>
+                ))}
+                {meta.docs.map((d) => (
+                  <div key={d} className="pb-3">
+                    <UploadField label={d} doc={d} state={ups[d]?.state || "default"} file={ups[d]?.file}
+                      onPick={() => setUps({ ...ups, [d]: { state: "success", file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}.pdf` } })}
+                      onReset={() => setUps({ ...ups, [d]: undefined })} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {meta.fields.length > 0 && (
-            <div className="grid gap-x-6 sm:grid-cols-2">
-              {meta.fields.map((x) => (
-                <Field key={x} label={x} value={vals[x]} onClear={() => setVals({ ...vals, [x]: "" })}>
-                  <input value={vals[x] || ""} onChange={(e) => setVals({ ...vals, [x]: e.target.value })}
-                    placeholder={x} className={inputCls} style={inputSt} />
-                </Field>
-              ))}
-            </div>
-          )}
-
-          {meta.docs.length > 0 && (
-            <div className="grid gap-x-6 gap-y-2 pb-4 sm:grid-cols-2">
-              {meta.docs.map((d) => (
-                <UploadField key={d} label={d} doc={d} state={ups[d]?.state || "default"} file={ups[d]?.file}
-                  onPick={() => setUps({ ...ups, [d]: { state: "success", file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}.pdf` } })}
-                  onReset={() => setUps({ ...ups, [d]: undefined })} />
-              ))}
-            </div>
-          )}
 
           {refund && (
             <div className="mb-4 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: C.warnSoft, color: C.warn, fontSize: 13 }}>

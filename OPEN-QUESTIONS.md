@@ -10,6 +10,8 @@ Unresolved decisions. If a request touches one of these, say so before acting �
 
 **Intake completeness.** PRD FR-004 / BR-002 say a ticket is created only when mandatory details are complete. The prototype allows raising with gaps and blocks at insurer submission instead. Both are defensible; only one can be built.
 
+**No policy master.** The Create form auto-fetches Client / Insurer / Product from the Policy Number and shows them read-only, but there is no policy master in the workbook to fetch from. `fetchPolicy` is a stub — it matches the SEED policies and a couple of samples, otherwise returns a generic record. A real policy master (or an API) is needed for the fetch to be true.
+
 **SLA-02 duration.** The master says 4 BH for SM verification; the PRD §8.2 says 2 hours. The master is more recent and was taken.
 
 ---

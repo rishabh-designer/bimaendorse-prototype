@@ -332,3 +332,5 @@ Last month) replaces the sort field.
 
 **Create Ticket lives in the breadcrumb**, on every view, and is the only route to `Create`.
 `Create`'s Back returns to **My Tickets**, not Home.
+
+The Create form takes **three inputs** — Policy Number, Priority, and Endorsement Type. Entering the policy **auto-fetches** Client, Insurer, and Product, which then render **read-only** (there is no real policy master yet — the fetch is a stub, see `OPEN-QUESTIONS.md`). The endorsement type's own mandatory fields and document uploads sit in a **second column** on the right so the form stays on one screen; the modal is a single narrow column until a type that has such fields is chosen.
