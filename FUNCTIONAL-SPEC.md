@@ -164,11 +164,16 @@ minutes while the ones we wait on take days. That falls out of the legs; do not 
 
 **Blocking**
 
-- Submit to insurer is blocked while any mandatory field or document is missing, or any query is open. The reason is stated on the control.
+- Submit to insurer is blocked only while a client query is open. (Mandatory intake is complete before the ticket exists — see **Intake** below — so it never blocks submission.) The reason is stated on the control.
 - Close is blocked until the copy exists, has passed QC, and has been sent.
 - Customer Withdrawn requires **both** a reason and an uploaded withdrawal email.
 - Reassignment requires a target **and** a reason, and does not reset `inStage`.
 - Endorsement type is editable only before `Submitted to Insurer`, and only within the product's offered list.
+
+**Intake is complete at creation**
+
+- The mail bot collects every mandatory field and document *before* the ticket is created — it chases anything missing in the mail thread, and the ticket is only made once everything is in. So the desk has **no missing-intake state**; the `Mandatory intake` counter always reads *N of N*.
+- What the SM does instead is **challenge** a capture that looks wrong: **Query** a captured field (Name, Address — value + a Query link, nothing to view) or a document (**View + Query**). A Query routes the ticket to *Awaiting Customer Information* and is the only thing that blocks submission.
 
 **Automation boundaries** — these are system actions and must never become manual controls:
 

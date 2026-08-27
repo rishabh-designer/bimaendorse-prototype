@@ -8,7 +8,7 @@ Unresolved decisions. If a request touches one of these, say so before acting �
 
 **Auto-close vs the QC gate.** PRD FR-095 / BR-039 say the ticket closes automatically once the correct endorsement copy is attached, and argue no post-closure dispute flow is needed *because* closure only happens on a correct copy. The prototype instead requires the copy to pass QC and be sent deliberately, and blocks close until then. The client asked for the gate; the PRD has not been rewritten. **Either FR-095 changes or the gate goes.**
 
-**Intake completeness.** PRD FR-004 / BR-002 say a ticket is created only when mandatory details are complete. The prototype allows raising with gaps and blocks at insurer submission instead. Both are defensible; only one can be built.
+**Intake completeness — RESOLVED (FR-004 / BR-002).** The desk now assumes **complete intake at creation**: the mail bot collects every required field and document in the thread, and the ticket is only made once everything is in. There is no missing-intake state; the SM instead **Queries** a captured field or document that looks invalid (which routes the ticket to *Awaiting Customer Information*). Submission blocks only on an open query. Recorded in `FUNCTIONAL-SPEC.md` §5.
 
 **No policy master.** The Create form auto-fetches Client / Insurer / Product from the Policy Number and shows them read-only, but there is no policy master in the workbook to fetch from. `fetchPolicy` is a stub — it matches the SEED policies and a couple of samples, otherwise returns a generic record. A real policy master (or an API) is needed for the fetch to be true.
 

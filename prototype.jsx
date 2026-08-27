@@ -472,7 +472,7 @@ const PRODUCT_ICON = {
 
 const SEED = [
   { id: "END-1041", client: "Acme Logistics Pvt Ltd", short: "acmelogistics", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Address Change / Correction / Update", kind: "Non-Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 1.5, lastAction: 1.5, touched: false, legs: [{ s: "New / Unassigned", h: 0.2 }], missing: [] },
-  { id: "END-1043", client: "Vertex Pharma Ltd", short: "vertexpharma", policy: "FIRE/2026/00947", insurer: "Bajaj Allianz", insurerMail: "corp.endo@bajajallianz.co.in", product: "Fire & Burglary", type: "Name / Entity Change", kind: "Non-Financial", priority: "Critical", stage: "Under Verification", owner: "Nanditha P", inStage: 30, lastAction: 30, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }], missing: ["Certificate of Incorporation"], missingFields: ["Name"] },
+  { id: "END-1043", client: "Vertex Pharma Ltd", short: "vertexpharma", policy: "FIRE/2026/00947", insurer: "Bajaj Allianz", insurerMail: "corp.endo@bajajallianz.co.in", product: "Fire & Burglary", type: "Name / Entity Change", kind: "Non-Financial", priority: "Critical", stage: "Under Verification", owner: "Nanditha P", inStage: 30, lastAction: 30, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }], missing: [] },
   { id: "END-1048", client: "Sunrise Chemicals Ltd", short: "sunrisechem", policy: "MAR/2026/00655", insurer: "IFFCO Tokio", insurerMail: "endo.desk@iffcotokio.co.in", product: "Marine Cargo", type: "Business Description Correction", kind: "Non-Financial", priority: "High", stage: "Submitted to Insurer", owner: "Nanditha P", inStage: 384, lastAction: 384, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Under Verification", h: 6 }], missing: [] },
   { id: "END-1050", client: "Pinnacle Retail Ltd", short: "pinnacleretail", policy: "PI/2026/00092", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Professional Indemnity (PI)", type: "Contact Details Update (Email / Mobile)", kind: "Non-Financial", priority: "Medium", stage: "Closed", owner: "Nanditha P", inStage: 0, lastAction: 20, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Under Verification", h: 6 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 20 }, { s: "Copy Received", h: 0.6 }], missing: [] },
   { id: "END-1062", client: "Vanguard Textiles Pvt Ltd", short: "vanguardtex", policy: "FIRE/2026/00922", insurer: "Chola MS", insurerMail: "servicing@cholams.murugappa.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "Critical", stage: "Awaiting Payment Link", owner: "Nanditha P", inStage: 22, lastAction: 22, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 0.6 }, { s: "Under Verification", h: 1.8 }, { s: "Submitted to Insurer", h: 18 }, { s: "Awaiting Quote", h: 20 }], missing: [],
@@ -2699,13 +2699,15 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
   /* The next action, resolved once and used in both the header and the footer
      so the two can never disagree. Predicates unchanged. */
-  const advBlocked = (t.stage === "Under Verification" && (pendingAll > 0 || openQ.length > 0)) ||
+  /* Intake is complete at creation (the bot collects everything first), so
+     submission is never blocked on intake — only on an open client query. */
+  const advBlocked = (t.stage === "Under Verification" && openQ.length > 0) ||
     (t.stage === "Copy Received" && (!endo || !qcDone || !sends.length));
   const advLabel = st.verb;
   const advHint = t.stage === "Copy Received" && (!endo || !qcDone || !sends.length)
     ? "Blocked: send the endorsement copy to the client before closing."
-    : t.stage === "Under Verification" && (pendingAll > 0 || openQ.length > 0)
-    ? (openQ.length > 0 ? "Blocked: waiting on the client to answer an open query." : "Blocked: mandatory intake is incomplete. Raise a query to request it.")
+    : t.stage === "Under Verification" && openQ.length > 0
+    ? "Blocked: waiting on the client to answer an open query."
     : "Advancing closes this stage's clock and stamps its duration on the ticket.";
   const doAdvance = () => { onAdvance(t.id, note); setNote(""); };
   const showAdvance = st.verb && !readOnly(t);
@@ -2827,10 +2829,10 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
           <SlaCard t={t} />
           <div className="bk-rule" aria-hidden />
           <div className="flex flex-col gap-3">
-            <StatCard stack label="Mandatory intake" icon={mandGaps ? FileClock : CheckCircle2}
-              title="Fields and documents the endorsement type requires"
-              value={mandTotal ? `${mandTotal - mandGaps} of ${mandTotal}` : "none required"}
-              tone={mandTotal === 0 ? undefined : mandGaps ? C.warn : "#007B00"} />
+            <StatCard stack label="Mandatory intake" icon={CheckCircle2}
+              title="Fields and documents the endorsement type requires — collected in full before the ticket is made"
+              value={mandTotal ? `${mandTotal} of ${mandTotal}` : "none required"}
+              tone={mandTotal === 0 ? undefined : "#007B00"} />
             <StatCard stack label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
               title="Clarification cycles raised with the client" />
             <StatCard stack label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
@@ -2854,28 +2856,20 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
                 <div className="bk-rule" aria-hidden />
 
-                <SectionTitle right={
-                  fieldGaps(t) > 0
-                    ? <MiniTag {...PEND}>{fieldGaps(t)} not captured</MiniTag>
-                    : <MiniTag {...OK}>complete</MiniTag>
-                }>Captured at Ticket Intake</SectionTitle>
+                <SectionTitle right={<MiniTag {...OK}>complete</MiniTag>}>Captured at Ticket Intake</SectionTitle>
                 <div className="grid gap-y-5">
                   {intake.map((f) => (
                     <div key={f.label} className="min-w-0">
                       <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{f.label}</div>
                       <div className="mt-1 flex items-center gap-2" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
-                        <span className="min-w-0 flex-1 truncate" style={{ fontSize: 15, fontWeight: 500, color: f.value === null ? C.warn : C.figInk }}>
-                          {f.value === null ? "Not captured" : f.value}
+                        <span className="min-w-0 flex-1 truncate" style={{ fontSize: 15, fontWeight: 500, color: C.figInk }}>{f.value}</span>
+                        <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 14, height: 14, background: "#1458D2" }}>
+                          <Check size={9} strokeWidth={3} style={{ color: C.white }} />
                         </span>
-                        {f.value === null
-                          ? (canAsk && <SoftBtn onClick={() => setAsk({ kind: "missing", target: f.label })} tone={C.warn} bg={C.warnSoft} line="#FFD2A8">Request</SoftBtn>)
-                          : <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 14, height: 14, background: "#1458D2" }}>
-                              <Check size={9} strokeWidth={3} style={{ color: C.white }} />
-                            </span>}
                       </div>
                       <div className="mt-1.5 flex items-center justify-end gap-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
-                        <span>{f.value === null ? "Nothing supplied by the client" : "Captured at Ticket Intake"}</span>
-                        {f.value !== null && canAsk && (
+                        <span>Captured at Ticket Intake</span>
+                        {canAsk && (
                           <button onClick={() => setAsk({ kind: "field", target: f.label })} style={{ fontSize: 12, fontWeight: 600, color: C.link }}>Query</button>
                         )}
                       </div>
@@ -2935,24 +2929,18 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
             {live === "docs" && (
               <div className="flex min-h-full flex-col gap-4">
               <div className="space-y-4">
-                <SectionTitle right={
-                  pendingDocs > 0 ? <MiniTag {...PEND}>{pendingDocs} awaiting</MiniTag> : <MiniTag {...OK}>all received</MiniTag>
-                }>Documents</SectionTitle>
+                <SectionTitle right={<MiniTag {...OK}>all received</MiniTag>}>Documents</SectionTitle>
                 <div className="flex flex-col gap-1">
                   {docs.map((d, i) => (
                     <div key={i} className="flex items-start gap-3" style={{ borderRadius: 8, padding: 8 }}>
-                      <FileTile icon={d.status === "Awaiting" ? FileClock : FileCheck2} />
+                      <FileTile icon={FileCheck2} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{d.name}</span>
-                          {d.status === "Awaiting"
-                            ? <MiniTag {...PEND}>Not received</MiniTag>
-                            : <MiniTag {...OK}>{d.status} · {d.kind.toLowerCase()}</MiniTag>}
-                          {d.status !== "Awaiting" && <MiniTag>{d.file}</MiniTag>}
+                          <MiniTag {...OK}>{d.status} · {d.kind.toLowerCase()}</MiniTag>
+                          <MiniTag>{d.file}</MiniTag>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>
-                          {d.status === "Awaiting" ? "Nothing shared by the client yet" : `${d.size} · ${d.by} · ${fmtAgo(d.at)}`}
-                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>{`${d.size} · ${d.by} · ${fmtAgo(d.at)}`}</div>
                         {d.status === "Verified" && (
                           <div className="flex items-center gap-1" style={{ fontSize: 14, fontWeight: 500, color: C.brand }}>
                             <BadgeCheck size={14} className="shrink-0" />
@@ -2965,16 +2953,11 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         {canAsk && (
-                          <SoftBtn onClick={() => setAsk({ kind: d.status === "Awaiting" ? "missing" : "doc", target: d.name })}
-                            tone={d.status === "Awaiting" ? C.warn : C.figInk}>
-                            {d.status === "Awaiting" ? "Request" : "Query"}
-                          </SoftBtn>
+                          <SoftBtn onClick={() => setAsk({ kind: "doc", target: d.name })} tone={C.figInk}>Query</SoftBtn>
                         )}
-                        <SoftBtn disabled={d.status === "Awaiting"} onClick={() => setPreview(d)}
-                          title={d.status === "Awaiting" ? "Nothing to preview until the client shares it" : undefined}>View</SoftBtn>
-                        <IconBtn icon={Eye} title="Quick look" disabled={d.status === "Awaiting"} onClick={() => setPreview(d)} />
-                        <IconBtn icon={Download} disabled={d.status === "Awaiting"}
-                          title={d.status === "Awaiting" ? "Nothing to download until the client shares it" : "Download is not wired up in this prototype"} />
+                        <SoftBtn onClick={() => setPreview(d)}>View</SoftBtn>
+                        <IconBtn icon={Eye} title="Quick look" onClick={() => setPreview(d)} />
+                        <IconBtn icon={Download} title="Download is not wired up in this prototype" />
                       </div>
                     </div>
                   ))}
@@ -3577,6 +3560,31 @@ const fetchPolicy = (policy) => {
     insurer: insurers[h % insurers.length], product: products[(h * 7) % products.length] };
 };
 
+/* Create-form field: label, a bottom-ruled control, and a trailing tick. Kept at
+   MODULE scope so it is not recreated on every Create render — an inline component
+   would remount the input each keystroke and steal focus. `locked` = read-only grey. */
+const okFieldStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
+  background: v ? "rgba(65,0,207,0.02)" : "transparent" });
+function Field({ label, hint, value, onClear, trail, children, locked, required = true }) {
+  return (
+    <div className="min-w-0 pb-3">
+      <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
+        <span style={{ color: C.figHint }}>{label}</span>{required && <span style={{ color: "#F10000" }}>*</span>}
+      </div>
+      <div className="flex items-center gap-2 px-2 py-2.5"
+        style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}` } : okFieldStyle(value)}>
+        {children}
+        {trail}
+        {hint && <span className="shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{hint}</span>}
+        <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+          {value && !locked ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
+          <CheckCircle2 size={15} fill={value && !locked ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Create({ onCreate, back, prefill }) {
   const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "",
     product: "", type: "", priority: "" });
@@ -3599,35 +3607,15 @@ function Create({ onCreate, back, prefill }) {
   /* The three inputs the SM fills; entering the policy auto-fetches (and locks)
      Client / Insurer / Product, and resets the type since its list is per-product. */
   const onPolicyChange = (e) => setF((prev) => ({ ...prev, policy: e.target.value }));
-  /* Fetch once the SM finishes entering the policy (on blur), not on every
-     keystroke — so partial input like "E" doesn't populate the trio. */
-  const onPolicyBlur = () => {
+  /* Fetch ONLY when the SM commits the policy with Enter — never on keystroke,
+     so partial input like "E" doesn't populate the trio or steal focus. */
+  const onPolicyKey = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
     const rec = fetchPolicy(f.policy);
     if (rec.product !== f.product) { setVals({}); setUps({}); }
     setF((prev) => ({ ...prev, ...rec, type: rec.product !== prev.product ? "" : prev.type }));
   };
-  const okStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
-    background: v ? "rgba(65,0,207,0.02)" : "transparent" });
-
-  /* The cross clears the field back to its idle state. Single selects hide the
-     native chevron, so the cross is the only control — as the spec asks. */
-  const Field = ({ label, hint, value, onClear, trail, children, locked, required = true }) => (
-    <div className="min-w-0 pb-3">
-      <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
-        <span style={{ color: C.figHint }}>{label}</span>{required && <span style={{ color: "#F10000" }}>*</span>}
-      </div>
-      <div className="flex items-center gap-2 px-2 py-2.5"
-        style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}` } : okStyle(value)}>
-        {children}
-        {trail}
-        {hint && <span className="shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{hint}</span>}
-        <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
-          {value && !locked ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
-          <CheckCircle2 size={15} fill={value && !locked ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
-        </span>
-      </div>
-    </div>
-  );
   const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
   const selCls = "min-w-0 flex-1 appearance-none bg-transparent outline-none";
   const inputSt = { fontSize: 16, fontWeight: 500, color: C.brand };
@@ -3656,7 +3644,7 @@ function Create({ onCreate, back, prefill }) {
             <div className="min-w-0">
               <Field label="Policy Number" value={f.policy}
                 onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
-                <input value={f.policy} onChange={onPolicyChange} onBlur={onPolicyBlur}
+                <input value={f.policy} onChange={onPolicyChange} onKeyDown={onPolicyKey}
                   placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
               </Field>
               <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
