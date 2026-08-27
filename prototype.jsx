@@ -510,6 +510,11 @@ const fmtDur = (h) => {
 const isOpen = (t) => t.stage !== "Closed" && !t.terminal;
 const isRouting = (t) => stageOf(t.stage).system === true;   // not yet on anyone's desk
 const ageOf = (t) => t.legs.reduce((a, l) => a + l.h, 0) + (isOpen(t) ? t.inStage : 0);
+/* Ticket age in whole days — creation→now while open, frozen at creation→closure
+   once closed (ageOf stops accruing once isOpen is false). Drives the Ticket Age
+   column, the Overview line, and the Oldest/Newest-first sorts. */
+const ageDays = (t) => Math.max(0, Math.round(ageOf(t) / 24));
+const fmtAge = (t) => { const d = ageDays(t); return d === 0 ? "Today" : `${d} ${d === 1 ? "Day" : "Days"}`; };
 
 function clock(t) {
   const st = stageOf(t.stage);
@@ -1704,6 +1709,7 @@ const COLS = {
   prio:   { w: 100 },
   stage:  { w: 200 },
   kind:   { w: 120, pr: 8 },
+  age:    { w: 110 },
   client: { w: 200, pl: 8 },
   req:    { w: 250 },
 };
@@ -1741,6 +1747,7 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
         <span className="flex" style={cell(COLS.kind)}>
           <Indicator label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
         </span>
+        <span className="bk-num truncate" style={cell(COLS.age, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{fmtAge(t)}</span>
         <span className="truncate" style={cell(COLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{t.client}</span>
         <span className="flex" style={cell(COLS.req)}><Indicator label={t.type} ind="neutral" /></span>
         <span style={dueCell}><StageDue t={t} /></span>
@@ -1848,6 +1855,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
           <span style={cell(COLS.kind)}>
             <HeaderFilter id="kind" label="Type" options={KIND_OPTS} selected={kind} setSelected={setKind} {...hf} />
           </span>
+          <span style={cell(COLS.age, head)}>Ticket Age</span>
           <span className="truncate" style={cell(COLS.client, head)}>Client</span>
           <span style={cell(COLS.req)}>
             <HeaderFilter id="req" label="Request" options={REQ_OPTS} selected={req} setSelected={setReq} {...hf} />
@@ -1988,43 +1996,75 @@ function QueryModal({ ctx, t, onSend, onClose }) {
     missing: `We still need the ${String(ctx.target).toLowerCase()} to process this endorsement. Could you share it?`,
     new: "",
   }[ctx.kind];
-  const [text, setText] = useState(suggested);
-  const [doc, setDoc] = useState(ctx.kind === "doc" || ctx.kind === "missing" ? ctx.target : "");
+  const initialDoc = ctx.kind === "doc" || ctx.kind === "missing" ? ctx.target : "";
+  const [stacks, setStacks] = useState([{ text: suggested, doc: initialDoc }]);
   const options = [...new Set([...(TYPES[t.type]?.docs || []), ...t.missing, ...(ctx.target && ctx.kind !== "field" ? [ctx.target] : [])])];
   const title = { field: "Query a captured detail", doc: "Query a shared document", missing: "Request a missing item", new: "Ask the client a question" }[ctx.kind];
-  const ready = !!text.trim();
-  const pct = Math.round(((text.trim() ? 1 : 0) + (doc ? 1 : 0)) / 2 * 100);
+
+  const patch = (i, p) => setStacks((ss) => ss.map((s, j) => (j === i ? { ...s, ...p } : s)));
+  const addStack = () => setStacks((ss) => [...ss, { text: "", doc: "" }]);
+  const dropStack = (i) => setStacks((ss) => ss.filter((_, j) => j !== i));
+
+  const ready = stacks.every((s) => s.text.trim());
+  const filled = stacks.reduce((n, s) => n + (s.text.trim() ? 1 : 0) + (s.doc ? 1 : 0), 0);
+  const pct = Math.round((filled / (stacks.length * 2)) * 100);
+  const send = () => onSend({ ...ctx, items: stacks.filter((s) => s.text.trim()).map((s) => ({ text: s.text.trim(), docs: s.doc ? [s.doc] : [] })) });
 
   return (
     <ModalShell title={title} width={560}
       sub="The client is notified by email with a portal link and answers inside the portal, against this query. The stage clock holds until they respond, and the ticket stays visible under Awaiting client."
       onClose={onClose}
-      footer={<ProgressFooter pct={pct} onClose={onClose} disabled={!ready} label="Create Query"
-        onConfirm={() => onSend({ ...ctx, text: text.trim(), docs: doc ? [doc] : [] })} />}>
-      <div className="space-y-5">
-        <label className="block">
-          <FieldLabel>Question to the client <span style={{ color: C.semError }}>*</span></FieldLabel>
-          <div className="mt-1.5 flex items-start gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2}
-              placeholder="Example: Could you confirm the correct value against the policy schedule?"
-              className="min-w-0 flex-1 resize-none bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }} />
-            <CheckDot on={!!text.trim()} />
+      footer={
+        <div className="flex w-full flex-col gap-2.5">
+          <div className="overflow-hidden" style={{ height: 3, borderRadius: 999, background: C.subtle }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: C.accent, transition: "width .2s ease-out" }} />
           </div>
-        </label>
-        <div>
-          <div className="flex items-baseline justify-between gap-2">
-            <FieldLabel>Documents to request <span style={{ color: C.semError }}>*</span></FieldLabel>
-            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{options.length} Available for This Product</span>
-          </div>
-          <div className="mt-1.5 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
-            <select value={doc} onChange={(e) => setDoc(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: doc ? C.figInk : C.figPlaceholder }}>
-              <option value="">Select Document Type</option>
-              {options.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <CheckDot on={!!doc} />
+          <div className="flex items-center justify-between gap-3">
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.accent }}>{pct}% Complete</span>
+            <div className="flex items-center gap-2">
+              <Btn variant="outline" onClick={addStack}>Add Another</Btn>
+              <Btn onClick={send} disabled={!ready}>Create Query</Btn>
+            </div>
           </div>
         </div>
+      }>
+      <div className="space-y-6">
+        {stacks.map((s, i) => (
+          <div key={i} className="space-y-5">
+            {i > 0 && (
+              <>
+                <div className="bk-rule" aria-hidden />
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>Question {i + 1}</span>
+                  <button onClick={() => dropStack(i)} style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Remove</button>
+                </div>
+              </>
+            )}
+            <label className="block">
+              <FieldLabel>Question to the client <span style={{ color: C.semError }}>*</span></FieldLabel>
+              <div className="mt-1.5 flex items-start gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+                <textarea value={s.text} onChange={(e) => patch(i, { text: e.target.value })} rows={2}
+                  placeholder="Example: Could you confirm the correct value against the policy schedule?"
+                  className="min-w-0 flex-1 resize-none bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }} />
+                <CheckDot on={!!s.text.trim()} />
+              </div>
+            </label>
+            <div>
+              <div className="flex items-baseline justify-between gap-2">
+                <FieldLabel>Documents to request <span style={{ color: C.semError }}>*</span></FieldLabel>
+                <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{options.length} Available for This Product</span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
+                <select value={s.doc} onChange={(e) => patch(i, { doc: e.target.value })}
+                  className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: s.doc ? C.figInk : C.figPlaceholder }}>
+                  <option value="">Select Document Type</option>
+                  {options.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <CheckDot on={!!s.doc} />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </ModalShell>
   );
@@ -2805,7 +2845,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
           <PanelCard footer={panelFooter}>
             {live === "overview" && (
               <div className="space-y-5">
-                <SectionTitle>Ticket Workflow</SectionTitle>
+                <SectionTitle right={<span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Ticket Age: <span className="bk-num" style={{ color: C.figInk }}>{fmtAge(t)}</span></span>}>Ticket Workflow</SectionTitle>
                 <PhaseBar t={t} />
                 <Drawer icon={ListChecks} title="Workflow Stages" open={stagesOpen} setOpen={setStagesOpen}
                   badge={<MiniTag>{seqOf(t).length} stages</MiniTag>}>
@@ -2969,12 +3009,16 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                               <MiniTag>{{ field: "On a captured detail", doc: "On a shared document", missing: "Missing item", new: "New question" }[q.kind]}</MiniTag>
                               {q.target && <MiniTag>{q.target}</MiniTag>}
                             </div>
-                            <div style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{q.text}</div>
-                            {q.docs?.length > 0 && (
-                              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {q.docs.map((d) => <MiniTag key={d}><Paperclip size={9} /> {d}</MiniTag>)}
+                            {(q.items && q.items.length ? q.items : [{ text: q.text, docs: q.docs || [] }]).map((it, ix, arr) => (
+                              <div key={ix} className={ix > 0 ? "mt-2" : ""}>
+                                <div style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{arr.length > 1 ? `${ix + 1}. ` : ""}{it.text}</div>
+                                {it.docs?.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                    {it.docs.map((d) => <MiniTag key={d}><Paperclip size={9} /> {d}</MiniTag>)}
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            ))}
                             <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
                               {q.by} · asked {fmtAgo(q.at)}{q.status === "answered" ? ` · answered ${fmtAgo(q.answeredAt)}` : ""}
                             </div>
@@ -4106,17 +4150,24 @@ export default function App() {
   };
 
   const raiseQuery = (id, q) => {
+    /* A query can now carry several questions, asked as one portal form. We keep
+       `text` (first question) and `docs` (union of all requested) alongside the
+       full `items` list so the reply flow and legacy readers are unaffected. */
+    const items = q.items && q.items.length ? q.items : [{ text: q.text, docs: q.docs || [] }];
+    const allDocs = [...new Set(items.flatMap((it) => it.docs || []))];
+    const multi = items.length > 1;
+    const form = items.map((it, i) => `${multi ? `${i + 1}. ` : ""}${it.text}${it.docs && it.docs.length ? `\n${multi ? "   " : ""}Documents required: ${it.docs.join(", ")}` : ""}`).join("\n\n");
     setTickets((ts) => ts.map((t) => {
       if (t.id !== id) return t;
       const qid = `Q${(t.queries || []).length + 1}`;
       return { ...t, lastAction: 0, priorStage: t.stage, stage: "Awaiting Customer Information", inStage: 0,
-        queries: [...(t.queries || []), { id: qid, kind: q.kind, target: q.target, text: q.text, docs: q.docs, status: "open", by: t.owner, at: 0 }],
+        queries: [...(t.queries || []), { id: qid, kind: q.kind, target: q.target, items, text: items[0].text, docs: allDocs, status: "open", by: t.owner, at: 0 }],
         extraMail: [...(t.extraMail || []), {
           dir: "out", who: "endorsements@bimakavach.com", name: "BimaKavach Servicing", to: `ops@${t.short}.com`,
           subject: `Action needed on ${t.type} - ${t.policy}`, at: 0, att: 0, link: "auto", queryRef: qid, portal: true,
-          body: `Dear Sir/Madam,\n\n${q.text}${q.docs.length ? `\n\nDocuments required:\n${q.docs.map((d) => `• ${d}`).join("\n")}` : ""}\n\nPlease respond through your BimaKavach portal - open ticket ${t.id} and answer the pending query. Uploading there attaches your response to the request directly.\n\nWe will resume processing as soon as you respond.\n\nRegards,\nServicing Desk`,
+          body: `Dear Sir/Madam,\n\nWe need the following to process this endorsement:\n\n${form}\n\nPlease respond through your BimaKavach portal - open ticket ${t.id} and answer the pending query as a single form. Uploading there attaches your response to the request directly.\n\nWe will resume processing as soon as you respond.\n\nRegards,\nServicing Desk`,
         }],
-        history: [...t.history, { text: `Query ${qid} published to client portal${q.target ? ` - ${q.target}` : ""}`, by: t.owner, at: 0, note: q.text }] };
+        history: [...t.history, { text: `Query ${qid} published to client portal${q.target ? ` - ${q.target}` : ""}${multi ? ` · ${items.length} questions` : ""}`, by: t.owner, at: 0, note: items.map((it) => it.text).join(" · ") }] };
     }));
     flash("Query published. Ticket moved to SLA-04 - Awaiting customer information.");
   };
@@ -4353,13 +4404,6 @@ export default function App() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {bc > 0 && (
-                <button onClick={() => go("list", "attention", { slice: "breached" })}
-                  className="hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold sm:flex"
-                  style={{ background: C.breachSoft, borderColor: C.breachSoft, color: C.breach }}>
-                  <AlertCircle size={13} /> <span className="bk-num">{bc}</span> Tickets Breached
-                </button>
-              )}
               <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
                 className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
                 style={{ background: C.brand, color: C.white }}>

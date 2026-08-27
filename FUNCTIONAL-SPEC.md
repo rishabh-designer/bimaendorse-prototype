@@ -154,6 +154,9 @@ minutes while the ones we wait on take days. That falls out of the legs; do not 
 | `endoOf(t)`, `sendsOf(t)` | endorsement copy and its delivery log |
 | `summariseThread(t)` | the bot's précis of the trail |
 | `bucketOf(t)`, `riskSort` | queue placement and ordering |
+| `ageDays(t)`, `fmtAge(t)` | ticket age in whole days |
+
+**Ticket age** is `round(ageOf(t) / 24)` — creation→now while the ticket is open, frozen at creation→closure once it closes (`ageOf` stops accruing when `isOpen` is false). It surfaces as the **Ticket Age** column in My Tickets (between Type and Client), as a line beside the Overview's Ticket Workflow, and drives the **Oldest First / Newest First** sorts.
 
 ---
 
@@ -201,6 +204,8 @@ Every one writes a `history` entry. That is the audit trail — no silent mutati
 `reviseQuote(id, { base, gst, file, reason })` (M5) replaces the quote with a **new version** and keeps every prior one in `quoteVersions` — nothing is overwritten in place. The SM enters the change in the Update Quote modal; the version-history drawer on the Payment tab reads that array.
 
 `chase(id)` sends a reminder to the insurer: it drafts an outbound mail into `extraMail` (so `mailOf` renders it as the latest entry on the Mail Trail), writes the audit line, and resets the pending-action clock. The reminder is offered **only while an insurer stage is live** — `Submitted to Insurer`, `Awaiting Quote`, `Awaiting Endorsement Copy` (the stages the master gives `owner: "insurer"`, via `awaitingInsurer(t)`). Once the copy arrives — `Copy Received` / `Closed` — there is nothing to chase, so the control is hidden.
+
+`raiseQuery(id, q)` can ask **several questions in one query**, sent to the client as a single BimaKendra form. The Ask-the-Client modal holds a list of question/document stacks; **Add Another** appends one; **Create Query** submits them all. The query stores the full `items: [{ text, docs }]` list, plus `text` (first question) and `docs` (union of all requested documents) so the reply flow (`receiveReply`) and legacy readers are unchanged — one form still counts as one customer cycle and still moves the ticket to `Awaiting Customer Information`.
 
 ---
 
