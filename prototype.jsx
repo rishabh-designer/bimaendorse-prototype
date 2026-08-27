@@ -3884,7 +3884,7 @@ const readRoute = () => { try { return routeOf(window.location.pathname); } catc
 const NAV = [
   ["home",    "Home",          HeartHandshake],
   ["list",    "My Tickets",    ListChecks],
-  ["review",  "Manual Review", SquareDashedMousePointer, true],   /* disabled for now */
+  ["review",  "Manual Review", SquareDashedMousePointer],
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
 ];
 
