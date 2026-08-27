@@ -3593,27 +3593,26 @@ function Create({ onCreate, back, prefill }) {
     setF((prev) => ({ ...prev, policy: e.target.value, ...fetchPolicy(e.target.value), type: "" }));
     setVals({}); setUps({});
   };
-  const hasRight = !!f.type && (meta.fields.length + meta.docs.length) > 0;
   const okStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
     background: v ? "rgba(65,0,207,0.02)" : "transparent" });
 
   /* The cross clears the field back to its idle state. Single selects hide the
      native chevron, so the cross is the only control — as the spec asks. */
   const Field = ({ label, hint, value, onClear, trail, children, locked, required = true }) => (
-    <div className="min-w-0">
-      <div className="flex items-center px-2 py-3 text-sm font-medium leading-none">
+    <div className="min-w-0 pb-3">
+      <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
         <span style={{ color: C.figHint }}>{label}</span>{required && <span style={{ color: "#F10000" }}>*</span>}
       </div>
       <div className="flex items-center gap-2 px-2 py-2.5"
         style={locked ? { background: C.canvas, borderBottom: `1px solid ${C.line}`, borderRadius: 8 } : okStyle(value)}>
         {children}
         {trail}
+        {hint && <span className="shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{hint}</span>}
         <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
           {value && !locked ? <button onClick={onClear} title={`Clear ${label.toLowerCase()}`}><X size={13} /></button> : null}
           <CheckCircle2 size={15} fill={value && !locked ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
         </span>
       </div>
-      <div className="flex h-6 items-center justify-end px-2" style={{ fontSize: 12, color: C.figTert }}>{hint}</div>
     </div>
   );
   const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
@@ -3624,7 +3623,7 @@ function Create({ onCreate, back, prefill }) {
   return (
     <Overlay className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(14,26,31,0.45)" }} onClick={back}>
-      <div onClick={(e) => e.stopPropagation()} className={`scroll-slim my-auto w-full overflow-hidden rounded-2xl ${hasRight ? "max-w-5xl" : "max-w-xl"}`}
+      <div onClick={(e) => e.stopPropagation()} className="scroll-slim my-auto w-full max-w-5xl overflow-hidden rounded-2xl"
         style={{ background: C.white, boxShadow: "0 24px 64px rgba(28,27,31,0.24)" }}>
 
         <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
@@ -3639,7 +3638,7 @@ function Create({ onCreate, back, prefill }) {
         </div>
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
-          <div className={hasRight ? "grid gap-x-10 sm:grid-cols-2" : ""}>
+          <div className="grid gap-x-10 sm:grid-cols-2">
             {/* Left — the three inputs, then the read-only trio fetched from the policy */}
             <div className="min-w-0">
               <Field label="Policy Number" value={f.policy}
@@ -3674,24 +3673,23 @@ function Create({ onCreate, back, prefill }) {
             </div>
 
             {/* Right — the endorsement type's own fields and document uploads, kept
-                beside the core so the form stays on one screen */}
-            {hasRight && (
-              <div className="min-w-0">
-                {meta.fields.map((x) => (
-                  <Field key={x} label={x} value={vals[x]} onClear={() => setVals({ ...vals, [x]: "" })}>
-                    <input value={vals[x] || ""} onChange={(e) => setVals({ ...vals, [x]: e.target.value })}
-                      placeholder={x} className={inputCls} style={inputSt} />
-                  </Field>
-                ))}
-                {meta.docs.map((d) => (
-                  <div key={d} className="pb-3">
-                    <UploadField label={d} doc={d} state={ups[d]?.state || "default"} file={ups[d]?.file}
-                      onPick={() => setUps({ ...ups, [d]: { state: "success", file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}.pdf` } })}
-                      onReset={() => setUps({ ...ups, [d]: undefined })} />
-                  </div>
-                ))}
-              </div>
-            )}
+                beside the core so the form stays on one screen (empty until a type
+                that has such fields is chosen) */}
+            <div className="min-w-0">
+              {meta.fields.map((x) => (
+                <Field key={x} label={x} value={vals[x]} onClear={() => setVals({ ...vals, [x]: "" })}>
+                  <input value={vals[x] || ""} onChange={(e) => setVals({ ...vals, [x]: e.target.value })}
+                    placeholder={x} className={inputCls} style={inputSt} />
+                </Field>
+              ))}
+              {meta.docs.map((d) => (
+                <div key={d} className="pb-3">
+                  <UploadField label={d} doc={d} state={ups[d]?.state || "default"} file={ups[d]?.file}
+                    onPick={() => setUps({ ...ups, [d]: { state: "success", file: `${d.toLowerCase().replace(/[^a-z]+/g, "_")}.pdf` } })}
+                    onReset={() => setUps({ ...ups, [d]: undefined })} />
+                </div>
+              ))}
+            </div>
           </div>
 
           {refund && (
