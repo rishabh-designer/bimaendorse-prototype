@@ -488,8 +488,10 @@ const SEED = [
 ];
 
 const SEED_MAILS = [
-  { id: "MB-2291", from: "accounts@vertexpharma.in", subject: "Re: Fwd: kindly update the address in our policy", received: 2, reason: "No policy number in mail or thread", guess: "Vertex Pharma Ltd - 3 active policies" },
-  { id: "MB-2284", from: "ravi.menon@gmail.com", subject: "Nominee update for my company policy", received: 19, reason: "Sender domain not linked to a client", guess: "No confident match" },
+  { id: "MB-2291", from: "accounts@vertexpharma.in", subject: "Re: Fwd: kindly update the address in our policy", received: 2, reason: "No policy number in mail or thread", guess: "Vertex Pharma Ltd - 3 active policies",
+    body: "Hi team,\n\nPlease update the registered address on our policy to our new office at 4th Floor, Prestige Tech Park, Bengaluru 560103. Do let me know if anything else is needed from our side.\n\nRegards,\nAccounts, Vertex Pharma" },
+  { id: "MB-2284", from: "ravi.menon@gmail.com", subject: "Nominee update for my company policy", received: 19, reason: "Sender domain not linked to a client", guess: "No confident match",
+    body: "Hello,\n\nI would like to update the nominee on my company's policy. Please let me know the process and the documents you need from me.\n\nThanks,\nRavi Menon" },
 ];
 
 /* Clock — stage only ---------------------------------------------- */
@@ -1727,10 +1729,7 @@ function StageDue({ t }) {
   return (
     <p className="leading-snug" style={{ fontSize: 14, fontWeight: 500 }}>
       <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : tone }}>
-        {held ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
-      </span>
-      <span className="bk-num" style={{ color: C.figHint }}>
-        {held ? ` Asked ${fmtAgo(c.heldSince)}` : ` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}${c.external ? " · insurer" : ""}`}
+        {held ? "On hold" : over ? `${c.label} over` : `${c.label} left`}
       </span>
     </p>
   );
@@ -2012,7 +2011,7 @@ function QueryModal({ ctx, t, onSend, onClose }) {
 
   return (
     <ModalShell title={title} width={560}
-      sub="The client is notified by email with a portal link and answers inside the portal, against this query. The stage clock holds until they respond, and the ticket stays visible under Awaiting client."
+      sub="This will be sent to the customer's BimaKendra account."
       onClose={onClose}
       footer={
         <div className="flex w-full flex-col gap-2.5">
@@ -2684,7 +2683,12 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const sends = sendsOf(t);
   const qcDone = !!t.qcPassed;
   const openQ = queries.filter((q) => q.status === "open");
-  const canAsk = t.stage === "Under Verification" && !readOnly(t);
+  /* A captured value or document can be challenged with the client only while
+     the desk still holds the ticket — i.e. before it is submitted to the insurer.
+     Once it goes to the insurer the intake is locked, so the Query controls
+     disappear. A query routes it to Awaiting Customer Information and returns to
+     the prior stage once answered. */
+  const canAsk = !readOnly(t) && !atOrPast(t, "Submitted to Insurer");
   const rem = remindersOf(t);
   const payLeft = t.payLink ? t.payLink.expiresIn - (t.stage === "Awaiting Payment" ? t.inStage : 0) : 0;
   const payExpired = !!t.payLink && payLeft <= 0;
@@ -2964,12 +2968,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   {!docs.length && <Empty>No documents on this ticket.</Empty>}
                 </div>
               </div>
-              <div className="mt-auto flex justify-end pt-1">
-                <SoftBtn disabled={readOnly(t)} tone={C.brand}
-                  title={readOnly(t) ? "This ticket is closed - the record is read-only" : "Upload is not wired up in this prototype"}>
-                  Upload
-                </SoftBtn>
-              </div>
             </div>
           )}
 
@@ -3051,7 +3049,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
               </div>
               <div className="mt-auto flex justify-end pt-1">
                 <Btn size="xs" onClick={() => setAsk({ kind: "new", target: null })} disabled={!canAsk}
-                  title={canAsk ? "Raise a query with the client" : "Available while the ticket is under verification"}>
+                  title={canAsk ? "Raise a query with the client" : "Intake can only be queried before the ticket goes to the insurer"}>
                   Ask Client
                 </Btn>
               </div>
@@ -3403,6 +3401,7 @@ const MR_COLS = {
 };
 
 function Review({ mails, onClaim }) {
+  const [open, setOpen] = useState(null);
   const over = mails.filter((m) => m.received >= MR_ESCALATION.overH).length;
   const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
   const body = { fontSize: 14, fontWeight: 500, color: C.figHint };
@@ -3434,7 +3433,7 @@ function Review({ mails, onClaim }) {
           const late = m.received >= MR_ESCALATION.overH;
           return (
             <div key={m.id} className="bk-item" style={stagger(i)}>
-              <div className="flex items-center rounded-xl px-2 py-3">
+              <div onClick={() => setOpen(m)} className="flex cursor-pointer items-center rounded-xl px-2 py-3">
                 <span className="bk-num truncate" style={cell(MR_COLS.id, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{m.id}</span>
                 <span className="truncate" style={{ ...flexCell, ...body }} title={m.subject}>{m.from}</span>
                 <span style={cell(MR_COLS.guess)}>
@@ -3460,7 +3459,7 @@ function Review({ mails, onClaim }) {
                   ) : <span style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>-</span>}
                 </span>
                 <span style={cell(MR_COLS.action)}>
-                  <button onClick={() => onClaim(m.id)}
+                  <button onClick={(e) => { e.stopPropagation(); onClaim(m.id); }}
                     className="inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
                     style={{ background: C.white, borderColor: C.subtle, fontSize: 12, fontWeight: 600, color: C.figInk }}>
                     Create Ticket <ArrowRight size={12} />
@@ -3472,6 +3471,61 @@ function Review({ mails, onClaim }) {
           );
         }) : <Empty>Queue empty. Every inbound mail matched a policy.</Empty>}
       </section>
+
+      {open && (() => {
+        const matched = open.guess && open.guess !== "No confident match";
+        const late = open.received >= MR_ESCALATION.overH;
+        return (
+          <ModalShell icon={SquareDashedMousePointer} title={`Manual review · ${open.id}`}
+            sub="The bot could not match this mail to a policy on its own — review it and create the ticket."
+            width={760} onClose={() => setOpen(null)}
+            footer={<Btn onClick={() => { onClaim(open.id); setOpen(null); }}>Create Ticket</Btn>}>
+            <div className="grid gap-6" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
+              {/* left — the bot's read of the mail */}
+              <div className="space-y-5">
+                <div>
+                  <FieldLabel>Bot guess</FieldLabel>
+                  <div className="mt-1.5">
+                    {matched
+                      ? <MiniTag tone={C.brand} bg="rgba(65,0,207,0.08)" line="#E8E2FF">{open.guess}</MiniTag>
+                      : <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>No confident match</span>}
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Review condition</FieldLabel>
+                  <div className="mt-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{open.reason}</div>
+                </div>
+                <div>
+                  <FieldLabel>Age</FieldLabel>
+                  <div className="mt-1.5 bk-num" style={{ fontSize: 14, fontWeight: 500, color: late ? C.semError : C.figInk }}>{fmtAgo(open.received)}</div>
+                </div>
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    {late
+                      ? <><img src={AVATAR_UMESH} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 20, height: 20 }} /><span style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{MR_ESCALATION.label}</span></>
+                      : <span style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>Awaiting review</span>}
+                  </div>
+                </div>
+              </div>
+              {/* right — the mail itself */}
+              <div style={{ borderLeft: `1px solid ${C.subtle}`, paddingLeft: 24 }}>
+                <div className="flex items-start gap-3">
+                  <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 40, height: 40, background: C.brandBg, color: C.brand }}><Mail size={18} /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{open.from}</span>
+                      <span className="bk-num shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{fmtAgo(open.received)}</span>
+                    </div>
+                    <div className="mt-2" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{open.subject}</div>
+                    <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: C.figInk }}>{open.body}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ModalShell>
+        );
+      })()}
     </div>
   );
 }
@@ -3630,8 +3684,8 @@ function Create({ onCreate, back, prefill }) {
         <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
           <div>
             <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand, lineHeight: 1.2 }}>Create endorsement ticket</h2>
-            <p className="mt-1" style={{ fontSize: 14, fontWeight: 500, color: C.figTert, lineHeight: 1.4 }}>
-              Endorsement Type is what lets the form demand the right fields<br />and documents upfront and cannot be changed.
+            <p className="mt-1 whitespace-nowrap" style={{ fontSize: 14, fontWeight: 500, color: C.figTert, lineHeight: 1.4 }}>
+              Endorsement Type is what lets the form demand the right fields and documents upfront and cannot be changed.
             </p>
           </div>
           <button onClick={back} title="Close" className="flex shrink-0 items-center justify-center rounded-md border"

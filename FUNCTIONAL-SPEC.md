@@ -173,7 +173,8 @@ minutes while the ones we wait on take days. That falls out of the legs; do not 
 **Intake is complete at creation**
 
 - The mail bot collects every mandatory field and document *before* the ticket is created — it chases anything missing in the mail thread, and the ticket is only made once everything is in. So the desk has **no missing-intake state**; the `Mandatory intake` counter always reads *N of N*.
-- What the SM does instead is **challenge** a capture that looks wrong: **Query** a captured field (Name, Address — value + a Query link, nothing to view) or a document (**View + Query**). A Query routes the ticket to *Awaiting Customer Information* and is the only thing that blocks submission.
+- What the SM does instead is **challenge** a capture that looks wrong: **Query** a captured field (Name, Address — value + a Query link, nothing to view) or a document (**View + Query**). A Query routes the ticket to *Awaiting Customer Information* and returns to the prior stage once answered, and is the only thing that blocks submission.
+- Querying intake is available **only before the ticket is submitted to the insurer** (`canAsk = !readOnly(t) && !atOrPast(t, "Submitted to Insurer")`). A captured value or document can be challenged (a confused skilled/unskilled count, a superseded certificate) while the desk still holds it; once it goes to the insurer the intake is locked and the Query controls disappear.
 
 **Automation boundaries** — these are system actions and must never become manual controls:
 
