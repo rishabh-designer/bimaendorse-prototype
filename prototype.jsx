@@ -199,6 +199,16 @@ const IKKAT_TRAIL_URI = svgUri(32, pathEl(IKKAT_V1));
 const stagger = (i) => ({ animationDelay: `${(0.1 + Math.min(i, 6) * 0.06).toFixed(2)}s` });
 
 const GLOBAL_CSS = `
+/* Squircle corners — Figma's "corner smoothing" as CSS. Every element that
+   already carries a border-radius gets a superellipse corner (var --sq, log2 of
+   the exponent; 1.8 ~ Figma 60%). True circles and pills stay perfectly round:
+   a superellipse on a full-radius shape distorts it. Degrades to plain rounded
+   corners where corner-shape is unsupported (Safari today). */
+:root { --sq: 1.8; }
+:where(*, *::before, *::after) { corner-shape: superellipse(var(--sq)); }
+.rounded-full, [class*="rounded-full"],
+[style*="border-radius: 999px"], [style*="border-radius: 9999px"],
+[style*="border-radius: 50%"] { corner-shape: round; }
 @keyframes bkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes bkRoute  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
 .bk-item  { animation: bkFadeUp .45s cubic-bezier(.22,1,.36,1) backwards; }
