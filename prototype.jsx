@@ -2855,17 +2855,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
         <div className="scroll-slim flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
           style={{ flex: "0 0 340px", minWidth: 300, paddingTop: 40 }}>
           <SlaCard t={t} />
-          <div className="bk-rule" aria-hidden />
-          <div className="flex flex-col gap-3">
-            <StatCard stack label="Mandatory intake" icon={CheckCircle2}
-              title="Fields and documents the endorsement type requires — collected in full before the ticket is made"
-              value={mandTotal ? `${mandTotal} of ${mandTotal}` : "none required"}
-              tone={mandTotal === 0 ? undefined : "#007B00"} />
-            <StatCard stack label="Customer cycles" value={queries.length} icon={MessageCircleQuestion}
-              title="Clarification cycles raised with the client" />
-            <StatCard stack label="Insurer cycles" value={insurerCycles(t)} icon={Building2}
-              title="Times this ticket has sat on an insurer clock" />
-          </div>
         </div>
 
         {/* right - the Action Panel: tabs of work over one persistent footer */}
