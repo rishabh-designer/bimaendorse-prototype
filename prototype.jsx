@@ -1939,6 +1939,32 @@ const CheckDot = ({ on }) => (
     <Check size={9} strokeWidth={3} style={{ color: C.white }} />
   </span>
 );
+/* The corner grabber that marks a field as multi-line / resizable — the "bottom
+   icon" in the DS input anatomy (TMS 1128:42313), two diagonal strokes pinned
+   into the field's bottom-right. Decorative: it signifies a longer-form field. */
+const ResizeGrip = ({ color = C.figTert }) => (
+  <svg width={8} height={8} viewBox="0 0 8 8" fill="none" aria-hidden style={{ display: "block" }}>
+    <path d="M7.5 0.5 1 7 M7.5 3.5 4 7" stroke={color} strokeWidth={1} strokeLinecap="round" />
+  </svg>
+);
+/* A multi-line question field built to the DS multiline-input spec (Peetal
+   3313:24451): a padded wrapper with a 0.5px underline that goes brand once
+   filled, top-aligned so text fills downward, the tick at the top-right, and
+   the resize grabber in the corner — not merely a taller single-line row. */
+const MultilineField = ({ value, onChange, placeholder, rows = 2 }) => (
+  <div className="relative" style={{ background: C.white, padding: 12,
+    borderBottom: `0.5px solid ${value.trim() ? C.brand : C.line}` }}>
+    <div className="flex items-start justify-between gap-2.5">
+      <textarea value={value} onChange={onChange} rows={rows} placeholder={placeholder}
+        className="min-w-0 flex-1 resize-none bg-transparent outline-none"
+        style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }} />
+      <CheckDot on={!!value.trim()} />
+    </div>
+    <span className="absolute" style={{ right: 0, bottom: 0, padding: 6, lineHeight: 0 }}>
+      <ResizeGrip />
+    </span>
+  </div>
+);
 /* A modal footer that carries a completion bar (Figma 1032:147858 / 1040:157200):
    an orange progress line, the percent, and the commit button on the right. */
 const ProgressFooter = ({ pct, onClose, onConfirm, disabled, label }) => (
@@ -2041,11 +2067,9 @@ function QueryModal({ ctx, t, onSend, onClose }) {
             )}
             <label className="block">
               <FieldLabel>Question to the client <span style={{ color: C.semError }}>*</span></FieldLabel>
-              <div className="mt-1.5 flex items-start gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
-                <textarea value={s.text} onChange={(e) => patch(i, { text: e.target.value })} rows={2}
-                  placeholder="Example: Could you confirm the correct value against the policy schedule?"
-                  className="min-w-0 flex-1 resize-none bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }} />
-                <CheckDot on={!!s.text.trim()} />
+              <div className="mt-1.5">
+                <MultilineField value={s.text} onChange={(e) => patch(i, { text: e.target.value })}
+                  placeholder="Example: Could you confirm the correct value against the policy schedule?" />
               </div>
             </label>
             <div>
@@ -3177,10 +3201,9 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                         </div>
                       </Drawer>
                       <div className="flex flex-wrap items-center justify-end gap-2">
+                        {/* Update Quote is hidden globally — the quote is issued by the insurer;
+                            the desk's only action here is to View it. */}
                         <SoftBtn onClick={() => setPreview({ name: "Insurer quote", kind: "Insurer issued", file: t.quote.file, size: "184 KB", by: t.insurer, status: "Verified", at: t.quote.at })}>View Quote</SoftBtn>
-                        {!readOnly(t) && !atOrPast(t, "Awaiting Endorsement Copy") && (
-                          <Btn size="xs" onClick={() => setUpdatingQuote(true)}>Update Quote</Btn>
-                        )}
                       </div>
                       {!atOrPast(t, "Awaiting Payment") && (
                         <Note icon={AlertTriangle} tone={C.warn} bg={C.warnSoft}>
