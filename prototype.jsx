@@ -246,8 +246,8 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
    a grey (hint) glyph; hover tints lavender with a brand glyph; focus sinks with
    a thicker lavender ring. Overrides the inline base, so !important. */
 .bk-iconctrl { transition: background-color .12s ease-out, border-color .12s ease-out, color .12s ease-out; }
-.bk-iconctrl:hover { background-color: #F4F1FF !important; border-color: #D1C6FF !important; color: #4100CF !important; }
-.bk-iconctrl:focus-visible { outline: none; background-color: #F4F5F6 !important; border-color: #D1C6FF !important; border-width: 1.5px; color: #4100CF !important; }
+.bk-iconctrl:not(:disabled):hover { background-color: #F4F1FF !important; border-color: #D1C6FF !important; color: #4100CF !important; }
+.bk-iconctrl:not(:disabled):focus-visible { outline: none; background-color: #F4F5F6 !important; border-color: #D1C6FF !important; border-width: 1.5px; color: #4100CF !important; }
 /* Sidebar nav item hover (Figma 1214:79971) — an inactive tab lifts to a white
    fill with ink text. Only applied to inactive, enabled items. */
 .bk-navitem { transition: background-color .12s ease-out, color .12s ease-out; }
@@ -1166,8 +1166,8 @@ function HeaderFilter({ id, label, options, selected, setSelected, openKey, setO
   return (
     <div className="relative flex min-w-0 items-center gap-1" data-menu>
       <button onClick={() => setOpenKey(open ? null : id)} className="flex min-w-0 items-center gap-1" title={`Filter by ${label.toLowerCase()}`}>
-        <span className="flex shrink-0 items-center justify-center border"
-          style={{ width: 20, height: 20, borderRadius: 6, background: C.white, borderColor: C.subtle, color: C.figHint }}>
+        <span className="bk-iconctrl flex shrink-0 items-center justify-center border"
+          style={{ width: 20, height: 20, borderRadius: 6, background: open ? C.brandBg : C.white, borderColor: C.subtle, color: open ? C.brand : C.figHint }}>
           <ChevronDown size={14} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </span>
         <span className="truncate" style={{ fontSize: 14, fontWeight: 600, color: "#1C1C1C" }}>{label}</span>
@@ -1223,9 +1223,9 @@ function Pager({ page, pages, setPage }) {
     <div className="flex items-center justify-end gap-2 px-1 text-xs" style={{ color: C.figTert }}>
       <span className="bk-num">Page {page + 1} of {pages}</span>
       <button disabled={page === 0} onClick={() => setPage(page - 1)}
-        className="flex items-center justify-center rounded-md" style={btn(page > 0)}><ChevronLeft size={12} /></button>
+        className="bk-iconctrl flex items-center justify-center rounded-md" style={btn(page > 0)}><ChevronLeft size={12} /></button>
       <button disabled={page >= pages - 1} onClick={() => setPage(page + 1)}
-        className="flex items-center justify-center rounded-md" style={btn(page < pages - 1)}><ChevronRight size={12} /></button>
+        className="bk-iconctrl flex items-center justify-center rounded-md" style={btn(page < pages - 1)}><ChevronRight size={12} /></button>
     </div>
   );
 }
@@ -1959,8 +1959,8 @@ function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children,
             <div style={{ fontSize: 18, fontWeight: 600, color: C.brand }}>{title}</div>
             {sub && <div className="mt-0.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.45, color: C.figTert }}>{sub}</div>}
           </div>
-          <button onClick={onClose} title="Close" className="flex shrink-0 items-center justify-center"
-            style={{ width: 28, height: 28, borderRadius: 8, color: C.figInk }}><X size={18} /></button>
+          <button onClick={onClose} title="Close" className="bk-iconctrl flex shrink-0 items-center justify-center"
+            style={{ width: 28, height: 28, borderRadius: 8, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}><X size={18} /></button>
         </header>
         <div className="scroll-slim overflow-y-auto p-5" style={{ maxHeight: "68vh" }}>{children}</div>
         {footer && (
@@ -3756,7 +3756,7 @@ function Create({ onCreate, back, prefill }) {
               Endorsement Type is what lets the form demand the right fields and documents upfront and cannot be changed.
             </p>
           </div>
-          <button onClick={back} title="Close" className="flex shrink-0 items-center justify-center rounded-md border"
+          <button onClick={back} title="Close" className="bk-iconctrl flex shrink-0 items-center justify-center rounded-md border"
             style={{ width: 24, height: 24, background: C.white, borderColor: C.subtle, color: C.figHint }}><X size={12} /></button>
         </div>
 
@@ -4240,11 +4240,11 @@ function TicketPager({ id, list, onOpen }) {
       <span className="bk-num" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>{id}</span>
       <div className="flex items-center gap-2">
         <button disabled={i <= 0} onClick={() => step(-1)} title="Previous ticket, in urgency order"
-          className="flex items-center justify-center" style={{ ...box, color: i <= 0 ? C.figDisabled : C.figHint, cursor: i <= 0 ? "not-allowed" : "pointer" }}>
+          className="bk-iconctrl flex items-center justify-center" style={{ ...box, color: i <= 0 ? C.figDisabled : C.figHint, cursor: i <= 0 ? "not-allowed" : "pointer" }}>
           <ChevronUp size={12} />
         </button>
         <button disabled={i < 0 || i >= list.length - 1} onClick={() => step(1)} title="Next ticket, in urgency order"
-          className="flex items-center justify-center" style={{ ...box, color: i >= list.length - 1 ? C.figDisabled : C.figHint, cursor: i >= list.length - 1 ? "not-allowed" : "pointer" }}>
+          className="bk-iconctrl flex items-center justify-center" style={{ ...box, color: i >= list.length - 1 ? C.figDisabled : C.figHint, cursor: i >= list.length - 1 ? "not-allowed" : "pointer" }}>
           <ChevronDown size={12} />
         </button>
       </div>
