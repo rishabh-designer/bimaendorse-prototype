@@ -238,6 +238,10 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
 /* Sidebar profile card hover (Figma 437:2239) — lavender border + soft brand glow. */
 .bk-profile { transition: border-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-profile:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.12); }
+/* BimaClaim under-construction buttons hover (Figma 1172:72883/72884) — a soft glow. */
+.bk-uc-btn { transition: box-shadow .12s ease-out, border-color .12s ease-out; }
+.bk-uc-secondary:hover { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
+.bk-uc-primary:hover { box-shadow: 0 0 8px rgba(65,0,207,0.24); border-color: #F4F1FF !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -4614,11 +4618,11 @@ export default function App() {
               </div>
               {/* footer: the two ways out */}
               <div className="flex items-center justify-end gap-3" style={{ padding: "16px 32px", borderTop: "1px solid #DFE0E2" }}>
-                <button onClick={() => setAuthed(false)} className="leading-none"
+                <button onClick={() => setAuthed(false)} className="bk-uc-btn bk-uc-secondary leading-none"
                   style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.subtle}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.figInk }}>
                   Back to Login
                 </button>
-                <button onClick={() => setEnv("BimaEndorse")} className="leading-none"
+                <button onClick={() => setEnv("BimaEndorse")} className="bk-uc-btn bk-uc-primary leading-none"
                   style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.brand}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.brand }}>
                   Visit BimaEndorse
                 </button>
