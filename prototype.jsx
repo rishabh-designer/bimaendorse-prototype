@@ -210,6 +210,12 @@ const GLOBAL_CSS = `
 [style*="border-radius: 999px"], [style*="border-radius: 9999px"],
 [style*="border-radius: 50%"] { corner-shape: round; }
 @keyframes bkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* Modal entrance — the card fades in while sliding up from a lower Y; the
+   backdrop just fades. Reduced-motion is neutralised by the block below. */
+@keyframes bkModalIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bkScrimIn { from { opacity: 0; } to { opacity: 1; } }
+.bk-modal { animation: bkModalIn .24s cubic-bezier(.22,1,.36,1) both; }
+.bk-scrim { animation: bkScrimIn .18s ease-out both; }
 @keyframes bkRoute  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
 .bk-item  { animation: bkFadeUp .45s cubic-bezier(.22,1,.36,1) backwards; }
 .bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
@@ -1962,9 +1968,9 @@ const Overlay = ({ children, style, ...rest }) => createPortal(
    scrolling body, and a footer strip on the sunken ground. */
 function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children, footer, width = 520, z = 40 }) {
   return (
-    <Overlay className="fixed inset-0 flex items-center justify-center p-4"
+    <Overlay className="bk-scrim fixed inset-0 flex items-center justify-center p-4"
       style={{ zIndex: z, background: "rgba(28,29,31,0.45)" }} onClick={onClose}>
-      <div className="w-full overflow-hidden" style={{ maxWidth: width, background: C.white, borderRadius: 16 }}
+      <div className="bk-modal w-full overflow-hidden" style={{ maxWidth: width, background: C.white, borderRadius: 16 }}
         onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${C.subtle}` }}>
           {Icon && <Icon size={18} style={{ color: tint }} className="shrink-0" />}
@@ -3762,9 +3768,9 @@ function Create({ onCreate, back, prefill }) {
   const ph = (label) => <option value="" disabled>{`Select ${label}`}</option>;
 
   return (
-    <Overlay className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
+    <Overlay className="bk-scrim fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(14,26,31,0.45)" }} onClick={back}>
-      <div onClick={(e) => e.stopPropagation()} className="scroll-slim my-auto w-full max-w-5xl overflow-hidden rounded-2xl"
+      <div onClick={(e) => e.stopPropagation()} className="bk-modal scroll-slim my-auto w-full max-w-5xl overflow-hidden rounded-2xl"
         style={{ background: C.white, boxShadow: "0 24px 64px rgba(28,27,31,0.24)" }}>
 
         <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
@@ -4628,9 +4634,9 @@ export default function App() {
 
           {/* Scrim (Figma 1172:72800) — blurs the shell and blocks all interaction;
               the under-construction modal floats over it. */}
-          <div className="absolute inset-0 z-40 flex items-center justify-center p-4"
+          <div className="bk-scrim absolute inset-0 z-40 flex items-center justify-center p-4"
             style={{ background: "rgba(169,172,177,0.08)", backdropFilter: "blur(1.5px)", WebkitBackdropFilter: "blur(1.5px)" }}>
-            <div className="overflow-hidden" style={{ width: 480, maxWidth: "calc(100% - 32px)",
+            <div className="bk-modal overflow-hidden" style={{ width: 480, maxWidth: "calc(100% - 32px)",
               background: C.white, border: `1px solid ${C.subtle}`, borderRadius: 32, boxShadow: "0 0 24px rgba(169,172,177,0.24)" }}>
               {/* header: wordmark + close, then the notice */}
               <div className="flex flex-col gap-1" style={{ padding: 24 }}>
