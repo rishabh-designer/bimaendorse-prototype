@@ -4167,12 +4167,14 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                       background: on ? C.subtle : "transparent",
                       color: off ? "rgba(169,172,177,0.48)" : on ? C.figInk : C.figHint,
                       cursor: off ? "not-allowed" : "pointer" }}>
-                    <Icon size={collapsed ? 20 : 24} className="shrink-0" />
+                    <span className="relative shrink-0">
+                      <Icon size={collapsed ? 20 : 24} className="shrink-0" />
+                      {/* unread manual-review mails — a dot on the icon corner, not a count (Figma 917:106812) */}
+                      {k === "review" && !off && mails.length > 0 && (
+                        <span className="absolute rounded-full" style={{ top: -1, right: -1, width: 6, height: 6, background: "#F10000" }} />
+                      )}
+                    </span>
                     {!collapsed && <span className="flex-1 text-left text-sm font-semibold">{label}</span>}
-                    {!collapsed && k === "review" && !off && mails.length > 0 && (
-                      <span className="bk-num rounded-full px-1.5 text-xs font-semibold"
-                        style={{ background: C.accent, color: C.white }}>{mails.length}</span>
-                    )}
                   </button>
                   {/* collapsed, the open ticket is a caption under its icon — the
                       design's sidebar/ticket variant */}
