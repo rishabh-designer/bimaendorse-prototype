@@ -1626,6 +1626,8 @@ const BIZ = {
 const DAY_LEN = BIZ.endH - BIZ.startH;
 const keyOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const isWorkday = (d) => BIZ.days.includes(d.getDay()) && !BIZ.holidays.includes(keyOf(d));
+/* Inside working hours (Mon–Fri 10:00–19:00, minus holidays)? Drives desk presence. */
+const isWorkingNow = (d) => { const h = d.getHours() + d.getMinutes() / 60; return isWorkday(d) && h >= BIZ.startH && h < BIZ.endH; };
 const atH = (d, h) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), Math.floor(h), Math.round((h % 1) * 60), 0, 0);
 
 /* Working hours between two instants */
@@ -3860,18 +3862,20 @@ const STATUS = {
    (not registered) and routed to the tool(s) it holds. `envs` lists tool keys —
    one entry locks the environment chevron, several turn it into a picker. */
 const PORTAL_USERS = {
+  /* `status` omitted → presence is derived from working hours (online in-hours,
+     offline otherwise). A fixed `status` overrides that — Ruksana is OOO. */
   "nanditha.p@bimakavach.com": {
-    name: "Nanditha P", first: "Nanditha", role: "Servicing executive", status: "offline",
+    name: "Nanditha P", first: "Nanditha", role: "Servicing executive",
     avatar: AVATAR, envs: ["BimaEndorse"],
     /* Nanditha is Kannadiga, so she is greeted in Kannada — "Welcome, Nanditha." */
     greeting: "ಸ್ವಾಗತ, ನಂದಿತಾ.", lang: "kn",
   },
   "ruksana.khan@bimakavach.com": {
-    name: "Ruksana Khan", first: "Ruksana", role: "Claims executive", status: "online",
+    name: "Ruksana Khan", first: "Ruksana", role: "Claims executive", status: "ooo",
     avatar: AVATAR_RUKSANA, envs: ["BimaClaim"],
   },
   "umesh.bagri@bimakavach.com": {
-    name: "Umesh Bagri", first: "Umesh", role: "Claims & Servicing Head", status: "ooo",
+    name: "Umesh Bagri", first: "Umesh", role: "Claims & Servicing Head",
     avatar: AVATAR_UMESH, envs: ["BimaEndorse", "BimaClaim"],
   },
 };
@@ -4074,7 +4078,8 @@ const NAV = [
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
 function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut,
-  tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role, status: "offline" } }) {
+  tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
+  const presence = identity.status || (isWorkingNow(new Date()) ? "online" : "offline");
   const row = collapsed ? "justify-center" : "gap-2";
   return (
     <aside className="relative flex h-full shrink-0 flex-col justify-between border-r"
@@ -4169,9 +4174,9 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
               <div className="leading-none">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium" style={{ color: C.figInk }}>{identity.name}</span>
-                  {identity.status && STATUS[identity.status] && (
-                    <span className="shrink-0 rounded-full" title={STATUS[identity.status].label}
-                      style={{ width: 6, height: 6, background: STATUS[identity.status].dot }} />
+                  {STATUS[presence] && (
+                    <span className="shrink-0 rounded-full" title={STATUS[presence].label}
+                      style={{ width: 6, height: 6, background: STATUS[presence].dot }} />
                   )}
                 </div>
                 <div className="mt-1 text-xs font-medium" style={{ color: C.figHint }}>{identity.role}</div>
