@@ -235,6 +235,9 @@ const GLOBAL_CSS = `
 /* Placeholders read as label/neutral/disabled (A9ACB1 @ 60%), not the browser
    default grey — matched by empty <select>s so every unfilled field looks alike. */
 input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacity: 1; }
+/* Sidebar profile card hover (Figma 437:2239) — lavender border + soft brand glow. */
+.bk-profile { transition: border-color .12s ease-out, box-shadow .12s ease-out; }
+.bk-profile:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.12); }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -4150,16 +4153,9 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
       </div>
 
       <div className={`flex flex-col gap-3 pb-8 pt-7 ${collapsed ? "items-center px-5" : "pl-8 pr-3"}`}>
-        {!collapsed && (
-          <div className="flex items-center gap-1.5 px-1 text-xs" style={{ color: C.figHint }}
-            title="Stage clocks pause outside these hours and on declared holidays">
-            <Clock size={11} style={{ color: C.figTert }} />
-            <span className="bk-num">Mon–Fri 10:00–19:00</span>
-          </div>
-        )}
-        <div className={`flex shrink-0 items-start rounded-xl border p-1.5 ${collapsed ? "justify-center" : "w-full justify-between"}`}
+        <div className={`bk-profile flex shrink-0 items-start rounded-xl border ${collapsed ? "justify-center p-1.5" : "w-full justify-between p-2"}`}
           style={{ background: C.white, borderColor: C.subtle, borderWidth: "0.5px" }}>
-          <div className="flex shrink-0 flex-col gap-1.5">
+          <div className="flex shrink-0 flex-col gap-3">
             <img src={identity.avatar} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 36, height: 36, minWidth: 36 }} />
             {!collapsed && (
               <div className="leading-none">
@@ -4169,7 +4165,13 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
             )}
           </div>
           {!collapsed && (
-            <button onClick={onSignOut} title="Sign out" style={{ color: C.figHint }}><LogOut size={12} /></button>
+            <div className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+              {/* Stage-hours note lives here now, as the tooltip on the info mark. */}
+              <span className="flex items-center" title="Stage clocks run Mon–Fri 10:00–19:00 and pause outside these hours and on declared holidays.">
+                <Info size={12} />
+              </span>
+              <button onClick={onSignOut} title="Sign out" style={{ color: C.figInk }}><LogOut size={12} /></button>
+            </div>
           )}
         </div>
       </div>
