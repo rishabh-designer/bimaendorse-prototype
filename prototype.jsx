@@ -4142,9 +4142,9 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
 
         {/* Chrome only — nothing is wired behind it, and it says so on hover. */}
         <button title="Search is not wired up in this prototype"
-          className={`flex items-center rounded-lg border ${collapsed ? "justify-center" : "w-full justify-between"}`}
-          style={{ width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
-            padding: collapsed ? 0 : 8, background: C.white, borderColor: "#D5D5D5", cursor: "default" }}>
+          className={`flex items-center ${collapsed ? "justify-center" : "w-full justify-between"}`}
+          style={{ width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined, borderRadius: 10,
+            border: "0.5px solid #D5D5D5", padding: collapsed ? 0 : 8, background: C.white, cursor: "default" }}>
           {!collapsed && <span style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>Search Anything</span>}
           <Search size={12} style={{ color: C.figHint }} />
         </button>
