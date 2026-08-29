@@ -3848,22 +3848,30 @@ const TOOLS = {
   BimaClaim:   { split: ["Bima", "Claim"],   color: C.brand,  built: false },   /* Claim = Primary 500 (#4100CF), not Info */
 };
 
+/* Presence shown as a 6px dot beside the name on the sidebar profile card
+   (Figma 1206:79887): online / offline / out-of-office. */
+const STATUS = {
+  online:  { dot: "#00B200",               label: "Online" },
+  offline: { dot: "rgba(169,172,177,0.48)", label: "Offline" },
+  ooo:     { dot: "#FFCF0E",               label: "Out of office" },
+};
+
 /* Admin portal access. Only these addresses may sign in; each is recognised
    (not registered) and routed to the tool(s) it holds. `envs` lists tool keys —
    one entry locks the environment chevron, several turn it into a picker. */
 const PORTAL_USERS = {
   "nanditha.p@bimakavach.com": {
-    name: "Nanditha P", first: "Nanditha", role: "Servicing executive",
+    name: "Nanditha P", first: "Nanditha", role: "Servicing executive", status: "offline",
     avatar: AVATAR, envs: ["BimaEndorse"],
     /* Nanditha is Kannadiga, so she is greeted in Kannada — "Welcome, Nanditha." */
     greeting: "ಸ್ವಾಗತ, ನಂದಿತಾ.", lang: "kn",
   },
   "ruksana.khan@bimakavach.com": {
-    name: "Ruksana Khan", first: "Ruksana", role: "Claims executive",
+    name: "Ruksana Khan", first: "Ruksana", role: "Claims executive", status: "online",
     avatar: AVATAR_RUKSANA, envs: ["BimaClaim"],
   },
   "umesh.bagri@bimakavach.com": {
-    name: "Umesh Bagri", first: "Umesh", role: "Claims & Servicing Head",
+    name: "Umesh Bagri", first: "Umesh", role: "Claims & Servicing Head", status: "ooo",
     avatar: AVATAR_UMESH, envs: ["BimaEndorse", "BimaClaim"],
   },
 };
@@ -4066,7 +4074,7 @@ const NAV = [
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
 function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut,
-  tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
+  tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role, status: "offline" } }) {
   const row = collapsed ? "justify-center" : "gap-2";
   return (
     <aside className="relative flex h-full shrink-0 flex-col justify-between border-r"
@@ -4159,7 +4167,13 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
             <img src={identity.avatar} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 36, height: 36, minWidth: 36 }} />
             {!collapsed && (
               <div className="leading-none">
-                <div className="text-sm font-medium" style={{ color: C.figInk }}>{identity.name}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium" style={{ color: C.figInk }}>{identity.name}</span>
+                  {identity.status && STATUS[identity.status] && (
+                    <span className="shrink-0 rounded-full" title={STATUS[identity.status].label}
+                      style={{ width: 6, height: 6, background: STATUS[identity.status].dot }} />
+                  )}
+                </div>
                 <div className="mt-1 text-xs font-medium" style={{ color: C.figHint }}>{identity.role}</div>
               </div>
             )}
