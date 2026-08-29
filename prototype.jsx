@@ -212,10 +212,10 @@ const GLOBAL_CSS = `
 @keyframes bkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* Modal entrance — the card fades in while sliding up from a lower Y; the
    backdrop just fades. Reduced-motion is neutralised by the block below. */
-@keyframes bkModalIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes bkModalIn { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
 @keyframes bkScrimIn { from { opacity: 0; } to { opacity: 1; } }
-.bk-modal { animation: bkModalIn .24s cubic-bezier(.22,1,.36,1) both; }
-.bk-scrim { animation: bkScrimIn .18s ease-out both; }
+.bk-modal { animation: bkModalIn .6s cubic-bezier(.5,0,.5,1) both; }
+.bk-scrim { animation: bkScrimIn .6s cubic-bezier(.5,0,.5,1) both; }
 @keyframes bkRoute  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
 .bk-item  { animation: bkFadeUp .45s cubic-bezier(.22,1,.36,1) backwards; }
 .bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
