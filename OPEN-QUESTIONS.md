@@ -166,6 +166,7 @@ driven one still diverge outside the happy path.
 - **Manual Review rework** — paused by the client mid-design. The state exists and is bot-raised; the FR-118 workspace (edit extracted values, reclassify, feedback capture) is not built
 - **Return-premium / refund** — PRD Appendix A.1, offered at creation but blocked
 - **BimaKendra** — the customer portal has no representation at all. Every customer interaction is asserted in a log line. Roughly half the PRD status table is customer-facing, so this is the largest single gap
+- **The other Internal Tools** — the shared admin login (`TOOLS`) recognises BimaEndorse and BimaClaim; only **BimaEndorse** is built. BimaClaim (and, by extension, Placement/Admin/Sahaayak/Relationship) render an *under-construction* page, not the tool. One prototype simplification to note: **"Visit BimaEndorse"** on that page enters Nanditha's desk for *any* signed-in user (Ruksana included), because BimaEndorse is the only built tool — it is a fallback, not an access grant. Real access control across tools is out of scope here (`FUNCTIONAL-SPEC.md` §8)
 
 ---
 

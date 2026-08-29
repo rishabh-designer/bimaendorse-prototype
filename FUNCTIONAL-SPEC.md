@@ -282,20 +282,39 @@ reload returns to the login screen, by design.
 
 The address is judged only once it looks finished, so the field does not report failure mid-keystroke.
 
-**Environment.** Each user carries `env` and `envLocked`. Nanditha holds **BimaEndorse** only, so the
-chevron renders in the disabled token and states why on hover. An admin with more than one
-environment would unlock it. Only the locked case is built.
+**One entry, several tools (revised 2026-08-28, Product Owner).** The login is the shared door to
+BimaKavach's internal tools. `TOOLS` names each tool — its wordmark lockup (`Bima` + a tinted
+suffix) and whether it is `built`. Only **BimaEndorse** is built; every other tool renders an
+*under-construction* page. Three addresses are recognised:
 
-**Password.** A single shared demo value, `PORTAL_PASSWORD = "pass-word"`. Anything else sets
-*"Incorrect Password"* on the password field and does not advance. The error clears on the next
-keystroke. There is no lockout, no attempt count and no reset flow.
+| Address | Holds (`envs`) | Lands on |
+|---|---|---|
+| `nanditha.p@bimakavach.com` (Nanditha P, Servicing executive) | BimaEndorse | the BimaEndorse app |
+| `ruksana.khan@bimakavach.com` (Ruksana Khan, Claims executive) | BimaClaim | BimaClaim — under construction |
+| `umesh.bagri@bimakavach.com` (Umesh Bagri, Claims & Servicing Head) | BimaEndorse, BimaClaim | either, by his choice |
 
-**Submit.** Enabled only when the address is recognised **and** the password is non-empty — an empty
-password can never be submitted. On success the button enters its loading state for ~900ms, then
-`authed` becomes `true` and the console opens on Home.
+**Environment chevron.** Each user carries `envs` (a list of `TOOLS` keys). One entry → the chevron
+is the disabled token that states *"{tool} is your only environment"* on hover (Nanditha, Ruksana).
+More than one → the chevron is an **active picker** listing the held tools as coloured wordmarks;
+the selection drives the login wordmark and where sign-in lands (Umesh).
 
-**Not built:** sign-up, password reset, session expiry, attempt limiting, more than one environment,
-and any role enforcement behind the login. Recognition is a lookup, not authentication.
+**Password.** A single shared demo value, `PORTAL_PASSWORD = "pass-word"`, for every address. Anything
+else sets *"Incorrect Password"* and does not advance; the error clears on the next keystroke. No
+lockout, attempt count or reset flow.
+
+**Submit → routing.** `onSignIn(user, tool)` stores the user and the chosen `env` and flips `authed`.
+Then:
+- `TOOLS[env].built` (BimaEndorse) → the app opens on Home. **BimaEndorse is Nanditha's desk**: any
+  tool-holder who enters it — including Umesh — sees Nanditha's identity and greeting unchanged.
+- not built (BimaClaim) → the **real app shell**, rebranded for that tool (wordmark) and carrying the
+  **signed-in** user's identity in the footer, under a centred *"{tool} is currently under
+  construction"* notice. Its actions: **Back to Login** (sign out) and **Visit BimaEndorse** (switch
+  `env` to BimaEndorse — the one built tool — which then shows Nanditha's desk); the X also returns to
+  login.
+
+**Not built:** BimaClaim itself and the other Internal Tools (Placement/Admin/Sahaayak/Relationship);
+sign-up, password reset, session expiry, attempt limiting, and any role enforcement behind the login.
+Recognition is a lookup, not authentication.
 
 ---
 
