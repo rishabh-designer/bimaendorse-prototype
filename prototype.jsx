@@ -222,6 +222,16 @@ const GLOBAL_CSS = `
 /* Detail tab hover (Figma 1126:41615) — an inactive tab gets a subtle lavender
    underline and brand text; overrides the inline default, so !important. */
 .bk-tab:hover { border-bottom-color: #D1C6FF !important; color: #4100CF !important; }
+/* Primary button interaction (Peetal 4128:8511) — hover darkens to #3800B4,
+   press to #2C0091 (brightness reproduces both brand tokens and works for any
+   tone); a fill button darkens, an outline one tints lavender; focus shows the
+   #E8E2FF ring. */
+.bk-btn { transition: filter .12s ease-out, background-color .12s ease-out, box-shadow .12s ease-out; }
+.bk-btn:focus-visible { outline: none; box-shadow: 0 0 0 2.5px #E8E2FF; }
+.bk-btn-fill:not(:disabled):hover  { filter: brightness(0.86); }
+.bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
+.bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
+.bk-btn-ghost:not(:disabled):active { background-color: #E8E2FF !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -2263,7 +2273,7 @@ const Btn = ({ children, onClick, disabled, title, variant = "fill", tone = C.br
   const sm = size === "sm";
   return (
     <button onClick={onClick} disabled={disabled} title={title}
-      className={`flex shrink-0 items-center justify-center whitespace-nowrap ${xs ? "gap-1.5" : "gap-2"}`}
+      className={`bk-btn ${fill ? "bk-btn-fill" : "bk-btn-ghost"} flex shrink-0 items-center justify-center whitespace-nowrap ${xs ? "gap-1.5" : "gap-2"}`}
       style={{ padding: xs ? "4px 8px" : sm ? "10px 14px" : "12px 20px", borderRadius: xs ? 8 : sm ? 10 : 12,
         fontSize: xs || sm ? 12 : 14, fontWeight: 600,
         background: disabled ? C.canvas : fill ? tone : C.white,
