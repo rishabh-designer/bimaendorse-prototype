@@ -1128,7 +1128,7 @@ const MenuCard = ({ children, right }) => (
 );
 
 /* A filterable column heading. Empty selection means All. */
-function HeaderFilter({ id, label, options, selected, setSelected, openKey, setOpenKey }) {
+function HeaderFilter({ id, label, options, selected, setSelected, openKey, setOpenKey, right }) {
   const open = openKey === id;
   const allOn = selected.size === 0;
   const toggle = (v) => {
@@ -1149,7 +1149,7 @@ function HeaderFilter({ id, label, options, selected, setSelected, openKey, setO
         <span className="bk-num shrink-0 rounded-full px-1.5 text-xs font-semibold" style={{ background: C.brandBg, color: C.brand }}>{selected.size}</span>
       )}
       {open && (
-        <MenuCard>
+        <MenuCard right={right}>
           <MenuOpt label="All" on={allOn} onClick={() => setSelected(new Set())} />
           {options.map((o) => <MenuOpt key={o.value} label={o.label} on={selected.has(o.value)} onClick={() => toggle(o.value)} />)}
         </MenuCard>
@@ -1884,10 +1884,10 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
           <span style={cell(COLS.age, head)}>Ticket Age</span>
           <span className="truncate" style={cell(COLS.client, head)}>Client</span>
           <span style={cell(COLS.req)}>
-            <HeaderFilter id="req" label="Request" options={REQ_OPTS} selected={req} setSelected={setReq} {...hf} />
+            <HeaderFilter id="req" label="Request" options={REQ_OPTS} selected={req} setSelected={setReq} right {...hf} />
           </span>
           <span style={dueCell}>
-            <HeaderFilter id="slice" label="Stage due" options={SLICE_OPTS} selected={slice} setSelected={setSlice} {...hf} />
+            <HeaderFilter id="slice" label="Stage due" options={SLICE_OPTS} selected={slice} setSelected={setSlice} right {...hf} />
           </span>
           {scope === "team" && <span className="w-8 shrink-0" />}
         </div>
