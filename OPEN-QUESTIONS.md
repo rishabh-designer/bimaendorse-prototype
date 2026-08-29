@@ -80,9 +80,9 @@ id (`claimId`); the mail leaves the queue inside `create()`, once a ticket actua
 `claimId` is cleared if the form is dismissed. Verified: opening and closing Create on a queue row
 leaves both rows intact.
 
-**Still open (separate, pre-existing):** a Create form opened from a claim carries a prefilled Client,
-and its policy-fetch does not auto-fill Insurer/Product in that path — so a claimed ticket can be hard
-to complete through the form. Not caused by the removal-timing fix; worth a follow-up.
+(An earlier note here claimed the claimed-form's policy-fetch didn't auto-fill Client/Insurer/Product —
+that was a **false alarm from test automation** (a simulated Enter key wasn't reaching the field).
+Verified: typing a policy and pressing Enter fills all three correctly. No issue.)
 
 ---
 
