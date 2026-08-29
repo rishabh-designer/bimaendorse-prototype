@@ -3457,13 +3457,13 @@ function Review({ mails, onClaim }) {
       } />
 
       <section className="flex flex-col gap-1">
-        <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
+        <div className="flex items-center gap-2 rounded-xl px-2 py-3" style={{ background: C.canvas }}>
           <span style={cell(MR_COLS.id, head)}>ID</span>
-          <span style={{ ...flexCell, ...head }}>From</span>
+          <span className="truncate" style={{ ...flexCell, ...head }}>From</span>
           <span style={cell(MR_COLS.guess, head)}>Bot guess</span>
-          <span style={{ ...flexCell, ...head }}>Review Condition</span>
+          <span className="truncate" style={{ ...flexCell, ...head }}>Review Condition</span>
           <span style={cell(MR_COLS.age, head)}>Age</span>
-          <span style={{ ...flexCell, ...head }}>Status</span>
+          <span className="truncate" style={{ ...flexCell, ...head }}>Status</span>
           <span style={cell(MR_COLS.action, head)}>Actions</span>
         </div>
 
@@ -3472,7 +3472,7 @@ function Review({ mails, onClaim }) {
           const late = m.received >= MR_ESCALATION.overH;
           return (
             <div key={m.id} className="bk-item" style={stagger(i)}>
-              <div onClick={() => setOpen(m)} className="flex cursor-pointer items-center rounded-xl px-2 py-3">
+              <div onClick={() => setOpen(m)} className="flex cursor-pointer items-center gap-2 rounded-xl px-2 py-3">
                 <span className="bk-num truncate" style={cell(MR_COLS.id, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{m.id}</span>
                 <span className="truncate" style={{ ...flexCell, ...body }} title={m.subject}>{m.from}</span>
                 <span style={cell(MR_COLS.guess)}>
