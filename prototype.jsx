@@ -242,6 +242,12 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
 .bk-uc-btn { transition: box-shadow .12s ease-out, border-color .12s ease-out; }
 .bk-uc-secondary:hover { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
 .bk-uc-primary:hover { box-shadow: 0 0 8px rgba(65,0,207,0.24); border-color: #F4F1FF !important; }
+/* Square icon controls — chevron.controls / close (Figma 3583:8881). Default is
+   a grey (hint) glyph; hover tints lavender with a brand glyph; focus sinks with
+   a thicker lavender ring. Overrides the inline base, so !important. */
+.bk-iconctrl { transition: background-color .12s ease-out, border-color .12s ease-out, color .12s ease-out; }
+.bk-iconctrl:hover { background-color: #F4F1FF !important; border-color: #D1C6FF !important; color: #4100CF !important; }
+.bk-iconctrl:focus-visible { outline: none; background-color: #F4F5F6 !important; border-color: #D1C6FF !important; border-width: 1.5px; color: #4100CF !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -3983,8 +3989,8 @@ function Login({ onSignIn }) {
                   {multiEnv ? (
                     /* Holds more than one tool — the chevron opens a picker. */
                     <button onClick={() => setEnvOpen((o) => !o)} title="Switch environment"
-                      className="flex h-4 w-4 items-center justify-center rounded-md border"
-                      style={{ background: envOpen ? C.brandBg : C.white, borderColor: C.subtle, color: C.figInk }}>
+                      className="bk-iconctrl flex h-4 w-4 items-center justify-center rounded-md border"
+                      style={{ background: envOpen ? C.brandBg : C.white, borderColor: C.subtle, color: envOpen ? C.brand : C.figHint }}>
                       <ChevronDown size={12} />
                     </button>
                   ) : (
@@ -4609,8 +4615,8 @@ export default function App() {
                     <span style={{ color: C.figInk }}>{tool.split[0]}</span><span style={{ color: tool.color }}>{tool.split[1]}</span>
                   </span>
                   <button onClick={() => setAuthed(false)} title="Back to login"
-                    className="flex shrink-0 items-center justify-center"
-                    style={{ width: 28, height: 28, borderRadius: 9, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figInk }}>
+                    className="bk-iconctrl flex shrink-0 items-center justify-center"
+                    style={{ width: 28, height: 28, borderRadius: 9, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}>
                     <X size={18} />
                   </button>
                 </div>
