@@ -215,6 +215,10 @@ const GLOBAL_CSS = `
 .bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
 .bk-num   { font-variant-numeric: tabular-nums; }
 .bk-opt:hover { background: #F4F1FF; }
+/* Scope pill hover (Figma 914:103545) — an inactive pill goes brand on hover;
+   overrides the inline default colours, so !important is required. */
+.bk-pill:hover { border-color: #4100CF !important; color: #4100CF !important; }
+.bk-pill:hover .bk-pill-dot { background: #4100CF !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -1083,10 +1087,11 @@ function StagePills({ counts, active, onPick }) {
         const on = active === x.key;
         return (
           <button key={x.key} onClick={() => onPick(x.key)}
-            className="flex items-center whitespace-nowrap rounded-full border px-3 py-1.5 text-sm"
-            style={{ borderColor: on ? C.brand : C.line, color: on ? C.brand : C.figHint, background: C.white, fontWeight: 500 }}>
-            <span className="mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: on ? C.brand : C.figTert }} />
-            {x.label}<span className="bk-num">({counts[x.key]})</span>
+            className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+            style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+              background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+            <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+            <span>{x.label}<span className="bk-num">({counts[x.key]})</span></span>
           </button>
         );
       })}
