@@ -248,6 +248,10 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
 .bk-iconctrl { transition: background-color .12s ease-out, border-color .12s ease-out, color .12s ease-out; }
 .bk-iconctrl:hover { background-color: #F4F1FF !important; border-color: #D1C6FF !important; color: #4100CF !important; }
 .bk-iconctrl:focus-visible { outline: none; background-color: #F4F5F6 !important; border-color: #D1C6FF !important; border-width: 1.5px; color: #4100CF !important; }
+/* Sidebar nav item hover (Figma 1214:79971) — an inactive tab lifts to a white
+   fill with ink text. Only applied to inactive, enabled items. */
+.bk-navitem { transition: background-color .12s ease-out, color .12s ease-out; }
+.bk-navitem:hover { background-color: #FFFFFF !important; color: #1C1D1F !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -4138,7 +4142,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                     disabled={off}
                     onClick={off ? undefined : () => go(k, k === "list" ? "attention" : undefined)}
                     title={off ? (k === "review" ? "Manual Review is turned off for now" : "Reports is not built in this prototype") : collapsed ? label : undefined}
-                    className={`bk-item flex items-center rounded-lg ${row} ${collapsed ? "" : "w-full"}`}
+                    className={`bk-item flex items-center rounded-lg ${row} ${collapsed ? "" : "w-full"} ${!on && !off ? "bk-navitem" : ""}`}
                     style={{ ...stagger(i),
                       width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
                       padding: collapsed ? 0 : "6px 8px",
@@ -4162,8 +4166,8 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                   {/* the open ticket, nested under its list */}
                   {!collapsed && k === "list" && view === "ticket" && openId && (
                     <button onClick={() => openTicket(openId)}
-                      className="mt-1 flex w-full items-center gap-1.5 rounded-lg py-1.5 pl-9 pr-2 text-left text-xs font-semibold"
-                      style={{ color: C.brand }}>
+                      className="mt-1 flex w-full items-center gap-1.5 rounded-lg py-1.5 pl-9 pr-2 text-left text-xs font-medium"
+                      style={{ color: C.figInk }}>
                       <CornerDownRight size={11} className="shrink-0" />
                       <span className="bk-num truncate">{shortId(openId)}</span>
                     </button>
