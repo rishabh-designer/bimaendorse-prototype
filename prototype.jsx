@@ -3812,8 +3812,8 @@ const AVATAR_RUKSANA = "data:image/webp;base64,UklGRp49AQBXRUJQVlA4WAoAAAAQAAAA5
    built; anything else renders an "under construction" page. Each entry drives
    its wordmark lockup (Bima + a tinted suffix) and whether an app sits behind it. */
 const TOOLS = {
-  BimaEndorse: { split: ["Bima", "Endorse"], color: C.accent,  built: true },
-  BimaClaim:   { split: ["Bima", "Claim"],   color: "#1458D2", built: false },
+  BimaEndorse: { split: ["Bima", "Endorse"], color: C.accent, built: true },
+  BimaClaim:   { split: ["Bima", "Claim"],   color: C.brand,  built: false },   /* Claim = Primary 500 (#4100CF), not Info */
 };
 
 /* Admin portal access. Only these addresses may sign in; each is recognised
@@ -4534,39 +4534,50 @@ export default function App() {
      branded for that tool and carrying the signed-in identity, under an
      "under construction" notice. Only BimaEndorse falls through to the app. */
   if (env && !TOOLS[env]?.built) {
+    const tool = TOOLS[env];
     return (
       <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
         <style>{GLOBAL_CSS}</style>
-        <div className="flex h-full w-full overflow-hidden rounded-2xl border"
+        <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
           style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
           <Sidebar view="home" go={() => {}} mails={[]} openId={null} openTicket={() => {}}
             collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)}
             tool={env} identity={user || {}} />
-          <main className="relative flex flex-1 flex-col overflow-hidden">
-            <div className="absolute inset-0 flex items-center justify-center p-4" style={{ background: "rgba(28,29,31,0.14)" }}>
-              <div className="relative w-full max-w-sm rounded-2xl border p-7 text-center"
-                style={{ background: C.white, borderColor: C.subtle, boxShadow: "0 12px 40px rgba(28,27,31,0.18)" }}>
-                <button onClick={() => setAuthed(false)} title="Back to login"
-                  className="absolute flex items-center justify-center" style={{ top: 14, right: 14, width: 28, height: 28, borderRadius: 8, color: C.figInk }}>
-                  <X size={18} />
+          <main className="flex flex-1 flex-col overflow-hidden" />
+
+          {/* Scrim (Figma 1172:72800) — blurs the shell and blocks all interaction;
+              the under-construction modal floats over it. */}
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-4"
+            style={{ background: "rgba(169,172,177,0.08)", backdropFilter: "blur(1.5px)", WebkitBackdropFilter: "blur(1.5px)" }}>
+            <div className="overflow-hidden" style={{ width: 480, maxWidth: "calc(100% - 32px)",
+              background: C.white, border: `1px solid ${C.subtle}`, borderRadius: 32, boxShadow: "0 0 24px rgba(169,172,177,0.24)" }}>
+              {/* header: wordmark + close, then the notice */}
+              <div className="flex flex-col gap-1" style={{ padding: 24 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="leading-none" style={{ fontSize: 28, fontWeight: 500 }}>
+                    <span style={{ color: C.figInk }}>{tool.split[0]}</span><span style={{ color: tool.color }}>{tool.split[1]}</span>
+                  </span>
+                  <button onClick={() => setAuthed(false)} title="Back to login"
+                    className="flex shrink-0 items-center justify-center"
+                    style={{ width: 28, height: 28, borderRadius: 9, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figInk }}>
+                    <X size={18} />
+                  </button>
+                </div>
+                <p style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{env} is currently under construction</p>
+              </div>
+              {/* footer: the two ways out */}
+              <div className="flex items-center justify-end gap-3" style={{ padding: "16px 32px", borderTop: "1px solid #DFE0E2" }}>
+                <button onClick={() => setAuthed(false)} className="leading-none"
+                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.subtle}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.figInk }}>
+                  Back to Login
                 </button>
-                <div style={{ fontSize: 22, fontWeight: 600 }}>
-                  <span style={{ color: C.figInk }}>{TOOLS[env].split[0]}</span><span style={{ color: TOOLS[env].color }}>{TOOLS[env].split[1]}</span>
-                </div>
-                <p className="mt-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{env} is currently under construction</p>
-                <div className="mt-6 flex items-center justify-center gap-2.5">
-                  <button onClick={() => setAuthed(false)}
-                    className="rounded-xl border px-4 py-2.5 leading-none" style={{ borderColor: C.subtle, background: C.white, fontSize: 14, fontWeight: 600, color: C.figInk }}>
-                    Back to Login
-                  </button>
-                  <button onClick={() => setEnv("BimaEndorse")}
-                    className="rounded-xl border px-4 py-2.5 leading-none" style={{ borderColor: C.brand, background: C.white, fontSize: 14, fontWeight: 600, color: C.brand }}>
-                    Visit BimaEndorse
-                  </button>
-                </div>
+                <button onClick={() => setEnv("BimaEndorse")} className="leading-none"
+                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.brand}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.brand }}>
+                  Visit BimaEndorse
+                </button>
               </div>
             </div>
-          </main>
+          </div>
         </div>
       </div>
     );
