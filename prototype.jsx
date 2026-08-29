@@ -238,6 +238,13 @@ const GLOBAL_CSS = `
 /* Simulate pill hover — deepen the lavender fill. */
 .bk-sim { transition: background-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-sim:not(:disabled):hover { background-color: #EDE6FF !important; }
+/* Soft in-panel buttons (View / Download / etc.) — a gentle darken on hover. */
+.bk-soft { transition: filter .12s ease-out; }
+.bk-soft:not(:disabled):hover  { filter: brightness(0.95); }
+.bk-soft:not(:disabled):active { filter: brightness(0.9); }
+/* Plain text / small icon buttons — deepen to ink on hover. */
+.bk-dim { transition: color .12s ease-out; }
+.bk-dim:not(:disabled):hover { color: #1C1D1F !important; }
 /* Placeholders read as label/neutral/disabled (A9ACB1 @ 60%), not the browser
    default grey — matched by empty <select>s so every unfilled field looks alike. */
 input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacity: 1; }
@@ -1992,7 +1999,7 @@ const Note = ({ icon: Icon, tone, bg, children }) => (
   </div>
 );
 const Cancel = ({ onClick }) => (
-  <button onClick={onClick} style={{ padding: "12px 20px", fontSize: 14, fontWeight: 600, color: C.figHint }}>Cancel</button>
+  <button onClick={onClick} className="bk-dim" style={{ padding: "12px 20px", fontSize: 14, fontWeight: 600, color: C.figHint }}>Cancel</button>
 );
 /* The completion tick beside a field — blue when satisfied, muted otherwise. */
 const CheckDot = ({ on }) => (
@@ -2271,7 +2278,7 @@ const MiniTag = ({ children, tone, bg, line, title }) => (
 /* Quiet control — View, Upload, Download. */
 const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
   <button onClick={onClick} disabled={disabled} title={title}
-    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+    className="bk-soft flex shrink-0 items-center gap-1.5 whitespace-nowrap"
     style={{ padding: "4px 8px", borderRadius: 8, fontSize: 12, fontWeight: 600,
       color: disabled ? C.figDisabled : tone || C.figInk,
       background: disabled ? C.canvas : bg || C.canvas,
@@ -3539,7 +3546,7 @@ function Review({ mails, onClaim }) {
                 </span>
                 <span style={cell(MR_COLS.action)}>
                   <button onClick={(e) => { e.stopPropagation(); onClaim(m.id); }}
-                    className="inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
+                    className="bk-btn bk-btn-secondary inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
                     style={{ background: C.white, borderColor: C.subtle, fontSize: 12, fontWeight: 600, color: C.figInk }}>
                     Create Ticket <ArrowRight size={12} />
                   </button>
@@ -3933,14 +3940,14 @@ function LoginField({ label, value, onChange, placeholder, masked, reveal, onRev
         />
         <div className="flex shrink-0 items-center gap-2">
           {value && (
-            <button onClick={() => onChange("")} title="Clear" style={{ color: C.figHint }}><X size={12} /></button>
+            <button onClick={() => onChange("")} title="Clear" className="bk-dim" style={{ color: C.figHint }}><X size={12} /></button>
           )}
           <span title={masked ? "The demo password is pass-word" : "Only registered admin addresses can sign in"}>
             <Info size={12} style={{ color: bad ? "#CF0000" : C.link }} />
           </span>
           <span className="w-px self-stretch" style={{ background: C.line }} />
           {masked && (
-            <button onClick={onReveal} title={reveal ? "Hide password" : "Show password"} style={{ color: reveal ? C.figInk : C.figTert }}>
+            <button onClick={onReveal} title={reveal ? "Hide password" : "Show password"} className="bk-dim" style={{ color: reveal ? C.figInk : C.figTert }}>
               {reveal ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           )}
@@ -4053,7 +4060,7 @@ function Login({ onSignIn }) {
 
             <div className="pt-2">
               <button onClick={submit} disabled={!ready || busy}
-                className="flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
+                className="bk-btn bk-btn-fill flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
                 style={busy
                   ? { background: C.brandBg, color: C.brand }
                   : ready
@@ -4127,7 +4134,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
               </span>
             </div>
           )}
-          <button onClick={() => setCollapsed(!collapsed)} style={{ color: C.figTert }}
+          <button onClick={() => setCollapsed(!collapsed)} className="bk-dim" style={{ color: C.figTert }}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
           </button>
@@ -4674,7 +4681,7 @@ export default function App() {
           ) : (
             <div className="flex items-center gap-2">
               <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
-                className="flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
+                className="bk-btn bk-btn-fill flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
                 style={{ background: C.brand, color: C.white }}>
                 <span className="hidden sm:inline">Create Ticket</span>
               </button>
