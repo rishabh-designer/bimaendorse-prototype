@@ -1517,9 +1517,8 @@ function Home({ tickets, scope, setScope, go, openTicket, user }) {
           is the only part that scrolls. */}
       <div className="scroll-slim min-h-0 flex-1 space-y-6 overflow-y-auto pt-6 pb-6">
         <div>
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center gap-3">
             <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
-            <MoreHorizontal size={18} style={{ color: C.figHint }} />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <DeskCard count={hotQ.length} tint="#FFECEC"
