@@ -219,6 +219,9 @@ const GLOBAL_CSS = `
    overrides the inline default colours, so !important is required. */
 .bk-pill:hover { border-color: #4100CF !important; color: #4100CF !important; }
 .bk-pill:hover .bk-pill-dot { background: #4100CF !important; }
+/* Detail tab hover (Figma 1126:41615) — an inactive tab gets a subtle lavender
+   underline and brand text; overrides the inline default, so !important. */
+.bk-tab:hover { border-bottom-color: #D1C6FF !important; color: #4100CF !important; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -2562,14 +2565,14 @@ function TabBar({ tabs, tab, setTab }) {
         return (
           <button key={k} disabled={off} onClick={off ? undefined : () => setTab(k)}
             title={off ? "Nothing to manage on a closed ticket" : undefined}
-            className="flex h-10 shrink-0 items-center justify-center whitespace-nowrap"
+            className={`flex h-10 shrink-0 items-center justify-center whitespace-nowrap transition-colors ${!on && !off ? "bk-tab" : ""}`}
             style={{ background: on ? "rgba(65,0,207,0.08)" : "transparent",
               borderBottom: `2px solid ${on ? C.brand : "transparent"}`,
               borderTopLeftRadius: 8, borderTopRightRadius: 8,
               /* six tabs only appear on a financial ticket; give them room */
               padding: tabs.length > 5 ? "0 8px" : "0 12px",
               fontSize: 14, fontWeight: 500,
-              color: off ? C.figDisabled : on ? C.brand : C.greet,
+              color: off ? C.figDisabled : on ? C.brand : C.figInk,
               cursor: off ? "not-allowed" : "pointer" }}>
             {label}
           </button>
