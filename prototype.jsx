@@ -232,6 +232,12 @@ const GLOBAL_CSS = `
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
 .bk-btn-ghost:not(:disabled):active { background-color: #E8E2FF !important; }
+/* Secondary button (manual-log twin) — a soft grey glow on hover, like Back to Login. */
+.bk-btn-secondary:not(:disabled):hover  { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
+.bk-btn-secondary:not(:disabled):active { box-shadow: 0 0 16px rgba(169,172,177,0.48); background-color: #F4F5F6 !important; }
+/* Simulate pill hover — deepen the lavender fill. */
+.bk-sim { transition: background-color .12s ease-out, box-shadow .12s ease-out; }
+.bk-sim:not(:disabled):hover { background-color: #EDE6FF !important; }
 /* Placeholders read as label/neutral/disabled (A9ACB1 @ 60%), not the browser
    default grey — matched by empty <select>s so every unfilled field looks alike. */
 input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacity: 1; }
@@ -2277,11 +2283,13 @@ const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
 
 /* Demo control — a dashed lavender pill (Figma), deliberately unlike a real
    action, standing in for the insurer / client / Operations. */
+/* Simulate / demo control — the DS "simulation" button (Figma 1126:41654):
+   a full-size dashed brand pill on a lavender fill, plus the leading dot. */
 const SimBtn = ({ children, onClick, title }) => (
   <button onClick={onClick} title={title}
-    className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
-    style={{ padding: "5px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-      color: C.brand, background: C.white, border: `1px dashed ${C.brand200}` }}>
+    className="bk-sim flex shrink-0 items-center gap-2 whitespace-nowrap"
+    style={{ padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
+      color: C.brand, background: C.brandBg, border: `1.5px dashed ${C.brand}` }}>
     <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, background: C.brand }} />
     {children}
   </button>
@@ -2298,16 +2306,19 @@ const IconBtn = ({ icon: Icon, onClick, title, size = 16, tone, disabled }) => (
    outline twin. A blocked action keeps its place and states why on hover. */
 const Btn = ({ children, onClick, disabled, title, variant = "fill", tone = C.brand, icon: Icon, trailing, size = "lg" }) => {
   const fill = variant === "fill";
+  /* secondary = the neutral twin (subtle border, ink label) that glows on hover,
+     like the "Back to Login" control (Figma 1172:72883). */
+  const secondary = variant === "secondary";
   const xs = size === "xs";   /* matches SoftBtn — the in-panel, non-primary action size */
   const sm = size === "sm";
   return (
     <button onClick={onClick} disabled={disabled} title={title}
-      className={`bk-btn ${fill ? "bk-btn-fill" : "bk-btn-ghost"} flex shrink-0 items-center justify-center whitespace-nowrap ${xs ? "gap-1.5" : "gap-2"}`}
+      className={`bk-btn ${fill ? "bk-btn-fill" : secondary ? "bk-btn-secondary" : "bk-btn-ghost"} flex shrink-0 items-center justify-center whitespace-nowrap ${xs ? "gap-1.5" : "gap-2"}`}
       style={{ padding: xs ? "4px 8px" : sm ? "10px 14px" : "12px 20px", borderRadius: xs ? 8 : sm ? 10 : 12,
         fontSize: xs || sm ? 12 : 14, fontWeight: 600,
         background: disabled ? C.canvas : fill ? tone : C.white,
-        color: disabled ? C.figDisabled : fill ? C.white : tone,
-        border: `0.5px solid ${disabled ? C.subtle : tone}`,
+        color: disabled ? C.figDisabled : fill ? C.white : secondary ? C.figInk : tone,
+        border: `0.5px solid ${disabled ? C.subtle : secondary ? C.subtle : tone}`,
         cursor: disabled ? "not-allowed" : "pointer" }}>
       {Icon && !trailing && <Icon size={12} className="shrink-0" />}
       {children}
@@ -2852,7 +2863,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
         <SimBtn onClick={simulate.run} title="Demo control - stands in for the outside party">{simulate.label}</SimBtn>
       )}
       {t.stage === "Awaiting Endorsement Copy" && !endo && !readOnly(t) && (
-        <Btn variant="outline" tone={C.figHint} onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
+        <Btn variant="secondary" onClick={() => setUpload(true)}>Log manually - upload copy</Btn>
       )}
       {showAdvance && (
         <Btn onClick={doAdvance} disabled={advBlocked} title={advBlocked ? advHint : undefined}>{advLabel}</Btn>
