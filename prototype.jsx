@@ -4105,6 +4105,24 @@ function routeOf(path) {
 /* Reading the address bar can throw in a sandboxed frame; the app must not. */
 const readRoute = () => { try { return routeOf(window.location.pathname); } catch { return { view: "home" }; } };
 
+/* Session survives a refresh via the URL hash — no browser storage is available.
+   The code is short and non-identifying (a letter per admin, a letter per tool),
+   so a reload restores who is signed in and which tool they entered, while every
+   ticket / mail mutation re-seeds from scratch (that state is never persisted). */
+const SESS_USER = { n: "nanditha.p@bimakavach.com", r: "ruksana.khan@bimakavach.com", u: "umesh.bagri@bimakavach.com" };
+const SESS_ENV  = { e: "BimaEndorse", c: "BimaClaim" };
+const emailOf   = (u) => Object.keys(PORTAL_USERS).find((k) => PORTAL_USERS[k] === u) || "";
+const codeOf    = (m, v) => Object.keys(m).find((k) => m[k] === v) || "";
+const sessHash  = (u, env) => { const uc = codeOf(SESS_USER, emailOf(u)), ec = codeOf(SESS_ENV, env); return uc && ec ? `#s=${uc}${ec}` : ""; };
+const readSession = () => {
+  try {
+    const m = /^#s=([nru])([ec])$/.exec(window.location.hash || "");
+    if (!m) return null;
+    const user = PORTAL_USERS[SESS_USER[m[1]]], env = SESS_ENV[m[2]];
+    return user && env ? { user, env } : null;
+  } catch { return null; }
+};
+
 const NAV = [
   ["home",    "Home",          HeartHandshake],
   ["list",    "My Tickets",    ListChecks],
@@ -4295,9 +4313,10 @@ export default function App() {
   const [preset, setPreset] = useState(null);
   const [toast, setToast] = useState(null);
   const [collapsed, setCollapsed] = useState(true);   /* Collapsed by default; React state — no browser storage here */
-  const [authed, setAuthed] = useState(false);
-  const [user, setUser] = useState(null);
-  const [env, setEnv] = useState(null);   /* the tool the current session entered (a TOOLS key) */
+  const bootSess = useMemo(readSession, []);
+  const [authed, setAuthed] = useState(!!bootSess);
+  const [user, setUser] = useState(bootSess?.user || null);
+  const [env, setEnv] = useState(bootSess?.env || null);   /* the tool the current session entered (a TOOLS key) */
   const [createFrom, setCreateFrom] = useState("list");   /* the view the Create modal sits over */
 
   const go = (v, f, p) => { if (f) setFilter(f); setPreset(p || null); setView(v); };
@@ -4580,10 +4599,19 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const url = pathOf(view, openId);
-      if (window.location.pathname !== url) window.history.pushState({}, "", url);
+      const path = pathOf(view, openId);
+      if (window.location.pathname !== path) window.history.pushState({}, "", path + window.location.hash);
     } catch { /* sandboxed frame - the app still works, the address bar just will not follow */ }
   }, [view, openId]);
+
+  /* Keep the session code in the hash so a refresh stays signed in. Replace (not
+     push) — the session is not a navigable step — and keep the current path. */
+  useEffect(() => {
+    try {
+      const h = authed && user && env ? sessHash(user, env) : "";
+      if ((window.location.hash || "") !== h) window.history.replaceState({}, "", window.location.pathname + h);
+    } catch { /* sandboxed frame */ }
+  }, [authed, user, env]);
 
   useEffect(() => {
     const back = () => { const r = readRoute(); setView(r.view); if (r.openId) setOpenId(r.openId); };
