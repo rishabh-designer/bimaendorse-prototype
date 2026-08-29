@@ -522,7 +522,12 @@ const SEED_MAILS = [
 ];
 
 /* Clock — stage only ---------------------------------------------- */
-const fmtAgo = (h) => h < 1 ? `${Math.round(h * 60)}m ago` : h < 24 ? `${Math.round(h)}h ago` : (Math.round(h / 24) === 1 ? "yesterday" : `${Math.round(h / 24)}d ago`);
+/* Units spelled out per house style: "Mins."/"Hrs." (abbreviations take a
+   period), "Days" (full word, none), with correct singular/plural. */
+const tUnit = (v, s, p) => `${v} ${v === 1 ? s : p}`;
+const fmtAgo = (h) => h < 1 ? `${tUnit(Math.round(h * 60), "Min.", "Mins.")} ago`
+  : h < 24 ? `${tUnit(Math.round(h), "Hr.", "Hrs.")} ago`
+  : `${tUnit(Math.round(h / 24), "Day", "Days")} ago`;
 /* The trail spells it out — it is a record, and a record reads in words. */
 const fmtAgoLong = (h) => {
   const u = (v, w) => `${v} ${w}${v === 1 ? "" : "s"} Ago`;
@@ -532,9 +537,11 @@ const fmtAgoLong = (h) => {
 };
 const fmtDur = (h) => {
   const a = Math.abs(h);
-  if (a < 1) return `${Math.max(1, Math.round(a * 60))}m`;
-  if (a < 24) { const hh = Math.floor(a), mm = Math.round((a - hh) * 60); return mm ? `${hh}h ${mm}m` : `${hh}h`; }
-  return `${Math.floor(a / 24)}d ${Math.round(a % 24)}h`;
+  if (a < 1) return tUnit(Math.max(1, Math.round(a * 60)), "Min.", "Mins.");
+  if (a < 24) { const hh = Math.floor(a), mm = Math.round((a - hh) * 60);
+    return mm ? `${tUnit(hh, "Hr.", "Hrs.")} ${tUnit(mm, "Min.", "Mins.")}` : tUnit(hh, "Hr.", "Hrs."); }
+  const dd = Math.floor(a / 24), hh = Math.round(a % 24);
+  return hh ? `${tUnit(dd, "Day", "Days")} ${tUnit(hh, "Hr.", "Hrs.")}` : tUnit(dd, "Day", "Days");
 };
 const isOpen = (t) => t.stage !== "Closed" && !t.terminal;
 const isRouting = (t) => stageOf(t.stage).system === true;   // not yet on anyone's desk
@@ -1694,13 +1701,13 @@ function fmtWhen(d) {
 /* Working hours read badly past a day — 27h means nothing, 3 working days does */
 const fmtBiz = (h) => {
   const a = Math.abs(h);
-  if (a < 1) return `${Math.max(1, Math.round(a * 60))}m`;   // under an hour reads in minutes
+  if (a < 1) return tUnit(Math.max(1, Math.round(a * 60)), "Min.", "Mins.");   // under an hour reads in minutes
   if (a < DAY_LEN) {
     const hh = Math.floor(a), mm = Math.round((a - hh) * 60);
-    return mm ? `${hh}h ${mm}m` : `${hh}h`;
+    return mm ? `${tUnit(hh, "Hr.", "Hrs.")} ${tUnit(mm, "Min.", "Mins.")}` : tUnit(hh, "Hr.", "Hrs.");
   }
   const d = Math.floor(a / DAY_LEN), r = Math.round(a % DAY_LEN);
-  return r ? `${d}wd ${r}h` : `${d}wd`;
+  return r ? `${d} WD ${tUnit(r, "Hr.", "Hrs.")}` : `${d} WD`;
 };
 
 /* The SLA cell: state pill first, absolute deadline second.
@@ -3451,7 +3458,7 @@ function Review({ mails, onClaim }) {
       <PageHead title="Manual Review Queue" right={
         over > 0 ? (
           <span className="rounded-lg px-2 py-0.5" style={{ background: C.breachSoft, color: C.breach, fontSize: 12, fontWeight: 600 }}>
-            <span className="bk-num">{over}</span> Que over {MR_ESCALATION.overH}Hrs
+            <span className="bk-num">{over}</span> Que over {MR_ESCALATION.overH} Hrs.
           </span>
         ) : null
       } />
