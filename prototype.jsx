@@ -232,6 +232,9 @@ const GLOBAL_CSS = `
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
 .bk-btn-ghost:not(:disabled):active { background-color: #E8E2FF !important; }
+/* Placeholders read as label/neutral/disabled (A9ACB1 @ 60%), not the browser
+   default grey — matched by empty <select>s so every unfilled field looks alike. */
+input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacity: 1; }
 .bk-rule  { height: 4px; width: 100%; flex: none; background-color: ${"#4100CF"};
             -webkit-mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px;
             mask: ${IKKAT_RULE_URI} repeat-x left center / auto 4px; }
@@ -3748,7 +3751,8 @@ function Create({ onCreate, back, prefill }) {
                   placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
               </Field>
               <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
-                <select value={f.priority} onChange={set("priority")} className={selCls} style={inputSt}>
+                <select value={f.priority} onChange={set("priority")} className={selCls}
+                  style={{ ...inputSt, color: f.priority ? C.brand : "rgba(169,172,177,0.6)" }}>
                   {ph("Priority")}
                   {Object.keys(PRIORITY).map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
@@ -3756,7 +3760,7 @@ function Create({ onCreate, back, prefill }) {
               <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
                 hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
                 <select value={f.type} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
-                  className={selCls} style={inputSt}>
+                  className={selCls} style={{ ...inputSt, color: f.type ? C.brand : "rgba(169,172,177,0.6)" }}>
                   {ph("Endorsement Type")}
                   {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
                 </select>
