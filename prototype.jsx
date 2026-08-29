@@ -4165,13 +4165,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
             )}
           </div>
           {!collapsed && (
-            <div className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
-              {/* Stage-hours note lives here now, as the tooltip on the info mark. */}
-              <span className="flex items-center" title="Stage clocks run Mon–Fri 10:00–19:00 and pause outside these hours and on declared holidays.">
-                <Info size={12} />
-              </span>
-              <button onClick={onSignOut} title="Sign out" style={{ color: C.figInk }}><LogOut size={12} /></button>
-            </div>
+            <button onClick={onSignOut} title="Sign out" style={{ color: C.figInk }} className="shrink-0"><LogOut size={12} /></button>
           )}
         </div>
       </div>
