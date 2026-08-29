@@ -72,18 +72,17 @@ Until it closes, no screen should assert a ticket's pod as a fact about its owne
 
 ---
 
-## Still open — dismissing the Create modal destroys the manual-review mail
+## Closed — dismissing the Create modal no longer destroys the manual-review mail
 
-Reproduced, **not fixed** — it was outside the scope of the stage-vocabulary pass. `claim(mid)`
-removes the mail from the queue *before* the Create modal opens:
+**Fixed (2026-08-28).** `claim(mid)` used to remove the mail from the queue *before* the Create modal
+opened, so closing the modal lost the mail with no ticket created. Now `claim` only records the mail
+id (`claimId`); the mail leaves the queue inside `create()`, once a ticket actually exists, and
+`claimId` is cleared if the form is dismissed. Verified: opening and closing Create on a queue row
+leaves both rows intact.
 
-```js
-const claim = (mid) => { … setMails((ms) => ms.filter((x) => x.id !== mid)); … setView("create"); };
-```
-
-Click *Create Ticket* on a queue row, then close the modal — the badge goes 2 → 1, the row is gone,
-and no ticket was created. The mail is unrecoverable. Move the removal into `create()` so the mail
-only leaves the queue once a ticket exists. Two lines, and it is a mutator.
+**Still open (separate, pre-existing):** a Create form opened from a claim carries a prefilled Client,
+and its policy-fetch does not auto-fill Insurer/Product in that path — so a claimed ticket can be hard
+to complete through the form. Not caused by the removal-timing fix; worth a follow-up.
 
 ---
 

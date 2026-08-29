@@ -4225,6 +4225,7 @@ export default function App() {
   const [openId, setOpenId] = useState(boot.openId || null);
   const [scope, setScope] = useState("mine");
   const [prefill, setPrefill] = useState(null);
+  const [claimId, setClaimId] = useState(null);   /* the review mail being turned into a ticket, if any */
   const [preset, setPreset] = useState(null);
   const [toast, setToast] = useState(null);
   const [collapsed, setCollapsed] = useState(true);   /* Collapsed by default; React state — no browser storage here */
@@ -4492,12 +4493,14 @@ export default function App() {
         { ...TRAIL.raised({ type: f.type, policy: f.policy }), at: 0 },
         { text: `Auto-assigned to ${ASSIGNMENT.podOf(f.insurer)} · Nanditha P`, by: "Routing rule", at: 0, note: ASSIGNMENT.rule },
       ] }, ...ts]);
+    /* The review mail leaves the queue only now, once its ticket exists. */
+    if (claimId) { setMails((ms) => ms.filter((x) => x.id !== claimId)); setClaimId(null); }
     setPrefill(null); flash(`${id} raised and auto-assigned to ${ASSIGNMENT.podOf(f.insurer)}.`); setOpenId(id); setView("ticket");
   };
 
   const claim = (mid) => {
     const m = mails.find((x) => x.id === mid);
-    setMails((ms) => ms.filter((x) => x.id !== mid));
+    setClaimId(mid);   /* remember it; do not remove until a ticket is created */
     setPrefill({ client: m.guess.includes("-") ? m.guess.split(" - ")[0] : "", type: "Address Change" });
     setCreateFrom("review");
     setView("create");
@@ -4638,7 +4641,7 @@ export default function App() {
                 {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
                 {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
                 {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
-                {view === "create" && <Create onCreate={create} back={() => setView(createFrom)} prefill={prefill} />}
+                {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
               </div>
             )}
           </div>
