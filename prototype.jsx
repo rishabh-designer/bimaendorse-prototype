@@ -1554,11 +1554,11 @@ function Home({ tickets, scope, setScope, go, user }) {
 
   const cards = [
     { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], open: () => go("list", "open", { prio: "hot" }) },
-    { count: open.filter((t) => bucketOf(t) === 1).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "qOverdue" }) },
-    { count: open.filter((t) => bucketOf(t) === 2).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "qDueToday" }) },
+    { count: open.filter(breached).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "breached" }) },
+    { count: open.filter(atRisk).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "risk" }) },
     { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], open: () => go("list", "open", { slice: "qClient" }) },
     { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], open: () => go("list", "open", { slice: "qInsurer" }) },
-    { count: open.filter((t) => bucketOf(t) === 3).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
+    { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
   ];
 
   return (
@@ -1619,11 +1619,13 @@ const SLICES = {
      is a mutually exclusive cascade (silent outranks breached), so a row's count
      always equals what clicking it opens. Not due-date slices, so `queue: true`
      keeps them out of the Stage due menu. */
-  qOverdue: { label: "Overdue queue", queue: true, fn: (t) => bucketOf(t) === 1 },
-  qDueToday: { label: "Due today queue", queue: true, fn: (t) => bucketOf(t) === 2 },
-  qFresh: { label: "Freshly assigned", queue: true, fn: (t) => bucketOf(t) === 3 },
-  /* Party queues for the two "…Response" desk cards. onHold = we asked the client
-     and are waiting; awaitingInsurer = stage owner is the insurer (SLA-05/06/09). */
+  /* Desk-card queues. Each mirrors its card's plain meaning DIRECTLY, not the
+     mutually-exclusive bucketOf cascade — the cascade lets "silent" (15d idle)
+     outrank a live breach, so a breached-but-silent ticket would vanish from the
+     Overdue card. So the count always equals what clicking the card opens.
+     Overdue/Due today route to the visible breached/risk slices; these three are
+     card-only (queue:true, hidden from the Stage-due menu). */
+  qFresh: { label: "Freshly assigned", queue: true, fn: isFresh },
   qClient: { label: "Awaiting client queue", queue: true, fn: onHold },
   qInsurer: { label: "Awaiting insurer queue", queue: true, fn: awaitingInsurer },
 };
