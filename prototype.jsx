@@ -1544,71 +1544,48 @@ function PriorityCases({ list, openTicket }) {
   );
 }
 
-function Home({ tickets, scope, setScope, go, openTicket, user }) {
+/* The desk header that now sits atop the merged My Tickets page — the greeting
+   and four "Your Desk" count-cards. Home and My Tickets are one page (Figma
+   1197:73447); each card sets the table's filter/preset below rather than routing
+   away. Priority Cases and the queue accordions were retired in that merge. */
+function Home({ tickets, scope, setScope, go, user }) {
   const mine = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const open = mine.filter(isOpen);
-  const hotQ = open.filter((t) => PRIORITY[t.priority].rank <= 1).sort((a, b) => PRIORITY[a.priority].rank - PRIORITY[b.priority].rank || riskSort(a, b));
-  const silentQ = open.filter((t) => bucketOf(t) === 0).sort(riskSort);
-  const breachQ = open.filter((t) => bucketOf(t) === 1).sort(riskSort);
-  const riskQ = open.filter((t) => bucketOf(t) === 2).sort(riskSort);
-  const freshQ = open.filter((t) => bucketOf(t) === 3).sort(riskSort);
+  const hot = open.filter((t) => PRIORITY[t.priority].rank <= 1);
+  const overdue = open.filter((t) => bucketOf(t) === 1);
+  const dueToday = open.filter((t) => bucketOf(t) === 2);
+  const fresh = open.filter((t) => bucketOf(t) === 3);
 
-  const queues = [
-    { label: "Overdue", ind: "error", list: breachQ },
-    { label: "Due Today", ind: "brand", list: riskQ },
-    { label: "Freshly Assigned", ind: "success", list: freshQ },
+  const cards = [
+    { count: hot.length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], open: () => go("list", "open", { prio: "hot" }) },
+    { count: overdue.length, tint: "#FFF1E6", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "qOverdue" }) },
+    { count: dueToday.length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "qDueToday" }) },
+    { count: fresh.length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
   ];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* Fixed masthead — the greeting and the ikkat divider it carries stay put
-          while the feed below scrolls. */}
-      <div className="shrink-0 pt-5">
-        <Greeting user={user} right={
-          /* Mine/Team is a supervisor control. A Servicing Executive owns a single
-             desk — she sees only her own queue and never the toggle. A manager's
-             view (e.g. Umesh) keeps it. Gated on the user-role master (ROLES). */
-          ROLES[user?.name]?.role === "Servicing executive" ? null : (
-            <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
-              {["mine", "team"].map((s) => (
-                <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
-                  style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
-              ))}
-            </div>
-          )
-        } />
-      </div>
+    <div className="space-y-6">
+      <Greeting user={user} right={
+        /* Mine/Team is a supervisor control. A Servicing Executive owns a single
+           desk — she sees only her own queue and never the toggle. A manager's
+           view (e.g. Umesh) keeps it. Gated on the user-role master (ROLES). */
+        ROLES[user?.name]?.role === "Servicing executive" ? null : (
+          <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
+            {["mine", "team"].map((s) => (
+              <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
+                style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
+            ))}
+          </div>
+        )
+      } />
 
-      {/* The feed — Your Desk, Priority Cases and the three queue accordions —
-          is the only part that scrolls. */}
-      <div className="scroll-slim min-h-0 flex-1 space-y-6 overflow-y-auto pt-6 pb-6">
-        <div>
-          <div className="mb-4 flex items-center gap-3">
-            <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <DeskCard count={hotQ.length} tint="#FFECEC"
-              pills={[{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }]}
-              onOpen={() => go("list", "open", { prio: "hot" })} />
-            <DeskCard count={silentQ.length} tint="#FFF9E6"
-              pills={[{ label: "Pending Action", ind: "caution", outline: true }]}
-              onOpen={() => go("list", "attention", { slice: "silent" })} />
-          </div>
+      <div>
+        <div className="mb-4 flex items-center gap-3">
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
         </div>
-
-        <div className="bk-rule" aria-hidden />
-
-        {hotQ.length
-          ? <PriorityCases list={hotQ} openTicket={openTicket} />
-          : <Empty>Nothing Critical or High on your desk.</Empty>}
-
-        <div className="bk-rule" aria-hidden />
-
-        {/* The three queues, now below Priority Cases as accordions that open in
-            place. Same buckets (bucketOf 1/2/3) — revealed rather than routed to. */}
-        <div className="grid items-start gap-4 md:grid-cols-3">
-          {queues.map((q) => (
-            <QueueAccordion key={q.label} label={q.label} ind={q.ind} list={q.list} openTicket={openTicket} />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {cards.map((c, i) => (
+            <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills} onOpen={c.open} />
           ))}
         </div>
       </div>
@@ -2834,9 +2811,9 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const TABS_T = [
     ["overview", "Overview"],
     ["docs", "Document Vault"],
-    ["queries", "Query Line"],
+    ["queries", "Client Channel"],
     ["mail", "Mail Trail"],
-    ["trail", "Ticket Trail"],
+    ["trail", "Ticket History"],
     ...(t.kind === "Financial" ? [["payment", "Premium & Payment"]] : []),
     ["manage", "Manage Ticket", readOnly(t)],
   ];
@@ -3070,7 +3047,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
             <div className="flex min-h-full flex-col gap-4">
               <div className="space-y-4">
                 <SectionTitle right={openQ.length > 0 ? <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}>{openQ.length} open</MiniTag> : null}>
-                  Queries with the client
+                  Client Channel
                 </SectionTitle>
                 {queries.length ? (
                   <div className="flex flex-col gap-1">
@@ -3232,7 +3209,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
               its own tab. Reverse-chronological, actor + timestamp on the right. */}
           {live === "trail" && (
             <div className="space-y-1">
-              <SectionTitle right={<MiniTag>{(t.history || []).length} entries</MiniTag>}>Ticket Trail</SectionTitle>
+              <SectionTitle right={<MiniTag>{(t.history || []).length} entries</MiniTag>}>Ticket History</SectionTitle>
               <div>
                 {(t.history || []).slice().reverse().map((h, i, all) => (
                   <TrailRow key={i} h={h} t={t} last={i === all.length - 1} />
@@ -4110,7 +4087,7 @@ function Login({ onSignIn }) {
  *  actions live in the breadcrumb's right slot.
  * ------------------------------------------------------------------ */
 
-const ROUTES = { home: "/", list: "/tickets", review: "/review", create: "/tickets/new" };
+const ROUTES = { list: "/", review: "/review", create: "/tickets/new" };
 const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` : ROUTES[view] || "/";
 /* END is redundant on the sidebar rail — we are already inside BimaEndorse — so
    the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
@@ -4120,9 +4097,9 @@ function routeOf(path) {
   const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
   if (m) return { view: "ticket", openId: m[1] };
   if (/^\/tickets\/new\/?$/.test(path)) return { view: "create" };
-  if (/^\/tickets\/?$/.test(path)) return { view: "list" };
   if (/^\/review\/?$/.test(path)) return { view: "review" };
-  return { view: "home" };
+  /* "/" and "/tickets" both land on the merged My Tickets page. */
+  return { view: "list" };
 }
 /* Reading the address bar can throw in a sandboxed frame; the app must not. */
 const readRoute = () => { try { return routeOf(window.location.pathname); } catch { return { view: "home" }; } };
@@ -4146,7 +4123,7 @@ const readSession = () => {
 };
 
 const NAV = [
-  ["home",    "Home",          HeartHandshake],
+  /* Home and My Tickets are one page now — "My Tickets" is the landing (Figma 1197:73447). */
   ["list",    "My Tickets",    ListChecks],
   ["review",  "Manual Review", SquareDashedMousePointer],
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
@@ -4643,14 +4620,13 @@ export default function App() {
 
   const toList = () => setView("list");
   const CRUMBS = {
-    home: [{ label: "Home" }],
     list: [{ label: "My tickets" }],
     ticket: [{ label: "My tickets", onClick: toList }, { label: openId || "" }],
     review: [{ label: "Manual review queue" }],
     create: createFrom === "review"
       ? [{ label: "Manual review queue", onClick: () => setView("review") }]
       : [{ label: "My tickets", onClick: toList }],
-  }[view] || [{ label: "Home" }];
+  }[view] || [{ label: "My tickets" }];
 
   /* The order the pager walks: the same risk order the queues use, over
      whichever scope the desk is set to. */
@@ -4729,37 +4705,42 @@ export default function App() {
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
 
-        <main className="flex flex-1 flex-col overflow-hidden px-6">
-          {/* Fixed top nav — the breadcrumb bar stays put; the routed body below scrolls. */}
-          <div className="shrink-0 pt-6">
-          <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
-            <div className="rounded-xl px-3 py-2" style={{ background: C.canvas }}>
-              <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+        <main className="flex flex-1 flex-col overflow-hidden">
+          {/* Fixed top nav — a full-bleed chrome strip that spans the content area;
+              the routed body below scrolls. */}
+          <div className="shrink-0" style={{ background: C.canvas, borderBottom: `1px solid ${C.lineSoft}` }}>
+            <div className="px-6 py-3.5">
+              <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
+                <div className="rounded-xl px-3 py-2" style={{ background: C.white }}>
+                  <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
+                    className="bk-btn bk-btn-fill flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
+                    style={{ background: C.brand, color: C.white }}>
+                    <span className="hidden sm:inline">Create Ticket</span>
+                  </button>
+                </div>
+              )} />
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
-                className="bk-btn bk-btn-fill flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
-                style={{ background: C.brand, color: C.white }}>
-                <span className="hidden sm:inline">Create Ticket</span>
-              </button>
-            </div>
-          )} />
           </div>
 
-          <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col">
-            {view === "home" ? (
-              /* BimaEndorse is Nanditha's desk — any tool-holder who enters it sees her. */
-              <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} />
-            ) : (
-              <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-5 pb-6">
-                {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
-                {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-                {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
-                {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
-                {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
-              </div>
-            )}
+          <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
+            <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-5 pb-6">
+              {/* Home + My Tickets are one page: the desk header sits above the table. */}
+              {(view === "list" || (view === "create" && createFrom === "list")) && (
+                <div key={JSON.stringify(preset)}>
+                  <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} />
+                  <div className="bk-rule my-6" aria-hidden />
+                  <ListView tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />
+                </div>
+              )}
+              {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
+              {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
+              {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
+              {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
+            </div>
           </div>
         </main>
       </div>
