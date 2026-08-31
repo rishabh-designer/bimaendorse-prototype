@@ -4345,10 +4345,127 @@ const NAV = [
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
 ];
 
+/* Wrap the first case-insensitive occurrence of `q` in a brand highlight — the
+   "match" chip the search results carry (Figma 1292:92846). */
+function Highlight({ text, q }) {
+  const s = String(text ?? ""), query = (q || "").trim();
+  const i = query ? s.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (i < 0) return <>{s}</>;
+  return <>{s.slice(0, i)}<span style={{ background: C.brand, color: C.white, borderRadius: 3, padding: "0 2px" }}>{s.slice(i, i + query.length)}</span>{s.slice(i + query.length)}</>;
+}
+
+/* A ticket as a search result — the case card plus a Take Action button; the
+   query is highlighted wherever it lands (Figma 1249:86386 / 1292:92457). */
+function SearchCard({ t, q, onOpen }) {
+  const st = statusOf(t), c = clock(t), over = c.state === "breached";
+  return (
+    <div className="flex flex-col border p-4" style={{ borderColor: C.subtle, borderRadius: 16, background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 55%)` }}>
+      <div className="mb-4 flex justify-end"><Indicator status label={st.label} ind={stageInd(t)} big /></div>
+      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}><Highlight text={t.id} q={q} /></div>
+      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
+        <span className="truncate"><Highlight text={t.client} q={q} /></span>
+      </div>
+      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}><Highlight text={t.type} q={q} /></div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
+      </div>
+      <div className="mt-4 flex items-end gap-4">
+        <span className="flex min-w-0 flex-1 items-start gap-1">
+          <Clock size={14} className="mt-px shrink-0" style={{ color: C.figHint }} />
+          <span className="min-w-0" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.3 }}>
+            {isOpen(t) && c.due ? (
+              <>
+                <span className="bk-num" style={{ color: over ? C.semError : c.state === "atRisk" ? C.semCaution : toneOf(c.state) }}>
+                  {c.state === "held" ? "On hold." : over ? `${c.label} over.` : `${c.label} left.`}
+                </span>
+                <span className="bk-num" style={{ color: C.figHint }}>{` ${over ? "Was due " : "Due "}${fmtWhen(c.due)}`}</span>
+              </>
+            ) : (
+              <span style={{ color: C.figHint }}>{isOpen(t) ? "No live clock" : "Closed"}</span>
+            )}
+          </span>
+        </span>
+        <Participants t={t} />
+      </div>
+      <button onClick={onOpen} className="bk-btn bk-btn-secondary mt-4 flex items-center justify-between rounded-xl border px-4 py-3"
+        style={{ borderColor: C.subtle, background: C.white, fontSize: 14, fontWeight: 600, color: C.figInk }}>
+        <span>Take Action</span><ArrowRight size={14} style={{ color: C.figInk }} />
+      </button>
+    </div>
+  );
+}
+
+/* The search lightbox — a modal over a blurred scrim (Figma 1249:86383). Empty,
+   it shows Recent Tickets; typed, it filters across the active scopes and
+   highlights the match. No index — it reads the live ticket list. */
+const SEARCH_SCOPES = ["Tickets", "Clients", "Insurers", "Documents"];
+function SearchModal({ open, onClose, tickets, openTicket }) {
+  const [q, setQ] = useState("");
+  const [scopes, setScopes] = useState(SEARCH_SCOPES);
+  useEffect(() => { if (open) { setQ(""); setScopes(SEARCH_SCOPES); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open, onClose]);
+  if (!open) return null;
+
+  const active = new Set(scopes);
+  const ql = q.trim().toLowerCase();
+  const pool = tickets.filter((t) => !isRouting(t));
+  const matches = (t) => {
+    const fields = [];
+    if (active.has("Tickets")) fields.push(t.id, t.type, statusOf(t).label);
+    if (active.has("Clients")) fields.push(t.client);
+    if (active.has("Insurers")) fields.push(t.insurer);
+    if (active.has("Documents")) fields.push(t.policy);
+    return fields.some((v) => String(v || "").toLowerCase().includes(ql));
+  };
+  const list = ql ? pool.filter(matches) : pool.slice().sort((a, b) => a.lastAction - b.lastAction).slice(0, 3);
+
+  return createPortal(
+    <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center p-6"
+      style={{ background: "rgba(28,27,31,0.32)", backdropFilter: "blur(2px)" }} onClick={onClose}>
+      <div className="bk-modal scroll-slim mt-6 w-full max-w-4xl overflow-y-auto rounded-2xl"
+        style={{ background: C.white, boxShadow: "0 24px 60px rgba(28,27,31,0.24)", maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="p-5">
+          <div className="flex items-center gap-2 rounded-xl border px-4 py-3" style={{ borderColor: C.subtle }}>
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Search Tickets, Clients, And Documents"
+              className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 16, fontWeight: 500, color: q ? C.brand : C.figInk }} />
+            <button onClick={q ? () => setQ("") : onClose} className="bk-dim" title={q ? "Clear" : "Close"} style={{ color: C.figHint }}><X size={18} /></button>
+          </div>
+
+          <div className="mt-4" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Searching For</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {scopes.map((s) => (
+              <span key={s} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: C.subtle, fontSize: 13, fontWeight: 500, color: C.figInk }}>
+                {s}<button onClick={() => setScopes(scopes.filter((x) => x !== s))} className="bk-dim" style={{ color: C.figHint }}><X size={12} /></button>
+              </span>
+            ))}
+          </div>
+
+          <div className="my-4" style={{ height: 1, background: C.subtle }} aria-hidden />
+          <div style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{ql ? "Results" : "Recent Tickets"}</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-3">
+            {list.length
+              ? list.map((t) => <SearchCard key={t.id} t={t} q={q} onOpen={() => { onClose(); openTicket(t.id); }} />)
+              : <div className="md:col-span-3"><Empty>No tickets match “{q.trim()}”.</Empty></div>}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* Sidebar — Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
-function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut,
+function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch,
   tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
   const presence = identity.status || (isWorkingNow(new Date()) ? "online" : "offline");
   const row = collapsed ? "justify-center" : "gap-2";
@@ -4379,11 +4496,11 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
           </button>
         </div>
 
-        {/* Chrome only — nothing is wired behind it, and it says so on hover. */}
-        <button title="Search is not wired up in this prototype"
-          className={`flex items-center ${collapsed ? "justify-center" : "w-full justify-between"}`}
+        {/* Opens the search lightbox (Figma 1249:86383 / 1249:86386). */}
+        <button onClick={onSearch} title="Search"
+          className={`bk-navitem flex items-center ${collapsed ? "justify-center" : "w-full justify-between"}`}
           style={{ width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined, borderRadius: 10,
-            border: "0.5px solid #D5D5D5", padding: collapsed ? 0 : 8, background: C.white, cursor: "default" }}>
+            border: "0.5px solid #D5D5D5", padding: collapsed ? 0 : 8, background: C.white, cursor: "pointer" }}>
           {!collapsed && <span style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>Search Anything</span>}
           <Search size={12} style={{ color: C.figHint }} />
         </button>
@@ -4529,6 +4646,7 @@ export default function App() {
   const [claimId, setClaimId] = useState(null);   /* the review mail being turned into a ticket, if any */
   const [preset, setPreset] = useState(null);
   const [toast, setToast] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true);   /* Collapsed by default; React state — no browser storage here */
   const bootSess = useMemo(readSession, []);
   const [authed, setAuthed] = useState(!!bootSess);
@@ -4922,7 +5040,7 @@ export default function App() {
         style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
 
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
-          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} onSearch={() => setSearchOpen(true)} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
           {/* Fixed top nav — the sunken breadcrumb card; 16px above and below it. */}
@@ -4951,6 +5069,8 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} tickets={tickets} openTicket={openTicket} />
 
       {toast && createPortal(
         <div className="fixed bottom-5 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm"
