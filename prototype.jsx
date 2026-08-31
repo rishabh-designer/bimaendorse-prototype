@@ -1553,13 +1553,135 @@ function PriorityCases({ list, openTicket }) {
   );
 }
 
-/* The desk header that now sits atop the merged My Tickets page — the greeting
-   and four "Your Desk" count-cards. Home and My Tickets are one page (Figma
-   1197:73447); each card sets the table's filter/preset below rather than routing
-   away. Priority Cases and the queue accordions were retired in that merge. */
-function Home({ tickets, scope, setScope, go, user, filter, preset }) {
-  const mine = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
-  const open = mine.filter(isOpen);
+/* Your Progress — the status of a metric drives an illustrative sparkline
+   (Figma 1283:91535 / 1243:83339 / 1280:91518): Well Done trends up, On Track
+   holds flat, Poor trends down. The shapes are fixed art, not plotted data. */
+const scoreStatus = (s) => (s >= 0.7 ? "Well Done" : s >= 0.4 ? "On Track" : "Poor");
+const STATUS_IND = { "Well Done": "success", "On Track": "info", "Poor": "caution" };
+const SPARK = {
+  "Well Done": { c: "#00B200", pts: [[0, 34], [12, 30], [24, 32], [36, 23], [48, 26], [60, 17], [72, 20], [84, 11], [96, 14], [108, 5], [120, 2]] },
+  "On Track": { c: "#A9ACB1", pts: [[0, 20], [15, 18], [30, 22], [45, 19], [60, 21], [75, 18], [90, 22], [105, 19], [120, 20]] },
+  "Poor": { c: "#FFCF0E", pts: [[0, 5], [12, 9], [24, 7], [36, 16], [48, 13], [60, 22], [72, 19], [84, 28], [96, 25], [108, 33], [120, 37]] },
+};
+function Spark({ status }) {
+  const s = SPARK[status] || SPARK["On Track"];
+  const line = s.pts.map((p, i) => (i ? "L" : "M") + p[0] + "," + p[1]).join(" ");
+  const area = `M${s.pts[0][0]},40 ` + s.pts.map((p) => `L${p[0]},${p[1]}`).join(" ") + ` L${s.pts[s.pts.length - 1][0]},40 Z`;
+  return (
+    <svg viewBox="0 0 120 40" width="132" height="44" preserveAspectRatio="none" aria-hidden>
+      <path d={area} fill={s.c} fillOpacity="0.1" />
+      <path d={line} fill="none" stroke={s.c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" />
+    </svg>
+  );
+}
+/* The Poor→On Track→Well Done gauge — bars fill left-to-right by the score. */
+function PerfMeter({ score }) {
+  const N = 24, filled = Math.max(1, Math.round(score * N));
+  return (
+    <div>
+      <div className="flex gap-1" style={{ height: 34 }}>
+        {Array.from({ length: N }).map((_, i) => (
+          <span key={i} className="flex-1 rounded-sm" style={{ background: i < filled ? C.brand : "#EAEBED" }} />
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+        <span>Poor</span><span>On Track</span><span>Well Done</span>
+      </div>
+    </div>
+  );
+}
+function ProgressCard({ title, value, status, score, sub, subTone }) {
+  return (
+    <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-1.5">
+          <FileText size={14} style={{ color: C.figHint }} />
+          <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{title}</span>
+        </div>
+        <Info size={14} style={{ color: C.link }} />
+      </div>
+      <div className="mt-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{value}</span>
+            <Indicator label={status} ind={STATUS_IND[status]} />
+          </div>
+          <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: subTone }}>{sub}</div>
+        </div>
+        <div className="shrink-0"><Spark status={status} /></div>
+      </div>
+      <div className="mt-4">
+        <div className="flex items-center justify-between">
+          <span style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>Performance</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
+        </div>
+        <div className="mt-2"><PerfMeter score={score} /></div>
+      </div>
+    </div>
+  );
+}
+/* Ticket Time Distribution — a donut of hours held by each player (Figma
+   1280:91430). Slices and labels come from real leg/stage time on the desk. */
+const PIE_IND = { Insurer: "caution", Client: "brand", BimaKavach: "error", Placements: "info" };
+const PIE_FILL = { Insurer: "#FFF9E6", Client: "#F4F1FF", BimaKavach: "#FFECEC", Placements: "#EEF4FF" };
+function Donut({ segments }) {
+  const total = segments.reduce((s, x) => s + x.hrs, 0) || 1;
+  const cx = 170, cy = 160, R = 118, r = 46;
+  const at = (rad, deg) => [cx + rad * Math.cos((deg * Math.PI) / 180), cy + rad * Math.sin((deg * Math.PI) / 180)];
+  let a0 = -90;
+  const arcs = segments.map((s) => {
+    const a1 = a0 + (s.hrs / total) * 360;
+    const [ox0, oy0] = at(R, a0), [ox1, oy1] = at(R, a1);
+    const [ix1, iy1] = at(r, a1), [ix0, iy0] = at(r, a0);
+    const large = a1 - a0 > 180 ? 1 : 0;
+    const d = `M${ox0},${oy0} A${R},${R} 0 ${large} 1 ${ox1},${oy1} L${ix1},${iy1} A${r},${r} 0 ${large} 0 ${ix0},${iy0} Z`;
+    const mid = (a0 + a1) / 2;
+    const [lx, ly] = at((R + r) / 2, mid), [tx, ty] = at(R + 30, mid);
+    a0 = a1;
+    return { ...s, d, lx, ly, tx, ty };
+  });
+  return (
+    <div className="relative mx-auto" style={{ width: 340, height: 320 }}>
+      <svg width="340" height="320" viewBox="0 0 340 320">
+        {arcs.map((s) => <path key={s.label} d={s.d} fill={s.fill} stroke={C.white} strokeWidth="2" />)}
+        {arcs.map((s) => (
+          <text key={s.label + "t"} x={s.lx} y={s.ly} textAnchor="middle" dominantBaseline="middle"
+            className="bk-num" style={{ fontSize: 13, fontWeight: 500, fill: C.figInk }}>{Math.round(s.hrs)} Hrs.</text>
+        ))}
+      </svg>
+      {arcs.map((s) => (
+        <div key={s.label + "g"} className="absolute" style={{ left: s.tx, top: s.ty, transform: "translate(-50%,-50%)" }}>
+          <Indicator label={s.label} ind={s.ind} />
+        </div>
+      ))}
+    </div>
+  );
+}
+/* Range selector — the window the stats describe. Illustrative in the prototype
+   (there is no historical store), so it selects but does not refilter. */
+function RangePills() {
+  const [r, setR] = useState("Last Week");
+  return (
+    <div className="flex items-center gap-2">
+      {["Last Week", "Last Month", "Last Quarter", "Custom"].map((o) => {
+        const on = r === o;
+        return (
+          <button key={o} onClick={() => setR(o)} className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
+            style={{ fontSize: 12, fontWeight: 600, background: on ? C.brand : C.white, color: on ? C.white : C.figHint, border: `1px solid ${on ? C.brand : C.subtle}` }}>
+            <span className="rounded-full" style={{ width: 6, height: 6, background: on ? C.white : C.figTert }} />{o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Home — the desk (six count-cards that route into My Tickets) over a progress
+   dashboard. Home and My Tickets are separate pages again (Figma 1197:73447). */
+function Home({ tickets, scope, setScope, go, user }) {
+  const desk = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
+  const open = desk.filter(isOpen);
+  const totalOpen = open.length || 1;
 
   const cards = [
     { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], preset: { prio: "hot" } },
@@ -1569,8 +1691,40 @@ function Home({ tickets, scope, setScope, go, user, filter, preset }) {
     { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], preset: { slice: "qInsurer" } },
     { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], preset: { slice: "qFresh" } },
   ];
-  /* A card is selected when its filter is the one applied to the table below. */
-  const activeKey = filter === "open" ? JSON.stringify(preset || null) : null;
+
+  /* Ticket Closure — the share of open tickets still inside SLA. */
+  const onTrack = open.filter((t) => !breached(t)).length;
+  const overdue = open.filter(breached).length;
+  const closureScore = onTrack / totalOpen;
+  const closureStatus = scoreStatus(closureScore);
+
+  /* Median Turnaround — the median share of the stage clock already spent;
+     less consumed reads as a healthier turnaround. */
+  const used = open.map((t) => Math.min(1, Math.max(0, clock(t).used || 0))).sort((a, b) => a - b);
+  const medUsed = used.length ? used[Math.floor((used.length - 1) / 2)] : 0;
+  const turnScore = 1 - medUsed;
+  const turnStatus = scoreStatus(turnScore);
+
+  /* Ticket Time Distribution — hours each player has held the ticket, from the
+     stage legs + the current stage, weighted equally per ticket then scaled to a
+     typical ticket's lifetime so one stuck ticket cannot swamp the picture. */
+  const PLAYER = { insurer: "Insurer", customer: "Client", "Service Manager": "BimaKavach", system: "BimaKavach", operations: "Placements" };
+  const acc = { Insurer: 0, Client: 0, BimaKavach: 0, Placements: 0 };
+  const lives = [];
+  open.forEach((t) => {
+    const tb = { Insurer: 0, Client: 0, BimaKavach: 0, Placements: 0 };
+    (t.legs || []).forEach((l) => { const p = PLAYER[stageOf(l.s).owner]; if (p) tb[p] += Math.max(0, l.h); });
+    const cp = PLAYER[stageOf(t.stage).owner]; if (cp) tb[cp] += Math.max(0, t.inStage);
+    const tot = tb.Insurer + tb.Client + tb.BimaKavach + tb.Placements;
+    lives.push(tot);
+    if (tot > 0) Object.keys(tb).forEach((p) => { acc[p] += tb[p] / tot; });
+  });
+  const sortedLives = lives.slice().sort((a, b) => a - b);
+  const medLife = sortedLives.length ? sortedLives[Math.floor((sortedLives.length - 1) / 2)] : 0;
+  const nShare = open.length || 1;
+  const segments = ["Insurer", "Client", "BimaKavach", "Placements"]
+    .map((p) => ({ label: p, ind: PIE_IND[p], fill: PIE_FILL[p], hrs: (acc[p] / nShare) * medLife }))
+    .filter((s) => s.hrs >= 0.5);
 
   return (
     <div className="space-y-6">
@@ -1588,6 +1742,7 @@ function Home({ tickets, scope, setScope, go, user, filter, preset }) {
         )
       } />
 
+      {/* Your Desk — the six count-cards; each routes into My Tickets pre-filtered. */}
       <div>
         <div className="mb-4 flex items-center gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
@@ -1595,10 +1750,44 @@ function Home({ tickets, scope, setScope, go, user, filter, preset }) {
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {cards.map((c, i) => (
             <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills}
-              selected={activeKey === JSON.stringify(c.preset)}
-              onOpen={() => go("list", "open", c.preset)}
-              onClear={() => go("list", undefined, null)} />
+              onOpen={() => go("list", "open", c.preset)} />
           ))}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: C.subtle }} aria-hidden />
+
+      {/* Your Progress — two metric cards over an SLA time-distribution donut. */}
+      <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
+          <RangePills />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="flex flex-col gap-4 lg:col-span-1">
+            <ProgressCard title="Ticket Closure" value={`${onTrack}/${totalOpen}`} status={closureStatus} score={closureScore}
+              sub={overdue ? `${overdue} overdue right now` : "None overdue — on top of it"} subTone={overdue ? C.semCaution : "#007B00"} />
+            <ProgressCard title="Median Turnaround" value={`${Math.round(medUsed * 100)}%`} status={turnStatus} score={turnScore}
+              sub={`${Math.round(medUsed * 100)}% of stage SLA used (median)`} subTone={turnStatus === "Poor" ? C.semCaution : "#007B00"} />
+          </div>
+          <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <FileText size={14} style={{ color: C.figHint }} />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Ticket Time Distribution</span>
+                </div>
+                <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{open.length} Tickets</div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <Info size={14} style={{ color: C.link }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-center">
+              {segments.length ? <Donut segments={segments} /> : <Empty>No time recorded yet.</Empty>}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1898,7 +2087,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
 
   return (
     <div className="space-y-4">
-      <PageHead title="My Tickets" noRule
+      <PageHead title="My Tickets"
         right={<StagePills counts={counts} active={tab} onPick={setFilter} />} />
 
       <div className="flex justify-end">
@@ -4105,7 +4294,7 @@ function Login({ onSignIn }) {
  *  actions live in the breadcrumb's right slot.
  * ------------------------------------------------------------------ */
 
-const ROUTES = { list: "/", review: "/review", create: "/tickets/new" };
+const ROUTES = { home: "/", list: "/tickets", review: "/review", create: "/tickets/new" };
 const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` : ROUTES[view] || "/";
 /* END is redundant on the sidebar rail — we are already inside BimaEndorse — so
    the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
@@ -4115,9 +4304,9 @@ function routeOf(path) {
   const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
   if (m) return { view: "ticket", openId: m[1] };
   if (/^\/tickets\/new\/?$/.test(path)) return { view: "create" };
+  if (/^\/tickets\/?$/.test(path)) return { view: "list" };
   if (/^\/review\/?$/.test(path)) return { view: "review" };
-  /* "/" and "/tickets" both land on the merged My Tickets page. */
-  return { view: "list" };
+  return { view: "home" };
 }
 /* Reading the address bar can throw in a sandboxed frame; the app must not. */
 const readRoute = () => { try { return routeOf(window.location.pathname); } catch { return { view: "home" }; } };
@@ -4141,7 +4330,9 @@ const readSession = () => {
 };
 
 const NAV = [
-  /* Home and My Tickets are one page now — "My Tickets" is the landing (Figma 1197:73447). */
+  /* Home (the desk + progress dashboard) and My Tickets (the queue) are separate
+     pages again; the desk cards on Home route into My Tickets (Figma 1197:73447). */
+  ["home",    "Home",          HeartHandshake],
   ["list",    "My Tickets",    ListChecks],
   ["review",  "Manual Review", SquareDashedMousePointer],
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
@@ -4640,13 +4831,14 @@ export default function App() {
 
   const toList = () => setView("list");
   const CRUMBS = {
+    home: [{ label: "Home" }],
     list: [{ label: "My tickets" }],
     ticket: [{ label: "My tickets", onClick: toList }, { label: openId || "" }],
     review: [{ label: "Manual review queue" }],
     create: createFrom === "review"
       ? [{ label: "Manual review queue", onClick: () => setView("review") }]
       : [{ label: "My tickets", onClick: toList }],
-  }[view] || [{ label: "My tickets" }];
+  }[view] || [{ label: "Home" }];
 
   /* The order the pager walks: the same risk order the queues use, over
      whichever scope the desk is set to. */
@@ -4741,14 +4933,9 @@ export default function App() {
 
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
             <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
-              {/* Home + My Tickets are one page: the desk header sits above the table. */}
-              {(view === "list" || (view === "create" && createFrom === "list")) && (
-                <div key={JSON.stringify(preset)}>
-                  <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} filter={filter} preset={preset} />
-                  <div className="my-6" style={{ height: 1, background: C.subtle }} aria-hidden />
-                  <ListView tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />
-                </div>
-              )}
+              {/* Home — the desk and the progress dashboard. Its cards route into My Tickets. */}
+              {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
+              {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
               {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
