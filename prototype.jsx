@@ -1351,10 +1351,19 @@ const Empty = ({ children }) => <div className="px-3 py-8 text-center text-sm" s
 
 const DESK_ARROW = { background: "#FFFFFF", border: "0.5px solid #E6E8EA", borderRadius: 10 };
 
-function DeskCard({ count, pills, tint, onOpen }) {
+/* Selected — the card whose filter is currently applied to the table below
+   (Figma 1249:89610): a firmer neutral stroke, a soft elevation, and the corner
+   control flips from "apply" (→) to "clear" (✕). Clicking a selected card clears
+   its filter; clicking any other applies it. */
+function DeskCard({ count, pills, tint, onOpen, selected, onClear }) {
+  const act = selected ? onClear : onOpen;
+  const Corner = selected ? X : ArrowRight;
   return (
-    <button onClick={onOpen} className="flex w-full items-end gap-3 rounded-xl border text-left"
-      style={{ borderColor: C.subtle, borderWidth: "0.5px", padding: 12.5,
+    <div role="button" tabIndex={0} onClick={act}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } }}
+      className="flex w-full items-end gap-3 rounded-xl border text-left" style={{
+        borderColor: selected ? C.line : C.subtle, borderWidth: "0.5px", padding: 12.5, cursor: "pointer",
+        boxShadow: selected ? "0 0 2px rgba(169,172,177,0.24)" : "none",
         backgroundImage: `linear-gradient(59.34deg, ${C.white} 49.85%, ${tint} 99.918%)` }}>
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-2">
         <span className="bk-num leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
@@ -1365,9 +1374,9 @@ function DeskCard({ count, pills, tint, onOpen }) {
         </span>
       </span>
       <span className="flex shrink-0 items-center justify-center px-3.5 py-2.5" style={DESK_ARROW}>
-        <ArrowRight size={12} style={{ color: C.figInk }} />
+        <Corner size={12} style={{ color: C.figInk }} />
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -1548,18 +1557,20 @@ function PriorityCases({ list, openTicket }) {
    and four "Your Desk" count-cards. Home and My Tickets are one page (Figma
    1197:73447); each card sets the table's filter/preset below rather than routing
    away. Priority Cases and the queue accordions were retired in that merge. */
-function Home({ tickets, scope, setScope, go, user }) {
+function Home({ tickets, scope, setScope, go, user, filter, preset }) {
   const mine = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const open = mine.filter(isOpen);
 
   const cards = [
-    { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], open: () => go("list", "open", { prio: "hot" }) },
-    { count: open.filter(breached).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "breached" }) },
-    { count: open.filter(atRisk).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "risk" }) },
-    { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], open: () => go("list", "open", { slice: "qClient" }) },
-    { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], open: () => go("list", "open", { slice: "qInsurer" }) },
-    { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
+    { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], preset: { prio: "hot" } },
+    { count: open.filter(breached).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], preset: { slice: "breached" } },
+    { count: open.filter(atRisk).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], preset: { slice: "risk" } },
+    { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], preset: { slice: "qClient" } },
+    { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], preset: { slice: "qInsurer" } },
+    { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], preset: { slice: "qFresh" } },
   ];
+  /* A card is selected when its filter is the one applied to the table below. */
+  const activeKey = filter === "open" ? JSON.stringify(preset || null) : null;
 
   return (
     <div className="space-y-6">
@@ -1583,7 +1594,10 @@ function Home({ tickets, scope, setScope, go, user }) {
         </div>
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {cards.map((c, i) => (
-            <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills} onOpen={c.open} />
+            <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills}
+              selected={activeKey === JSON.stringify(c.preset)}
+              onOpen={() => go("list", "open", c.preset)}
+              onClear={() => go("list", undefined, null)} />
           ))}
         </div>
       </div>
@@ -4730,7 +4744,7 @@ export default function App() {
               {/* Home + My Tickets are one page: the desk header sits above the table. */}
               {(view === "list" || (view === "create" && createFrom === "list")) && (
                 <div key={JSON.stringify(preset)}>
-                  <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} />
+                  <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} filter={filter} preset={preset} />
                   <div className="bk-rule my-6" aria-hidden />
                   <ListView tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />
                 </div>
