@@ -974,7 +974,7 @@ const Eyebrow = ({ children, right }) => (
 );
 
 /* Page header — title, one line of orientation, then the ikkat rule. */
-function PageHead({ title, hint, right, ruleFirst }) {
+function PageHead({ title, hint, right, ruleFirst, noRule }) {
   return (
     <div className="mb-5">
       {ruleFirst && <div className="bk-rule mb-6" aria-hidden />}
@@ -985,7 +985,7 @@ function PageHead({ title, hint, right, ruleFirst }) {
         </div>
         {right}
       </div>
-      {!ruleFirst && <div className="bk-rule mt-4" aria-hidden />}
+      {!ruleFirst && !noRule && <div className="bk-rule mt-4" aria-hidden />}
     </div>
   );
 }
@@ -1898,7 +1898,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
 
   return (
     <div className="space-y-4">
-      <PageHead title="My Tickets"
+      <PageHead title="My Tickets" noRule
         right={<StagePills counts={counts} active={tab} onPick={setFilter} />} />
 
       <div className="flex justify-end">
@@ -4273,7 +4273,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
    917:107508): bg card-sunken, 12px radius, 12px padding, crumb left, action right. */
 function Breadcrumb({ segments, right }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2" style={{ background: C.canvas }}>
+    <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3" style={{ background: C.canvas, height: 48 }}>
       <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
         {segments.map((s, i) => {
           const last = i === segments.length - 1;
@@ -4732,7 +4732,7 @@ export default function App() {
               <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
             ) : (
               <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
-                className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold"
+                className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
                 style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>
                 Create Ticket
               </button>
@@ -4745,7 +4745,7 @@ export default function App() {
               {(view === "list" || (view === "create" && createFrom === "list")) && (
                 <div key={JSON.stringify(preset)}>
                   <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} filter={filter} preset={preset} />
-                  <div className="bk-rule my-6" aria-hidden />
+                  <div className="my-6" style={{ height: 1, background: C.subtle }} aria-hidden />
                   <ListView tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />
                 </div>
               )}
