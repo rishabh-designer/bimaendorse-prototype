@@ -1626,7 +1626,7 @@ const PIE_IND = { Insurer: "caution", Client: "brand", BimaKavach: "error", Bima
 const PIE_FILL = { Insurer: "#FFF9E6", Client: "#F4F1FF", BimaKavach: "#FFECEC", BimaPlacement: "#EEF4FF" };
 function Donut({ segments }) {
   const total = segments.reduce((s, x) => s + x.hrs, 0) || 1;
-  const cx = 170, cy = 160, R = 118, r = 46;
+  const W = 420, H = 340, cx = 210, cy = 170, R = 118, r = 46, GAP = 26;
   const at = (rad, deg) => [cx + rad * Math.cos((deg * Math.PI) / 180), cy + rad * Math.sin((deg * Math.PI) / 180)];
   let a0 = -90;
   const arcs = segments.map((s) => {
@@ -1635,14 +1635,18 @@ function Donut({ segments }) {
     const [ix1, iy1] = at(r, a1), [ix0, iy0] = at(r, a0);
     const large = a1 - a0 > 180 ? 1 : 0;
     const d = `M${ox0},${oy0} A${R},${R} 0 ${large} 1 ${ox1},${oy1} L${ix1},${iy1} A${r},${r} 0 ${large} 0 ${ix0},${iy0} Z`;
-    const mid = (a0 + a1) / 2;
-    const [lx, ly] = at((R + r) / 2, mid), [tx, ty] = at(R + 30, mid);
+    const mid = (a0 + a1) / 2, rad = (mid * Math.PI) / 180;
+    const [lx, ly] = at((R + r) / 2, mid), [tx, ty] = at(R + GAP, mid);
+    /* Anchor each tag by the edge nearest the pie (not its centre) so the pill
+       always clears the arc by GAP, whichever way it sits. */
+    const c = Math.cos(rad), sn = Math.sin(rad);
+    const shift = `translate(${c > 0.3 ? "0" : c < -0.3 ? "-100%" : "-50%"}, ${sn > 0.3 ? "0" : sn < -0.3 ? "-100%" : "-50%"})`;
     a0 = a1;
-    return { ...s, d, lx, ly, tx, ty };
+    return { ...s, d, lx, ly, tx, ty, shift };
   });
   return (
-    <div className="relative mx-auto" style={{ width: 340, height: 320 }}>
-      <svg width="340" height="320" viewBox="0 0 340 320">
+    <div className="relative mx-auto" style={{ width: W, height: H }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
         {arcs.map((s) => <path key={s.label} d={s.d} fill={s.fill} stroke={C.white} strokeWidth="2" />)}
         {arcs.map((s) => (
           <text key={s.label + "t"} x={s.lx} y={s.ly} textAnchor="middle" dominantBaseline="middle"
@@ -1650,7 +1654,7 @@ function Donut({ segments }) {
         ))}
       </svg>
       {arcs.map((s) => (
-        <div key={s.label + "g"} className="absolute" style={{ left: s.tx, top: s.ty, transform: "translate(-50%,-50%)" }}>
+        <div key={s.label + "g"} className="absolute" style={{ left: s.tx, top: s.ty, transform: s.shift }}>
           <Indicator label={s.label} ind={s.ind} />
         </div>
       ))}
