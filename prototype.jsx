@@ -4429,9 +4429,9 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
   return createPortal(
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center p-6"
       style={{ background: "rgba(28,27,31,0.32)", backdropFilter: "blur(2px)", fontFamily: FONT, color: C.ink }} onClick={onClose}>
-      <div className="bk-modal scroll-slim mt-6 w-full max-w-4xl overflow-y-auto rounded-2xl"
-        style={{ background: C.white, boxShadow: "0 24px 60px rgba(28,27,31,0.24)", maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
-        <div className="p-5">
+      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl"
+        style={{ background: C.white, boxShadow: "0 24px 60px rgba(28,27,31,0.24)", maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="p-6">
           <div className="flex items-center gap-2 rounded-xl border px-4 py-3" style={{ borderColor: C.subtle }}>
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="Search Tickets, Clients, And Documents"
