@@ -1622,8 +1622,8 @@ function ProgressCard({ title, value, status, score, sub, subTone }) {
 }
 /* Ticket Time Distribution — a donut of hours held by each player (Figma
    1280:91430). Slices and labels come from real leg/stage time on the desk. */
-const PIE_IND = { Insurer: "caution", Client: "brand", BimaKavach: "error", Placements: "info" };
-const PIE_FILL = { Insurer: "#FFF9E6", Client: "#F4F1FF", BimaKavach: "#FFECEC", Placements: "#EEF4FF" };
+const PIE_IND = { Insurer: "caution", Client: "brand", BimaKavach: "error", BimaPlacement: "info" };
+const PIE_FILL = { Insurer: "#FFF9E6", Client: "#F4F1FF", BimaKavach: "#FFECEC", BimaPlacement: "#EEF4FF" };
 function Donut({ segments }) {
   const total = segments.reduce((s, x) => s + x.hrs, 0) || 1;
   const cx = 170, cy = 160, R = 118, r = 46;
@@ -1708,21 +1708,24 @@ function Home({ tickets, scope, setScope, go, user }) {
   /* Ticket Time Distribution — hours each player has held the ticket, from the
      stage legs + the current stage, weighted equally per ticket then scaled to a
      typical ticket's lifetime so one stuck ticket cannot swamp the picture. */
-  const PLAYER = { insurer: "Insurer", customer: "Client", "Service Manager": "BimaKavach", system: "BimaKavach", operations: "Placements" };
-  const acc = { Insurer: 0, Client: 0, BimaKavach: 0, Placements: 0 };
+  /* Player = who holds the ticket at each stage. BimaKavach = the service
+     executives' own work (verification, QC); BimaPlacement = the payment-link
+     team (SLA-07 Awaiting Payment Link); Insurer / Client are the counterparties. */
+  const PLAYER = { insurer: "Insurer", customer: "Client", "Service Manager": "BimaKavach", system: "BimaKavach", operations: "BimaPlacement" };
+  const acc = { Insurer: 0, Client: 0, BimaKavach: 0, BimaPlacement: 0 };
   const lives = [];
   open.forEach((t) => {
-    const tb = { Insurer: 0, Client: 0, BimaKavach: 0, Placements: 0 };
+    const tb = { Insurer: 0, Client: 0, BimaKavach: 0, BimaPlacement: 0 };
     (t.legs || []).forEach((l) => { const p = PLAYER[stageOf(l.s).owner]; if (p) tb[p] += Math.max(0, l.h); });
     const cp = PLAYER[stageOf(t.stage).owner]; if (cp) tb[cp] += Math.max(0, t.inStage);
-    const tot = tb.Insurer + tb.Client + tb.BimaKavach + tb.Placements;
+    const tot = tb.Insurer + tb.Client + tb.BimaKavach + tb.BimaPlacement;
     lives.push(tot);
     if (tot > 0) Object.keys(tb).forEach((p) => { acc[p] += tb[p] / tot; });
   });
   const sortedLives = lives.slice().sort((a, b) => a - b);
   const medLife = sortedLives.length ? sortedLives[Math.floor((sortedLives.length - 1) / 2)] : 0;
   const nShare = open.length || 1;
-  const segments = ["Insurer", "Client", "BimaKavach", "Placements"]
+  const segments = ["Insurer", "Client", "BimaKavach", "BimaPlacement"]
     .map((p) => ({ label: p, ind: PIE_IND[p], fill: PIE_FILL[p], hrs: (acc[p] / nShare) * medLife }))
     .filter((s) => s.hrs >= 0.5);
 
