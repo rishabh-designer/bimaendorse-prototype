@@ -216,6 +216,8 @@ const GLOBAL_CSS = `
 @keyframes bkScrimIn { from { opacity: 0; } to { opacity: 1; } }
 .bk-modal { animation: bkModalIn .6s cubic-bezier(.5,0,.5,1) both; }
 .bk-scrim { animation: bkScrimIn .6s cubic-bezier(.5,0,.5,1) both; }
+@keyframes bkReveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.bk-reveal { animation: bkReveal .45s cubic-bezier(.5,0,.5,1) both; }
 @keyframes bkRoute  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: none; } }
 .bk-item  { animation: bkFadeUp .45s cubic-bezier(.22,1,.36,1) backwards; }
 .bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
@@ -3975,12 +3977,19 @@ function Login({ onSignIn }) {
   const [busy, setBusy] = useState(false);
   const [tool, setTool] = useState(null);   /* the environment chosen from the chevron */
   const [envOpen, setEnvOpen] = useState(false);
+  const [verified, setVerified] = useState(false);   /* email confirmed → reveal identity, tool and password */
 
   const user = PORTAL_USERS[email.trim().toLowerCase()] || null;
   /* Only judge the address once it looks finished — no shouting mid-keystroke. */
   const looksDone = /@.+\..+/.test(email.trim());
   const emailState = user ? "ok" : looksDone ? "error" : "idle";
-  const ready = !!user && pw.length > 0;
+  const canVerify = !!user;
+  const ready = !!user && verified && pw.length > 0;
+
+  /* Editing the address after verifying drops back to step one — the password
+     was for that address, so it cannot carry over to another. */
+  const editEmail = (v) => { setEmail(v); if (verified) { setVerified(false); setPw(""); setPwErr(null); setEnvOpen(false); } };
+  const verify = () => { if (canVerify) { setVerified(true); setPwErr(null); } };
   /* Which tool this login will open. A held choice wins; otherwise the first the
      user holds. Recomputed on render, so switching accounts never strands it. */
   const selTool = (tool && user?.envs?.includes(tool)) ? tool : (user?.envs?.[0] || null);
@@ -4002,8 +4011,8 @@ function Login({ onSignIn }) {
 
           <div className="flex items-center justify-between gap-3">
             <h1 className="leading-none" style={{ fontSize: 30, fontWeight: 600, color: C.brand }}>Log in</h1>
-            {user && (
-              <div className="bk-item flex items-center gap-3">
+            {verified && user && (
+              <div className="bk-reveal bk-item flex items-center gap-3">
                 <div className="flex items-center gap-1.5 rounded-xl border p-1.5" style={{ borderColor: C.subtle, background: C.white }}>
                   <img src={user.avatar} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
                   <span className="text-sm font-medium leading-none" style={{ color: C.figInk }}>{user.name}</span>
@@ -4056,24 +4065,37 @@ function Login({ onSignIn }) {
 
           <div className="pt-4">
             <LoginField label="Email Address" value={email} autoFocus
-              onChange={(v) => setEmail(v)} onSubmit={submit}
+              onChange={editEmail} onSubmit={verified ? submit : verify}
               placeholder="Enter Email Address" state={emailState}
               help={emailState === "error" ? "Not a registered admin address" : null} />
 
-            <LoginField label="Password" value={pw} masked reveal={reveal} onReveal={() => setReveal(!reveal)}
-              onChange={(v) => { setPw(v); if (pwErr) setPwErr(null); }} onSubmit={submit}
-              placeholder="Enter Password" state={pwErr ? "error" : pw ? "ok" : "idle"} help={pwErr} />
+            {/* Step two: the address is confirmed, so the password appears. */}
+            {verified && (
+              <LoginField label="Password" value={pw} masked autoFocus reveal={reveal} onReveal={() => setReveal(!reveal)}
+                onChange={(v) => { setPw(v); if (pwErr) setPwErr(null); }} onSubmit={submit}
+                placeholder="Enter Password" state={pwErr ? "error" : pw ? "ok" : "idle"} help={pwErr} />
+            )}
 
-            <div className="pt-2">
-              <button onClick={submit} disabled={!ready || busy}
-                className="bk-btn bk-btn-fill flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
-                style={busy
-                  ? { background: C.brandBg, color: C.brand }
-                  : ready
+            <div className={verified ? "bk-reveal pt-2" : "pt-2"}>
+              {verified ? (
+                <button onClick={submit} disabled={!ready || busy}
+                  className="bk-btn bk-btn-fill flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
+                  style={busy
+                    ? { background: C.brandBg, color: C.brand }
+                    : ready
+                      ? { background: C.brand, color: C.white, fontSize: 16, fontWeight: 600 }
+                      : { background: "rgba(169,172,177,0.24)", color: C.figPlaceholder, fontSize: 16, fontWeight: 600 }}>
+                  {busy ? <Loader2 size={18} className="bk-spin" /> : "Login"}
+                </button>
+              ) : (
+                <button onClick={verify} disabled={!canVerify}
+                  className="bk-btn bk-btn-fill flex w-full items-center justify-center rounded-2xl px-7 py-4 leading-none transition-colors"
+                  style={canVerify
                     ? { background: C.brand, color: C.white, fontSize: 16, fontWeight: 600 }
                     : { background: "rgba(169,172,177,0.24)", color: C.figPlaceholder, fontSize: 16, fontWeight: 600 }}>
-                {busy ? <Loader2 size={18} className="bk-spin" /> : "Login"}
-              </button>
+                  Verify
+                </button>
+              )}
             </div>
           </div>
         </div>
