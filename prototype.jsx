@@ -4255,18 +4255,20 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
 
 /* Breadcrumb — the way back out of a ticket, so the screen needs no Back
    button of its own. A segment with an onClick is a link; the last is not. */
+/* The top bar itself — a sunken rounded card (Figma 1249:87244 / 1197:73452 /
+   917:107508): bg card-sunken, 12px radius, 12px padding, crumb left, action right. */
 function Breadcrumb({ segments, right }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3">
-      <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold uppercase" style={{ background: C.canvas, letterSpacing: "0.12px" }}>
+    <div className="flex w-full items-center justify-between gap-3 rounded-xl p-3" style={{ background: C.canvas }}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
         {segments.map((s, i) => {
           const last = i === segments.length - 1;
           return (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && <span style={{ color: C.figDisabled }}>/</span>}
               {s.onClick && !last
-                ? <button onClick={s.onClick} className="uppercase" style={{ color: C.figPlaceholder }}>{s.label}</button>
-                : <span style={{ color: last ? C.figInk : C.figPlaceholder }}>{s.label}</span>}
+                ? <button onClick={s.onClick} className="uppercase" style={{ color: C.figTert }}>{s.label}</button>
+                : <span style={{ color: last ? C.figInk : C.figTert }}>{s.label}</span>}
             </span>
           );
         })}
@@ -4284,7 +4286,7 @@ function TicketPager({ id, list, onOpen }) {
   const step = (d) => list[i + d] && onOpen(list[i + d].id);
   return (
     <div className="flex items-center gap-2">
-      <span className="bk-num" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>{id}</span>
+      <span className="bk-num" style={{ fontSize: 12, fontWeight: 600, color: C.figInk }}>{id}</span>
       <div className="flex items-center gap-2">
         <button disabled={i <= 0} onClick={() => step(-1)} title="Previous ticket, in urgency order"
           className="bk-iconctrl flex items-center justify-center" style={{ ...box, color: i <= 0 ? C.figDisabled : C.figHint, cursor: i <= 0 ? "not-allowed" : "pointer" }}>
@@ -4710,24 +4712,17 @@ export default function App() {
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
-          {/* Fixed top nav — a full-bleed chrome strip that spans the content area;
-              the routed body below scrolls. */}
-          <div className="shrink-0" style={{ background: C.canvas, borderBottom: `1px solid ${C.lineSoft}` }}>
-            <div className="px-6 py-3.5">
-              <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
-                <div className="rounded-xl px-3 py-2" style={{ background: C.white }}>
-                  <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
-                    className="bk-btn bk-btn-fill flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold"
-                    style={{ background: C.brand, color: C.white }}>
-                    <span className="hidden sm:inline">Create Ticket</span>
-                  </button>
-                </div>
-              )} />
-            </div>
+          {/* Fixed top nav — the sunken breadcrumb card; the routed body below scrolls. */}
+          <div className="shrink-0 px-6 pt-3">
+            <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
+              <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+            ) : (
+              <button onClick={() => { setPrefill(null); setCreateFrom(view === "review" ? "review" : "list"); setView("create"); }}
+                className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold"
+                style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>
+                Create Ticket
+              </button>
+            )} />
           </div>
 
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
