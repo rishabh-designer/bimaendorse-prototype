@@ -1551,16 +1551,14 @@ function PriorityCases({ list, openTicket }) {
 function Home({ tickets, scope, setScope, go, user }) {
   const mine = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const open = mine.filter(isOpen);
-  const hot = open.filter((t) => PRIORITY[t.priority].rank <= 1);
-  const overdue = open.filter((t) => bucketOf(t) === 1);
-  const dueToday = open.filter((t) => bucketOf(t) === 2);
-  const fresh = open.filter((t) => bucketOf(t) === 3);
 
   const cards = [
-    { count: hot.length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], open: () => go("list", "open", { prio: "hot" }) },
-    { count: overdue.length, tint: "#FFF1E6", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "qOverdue" }) },
-    { count: dueToday.length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "qDueToday" }) },
-    { count: fresh.length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
+    { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], open: () => go("list", "open", { prio: "hot" }) },
+    { count: open.filter((t) => bucketOf(t) === 1).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], open: () => go("list", "open", { slice: "qOverdue" }) },
+    { count: open.filter((t) => bucketOf(t) === 2).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], open: () => go("list", "open", { slice: "qDueToday" }) },
+    { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], open: () => go("list", "open", { slice: "qClient" }) },
+    { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], open: () => go("list", "open", { slice: "qInsurer" }) },
+    { count: open.filter((t) => bucketOf(t) === 3).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], open: () => go("list", "open", { slice: "qFresh" }) },
   ];
 
   return (
@@ -1583,7 +1581,7 @@ function Home({ tickets, scope, setScope, go, user }) {
         <div className="mb-4 flex items-center gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {cards.map((c, i) => (
             <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills} onOpen={c.open} />
           ))}
@@ -1624,6 +1622,10 @@ const SLICES = {
   qOverdue: { label: "Overdue queue", queue: true, fn: (t) => bucketOf(t) === 1 },
   qDueToday: { label: "Due today queue", queue: true, fn: (t) => bucketOf(t) === 2 },
   qFresh: { label: "Freshly assigned", queue: true, fn: (t) => bucketOf(t) === 3 },
+  /* Party queues for the two "…Response" desk cards. onHold = we asked the client
+     and are waiting; awaitingInsurer = stage owner is the insurer (SLA-05/06/09). */
+  qClient: { label: "Awaiting client queue", queue: true, fn: onHold },
+  qInsurer: { label: "Awaiting insurer queue", queue: true, fn: awaitingInsurer },
 };
 
 /* Tab: Working hours and holidays — the stage clock only runs inside these
