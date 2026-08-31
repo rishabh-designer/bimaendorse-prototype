@@ -4259,7 +4259,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
    917:107508): bg card-sunken, 12px radius, 12px padding, crumb left, action right. */
 function Breadcrumb({ segments, right }) {
   return (
-    <div className="flex w-full items-center justify-between gap-3 rounded-xl p-3" style={{ background: C.canvas }}>
+    <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2" style={{ background: C.canvas }}>
       <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
         {segments.map((s, i) => {
           const last = i === segments.length - 1;
@@ -4712,8 +4712,8 @@ export default function App() {
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
-          {/* Fixed top nav — the sunken breadcrumb card; the routed body below scrolls. */}
-          <div className="shrink-0 px-6 pt-3">
+          {/* Fixed top nav — the sunken breadcrumb card; 16px above and below it. */}
+          <div className="shrink-0 px-6 py-4">
             <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
               <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
             ) : (
@@ -4726,7 +4726,7 @@ export default function App() {
           </div>
 
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
-            <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pt-5 pb-6">
+            <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
               {/* Home + My Tickets are one page: the desk header sits above the table. */}
               {(view === "list" || (view === "create" && createFrom === "list")) && (
                 <div key={JSON.stringify(preset)}>
