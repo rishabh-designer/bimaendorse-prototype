@@ -4400,7 +4400,7 @@ function SearchCard({ t, q, onOpen }) {
 /* The search lightbox — a modal over a blurred scrim (Figma 1249:86383). Empty,
    it shows Recent Tickets; typed, it filters across the active scopes and
    highlights the match. No index — it reads the live ticket list. */
-const SEARCH_SCOPES = ["Tickets", "Clients", "Insurers", "Documents"];
+const SEARCH_SCOPES = ["Tickets", "Clients", "Insurers"];
 function SearchModal({ open, onClose, tickets, openTicket }) {
   const [q, setQ] = useState("");
   const [scopes, setScopes] = useState(SEARCH_SCOPES);
@@ -4421,7 +4421,6 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
     if (active.has("Tickets")) fields.push(t.id, t.type, statusOf(t).label);
     if (active.has("Clients")) fields.push(t.client);
     if (active.has("Insurers")) fields.push(t.insurer);
-    if (active.has("Documents")) fields.push(t.policy);
     return fields.some((v) => String(v || "").toLowerCase().includes(ql));
   };
   const list = ql ? pool.filter(matches) : pool.slice().sort((a, b) => a.lastAction - b.lastAction).slice(0, 3);
