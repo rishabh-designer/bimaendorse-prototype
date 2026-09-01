@@ -259,6 +259,11 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
 /* Sidebar profile card hover (Figma 437:2239) — lavender border + soft brand glow. */
 .bk-profile { transition: border-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-profile:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.12); }
+/* Your Desk cards — hover lifts with a brand tint; pressing shows the firmer
+   neutral stroke + soft elevation from the old selected look (Figma 1249:89610). */
+.bk-desk { transition: box-shadow .18s ease, border-color .18s ease; }
+.bk-desk:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.10); }
+.bk-desk:active { border-color: #D2D5D8 !important; box-shadow: 0 0 2px rgba(169,172,177,0.24); }
 /* BimaClaim under-construction buttons hover (Figma 1172:72883/72884) — a soft glow. */
 .bk-uc-btn { transition: box-shadow .12s ease-out, border-color .12s ease-out; }
 .bk-uc-secondary:hover { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
@@ -1351,19 +1356,15 @@ const Empty = ({ children }) => <div className="px-3 py-8 text-center text-sm" s
 
 const DESK_ARROW = { background: "#FFFFFF", border: "0.5px solid #E6E8EA", borderRadius: 10 };
 
-/* Selected — the card whose filter is currently applied to the table below
-   (Figma 1249:89610): a firmer neutral stroke, a soft elevation, and the corner
-   control flips from "apply" (→) to "clear" (✕). Clicking a selected card clears
-   its filter; clicking any other applies it. */
-function DeskCard({ count, pills, tint, onOpen, selected, onClear }) {
-  const act = selected ? onClear : onOpen;
-  const Corner = selected ? X : ArrowRight;
+/* Desk card — routes into My Tickets pre-filtered. Hover lifts it with a brand
+   tint; pressing shows the firmer neutral stroke + soft elevation carried over
+   from the old selected look (bk-desk in GLOBAL_CSS). The arrow never changes. */
+function DeskCard({ count, pills, tint, onOpen }) {
   return (
-    <div role="button" tabIndex={0} onClick={act}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } }}
-      className="flex w-full items-end gap-3 rounded-xl border text-left" style={{
-        borderColor: selected ? C.line : C.subtle, borderWidth: "0.5px", padding: 12.5, cursor: "pointer",
-        boxShadow: selected ? "0 0 2px rgba(169,172,177,0.24)" : "none",
+    <div role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      className="bk-desk flex w-full items-end gap-3 rounded-xl border text-left" style={{
+        borderColor: C.subtle, borderWidth: "0.5px", padding: 12.5, cursor: "pointer",
         backgroundImage: `linear-gradient(59.34deg, ${C.white} 49.85%, ${tint} 99.918%)` }}>
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-2">
         <span className="bk-num leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
@@ -1374,7 +1375,7 @@ function DeskCard({ count, pills, tint, onOpen, selected, onClear }) {
         </span>
       </span>
       <span className="flex shrink-0 items-center justify-center px-3.5 py-2.5" style={DESK_ARROW}>
-        <Corner size={12} style={{ color: C.figInk }} />
+        <ArrowRight size={12} style={{ color: C.figInk }} />
       </span>
     </div>
   );
@@ -1590,7 +1591,7 @@ function PerfMeter({ score }) {
     </div>
   );
 }
-function ProgressCard({ title, value, status, score, sub, subTone }) {
+function ProgressCard({ title, value, status, score, sub, subTone, tip }) {
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
       <div className="flex items-start justify-between">
@@ -1598,7 +1599,7 @@ function ProgressCard({ title, value, status, score, sub, subTone }) {
           <FileText size={14} style={{ color: C.figHint }} />
           <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{title}</span>
         </div>
-        <Info size={14} style={{ color: C.link }} />
+        <span title={tip} style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
       </div>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -1661,18 +1662,22 @@ function Donut({ segments }) {
     </div>
   );
 }
-/* Range selector — the window the stats describe. Illustrative in the prototype
-   (there is no historical store), so it selects but does not refilter. */
-function RangePills() {
-  const [r, setR] = useState("Last Week");
+/* Range selector — the window the stats describe. Same pill component as the My
+   Tickets filters (StagePills): bk-pill hover, brand fill when active. Last Week
+   reads real data; the other windows are illustrative (no historical store). */
+const RANGES = ["Last Week", "Last Month", "Last Quarter", "Custom"];
+function RangePills({ value, onChange }) {
   return (
-    <div className="flex items-center gap-2">
-      {["Last Week", "Last Month", "Last Quarter", "Custom"].map((o) => {
-        const on = r === o;
+    <div className="flex flex-wrap items-center gap-2">
+      {RANGES.map((o) => {
+        const on = value === o;
         return (
-          <button key={o} onClick={() => setR(o)} className="flex items-center gap-1.5 rounded-full px-3 py-1.5"
-            style={{ fontSize: 12, fontWeight: 600, background: on ? C.brand : C.white, color: on ? C.white : C.figHint, border: `1px solid ${on ? C.brand : C.subtle}` }}>
-            <span className="rounded-full" style={{ width: 6, height: 6, background: on ? C.white : C.figTert }} />{o}
+          <button key={o} onClick={() => onChange(o)}
+            className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+            style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+              background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+            <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+            <span>{o}</span>
           </button>
         );
       })}
@@ -1683,6 +1688,7 @@ function RangePills() {
 /* Home — the desk (six count-cards that route into My Tickets) over a progress
    dashboard. Home and My Tickets are separate pages again (Figma 1197:73447). */
 function Home({ tickets, scope, setScope, go, user }) {
+  const [range, setRange] = useState("Last Week");
   const desk = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const open = desk.filter(isOpen);
   const totalOpen = open.length || 1;
@@ -1733,6 +1739,40 @@ function Home({ tickets, scope, setScope, go, user }) {
     .map((p) => ({ label: p, ind: PIE_IND[p], fill: PIE_FILL[p], hrs: (acc[p] / nShare) * medLife }))
     .filter((s) => s.hrs >= 0.5);
 
+  /* Last Week reads the live desk; the wider windows are illustrative — our
+     oldest ticket is under a month old, so month/quarter figures are stand-ins. */
+  const seg = (i, cl, b, p) => ["Insurer", "Client", "BimaKavach", "BimaPlacement"]
+    .map((label, k) => ({ label, ind: PIE_IND[label], fill: PIE_FILL[label], hrs: [i, cl, b, p][k] }));
+  const green = "#007B00";
+  const PROG = {
+    "Last Week": {
+      count: open.length,
+      closure: { value: `${onTrack}/${totalOpen}`, status: closureStatus, score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue — on top of it", subTone: overdue ? C.semCaution : green },
+      turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of stage SLA used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
+      segments,
+    },
+    "Last Month": {
+      count: 23,
+      closure: { value: "18/23", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution },
+      turn: { value: "44%", status: "On Track", score: 0.56, sub: "44% of stage SLA used (median)", subTone: green },
+      segments: seg(41, 17, 29, 9),
+    },
+    "Last Quarter": {
+      count: 61,
+      closure: { value: "54/61", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green },
+      turn: { value: "29%", status: "Well Done", score: 0.71, sub: "29% of stage SLA used (median)", subTone: green },
+      segments: seg(46, 15, 31, 8),
+    },
+    "Custom": {
+      count: 12,
+      closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution },
+      turn: { value: "63%", status: "Poor", score: 0.37, sub: "63% of stage SLA used (median)", subTone: C.semCaution },
+      segments: seg(33, 19, 22, 6),
+    },
+  };
+  const prog = PROG[range] || PROG["Last Week"];
+  const pie = prog.segments.filter((s) => s.hrs >= 0.5);
+
   return (
     <div className="space-y-6">
       <Greeting user={user} right={
@@ -1764,18 +1804,21 @@ function Home({ tickets, scope, setScope, go, user }) {
 
       <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
-      {/* Your Progress — two metric cards over an SLA time-distribution donut. */}
+      {/* Your Progress — two metric cards over an SLA time-distribution donut.
+          Switching the range morphs the whole block (fade + slide, keyed on range). */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
-          <RangePills />
+          <RangePills value={range} onChange={setRange} />
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="flex flex-col gap-4 lg:col-span-1">
-            <ProgressCard title="Ticket Closure" value={`${onTrack}/${totalOpen}`} status={closureStatus} score={closureScore}
-              sub={overdue ? `${overdue} overdue right now` : "None overdue — on top of it"} subTone={overdue ? C.semCaution : "#007B00"} />
-            <ProgressCard title="Median Turnaround" value={`${Math.round(medUsed * 100)}%`} status={turnStatus} score={turnScore}
-              sub={`${Math.round(medUsed * 100)}% of stage SLA used (median)`} subTone={turnStatus === "Poor" ? C.semCaution : "#007B00"} />
+            <ProgressCard title="Ticket Closure" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
+              sub={prog.closure.sub} subTone={prog.closure.subTone}
+              tip="Share of your open tickets still inside their stage SLA — on-track ÷ total open. Refreshed hourly." />
+            <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
+              sub={prog.turn.sub} subTone={prog.turn.subTone}
+              tip="The median share of the stage clock already spent across open tickets. Lower means a faster turnaround." />
           </div>
           <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-start justify-between">
@@ -1784,15 +1827,17 @@ function Home({ tickets, scope, setScope, go, user }) {
                   <FileText size={14} style={{ color: C.figHint }} />
                   <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Ticket Time Distribution</span>
                 </div>
-                <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{open.length} Tickets</div>
+                <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} Tickets</div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <Info size={14} style={{ color: C.link }} />
+                <span title="How each ticket's elapsed time splits across the parties that held it — BimaKavach (you), the insurer, the client and placements." style={{ cursor: "help" }}>
+                  <Info size={14} style={{ color: C.link }} />
+                </span>
                 <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
               </div>
             </div>
             <div className="mt-3 flex items-center justify-center">
-              {segments.length ? <Donut segments={segments} /> : <Empty>No time recorded yet.</Empty>}
+              {pie.length ? <Donut segments={pie} /> : <Empty>No time recorded yet.</Empty>}
             </div>
           </div>
         </div>
