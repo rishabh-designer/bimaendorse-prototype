@@ -1815,10 +1815,10 @@ function Home({ tickets, scope, setScope, go, user }) {
           <div className="flex flex-col gap-4 lg:col-span-1">
             <ProgressCard title="Ticket Closure" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
               sub={prog.closure.sub} subTone={prog.closure.subTone}
-              tip="Share of your open tickets still inside their stage SLA — on-track ÷ total open. Refreshed hourly." />
+              tip="Open tickets still inside SLA — on-track over total open." />
             <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
               sub={prog.turn.sub} subTone={prog.turn.subTone}
-              tip="The median share of the stage clock already spent across open tickets. Lower means a faster turnaround." />
+              tip="Median share of the stage clock used; lower is faster." />
           </div>
           <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-start justify-between">
@@ -1830,7 +1830,7 @@ function Home({ tickets, scope, setScope, go, user }) {
                 <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} Tickets</div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span title="How each ticket's elapsed time splits across the parties that held it — BimaKavach (you), the insurer, the client and placements." style={{ cursor: "help" }}>
+                <span title="Hours each party held your tickets: you, insurer, client, placements." style={{ cursor: "help" }}>
                   <Info size={14} style={{ color: C.link }} />
                 </span>
                 <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
