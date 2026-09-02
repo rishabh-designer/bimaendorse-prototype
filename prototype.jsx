@@ -8,7 +8,7 @@ import {
   MailOpen, Globe, Phone, MessageSquare, Hourglass, HelpCircle, MessageCircleQuestion, Cpu, Sparkles, UserMinus, RefreshCw, SlidersHorizontal, IndianRupee, Link as LinkIcon, Landmark, RotateCcw,
   HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
   Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
-  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight
+  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Hash
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -5576,13 +5576,23 @@ function ClaimsDetail({ t, role, act }) {
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
           <ClParticipants t={t} down />
         </div>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
-          <span>Client <b style={{ color: C.figInk }}>{t.client}</b></span>
-          <span>Policy <b style={{ color: C.figInk }}>{t.policy}</b></span>
-          <span>Insurer <b style={{ color: C.figInk }}>{t.insurer}</b> ({CL_INSURERS[t.insurer].mode})</span>
-          <span>Insurer claim no. <b style={{ color: C.figInk }}>{t.claimNo || "not yet issued"}</b></span>
-          <span>Client sees <b style={{ color: C.figInk }}>{clClientLabel(t)}</b></span>
-          <span>Owner <b style={{ color: C.figInk }}>{t.cm}</b></span>
+        {/* meta row — same format as the Endorsement: value then its icon/logo. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+          {[
+            { key: "client", text: t.client, icon: User },
+            { key: "policy", text: t.policy, icon: FileText, num: true },
+            { key: "product", text: t.product, icon: Layers, img: clProductIcon(t.product), imgH: 24 },
+            { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22 },
+            { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Hash, num: true },
+            { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye },
+          ].map((m) => (
+            <span key={m.key} className="flex items-center gap-1.5">
+              <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
+              {m.img
+                ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
+                : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
+            </span>
+          ))}
         </div>
       </div>
       <div className="mb-4" style={{ borderBottom: `1px solid ${C.lineSoft}` }}>
@@ -5601,20 +5611,76 @@ function ClaimsDetail({ t, role, act }) {
   );
 }
 
+/* Claims insurer names differ slightly from the endorsement logo master keys. */
+const CL_LOGO_ALIAS = { "Bajaj": "Bajaj Allianz", "HDFC Ergo": "HDFC ERGO", "Iffco Tokio": "IFFCO Tokio" };
+const clInsurerLogo = (name) => INSURER_LOGO[name] || INSURER_LOGO[CL_LOGO_ALIAS[name]] || null;
+/* First-name CM → portal photo (only Ruksana has one; the rest read as initials). */
+const clCmAvatar = (cm) => (cm === "Ruksana" ? AVATAR_RUKSANA : null);
+/* Claims short product names → the endorsement product-rosette master keys. */
+const CL_PRODUCT_ALIAS = { Fire: "Fire & Burglary", Marine: "Marine Cargo", WC: "Workmen Compensation (WC)", CGL: "Commercial General Liability (CGL)", PI: "Professional Indemnity (PI)", "D&O": "Directors & Officers (D&O)" };
+const clProductIcon = (p) => PRODUCT_ICON[p] || PRODUCT_ICON[CL_PRODUCT_ALIAS[p]] || null;
+
 /* The people on a claim, stacked (same idiom as the Endorsement Participants):
-   the Claims Manager, the insurer, and the client. Hover isolates one + names it. */
+   the Claims Manager (photo where we have one), the insurer (its logo, sized to
+   fill the circle), and the client (initials). Hover isolates one + names it. */
 function ClParticipants({ t, size = 20, down }) {
-  const who = [{ kind: "owner", name: t.cm, role: "Claims Manager" }, { kind: "insurer", name: t.insurer, role: "Insurer" }, { kind: "client", name: t.client, role: "Client" }];
+  const who = [
+    { kind: "owner", name: t.cm, role: "Claims Manager", img: clCmAvatar(t.cm), cover: true },
+    { kind: "insurer", name: t.insurer, role: "Insurer", img: clInsurerLogo(t.insurer) },
+    { kind: "client", name: t.client, role: "Client" },
+  ];
   const [over, setOver] = useState(-1);
   return (
     <span className="flex shrink-0 items-center" onMouseLeave={() => setOver(-1)}>
       {who.map((p, i) => (
         <span key={p.kind} className="relative flex" onMouseEnter={() => setOver(i)} style={{ marginLeft: i ? -6 : 0, zIndex: over === i ? who.length + 1 : who.length - i }}>
-          <Mark kind={p.kind} name={p.name} size={size} title={null} style={{ opacity: over >= 0 && over !== i ? 0.1 : 1, boxShadow: over === i ? "0 0 4px rgba(65,0,207,0.25)" : undefined, transition: "opacity .15s ease-out" }} />
+          <span className="flex shrink-0 items-center justify-center overflow-hidden rounded-full"
+            style={{ width: size, height: size, border: `1.5px solid ${C.white}`,
+              background: p.img ? C.white : (MARK_BG[p.kind] || C.subtle), color: MARK_FG[p.kind] || C.brand,
+              fontFamily: SERIF, fontStyle: "italic", fontSize: Math.round(size * 0.8), lineHeight: 1,
+              opacity: over >= 0 && over !== i ? 0.1 : 1, boxShadow: over === i ? "0 0 4px rgba(65,0,207,0.25)" : undefined, transition: "opacity .15s ease-out" }}>
+            {p.img
+              ? <img src={p.img} alt="" className={`h-full w-full ${p.cover ? "object-cover" : "object-contain"}`} />
+              : (p.name || "?").trim().charAt(0).toUpperCase()}
+          </span>
           {over === i && <Tip down={down}>{p.name} · {p.role}</Tip>}
         </span>
       ))}
     </span>
+  );
+}
+
+/* Claim workflow phases — the Endorsement PhaseBar: a progress-line segment per
+   phase (green done · amber current · red if the current phase is breached),
+   with the phase label beneath. Phases group the ticket's own path stages. */
+function ClPhaseBar({ t }) {
+  const path = clPath(t);
+  const idx = path.indexOf(t.state);
+  const terminal = CL_FLOW[t.state].terminal;
+  const cur = terminal ? CL_PHASES.length : CL_FLOW[t.state].phase;
+  return (
+    <div className="flex gap-3">
+      {CL_PHASES.map((label, i) => {
+        const stagesInPhase = path.filter((c) => CL_FLOW[c].phase === i);
+        const done = i < cur, current = i === cur;
+        let fill = done ? 100 : 0;
+        if (current && stagesInPhase.length && idx > -1) {
+          const first = path.indexOf(stagesInPhase[0]);
+          fill = Math.max(0, Math.min(100, ((idx - first + 1) / stagesInPhase.length) * 100));
+        }
+        const over = current && clHealth(t) === "red";
+        const tone = over ? IND.error.dot : current ? IND.caution.dot : IND.success.dot;
+        return (
+          <div key={label} className="min-w-0 flex-1">
+            <div style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${fill}%`, borderRadius: 999, background: tone }} />
+            </div>
+            <div className="mt-2 truncate" title={stagesInPhase.map((c) => CL_FLOW[c].label).join(" → ") || label}
+              style={{ fontSize: 14, fontWeight: current ? 600 : 500, color: current ? C.figInk : C.figHint }}>{label}</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -5717,15 +5783,7 @@ function ClOverview({ t, act, setTab }) {
             <SectionTitle>Claim workflow</SectionTitle>
             <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Claim age: {clDur(CL_NOW - t.createdAt)}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {CL_PHASES.map((p, i) => {
-              const st = i < f.phase ? "done" : i === f.phase ? "now" : "";
-              return <span key={p} className="flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ fontSize: 12, fontWeight: 500,
-                background: st === "now" ? C.brand : st === "done" ? C.brandBg : C.canvas,
-                color: st === "now" ? C.white : st === "done" ? C.brand : C.figTert }}>
-                <span className="rounded-full" style={{ width: 6, height: 6, background: st === "now" ? C.white : st === "done" ? C.brand : C.figTert }} />{p}</span>;
-            })}
-          </div>
+          <div className="mt-3"><ClPhaseBar t={t} /></div>
           <details className="mt-3 rounded-lg border" style={{ borderColor: C.lineSoft }}>
             <summary className="flex cursor-pointer items-center gap-2 px-3 py-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>
               <Indicator label={`Stage ${pIdx + 1} of ${path.length}`} ind="brand" /> Workflow stages
