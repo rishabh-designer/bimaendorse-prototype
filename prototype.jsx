@@ -5585,7 +5585,7 @@ function ClaimsDetail({ t, role, act }) {
             { key: "product", text: t.product, icon: Layers, img: clProductIcon(t.product), imgH: 24, label: "Product" },
             { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22, label: "Insurer · intimation mode" },
             { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Tags, num: true, label: "Insurer claim number" },
-            { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye, label: "What the client sees" },
+            { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye, label: "Client's claim status on BimaKendra" },
           ].map((m) => <ClMetaItem key={m.key} m={m} />)}
         </div>
       </div>
