@@ -5155,11 +5155,18 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
   ];
   const cells = isHead ? headCells : cmCells;
 
-  /* progress dashboard (CM) — closed vs target, insurer medians, owner donut */
-  const closed = B.closed.length, target = 6;
+  /* progress dashboard (CM) — mirrors the Endorsement ProgressCard metrics:
+     closure (on-track over open) and median stage-clock turnaround, each with a
+     Spark sparkline + performance meter, over an owner time-distribution donut. */
+  const totalOpen = B.open.length;
   const onTrack = B.open.filter((t) => clOverdueBy(t) <= 0).length;
-  const closureScore = B.open.length ? onTrack / B.open.length : 1;
-  const medians = Object.entries(CL_INSURERS).slice(0, 5).sort((a, b) => a[1].medianDays - b[1].medianDays);
+  const overdue = B.overdue.length;
+  const closureScore = totalOpen ? onTrack / totalOpen : 1;
+  const used = B.open.map((t) => { const span = Math.max(1, clDue(t) - t.stageAt); return Math.min(1.5, (CL_NOW - t.stageAt) / span); }).sort((a, b) => a - b);
+  const medUsed = used.length ? used[Math.floor(used.length / 2)] : 0;
+  const turnScore = Math.max(0, 1 - medUsed);
+  const green = "#007B00";
+  const medians = Object.entries(CL_INSURERS).slice(0, 6).sort((a, b) => a[1].medianDays - b[1].medianDays);
   const maxM = Math.max(...medians.map((m) => m[1].medianDays));
   /* owner time-split over live claims (real leg + current-stage time) */
   const split = { BimaKavach: 0, Insurer: 0, Client: 0 };
@@ -5170,12 +5177,18 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
   const segments = ["BimaKavach", "Insurer", "Client"].map((k) => ({ label: k, hrs: split[k] / CL_HOUR, ind: PIE_IND[k], fill: PIE_FILL[k] })).filter((s) => s.hrs >= 0.5);
   /* range-driven illustrative windows (our oldest claim is < a month old) */
   const PROG = {
-    "Last Week": { closed, target, closure: `${onTrack}/${B.open.length || 1}`, closeStatus: scoreStatus(closureScore), closeScore: closureScore, seg: segments },
-    "Last Month": { closed: 17, target: 20, closure: "13/19", closeStatus: "On Track", closeScore: 0.62, seg: segments },
-    "Last Quarter": { closed: 52, target: 55, closure: "48/54", closeStatus: "Well Done", closeScore: 0.88, seg: segments },
-    "Custom": { closed: 9, target: 15, closure: "5/12", closeStatus: "Poor", closeScore: 0.38, seg: segments },
+    "Last Week": {
+      count: totalOpen,
+      closure: { value: `${onTrack}/${totalOpen || 1}`, status: scoreStatus(closureScore), score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue — on top of it", subTone: overdue ? C.semCaution : green },
+      turn: { value: `${Math.round(medUsed * 100)}%`, status: scoreStatus(turnScore), score: turnScore, sub: `${Math.round(medUsed * 100)}% of stage SLA used (median)`, subTone: scoreStatus(turnScore) === "Poor" ? C.semCaution : green },
+      segments,
+    },
+    "Last Month": { count: 19, closure: { value: "13/19", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution }, turn: { value: "44%", status: "On Track", score: 0.56, sub: "44% of stage SLA used (median)", subTone: green }, segments },
+    "Last Quarter": { count: 54, closure: { value: "48/54", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green }, turn: { value: "29%", status: "Well Done", score: 0.71, sub: "29% of stage SLA used (median)", subTone: green }, segments },
+    "Custom": { count: 12, closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution }, turn: { value: "63%", status: "Poor", score: 0.37, sub: "63% of stage SLA used (median)", subTone: C.semCaution }, segments },
   };
   const prog = PROG[range];
+  const pie = prog.segments.filter((s) => s.hrs >= 0.5);
 
   return (
     <div>
@@ -5183,10 +5196,8 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
           avatar, the date/time line, then their greeting — Ruksana in Hindi,
           admins (Umesh) in English. */}
       <Greeting user={user} />
-      <p className="mt-5" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>
-        {isHead ? `The book · ${CL_CMS.length} managers` : "Your desk"}
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      <h2 className="mt-6 mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{isHead ? "The Book" : "Your Desk"}</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {cells.map((c) => (
           <DeskCard key={c.lb} count={c.n} tint={CL_TINT[c.ind]}
             pills={[{ label: c.lb, ind: c.ind, outline: true }]}
@@ -5198,52 +5209,57 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
         <ClaimsHeadBody tickets={tickets} mrq={mrq} go={go} openTicket={openTicket} />
       ) : (
         <>
-          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            <p style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Your progress</p>
+          <div className="mt-6" style={{ height: 1, background: C.subtle }} aria-hidden />
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
             <RangePills value={range} onChange={setRange} />
           </div>
+          {/* Two ProgressCards (Spark + performance meter) over the owner donut —
+              the same construction as the Endorsement Your-Progress block. */}
           <div key={range} className="bk-reveal mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-4">
-              <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
-                    <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Claims closed</span></div>
-                  <span title="Claims settled or closed against your target this window." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.closed}/{prog.target}</span>
-                  <Indicator label={prog.closed >= prog.target ? "On track" : "Behind"} ind={prog.closed >= prog.target ? "success" : "caution"} />
-                </div>
-                <div className="mt-4"><PerfMeter score={Math.min(1, prog.closed / prog.target)} /></div>
-                <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{B.overdue.length} claims overdue right now.</p>
-              </div>
-              <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-                <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Insurer median turnaround</span></div>
-                <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Days from intimation to decision, last 12 months.</p>
-                <div className="mt-3 flex flex-col gap-2">
-                  {medians.map(([n, d]) => (
-                    <div key={n} className="flex items-center gap-2">
-                      <span className="w-28 shrink-0 truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{n}</span>
-                      <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
-                        <span className="block h-full rounded-full" style={{ width: `${(d.medianDays / maxM) * 100}%`, background: d.medianDays > 12 ? C.semError : d.medianDays > 7 ? C.semCaution : "#00B200" }} />
-                      </span>
-                      <span className="bk-num w-8 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{d.medianDays}d</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="flex flex-col gap-4 lg:col-span-1">
+              <ProgressCard title="Claims Closure" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
+                sub={prog.closure.sub} subTone={prog.closure.subTone}
+                tip="Open claims still inside SLA — on-track over total open." />
+              <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
+                sub={prog.turn.sub} subTone={prog.turn.subTone}
+                tip="Median share of the stage clock used; lower is faster." />
             </div>
-            <div className="rounded-xl border p-4 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
               <div className="flex items-start justify-between">
-                <div><SectionTitle>Where time is going</SectionTitle>
-                  <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
-                    {clLive(tickets, role).length} live claims, split by who owed the next action.</p></div>
-                <span title="Hours each party held your claims: you, the insurer, the client." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+                <div>
+                  <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
+                    <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Claim Time Distribution</span></div>
+                  <div className="bk-num mt-1" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} {prog.count === 1 ? "Claim" : "Claims"}</div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span title="Hours each party held your claims: you, the insurer, the client." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
+                </div>
               </div>
-              {prog.seg.length ? <Donut segments={prog.seg} /> : <Empty>No live ownership time to plot yet.</Empty>}
+              <div className="mt-3 flex items-center justify-center">
+                {pie.length ? <Donut segments={pie} /> : <Empty>No live ownership time to plot yet.</Empty>}
+              </div>
               <p className="mt-3 border-t pt-3" style={{ borderColor: C.lineSoft, fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
                 Ageing is recorded per owner change, so insurer-caused delay stays separable from ours.</p>
+            </div>
+          </div>
+
+          {/* Insurer median turnaround — a Claims-specific view, kept below the graphs. */}
+          <div className="mt-4 rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
+              <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Insurer median turnaround</span></div>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Days from intimation to decision, last 12 months.</p>
+            <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+              {medians.map(([n, d]) => (
+                <div key={n} className="flex items-center gap-2">
+                  <span className="w-32 shrink-0 truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{n}</span>
+                  <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
+                    <span className="block h-full rounded-full" style={{ width: `${(d.medianDays / maxM) * 100}%`, background: d.medianDays > 12 ? C.semError : d.medianDays > 7 ? C.semCaution : "#00B200" }} />
+                  </span>
+                  <span className="bk-num w-8 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{d.medianDays}d</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -5256,8 +5272,8 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
             </div>
           )}
 
-          <p className="mt-8" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Needs you first</p>
-          <div className="mt-3"><ClaimsTable rows={B.attention.slice(0, 4)} onOpen={openTicket} empty="Nothing needs you first — every live claim is green." /></div>
+          <h2 className="mt-8 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Needs You First</h2>
+          <div><ClaimsTable rows={B.attention.slice(0, 4)} onOpen={openTicket} empty="Nothing needs you first — every live claim is green." /></div>
         </>
       )}
     </div>
@@ -5282,7 +5298,7 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
   const maxLoad = Math.max(1, ...team.map((x) => x.open));
   return (
     <>
-      <p className="mt-8 mb-1" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Escalated to you</p>
+      <h2 className="mt-6 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
       <div className="mb-3 rounded-xl px-4 py-3" style={{ background: nEsc ? C.breachSoft : nOver ? C.warnSoft : C.brandBg, border: `0.5px solid ${(nEsc ? IND.error : nOver ? IND.caution : IND.brand).line}` }}>
         <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>
           {nEsc ? <b>{nEsc} claim{nEsc > 1 ? "s" : ""} escalated to you. </b> : ""}
@@ -5317,7 +5333,7 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
       <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
         Two rules never bend: a claim never terminates while the insurer owes the action, and never once the insurer has approved payment.</p>
 
-      <p className="mt-8 mb-3" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Team load</p>
+      <h2 className="mt-8 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Team Load</h2>
       <div className="scroll-slim overflow-x-auto rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
         <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 640 }}>
           <thead><tr style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
