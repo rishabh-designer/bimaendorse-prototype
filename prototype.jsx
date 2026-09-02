@@ -173,11 +173,11 @@ function useAnek() {
        arrives who needs another. */
     /* Instrument Serif Italic is the display face — it sets initials on the
        participant marks and the mail avatars, and nothing else. */
-    l.href = "https://fonts.googleapis.com/css2?family=Anek+Latin:wght@100..800&family=Anek+Kannada:wght@100..800&family=Instrument+Serif:ital@1&display=swap";
+    l.href = "https://fonts.googleapis.com/css2?family=Anek+Latin:wght@100..800&family=Anek+Kannada:wght@100..800&family=Anek+Devanagari:wght@100..800&family=Instrument+Serif:ital@1&display=swap";
     document.head.appendChild(l);
   }, []);
 }
-const FONT = '"Anek Latin", "Anek Kannada", system-ui, -apple-system, "Segoe UI", sans-serif';
+const FONT = '"Anek Latin", "Anek Kannada", "Anek Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif';
 const SERIF = '"Instrument Serif", Georgia, "Times New Roman", serif';
 
 /* Ikkat — the block-print motif. v1 is outlined, v2 solid; the rule alternates
@@ -1012,7 +1012,7 @@ function Greeting({ right, user }) {
     <div>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <img src={AVATAR} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 38, height: 38 }} />
+          <img src={user?.avatar || AVATAR} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 38, height: 38 }} />
           <div>
             <p className="bk-num mb-1 leading-none" style={{ fontSize: 12, fontWeight: 500, color: C.greet }}>{when}</p>
             <h1 className="leading-none" style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.6px", color: C.brand }}>{hello}</h1>
@@ -4123,7 +4123,7 @@ const AVATAR_RUKSANA = "data:image/webp;base64,UklGRp49AQBXRUJQVlA4WAoAAAAQAAAA5
    its wordmark lockup (Bima + a tinted suffix) and whether an app sits behind it. */
 const TOOLS = {
   BimaEndorse: { split: ["Bima", "Endorse"], color: C.accent, built: true },
-  BimaClaim:   { split: ["Bima", "Claim"],   color: C.brand,  built: false },   /* Claim = Primary 500 (#4100CF), not Info */
+  BimaClaim:   { split: ["Bima", "Claim"],   color: C.brand,  built: true },   /* Claim = Primary 500 (#4100CF), not Info */
 };
 
 /* Presence shown as a 6px dot beside the name on the sidebar profile card
@@ -4149,9 +4149,11 @@ const PORTAL_USERS = {
   "ruksana.khan@bimakavach.com": {
     name: "Ruksana Khan", first: "Ruksana", role: "Claims executive", status: "ooo",
     avatar: AVATAR_RUKSANA, envs: ["BimaClaim"],
+    /* Greeted in Devanagari — "Welcome, Ruksana." */
+    greeting: "स्वागत है, रुख़्साना", lang: "hi",
   },
   "umesh.bagri@bimakavach.com": {
-    name: "Umesh Bagri", first: "Umesh", role: "Claims & Servicing Head",
+    name: "Umesh Bagri", first: "Umesh", role: "Claims & Endorsements Head",
     avatar: AVATAR_UMESH, envs: ["BimaEndorse", "BimaClaim"],
   },
 };
@@ -4509,9 +4511,24 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
 /* Sidebar — Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
-function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch,
-  tool = "BimaEndorse", identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
+function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch, nav = NAV,
+  tool = "BimaEndorse", envs, onSwitchEnv = () => {}, identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
   const presence = identity.status || (isWorkingNow(new Date()) ? "online" : "offline");
+  /* Environment switcher: a user with admin over more than one tool (Umesh holds
+     BimaClaim + BimaEndorse) swaps between them from the chevron; everyone else
+     keeps the inert lockup. */
+  const envList = envs && envs.length ? envs : [tool];
+  const multiEnv = envList.length > 1;
+  const [envOpen, setEnvOpen] = useState(false);
+  const [envPos, setEnvPos] = useState(null);   /* fixed-position anchor for the portaled menu */
+  useEffect(() => {
+    if (!envOpen) return;
+    const away = (e) => { if (!e.target.closest("[data-envmenu]")) setEnvOpen(false); };
+    const close = () => setEnvOpen(false);
+    document.addEventListener("mousedown", away);
+    window.addEventListener("resize", close);
+    return () => { document.removeEventListener("mousedown", away); window.removeEventListener("resize", close); };
+  }, [envOpen]);
   const row = collapsed ? "justify-center" : "gap-2";
   return (
     <aside className="relative flex h-full shrink-0 flex-col justify-between border-r"
@@ -4526,12 +4543,36 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
               <span className="leading-none" style={{ fontSize: 20, fontWeight: 500 }}>
                 <span style={{ color: C.figInk }}>{TOOLS[tool].split[0]}</span><span style={{ color: TOOLS[tool].color }}>{TOOLS[tool].split[1]}</span>
               </span>
-              {/* the environment lockup, inert in the shell — as on the login */}
-              <span className="flex items-center justify-center rounded-md border"
-                title={`${tool} is your only environment`}
-                style={{ width: 18, height: 18, background: C.white, borderColor: C.subtle, color: C.figTert }}>
-                <ChevronDown size={12} />
-              </span>
+              {/* environment lockup — a live picker for multi-env admins, else inert */}
+              <div className="relative" data-envmenu>
+                {multiEnv ? (
+                  <button data-envmenu title="Switch environment"
+                    onClick={(e) => { if (envOpen) { setEnvOpen(false); } else { const r = e.currentTarget.getBoundingClientRect(); setEnvPos({ top: r.bottom + 6, left: r.left }); setEnvOpen(true); } }}
+                    className="bk-iconctrl flex items-center justify-center rounded-md border"
+                    style={{ width: 18, height: 18, background: envOpen ? C.brandBg : C.white, borderColor: C.subtle, color: envOpen ? C.brand : C.figTert }}>
+                    <ChevronDown size={12} style={{ transform: envOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                  </button>
+                ) : (
+                  <span className="flex items-center justify-center rounded-md border" title={`${tool} is your only environment`}
+                    style={{ width: 18, height: 18, background: C.white, borderColor: C.subtle, color: C.figTert }}>
+                    <ChevronDown size={12} />
+                  </span>
+                )}
+                {/* Portaled to the body so the sidebar's overflow-hidden can't clip it. */}
+                {multiEnv && envOpen && envPos && createPortal(
+                  <div data-envmenu className="bk-reveal fixed z-50 flex flex-col gap-0.5 rounded-xl border p-1"
+                    style={{ top: envPos.top, left: envPos.left, minWidth: 168, background: C.white, borderColor: C.subtle, boxShadow: "0 8px 24px rgba(28,27,31,0.12)", fontFamily: FONT, color: C.ink }}>
+                    {envList.map((k) => (
+                      <button key={k} onClick={() => { setEnvOpen(false); if (k !== tool) onSwitchEnv(k); }}
+                        className="bk-opt flex items-center gap-2 rounded-lg px-2.5 py-2 text-left" style={{ background: k === tool ? C.brandBg : "transparent" }}>
+                        <span className="leading-none" style={{ fontSize: 14, fontWeight: 500 }}>
+                          <span style={{ color: C.figInk }}>{TOOLS[k].split[0]}</span><span style={{ color: TOOLS[k].color }}>{TOOLS[k].split[1]}</span>
+                        </span>
+                        {k === tool && <Check size={12} style={{ color: C.brand, marginLeft: "auto" }} />}
+                      </button>
+                    ))}
+                  </div>, document.body)}
+              </div>
             </div>
           )}
           <button onClick={() => setCollapsed(!collapsed)} className="bk-dim" style={{ color: C.figTert }}
@@ -4552,7 +4593,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
         <div className="flex w-full flex-col gap-1">
           {!collapsed && <div className="px-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Menu</div>}
           <nav className={`flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
-            {NAV.map(([k, label, Icon, off], i) => {
+            {nav.map(([k, label, Icon, off], i) => {
               const on = view === k || (k === "list" && view === "ticket");
               return (
                 <div key={k} className={collapsed ? "" : "w-full"}>
@@ -4674,7 +4715,1883 @@ function TicketPager({ id, list, onOpen }) {
   );
 }
 
-export default function App() {
+/* =========================================================================
+   ===================  BIMACLAIM — CLAIMS TMS DOMAIN LAYER  ================
+   A sibling ticketing environment. Behaviour is ported verbatim from the
+   BimaClaim reference prototype + 01-behaviour-contract.md; it reuses the
+   Endorsement design system and the shared BIZ/addBiz/addWD/NOW calendar.
+   All symbols are namespaced CL_/cl so they never collide with Endorsement.
+   ========================================================================= */
+
+const CL_HOUR = 36e5, CL_DAY = 864e5;
+/* Deterministic demo clock — reuse the shared pinned NOW (11:00 next working day). */
+const CL_NOW = NOW.getTime();
+const clAgo = (h) => CL_NOW - h * CL_HOUR;
+const clAddBH = (ts, hours) => addBiz(new Date(ts), hours).getTime();
+const clAddWD = (ts, days) => addWD(new Date(ts), days).getTime();
+const clAddTat = (ts, v, unit) => (unit === "BH" ? clAddBH(ts, v) : clAddWD(ts, v));
+/* Working days elapsed — ageing buckets and ending thresholds (C-3). */
+function clWdBetween(a, b) {
+  if (b <= a) return 0;
+  const d = new Date(a); let n = 0;
+  while (d.getTime() < b) { d.setDate(d.getDate() + 1); if (isWorkday(d)) n++; }
+  return n;
+}
+const clInr = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"));
+function clDur(ms) {
+  const a = Math.abs(ms);
+  if (a < CL_HOUR) return Math.max(1, Math.round(a / 6e4)) + " min";
+  if (a < CL_DAY) return Math.round(a / CL_HOUR) + " hrs";
+  return Math.round(a / CL_DAY) + " days";
+}
+const clFdate = (ts) => new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const clFdt = (ts) => new Date(ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/* ---------- masters (Claims_TMS_Masters_List_v4.xlsx) ---------- */
+const CL_INSURERS = {
+  "ICICI Lombard": { mode: "Portal", medianDays: 6 },
+  "TATA AIG": { mode: "Portal", medianDays: 3 },
+  "Bajaj": { mode: "Portal", medianDays: 5 },
+  "HDFC Ergo": { mode: "Mail", medianDays: 14, poc: "samruddhi.thorat@hdfcergo.com" },
+  "New India": { mode: "Mail", medianDays: 11, poc: "arun.venugopal@newindia.co.in" },
+  "Digit": { mode: "Mail", medianDays: 19 },
+  "Iffco Tokio": { mode: "Mail", medianDays: 9, poc: "Nisha.Borade@iffcotokio.co.in" },
+  "Zurich Kotak": { mode: "Mail", medianDays: 8, poc: "arun.thomas1@zurichkotak.com" },
+  "Generali Central": { mode: "Mail", medianDays: 12 },
+};
+const CL_FIELDS = {
+  Fire: ["Policy No", "Insured Name", "Date & Time of Incident", "Brief description about the incident", "Cause of Loss",
+    "Location of loss: full address", "Photos", "Estimated Loss Amount", "Contact Person Name & No"],
+  Marine: ["Policy No", "Insured Name", "Damage Item Name", "Date of loss", "Cause of Loss", "Photos of damage", "Transit route",
+    "LR No.", "Truck No.", "Delivery challan / Invoice No.", "Packing list", "Location details (damage/loss)",
+    "Survey location", "Contact person name", "Contact person mobile", "Estimated loss amount", "Loss description"],
+  MBD: ["Policy No", "Insured Name", "Damaged Item Name", "Annexure No", "Date of Loss", "Cause of Loss", "Estimated Loss Amount",
+    "Location of Loss", "Contact person name", "Contact person mobile", "Loss description"],
+  WC: ["Policy No.", "Insured Name", "Injured Worker Name", "Date of Accident", "Cause of the Accident", "Location of accident",
+    "Contact person name", "Contact person mobile", "Estimated loss amount", "Loss description"],
+  CGL: ["Policy No", "Insured Name", "Date the claim or notice was received", "Claimant name", "Nature of the allegation",
+    "Description of the claim", "Estimated loss amount", "Contact person name", "Contact person mobile"],
+  PI: ["Policy No", "Insured Name", "Date the claim or notice was received", "Claimant name", "Nature of the allegation",
+    "Description of the claim", "Estimated loss amount", "Contact person name", "Contact person mobile"],
+  "D&O": ["Policy No", "Insured Name", "Date the claim or notice was received", "Claimant name", "Nature of the allegation",
+    "Description of the claim", "Estimated loss amount", "Contact person name", "Contact person mobile"],
+};
+const CL_DOCS = {
+  Fire: ["Claim Form", "Claim Bill", "Policy Copy with annexure", "Repair quotation",
+    "Repair/Replacement Bill with payment proof", "Stock register", "Incident note"],
+  Marine: ["Claim form duly sealed and signed", "Claim bill on letterhead", "NEFT with cancelled cheque", "LR/courier copy",
+    "Invoice copy", "Packaging list", "Letter of notice to transporter", "Damage certificate issued by the transporter"],
+  MBD: ["Claim Form", "Claim Bill", "Policy Copy with annexure", "Repair quotation", "Log book", "Incident note"],
+  CGL: ["Claim Form", "Legal notice or summons copy", "Policy Copy with annexure", "Correspondence with the claimant", "Contract or agreement"],
+  PI: ["Claim Form", "Legal notice or summons copy", "Policy Copy with annexure", "Engagement letter or scope of work", "Correspondence with the claimant"],
+  "D&O": ["Claim Form", "Legal notice or summons copy", "Policy Copy with annexure", "Board minutes or resolution", "Correspondence with the claimant"],
+  WC: ["Claim Form", "FIR / accident report", "Wage records", "Medical papers"],
+};
+/* Intimation photographs by product (C-8.2): Fire & MBD four, Marine six, liability none. */
+const CL_PHOTOS = { Fire: 4, MBD: 4, Marine: 6, WC: 0, CGL: 0, PI: 0, "D&O": 0 };
+const CL_LIABILITY = ["CGL", "PI", "D&O"];
+const clLossOptional = (prod) => CL_LIABILITY.includes(prod);
+const CL_MOBILE = /^[6-9][0-9]{9}$/;
+const clCleanMob = (v) => String(v || "").replace(/[^0-9]/g, "").replace(/^(0|91)(?=[6-9][0-9]{9}$)/, "");
+/* Ruksana Khan is the BimaClaim Claims Manager (the operator); Umesh Bagri is
+   the Claims & Endorsements Head, who sees both environments. Both hold real
+   avatars in PORTAL_USERS. First names drive the greeting and the role toggle. */
+const CL_CMS = ["Ruksana", "Shruthi", "Mahendra", "Amogh"];
+const CL_ME = "Ruksana";
+const CL_HEAD = "Umesh";
+const CL_SURVEYOR_THRESHOLD = 100000;
+
+/* ---------- state machine (C-1) ---------- */
+const CL_PHASES = ["Intake", "BK Review", "Insurer", "Assessment & Consent", "Settlement & Closure"];
+const CL_FLOW = {
+  S0: { status: "Draft", label: "Draft — intake incomplete", client: "Details Required", phase: 0, owner: "Client", tat: { v: 2, unit: "WD" }, act: { label: "Mark intake complete", to: "S1" } },
+  S1: { status: "Under Review", label: "Under Review – BimaKavach", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 2, unit: "BH" }, act: { label: "Record admissibility assessment", to: "S2", form: "admiss" } },
+  S2: { status: "Under Review", label: "Ready for insurer intimation", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 1, unit: "BH" }, act: { label: "Submit to insurer", to: "S3" } },
+  S3: { status: "With Insurer", label: "Awaiting claim number", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 1, unit: "WD" }, act: { src: "auto", label: "Record insurer claim number", to: "S4", form: "claimno" } },
+  S4: { status: "With Insurer", label: "Awaiting admissibility decision", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Log insurer decision", to: "BRANCH" } },
+  S5: { tab: "survey", status: "Survey & Assessment", label: "Surveyor appointment awaited", client: "Survey in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record surveyor appointment", to: "S6", form: "surveyor" } },
+  S6: { tab: "survey", status: "Survey & Assessment", label: "Inspection & assessment report", client: "Assessment in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record inspection & assessment report", to: "S9", form: "report" } },
+  S8: { tab: "survey", status: "Report Awaited", label: "Insurer assessing internally", client: "Assessment in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record assessment report", to: "S9", form: "report" } },
+  S9: { status: "Consent", label: "Consent Pending", client: "Consent", phase: 3, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record client consent", to: "S10" } },
+  S10: { tab: "payment", status: "Bank Details Pending", label: "Bank Details Pending", client: "Bank Details Required", phase: 4, owner: "Client", tat: { v: 3, unit: "WD" }, act: { src: "client", label: "Record bank details", to: "S11", form: "bank" } },
+  S11: { tab: "payment", status: "Payment in Progress", label: "Payment in Progress", client: "Payment in Progress", phase: 4, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record payment", to: "S12", form: "payment" } },
+  S12: { tab: "payment", status: "Payment Confirmation", label: "Awaiting Client Confirmation", client: "Payment Released", phase: 4, owner: "Client", tat: { v: 5, unit: "WD" }, act: { src: "client", label: "Record client confirmation of receipt", to: "S13" } },
+  S13: { status: "Closed", label: "Closed – Settled", client: "Claim Settled", phase: 4, owner: "—", terminal: true },
+  R1: { status: "Rejected", label: "Rejection shared", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's response", to: "R2" } },
+  R2: { status: "Rejected", label: "Challenge with insurer", client: "Claim Rejected", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, sub: "Awaiting insurer", act: { src: "bot", label: "Record the insurer's detailed reply", to: "R1" } },
+  R3: { status: "Rejected", label: "Challenges exhausted", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's acceptance", to: "RX" } },
+  RX: { status: "Closed", label: "Closed – Rejection accepted", client: "Claim Closed", phase: 4, owner: "—", terminal: true },
+  SX: { status: "Closed", label: "Closed", client: "Claim Closed", phase: 4, owner: "—", terminal: true },
+  ST: { status: "Terminated", label: "Terminated – Inactivity", client: "Claim Closed – No Response", phase: 4, owner: "—", terminal: true },
+};
+const CL_ORDER = ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "S8", "S9", "S10", "S11", "S12", "S13"];
+const CL_REJ = ["S0", "S1", "S2", "S3", "S4", "R1", "R2", "R3", "RX"];
+const clIsRej = (t) => ["R1", "R2", "R3", "RX"].includes(t.state) || (t.rejection && CL_FLOW[t.state].terminal);
+const clPathBase = (t) => CL_ORDER.filter((c) => ((t.loss || 0) > CL_SURVEYOR_THRESHOLD ? c !== "S8" : !["S5", "S6"].includes(c)));
+const clPath = (t) => (clIsRej(t) ? CL_REJ : clPathBase(t));
+const clStageIndex = (t) => { const p = clPath(t); const i = p.indexOf(t.state); return i > -1 ? i : (CL_FLOW[t.state].terminal ? p.length : CL_ORDER.indexOf(t.state)); };
+const clTatLabel = (t) => { const T = CL_FLOW[t.state].tat; if (!T) return "—"; return T.v + " " + (T.unit === "BH" ? (T.v === 1 ? "business hour" : "business hours") : (T.v === 1 ? "working day" : "working days")); };
+
+/* ---------- chase loops (C-4) ---------- */
+const CL_LOOPS = {
+  A: { name: "Intimation details chase", who: "Client", reminders: 3, interval: 2, basis: "WD", escalations: 3, escInterval: 2, ending: "Terminate the Draft at day 15.", kind: "terminate", threshold: 15 },
+  B: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30.", kind: "terminate", threshold: 30 },
+  C: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30, and email the insurer to close their claim.", kind: "terminate-insurer", threshold: 30 },
+  D: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30.", kind: "terminate", threshold: 30 },
+  E: { name: "Decision chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant — client unresponsive.", kind: "dormant" },
+  G: { name: "Bank details chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant — awaiting bank details. Never terminates.", kind: "dormant" },
+  H: { name: "Insurer chase", who: "Insurer", reminders: 3, interval: 2, basis: "WD", escalations: 3, escInterval: 1, ending: "Escalates and stays open. A claim never terminates while the insurer owes the action.", kind: "hold" },
+  I: { name: "Internal chase", who: "BimaKavach", reminders: 0, interval: null, basis: "BH", escalations: 3, escInterval: 1, ending: "Escalates and stays open. Never terminates — parking it is how work disappears.", kind: "hold" },
+};
+const CL_RULES = { resetOnStateChange: true, loopINoReminder: true, stateChaseContinues: true, remindDuringAutoAdvance: false };
+function clLoopForState(c) {
+  if (!CL_FLOW[c] || CL_FLOW[c].terminal) return null;
+  if (c === "R1" || c === "R3") return "E";
+  if (c === "R2") return "H";
+  if (c === "S0") return "A";
+  if (["S1", "S2"].includes(c)) return "I";
+  if (c === "S9") return "E";
+  if (c === "S10") return "G";
+  return "H";
+}
+const clLoop = (t) => (t.dormant || CL_FLOW[t.state].terminal ? null : clLoopForState(t.state));
+
+/* ---------- derived per-ticket helpers ---------- */
+function clDue(t) { const T = CL_FLOW[t.state].tat; return T ? clAddTat(t.stageAt, T.v, T.unit) : CL_NOW; }
+const clOverdueBy = (t) => CL_NOW - clDue(t);
+function clHealth(t) {
+  if (CL_FLOW[t.state].terminal) return "done";
+  if (t.dormant || t.subStatus === "Awaiting Court") return "parked";
+  const o = clOverdueBy(t);
+  if (o > 0) return "red";
+  if (o > -6 * CL_HOUR) return "amber";
+  return "green";
+}
+const clOwner = (t) => (t.dormant ? "Client" : CL_FLOW[t.state].owner);
+function clStageLabel(t) {
+  if (t.dormant) return "Dormant – " + t.dormant.sub;
+  if (t.state === "ST") return "Terminated – Inactivity";
+  if (t.state === "RX") return "Closed – Rejection accepted";
+  if (t.closureReason) return "Closed – " + t.closureReason;
+  return CL_FLOW[t.state].label;
+}
+function clClientLabel(t) {
+  if (t.dormant) return CL_FLOW[t.dormant.fromState].client;
+  if (t.state === "ST") return "Claim Closed – No Response";
+  if (t.state === "RX") return "Claim Closed";
+  if (t.closureReason) return ({ Withdrawn: "Claim Withdrawn", Duplicate: "Duplicate Claim", "Dormancy closure": "Claim Closed" }[t.closureReason]) || "Claim Closed";
+  return CL_FLOW[t.state].client;
+}
+function clDueText(t) {
+  if (CL_FLOW[t.state].terminal) return { cls: "fine", txt: "—" };
+  if (t.dormant) return { cls: "fine", txt: "No chase" };
+  if (t.subStatus === "Awaiting Court") return { cls: "fine", txt: "Held" };
+  const o = clOverdueBy(t);
+  if (o > 0) return { cls: "over", txt: clDur(o) + " over" };
+  return { cls: o > -6 * CL_HOUR ? "soon" : "fine", txt: clDur(-o) + " left" };
+}
+/* Chase ladder position — for the Head escalation matrix and Manage tab. */
+function clLadder(t) {
+  const L = CL_LOOPS[clLoop(t)] || {};
+  const r = t.chase.reminders, n = t.chase.escalations;
+  if (L.reminders && r < L.reminders) return { rung: "Reminder " + r + " of " + L.reminders + " sent", next: "Reminder " + (r + 1), cadence: "Every " + L.interval + " " + (L.basis === "BH" ? "business hours" : "working days") };
+  if (n === 0) return { rung: "Reminders done", next: "Escalation 1 to " + CL_HEAD, cadence: "Daily" };
+  if (n < (L.escalations || 3)) return { rung: "Escalation " + n + " of " + (L.escalations || 3), next: "Escalation " + (n + 1), cadence: "Every " + L.escInterval + " working day" + (L.escInterval === 1 ? "" : "s") };
+  return { rung: "Top rung held", next: "No further escalation", cadence: "Weekly" };
+}
+
+/* ---------- role-scoped buckets (C-5) ---------- */
+const clVisible = (tickets, role) => (role === "head" ? tickets : tickets.filter((t) => t.cm === CL_ME));
+const clLive = (tickets, role) => clVisible(tickets, role).filter((t) => !CL_FLOW[t.state].terminal);
+const clDormantList = (tickets, role) => clVisible(tickets, role).filter((t) => t.dormant);
+function clBuckets(tickets, role) {
+  const live = clLive(tickets, role);
+  return {
+    attention: live.filter((t) => clHealth(t) !== "green"),
+    open: live,
+    closed: clVisible(tickets, role).filter((t) => CL_FLOW[t.state].terminal),
+    escalated: live.filter((t) => t.escalated),
+    critical: live.filter((t) => t.priority === "Critical" || t.priority === "High"),
+    overdue: live.filter((t) => clOverdueBy(t) > 0),
+    today: live.filter((t) => { const o = clOverdueBy(t); return o <= 0 && o > -12 * CL_HOUR; }),
+    client: live.filter((t) => clOwner(t) === "Client"),
+    insurer: live.filter((t) => clOwner(t) === "Insurer"),
+    fresh: live.filter((t) => CL_NOW - t.createdAt < 24 * CL_HOUR),
+    dormant: live.filter((t) => t.dormant),
+  };
+}
+
+/* ---------- seed factory (React state only, rebuilt on mount) ---------- */
+function clMake(o, i) {
+  const f = CL_FLOW[o.state];
+  return Object.assign({
+    id: "CLM-2026-0" + (1064 + i),
+    priority: "Medium", cm: CL_ME, flagged: false, subStatus: null,
+    claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null,
+    payments: [], admissibility: null, docs: {}, escalated: false,
+    createdAt: clAgo(o.ageH || 24),
+    stageAt: clAgo(o.stageH != null ? o.stageH : (o.ageH || 24)),
+    ownerLog: [], audit: [], mail: [], requests: [], queries: [], uploads: {}, botLog: [], inbox: [],
+    rejection: null, challenges: 0, dormant: null, closureReason: null,
+    chase: { reminders: 0, escalations: 0, events: [] },
+  }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
+}
+const CL_SEED = [
+  { state: "S1", client: "Sunrise Chemicals Ltd", product: "Fire", insurer: "Iffco Tokio", policy: "FIR/2026/00812", dol: clAgo(30), loss: 1450000, priority: "Critical", ageH: 5, stageH: 4.2, desc: "Short-circuit fire in the finished-goods store at the Bhiwandi unit. Racking and packed stock damaged.", cause: "Electrical short circuit", location: "Plot 42, MIDC Bhiwandi, Thane 421302", contactName: "Rajesh Patil", contactMobile: "9820144120", channel: "Email" },
+  { state: "S3", client: "Vertex Pharma Ltd", cm: "Shruthi", product: "Marine", insurer: "TATA AIG", policy: "MAR/2026/00655", dol: clAgo(96), loss: 320000, priority: "High", ageH: 52, stageH: 31, desc: "Consignment of API drums damaged in transit between Hyderabad and Ankleshwar. 6 of 40 drums breached.", cause: "Rough handling in transit", location: "NH-48, near Solapur", contactName: "Priya Nair", contactMobile: "9945022118", channel: "BimaKendra" },
+  { state: "S4", client: "Vanguard Textiles Pvt Ltd", cm: "Mahendra", product: "Fire", insurer: "HDFC Ergo", policy: "FIR/2025/04417", dol: clAgo(30 * 24), loss: 2850000, priority: "Critical", ageH: 26 * 24, stageH: 9 * 24, desc: "Fire in the dyeing section spread to adjacent godown. Machinery and grey fabric stock affected.", cause: "Boiler overheating", location: "Survey 118, Pandesara, Surat 394221", contactName: "Amit Shah", contactMobile: "9825071144", channel: "RM Interface", claimNo: "HE/FIR/26/44120", escalated: true },
+  { state: "S6", client: "Redwood Logistics Ltd", product: "MBD", insurer: "Bajaj", policy: "MBD/2026/00218", dol: clAgo(21 * 24), loss: 640000, priority: "Medium", ageH: 19 * 24, stageH: 3 * 24, desc: "Forklift hydraulic failure at the Chakan warehouse; mast assembly damaged beyond field repair.", cause: "Hydraulic ram failure", location: "Chakan MIDC Phase II, Pune", contactName: "Sunil Gowda", contactMobile: "9008433127", channel: "BimaKendra", claimNo: "BJ/MBD/26/00871", surveyor: { name: "K. Venkatesh", mobile: "98450 11902", visit: "Fri, 28 Aug" } },
+  { state: "S9", client: "Acme Manufacturing", cm: "Shruthi", product: "Marine", insurer: "ICICI Lombard", policy: "MAR/2026/00901", dol: clAgo(34 * 24), loss: 185000, priority: "Medium", ageH: 31 * 24, stageH: 2.6 * 24, desc: "Water ingress into a container of precision components at Nhava Sheva. Corrosion on 12 cartons.", cause: "Container seal failure", location: "JNPT Nhava Sheva", contactName: "Rajesh Kumar", contactMobile: "9833055221", channel: "Email", claimNo: "IL/MAR/26/33418", assessedLoss: 162000 },
+  { state: "S11", client: "Meridian Foods Pvt Ltd", product: "Fire", insurer: "New India", policy: "FIR/2025/03390", dol: clAgo(58 * 24), loss: 920000, priority: "High", ageH: 54 * 24, stageH: 5 * 24, desc: "Cold-store compressor fire; ammonia line damage and spoilage of stored produce.", cause: "Compressor motor failure", location: "Bidadi Industrial Area, Ramanagara", contactName: "Latha Rao", contactMobile: "9901240088", channel: "BimaKendra", claimNo: "NI/FIR/26/11204", assessedLoss: 874000, bank: { acc: "XXXXXX4471", ifsc: "SBIN0004432", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Instalment", n: 1, date: "18 Aug 2026", amt: 500000, utr: "UTR2608180114" }] },
+  { state: "S13", client: "Kaveri Steel Works", cm: "Amogh", product: "MBD", insurer: "TATA AIG", policy: "MBD/2025/00074", dol: clAgo(96 * 24), loss: 410000, priority: "Medium", ageH: 92 * 24, stageH: 11 * 24, desc: "Rolling-mill gearbox seizure during the night shift.", cause: "Lubrication failure", location: "Ginigera, Koppal", contactName: "Mahesh B", contactMobile: "9448012007", channel: "RM Interface", claimNo: "TA/MBD/25/98811", assessedLoss: 388000, bank: { acc: "XXXXXX9903", ifsc: "HDFC0001188", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Full and final", n: null, date: "12 Aug 2026", amt: 388000, utr: "UTR2608120441" }] },
+  { state: "S1", client: "Northgate Advisory LLP", cm: "Mahendra", product: "PI", insurer: "HDFC Ergo", policy: "PI/2026/00214", dol: clAgo(11 * 24), loss: null, priority: "High", ageH: 9 * 24, stageH: 3, desc: "Legal notice received from a former client alleging negligent advice on a 2024 transaction structuring engagement. No quantum pleaded in the notice.", cause: "Alleged professional negligence", location: "Notice served at the registered office, Bengaluru", contactName: "Ashwin Rao", contactMobile: "9845011277", channel: "Email", claimant: "Trident Capital Partners" },
+  { state: "R1", client: "Orchid Hospitality Pvt Ltd", cm: "Shruthi", product: "Fire", insurer: "New India", policy: "FIR/2025/02218", dol: clAgo(47 * 24), loss: 1180000, priority: "Critical", ageH: 44 * 24, stageH: 4 * 24, desc: "Fire in the kitchen extraction duct at the Whitefield property spread to the false ceiling of the banquet hall.", cause: "Grease build-up in the extraction duct ignited", location: "Whitefield Main Road, Bengaluru 560066", contactName: "Deepa Iyer", contactMobile: "9880114402", channel: "BimaKendra", claimNo: "NI/FIR/26/07734", admissibility: "Within policy terms" },
+  { state: "S0", client: "Sharma Textiles", product: "Fire", insurer: "Digit", policy: "FIR/2026/01120", dol: clAgo(20), loss: null, priority: "High", ageH: 16, stageH: 16, desc: "Break-in and fire at the godown reported by email. Estimated loss figure not stated.", cause: "Under investigation", location: "Not stated", contactName: "Priya Sharma", contactMobile: "9811033221", channel: "Email", missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"] },
+];
+function makeCLTickets() {
+  const TICKETS = CL_SEED.map((o, i) => clMake(o, i));
+  /* One completed round of rejection argument, so the to-and-fro shows on load (C-1). */
+  const rj = TICKETS.find((x) => x.state === "R1");
+  if (rj) {
+    const poc = (CL_INSURERS[rj.insurer] || {}).poc || "claims@newindia.co.in";
+    rj.rejection = {
+      reason: "Repudiated under the warranty requiring six-monthly cleaning of kitchen extraction ductwork. The last cleaning certificate on file predates the loss by fourteen months.",
+      at: rj.createdAt + 21 * CL_DAY,
+      responses: [
+        { kind: "challenge", n: 1, at: rj.createdAt + 24 * CL_DAY, text: "The duct was cleaned in March by a contractor who did not issue a certificate. The invoice and the contractor's confirmation are attached. The warranty speaks to cleaning, not to certification." },
+        { kind: "reply", n: 1, at: rj.createdAt + 27 * CL_DAY, text: "We have re-examined the file against the challenge raised. The invoice is noted, but the warranty is expressed as a condition precedent and requires documentary evidence of each cleaning. The repudiation is maintained, with the fuller reasoning set out below." },
+      ],
+    };
+    rj.challenges = 1;
+    rj.subStatus = "Awaiting client";
+    rj.botLog.unshift({ at: rj.rejection.at, state: "S4", type: "Insurer rejection", conf: 96, from: poc, extract: { Outcome: "Repudiated", Reason: "Warranty breach — duct cleaning" } });
+    rj.audit.unshift(
+      { at: rj.rejection.at, actor: "Email bot", role: "", what: "Insurer rejection classified and extracted", detail: "Warranty breach — duct cleaning · 96% confidence, from " + poc },
+      { at: rj.rejection.responses[0].at, actor: rj.client, role: "Client", what: "Challenge 1 of 2 raised by the client", detail: rj.rejection.responses[0].text },
+      { at: rj.rejection.responses[1].at, actor: "Email bot", role: "", what: "Insurer's detailed reply to challenge 1", detail: "Rejection upheld — warranty treated as a condition precedent · 96% confidence, from " + poc },
+    );
+    rj.audit.sort((a, b) => b.at - a.at);
+  }
+  /* A ticket past its stage TAT has already been chased — seed the reminder count. */
+  TICKETS.forEach((t) => {
+    if (CL_FLOW[t.state].terminal) return;
+    const L = CL_LOOPS[clLoop(t)];
+    if (!L || !L.reminders) return;
+    const over = CL_NOW - clDue(t);
+    if (over <= 0) return;
+    const gap = L.basis === "BH" ? L.interval * CL_HOUR : L.interval * CL_DAY;
+    t.chase.reminders = Math.min(L.reminders, 1 + Math.floor(over / gap));
+    t.chase.events = Array.from({ length: t.chase.reminders }, (_, i) => ({ at: clDue(t) + gap * i, kind: "reminder", text: "Reminder " + (i + 1) + " of " + L.reminders + " sent to " + L.who.toLowerCase() })).reverse();
+    if (t.escalated) {
+      t.chase.escalations = 1;
+      t.chase.events.unshift({ at: CL_NOW - 2 * CL_HOUR, kind: "escalation", text: "Escalation 1 of " + L.escalations + " — " + CL_HEAD + " notified" });
+    }
+  });
+  /* Seed owner history + intimation audit so ageing has something real to show. */
+  TICKETS.forEach((t) => {
+    const idx = CL_ORDER.indexOf(t.state);
+    let ts = t.createdAt;
+    for (let i = 0; i < idx; i++) {
+      const c = CL_ORDER[i], f = CL_FLOW[c];
+      const dur = (t.stageAt - t.createdAt) / Math.max(idx, 1);
+      t.ownerLog.push({ owner: f.owner, from: ts, to: ts + dur, state: c });
+      ts += dur;
+    }
+    t.audit.push({ at: t.createdAt, actor: "System", role: "Bot", what: "Claim intimated via " + t.channel, detail: "Ticket created and routed to " + t.cm });
+  });
+  return TICKETS;
+}
+
+/* ---------- manual review queue (C-11) ---------- */
+const CL_REASONS = { R1: "Low confidence, no linkage", R2: "Ambiguous linkage", R3: "Classification failed outright", R4: "Policy not found", R5: "Policy not active", R6: "Sender unrecognised", R7: "Critical extraction failed", R8: "Out of scope" };
+function makeCLMRQ() {
+  return [
+    { id: "MB-2291", from: "accounts@vertexpharma.in", fromName: "Priya Nair, Vertex Pharma Ltd", to: "claims@bimakavach.com", at: clAgo(2), subject: "Regarding our claim — please advise", body: "Hi team,\n\nFollowing up on the matter we discussed with your office last week. The transporter has now come back to us and is disputing the damage certificate. Please advise how you want us to proceed, and whether this changes anything on the survey side.\n\nAlso attaching the revised packing list as promised.\n\nRegards,\nPriya", att: ["revised-packing-list.pdf"], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "accounts@vertexpharma.in" }, guess: "Client additional data", conf: 63, reason: "R1", cand: "Vertex Pharma Ltd", note: "No policy number in the mail or the thread. Sender domain matches a client with more than one live claim." },
+    { id: "MB-2284", from: "ravi.menon@gmail.com", fromName: "Ravi Menon", to: "claims@bimakavach.com", at: clAgo(19), subject: "Fire at our unit last night", body: "Sir,\n\nThere was a fire at our unit at Peenya last night around 11pm. Fire brigade attended. Machinery in the assembly shed is damaged. We have insurance through your office. Kindly start the claim.\n\nRavi Menon\n9845000000", att: ["IMG-20260901-0043.jpg", "IMG-20260901-0044.jpg"], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "ravi.menon@gmail.com" }, guess: "New claim intimation", conf: 71, reason: "R6", cand: null, note: "Sender domain is not linked to any client, agent, insurer or surveyor record. A personal address on a commercial claim." },
+    { id: "MB-2279", from: "claims.blr@iffcotokio.co.in", fromName: "Iffco Tokio, Bengaluru claims", to: "claims@bimakavach.com", at: clAgo(27), subject: "Surveyor appointment — loss reported", body: "Dear Partner,\n\nWe have appointed a surveyor for the loss reported by Sunrise Chemicals Ltd. Details will follow by separate mail. The insured may be advised to keep the site undisturbed until the visit.\n\nRegards,\nClaims desk", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "claims.blr@iffcotokio.co.in" }, guess: "Surveyor appointment", conf: 89, reason: "R2", cand: "Sunrise Chemicals Ltd", note: "Above the classification threshold, but no claim number is quoted and the client has more than one live claim. Attaching a surveyor to the wrong claim would send them to the wrong site." },
+    { id: "MB-2272", from: "ops@northstarpackaging.co.in", fromName: "Northstar Packaging", to: "claims@bimakavach.com", at: clAgo(6), subject: "Claim intimation — policy FIR/2024/00119", body: "Please register a claim under policy FIR/2024/00119 for water damage to stored cartons following heavy rain on the 28th. Estimated loss around 3.5 lakh. Documents to follow.", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "ops@northstarpackaging.co.in" }, guess: "New claim intimation", conf: 93, reason: "R5", cand: null, note: "Policy matched but expired on 31 March 2026. A claim cannot be raised on an expired policy." },
+  ];
+}
+/* Ranked candidates for linking (C-11.3) — by reliability of the match basis. */
+function clCandidatesFor(m, tickets) {
+  const out = [];
+  tickets.filter((t) => !CL_FLOW[t.state].terminal).forEach((t) => {
+    let score = 0; const basis = [];
+    if (m.body.indexOf(t.id) > -1) { score += 100; basis.push("ticket reference in the body"); }
+    if (t.claimNo && m.body.indexOf(t.claimNo) > -1) { score += 80; basis.push("insurer claim number"); }
+    if (m.headers["In-Reply-To"] !== "none") { score += 60; basis.push("thread header"); }
+    if (m.body.indexOf(t.policy) > -1 || m.subject.indexOf(t.policy) > -1) { score += 70; basis.push("policy number"); }
+    if (m.cand && t.client === m.cand) { score += 40; basis.push("sender domain matches the client"); }
+    const dom = m.from.split("@")[1] || "";
+    if (dom && t.client.toLowerCase().replace(/[^a-z]/g, "").indexOf(dom.split(".")[0].toLowerCase()) > -1) { score += 30; basis.push("sender domain"); }
+    if (score) out.push({ t, score, basis });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, 6);
+}
+const CL_MRQ_LATE = (m) => CL_NOW - m.at > 24 * CL_HOUR;
+
+/* =========================================================================
+   ===================  BIMACLAIM — CLAIMS TMS UI  =========================
+   Screens composed from the shared Endorsement design system. Behaviour
+   read from the CL_ domain layer; state mutated in ClaimsApp (React only).
+   ========================================================================= */
+
+/* Owner → indicator token. Client reads info (blue), insurer caution (amber),
+   our side brand (violet) — the "whose fault is the delay" signal (C-2). */
+const CL_OWNER_IND = { Client: "info", Insurer: "caution", BimaKavach: "brand" };
+const CL_HEALTH_IND = { red: "error", amber: "caution", green: "success", parked: "neutral", done: "muted" };
+const CL_TINT = { error: C.breachSoft, caution: C.warnSoft, info: C.waitSoft, success: C.tealSoft, brand: C.brandBg, neutral: C.brandBg, muted: C.canvas };
+const clOwnerInd = (t) => CL_OWNER_IND[clOwner(t)] || "neutral";
+const clPrioInd = (p) => PRIO_IND[p] || "neutral";
+const clStageInd = (t) => (CL_FLOW[t.state].terminal ? "muted" : t.escalated ? "error" : CL_HEALTH_IND[clHealth(t)] || "neutral");
+
+/* Stage-due cell — the state pill then the deadline, mirroring the Endorsement
+   SlaCell idiom. Never abbreviates BH/WD (C-3.2). */
+function ClDue({ t }) {
+  if (CL_FLOW[t.state].terminal) return <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>—</span>;
+  if (t.dormant) return <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>No chase</span>;
+  const d = clDueText(t);
+  const tone = d.cls === "over" ? C.semError : d.cls === "soon" ? C.semCaution : C.figHint;
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="bk-num" style={{ fontSize: 13, fontWeight: 600, color: tone }}>{d.txt}</span>
+      <span style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{clTatLabel(t)}</span>
+    </span>
+  );
+}
+
+/* One claim as a table row — the whole row opens the ticket. Shared by the
+   list and the home "needs you first" strip. `showCM` adds the manager column. */
+function ClaimsRow({ t, onOpen, showCM, last }) {
+  return (
+    <button onClick={() => onOpen(t.id)}
+      className="bk-item flex w-full items-center gap-3 px-2 py-3 text-left"
+      style={{ borderBottom: last ? "none" : `0.5px solid ${C.lineSoft}`, cursor: "pointer" }}>
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex items-center gap-2">
+          <span className="bk-num" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
+          {t.escalated && <Indicator label="Escalated" ind="error" outline />}
+        </span>
+        <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+          {t.client} · {t.product} · {t.insurer}
+        </span>
+      </span>
+      <span className="hidden min-w-0 flex-col gap-1 sm:flex" style={{ flexBasis: 180 }}>
+        <span className="truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{clStageLabel(t)}</span>
+        <span style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{clDur(CL_NOW - t.createdAt)} old</span>
+      </span>
+      {showCM && <span className="hidden w-20 shrink-0 md:block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{t.cm}</span>}
+      <span className="hidden w-28 shrink-0 md:flex"><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
+      <span className="w-20 shrink-0"><Indicator label={t.priority} ind={clPrioInd(t.priority)} outline /></span>
+      <span className="w-24 shrink-0 text-right"><ClDue t={t} /></span>
+    </button>
+  );
+}
+function ClaimsTable({ rows, onOpen, showCM, empty }) {
+  if (!rows.length) return (
+    <div className="flex flex-col items-center justify-center gap-1 rounded-xl border py-12 text-center"
+      style={{ borderColor: C.subtle, borderWidth: "0.5px", borderStyle: "dashed" }}>
+      <ListChecks size={18} style={{ color: C.figTert }} />
+      <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>{empty || "Nothing here right now."}</span>
+    </div>
+  );
+  return (
+    <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      {rows.map((t, i) => <ClaimsRow key={t.id} t={t} onOpen={onOpen} showCM={showCM} last={i === rows.length - 1} />)}
+    </div>
+  );
+}
+
+/* Filter pills — the StagePills idiom over the Claims lifecycle slices. */
+const CL_FILTERS = [
+  ["attention", "Needs attention"], ["open", "All open"], ["critical", "High & critical"],
+  ["overdue", "Overdue"], ["today", "Due today"], ["client", "Awaiting client"],
+  ["insurer", "Awaiting insurer"], ["escalated", "Escalated"], ["fresh", "Freshly assigned"],
+  ["closed", "Closed & terminal"],
+];
+function ClaimsFilterPills({ counts, active, onPick }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {CL_FILTERS.map(([k, label]) => {
+        const on = active === k;
+        return (
+          <button key={k} onClick={() => onPick(k)}
+            className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+            style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+              background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 14, fontWeight: 500 }}>
+            <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+            <span>{label} <span className="bk-num">({counts[k] || 0})</span></span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Home (C-5) ---------- */
+function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
+  const [range, setRange] = useState("Last Week");
+  const B = clBuckets(tickets, role);
+  const isHead = role === "head";
+  const mrqLate = mrq.filter(CL_MRQ_LATE);
+
+  /* desk cells */
+  const cmCells = [
+    { n: B.critical.length, lb: "High & critical", ind: "error", f: "critical" },
+    { n: B.overdue.length, lb: "Overdue", ind: "error", f: "overdue" },
+    { n: B.today.length, lb: "Due today", ind: "caution", f: "today" },
+    { n: B.client.length, lb: "Awaiting client", ind: "info", f: "client" },
+    { n: B.insurer.length, lb: "Awaiting insurer", ind: "caution", f: "insurer" },
+    { n: B.escalated.length, lb: "Escalated", ind: "error", f: "escalated" },
+    { n: B.fresh.length, lb: "Freshly assigned", ind: "success", f: "fresh" },
+  ];
+  const headCells = [
+    { n: B.open.length, lb: "Open across the team", ind: "brand", f: "open" },
+    { n: B.overdue.length, lb: "Overdue", ind: "error", f: "overdue" },
+    { n: B.escalated.length, lb: "Escalated to you", ind: "error", f: "escalated" },
+    { n: B.dormant.length, lb: "Dormant", ind: "caution", f: "open" },
+    { n: B.insurer.length, lb: "With insurers", ind: "caution", f: "insurer" },
+    { n: mrqLate.length, lb: "Queue past SLA", ind: "error", f: "__mrq" },
+  ];
+  const cells = isHead ? headCells : cmCells;
+
+  /* progress dashboard (CM) — closed vs target, insurer medians, owner donut */
+  const closed = B.closed.length, target = 6;
+  const onTrack = B.open.filter((t) => clOverdueBy(t) <= 0).length;
+  const closureScore = B.open.length ? onTrack / B.open.length : 1;
+  const medians = Object.entries(CL_INSURERS).slice(0, 5).sort((a, b) => a[1].medianDays - b[1].medianDays);
+  const maxM = Math.max(...medians.map((m) => m[1].medianDays));
+  /* owner time-split over live claims (real leg + current-stage time) */
+  const split = { BimaKavach: 0, Insurer: 0, Client: 0 };
+  clLive(tickets, role).forEach((t) => {
+    t.ownerLog.forEach((o) => { if (split[o.owner] != null) split[o.owner] += (o.to - o.from); });
+    split[clOwner(t)] = (split[clOwner(t)] || 0) + (CL_NOW - t.stageAt);
+  });
+  const segments = ["BimaKavach", "Insurer", "Client"].map((k) => ({ label: k, hrs: split[k] / CL_HOUR, ind: PIE_IND[k], fill: PIE_FILL[k] })).filter((s) => s.hrs >= 0.5);
+  /* range-driven illustrative windows (our oldest claim is < a month old) */
+  const PROG = {
+    "Last Week": { closed, target, closure: `${onTrack}/${B.open.length || 1}`, closeStatus: scoreStatus(closureScore), closeScore: closureScore, seg: segments },
+    "Last Month": { closed: 17, target: 20, closure: "13/19", closeStatus: "On Track", closeScore: 0.62, seg: segments },
+    "Last Quarter": { closed: 52, target: 55, closure: "48/54", closeStatus: "Well Done", closeScore: 0.88, seg: segments },
+    "Custom": { closed: 9, target: 15, closure: "5/12", closeStatus: "Poor", closeScore: 0.38, seg: segments },
+  };
+  const prog = PROG[range];
+
+  return (
+    <div>
+      {/* Same structure as the Endorsement Greeting: the signed-in user's own
+          avatar, the date/time line, then their greeting — Ruksana in Hindi,
+          admins (Umesh) in English. */}
+      <Greeting user={user} />
+      <p className="mt-5" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>
+        {isHead ? `The book · ${CL_CMS.length} managers` : "Your desk"}
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+        {cells.map((c) => (
+          <DeskCard key={c.lb} count={c.n} tint={CL_TINT[c.ind]}
+            pills={[{ label: c.lb, ind: c.ind, outline: true }]}
+            onOpen={() => (c.f === "__mrq" ? go("review") : go("list", c.f))} />
+        ))}
+      </div>
+
+      {isHead ? (
+        <ClaimsHeadBody tickets={tickets} mrq={mrq} go={go} openTicket={openTicket} />
+      ) : (
+        <>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+            <p style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Your progress</p>
+            <RangePills value={range} onChange={setRange} />
+          </div>
+          <div key={range} className="bk-reveal mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="flex flex-col gap-4">
+              <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
+                    <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Claims closed</span></div>
+                  <span title="Claims settled or closed against your target this window." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.closed}/{prog.target}</span>
+                  <Indicator label={prog.closed >= prog.target ? "On track" : "Behind"} ind={prog.closed >= prog.target ? "success" : "caution"} />
+                </div>
+                <div className="mt-4"><PerfMeter score={Math.min(1, prog.closed / prog.target)} /></div>
+                <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{B.overdue.length} claims overdue right now.</p>
+              </div>
+              <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+                <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Insurer median turnaround</span></div>
+                <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Days from intimation to decision, last 12 months.</p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {medians.map(([n, d]) => (
+                    <div key={n} className="flex items-center gap-2">
+                      <span className="w-28 shrink-0 truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{n}</span>
+                      <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
+                        <span className="block h-full rounded-full" style={{ width: `${(d.medianDays / maxM) * 100}%`, background: d.medianDays > 12 ? C.semError : d.medianDays > 7 ? C.semCaution : "#00B200" }} />
+                      </span>
+                      <span className="bk-num w-8 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{d.medianDays}d</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border p-4 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+              <div className="flex items-start justify-between">
+                <div><SectionTitle>Where time is going</SectionTitle>
+                  <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+                    {clLive(tickets, role).length} live claims, split by who owed the next action.</p></div>
+                <span title="Hours each party held your claims: you, the insurer, the client." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+              </div>
+              {prog.seg.length ? <Donut segments={prog.seg} /> : <Empty>No live ownership time to plot yet.</Empty>}
+              <p className="mt-3 border-t pt-3" style={{ borderColor: C.lineSoft, fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
+                Ageing is recorded per owner change, so insurer-caused delay stays separable from ours.</p>
+            </div>
+          </div>
+
+          {B.escalated.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={{ background: C.breachSoft, border: `0.5px solid ${IND.error.line}` }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.semError }}>
+                {B.escalated.length} of your claims {B.escalated.length === 1 ? "has" : "have"} been escalated to {CL_HEAD}.</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>They stay in your queue — escalation raises visibility, it does not move ownership.</span>
+              <button onClick={() => go("list", "escalated")} className="bk-dim" style={{ fontSize: 13, fontWeight: 600, color: C.brand }}>See them →</button>
+            </div>
+          )}
+
+          <p className="mt-8" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Needs you first</p>
+          <div className="mt-3"><ClaimsTable rows={B.attention.slice(0, 4)} onOpen={openTicket} empty="Nothing needs you first — every live claim is green." /></div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* Claims Head home body — escalation matrix + team load (C-5.2/5.3). */
+function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
+  const rank = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 && !t.dormant ? 1 : t.dormant ? 3 : 2);
+  const rows = tickets.filter((t) => !CL_FLOW[t.state].terminal).sort((a, b) => rank(a) - rank(b) || clOverdueBy(b) - clOverdueBy(a));
+  const nEsc = rows.filter((t) => t.escalated).length;
+  const nOver = rows.filter((t) => clOverdueBy(t) > 0 && !t.dormant && !t.escalated).length;
+  const mrqLate = mrq.filter(CL_MRQ_LATE);
+  const team = CL_CMS.map((cm) => {
+    const own = tickets.filter((t) => t.cm === cm);
+    const open = own.filter((t) => !CL_FLOW[t.state].terminal);
+    return { cm, open: open.length, overdue: open.filter((t) => clOverdueBy(t) > 0).length,
+      esc: open.filter((t) => t.escalated).length, dorm: open.filter((t) => t.dormant).length,
+      closed: own.filter((t) => CL_FLOW[t.state].terminal).length,
+      oldest: open.length ? Math.max(...open.map((t) => CL_NOW - t.createdAt)) : 0 };
+  });
+  const maxLoad = Math.max(1, ...team.map((x) => x.open));
+  return (
+    <>
+      <p className="mt-8 mb-1" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Escalated to you</p>
+      <div className="mb-3 rounded-xl px-4 py-3" style={{ background: nEsc ? C.breachSoft : nOver ? C.warnSoft : C.brandBg, border: `0.5px solid ${(nEsc ? IND.error : nOver ? IND.caution : IND.brand).line}` }}>
+        <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>
+          {nEsc ? <b>{nEsc} claim{nEsc > 1 ? "s" : ""} escalated to you. </b> : ""}
+          {nOver ? `${nOver} more past a stage TAT and climbing the ladder. ` : ""}
+          {!nEsc && !nOver ? "Nothing escalated and nothing breached. " : ""}
+          Every live claim is listed, because the ladder can reach you from any stage.
+        </span>
+      </div>
+      <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+          <span className="flex-1">Claim</span><span className="hidden w-20 md:block">Manager</span>
+          <span className="hidden w-28 sm:block">Owed by</span><span className="w-24">Escalations</span><span className="w-24 text-right">Stage due</span>
+        </div>
+        {rows.map((t) => {
+          const L = CL_LOOPS[clLoop(t)] || {}; const n = t.chase.escalations, max = L.escalations || 3;
+          return (
+            <button key={t.id} onClick={() => openTicket(t.id)} className="bk-item flex w-full items-center gap-3 px-3 py-3 text-left" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, cursor: "pointer" }}>
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="flex items-center gap-2"><span className="bk-num" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
+                  {t.escalated && <Indicator label="Escalated" ind="error" outline />}</span>
+                <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{clStageLabel(t)} · {t.client}</span>
+              </span>
+              <span className="hidden w-20 shrink-0 md:block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{t.cm}</span>
+              <span className="hidden w-28 shrink-0 sm:flex"><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
+              <span className="w-24 shrink-0">{t.dormant ? <span style={{ fontSize: 12, color: C.figTert }}>No chase</span> :
+                <span className="bk-num" style={{ fontSize: 13, fontWeight: 600, color: n ? C.semError : C.figHint }}>{n} of {max}</span>}</span>
+              <span className="w-24 shrink-0 text-right"><ClDue t={t} /></span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
+        Two rules never bend: a claim never terminates while the insurer owes the action, and never once the insurer has approved payment.</p>
+
+      <p className="mt-8 mb-3" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>Team load</p>
+      <div className="scroll-slim overflow-x-auto rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 640 }}>
+          <thead><tr style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+            {["Claims Manager", "Open", "Load", "Overdue", "Escalated", "Dormant", "Closed", "Oldest open"].map((h) => (
+              <th key={h} className="px-3 py-2 text-left" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{h}</th>))}
+          </tr></thead>
+          <tbody>{team.map((x) => (
+            <tr key={x.cm} style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>
+              <td className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontWeight: 600 }}>{x.cm}</td>
+              <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{x.open}</td>
+              <td className="px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, minWidth: 120 }}>
+                <span className="block overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
+                  <span className="block h-full rounded-full" style={{ width: `${(x.open / maxLoad) * 100}%`, background: C.brand }} /></span></td>
+              <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: x.overdue ? C.semError : C.figTert }}>{x.overdue}</td>
+              <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: x.esc ? C.semError : C.figTert }}>{x.esc}</td>
+              <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{x.dorm}</td>
+              <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{x.closed}</td>
+              <td className="px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: C.figHint }}>{x.oldest ? clDur(x.oldest) : "—"}</td>
+            </tr>))}</tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={{ background: mrqLate.length ? C.breachSoft : C.brandBg, border: `0.5px solid ${(mrqLate.length ? IND.error : IND.brand).line}` }}>
+        <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>
+          <b>Manual review queue.</b> {mrq.length} item{mrq.length === 1 ? "" : "s"} with no ticket yet, so nobody is individually accountable — that is why the 24-hour queue SLA escalates to you. {mrqLate.length ? `${mrqLate.length} past it.` : "All within it."}</span>
+        <button onClick={() => go("review")} className="bk-dim" style={{ fontSize: 13, fontWeight: 600, color: C.brand }}>Open the queue →</button>
+      </div>
+    </>
+  );
+}
+
+/* ---------- My claims — column table (same idiom as the Endorsement list) ---------- */
+const CL_COLS = { id: { w: 152 }, client: { w: 168, pl: 8 }, stage: { w: 176 }, owner: { w: 118 }, prio: { w: 96 }, age: { w: 96 }, cm: { w: 84 } };
+const clCell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0, paddingLeft: c.pl, paddingRight: c.pr, ...extra });
+const clDueCol = { flex: "1 1 0", minWidth: 130 };
+const CL_PAGE = 10;
+function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
+  const [owner, setOwner] = useState(new Set());
+  const [prio, setPrio] = useState(new Set());
+  const [stage, setStage] = useState(new Set());
+  const [sort, setSort] = useState({ key: "urgency", dir: "desc" });
+  const [openKey, setOpenKey] = useState(null);
+  const [page, setPage] = useState(0);
+  const head = role === "head";
+
+  useEffect(() => {
+    if (!openKey) return;
+    const away = (e) => { if (!e.target.closest("[data-menu]")) setOpenKey(null); };
+    const esc = (e) => { if (e.key === "Escape") setOpenKey(null); };
+    document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [openKey]);
+  useEffect(() => { setPage(0); }, [filter, owner, prio, stage, sort]);
+
+  const B = clBuckets(tickets, role);
+  const counts = Object.fromEntries(CL_FILTERS.map(([k]) => [k, (B[k] || []).length]));
+  const has = (s, v) => s.size === 0 || s.has(v);
+  const base = (B[filter] || B.attention).filter((t) => has(owner, clOwner(t))).filter((t) => has(prio, t.priority)).filter((t) => has(stage, clStageLabel(t)));
+  const d = sort.dir === "asc" ? 1 : -1;
+  const rows = base.slice().sort((a, b) => {
+    if (sort.key === "urgency") { const rk = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 ? 1 : 2); return rk(a) - rk(b) || clOverdueBy(b) - clOverdueBy(a); }
+    if (sort.key === "age") return ((CL_NOW - a.createdAt) - (CL_NOW - b.createdAt)) * d;
+    if (sort.key === "due") return (clOverdueBy(a) - clOverdueBy(b)) * d;
+    if (sort.key === "prio") { const pr = { Critical: 0, High: 1, Medium: 2, Low: 3 }; return ((pr[a.priority] ?? 9) - (pr[b.priority] ?? 9)) * d; }
+    if (sort.key === "id") return a.id.localeCompare(b.id) * d;
+    return 0;
+  });
+  const pages = Math.max(1, Math.ceil(rows.length / CL_PAGE));
+  const at = Math.min(page, pages - 1);
+  const view = rows.slice(at * CL_PAGE, at * CL_PAGE + CL_PAGE);
+  const filtered = owner.size || prio.size || stage.size;
+
+  const OWNER_OPTS = ["Client", "Insurer", "BimaKavach"].map((v) => ({ value: v, label: v }));
+  const PRIO_OPTS = ["Critical", "High", "Medium", "Low"].map((v) => ({ value: v, label: v }));
+  const STAGE_OPTS = [...new Set(clVisible(tickets, role).map((t) => clStageLabel(t)))].sort().map((v) => ({ value: v, label: v }));
+  const hf = { openKey, setOpenKey };
+  const th = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
+  const sortBy = (k) => setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
+  const SortHead = ({ label, k, style }) => (
+    <button onClick={() => sortBy(k)} className="flex items-center gap-1 text-left" style={style} title={`Sort by ${label.toLowerCase()}`}>
+      <span style={{ fontSize: 14, fontWeight: 600, color: sort.key === k ? C.brand : "#1C1C1C" }}>{label}</span>
+      {sort.key === k && (sort.dir === "asc" ? <ChevronUp size={13} style={{ color: C.brand }} /> : <ChevronDown size={13} style={{ color: C.brand }} />)}
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      <PageHead title="My claims" hint={head ? "Every claim across the team." : `The claims assigned to ${CL_ME}.`} />
+      <ClaimsFilterPills counts={counts} active={filter} onPick={setFilter} />
+
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
+          <SortHead label="Claim" k="id" style={clCell(CL_COLS.id)} />
+          <span className="truncate" style={clCell(CL_COLS.client, th)}>Client</span>
+          <span style={clCell(CL_COLS.stage)}><HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} /></span>
+          <span style={clCell(CL_COLS.owner)}><HeaderFilter id="owner" label="Owed by" options={OWNER_OPTS} selected={owner} setSelected={setOwner} {...hf} /></span>
+          <span style={clCell(CL_COLS.prio)}><HeaderFilter id="prio" label="Priority" options={PRIO_OPTS} selected={prio} setSelected={setPrio} {...hf} /></span>
+          <SortHead label="Ticket Age" k="age" style={clCell(CL_COLS.age)} />
+          {head && <span className="truncate" style={clCell(CL_COLS.cm, th)}>Manager</span>}
+          <SortHead label="Stage due" k="due" style={clDueCol} />
+        </div>
+        {view.length ? view.map((t) => (
+          <button key={t.id} onClick={() => openTicket(t.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50" style={{ cursor: "pointer" }}>
+            <span className="flex items-center gap-2" style={clCell(CL_COLS.id)}>
+              <span className="bk-num truncate" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
+              {t.escalated && <span className="shrink-0 rounded-full" title="Escalated" style={{ width: 6, height: 6, background: IND.error.dot }} />}
+            </span>
+            <span className="truncate" style={clCell(CL_COLS.client)}>
+              <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{t.client}</span>
+              <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{t.product} · {t.insurer}</span>
+            </span>
+            <span style={clCell(CL_COLS.stage)}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
+            <span style={clCell(CL_COLS.owner)}><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
+            <span style={clCell(CL_COLS.prio)}><Indicator label={t.priority} ind={clPrioInd(t.priority)} outline /></span>
+            <span className="bk-num" style={clCell(CL_COLS.age, { fontSize: 12, fontWeight: 500, color: C.figHint })}>{clDur(CL_NOW - t.createdAt)}</span>
+            {head && <span className="truncate" style={clCell(CL_COLS.cm, { fontSize: 12, fontWeight: 600, color: C.figHint })}>{t.cm}</span>}
+            <span style={clDueCol}><ClDue t={t} /></span>
+          </button>
+        )) : <Empty>No claims match these filters.</Empty>}
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs" style={{ color: C.figTert }}>
+        <span><span className="bk-num">{rows.length}</span> of <span className="bk-num">{clVisible(tickets, role).length}</span> claims{filtered ? " · filters applied" : ""}</span>
+        {rows.length > CL_PAGE && <Pager page={at} pages={pages} setPage={setPage} />}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Detail: transition builders (pure) + screen ---------- */
+const clAudit = (t, what, detail, actor, role) => ({ ...t, audit: [{ at: CL_NOW, actor: actor || CL_ME, role: role || (actor ? "" : "Claims Manager"), what, detail: detail || "" }, ...t.audit] });
+function clStep(t, to, extra = {}) {
+  const next = to === "BRANCH" ? ((t.loss || 0) > CL_SURVEYOR_THRESHOLD ? "S5" : "S8") : to;
+  return { ...t, ...extra,
+    ownerLog: [...t.ownerLog, { owner: CL_FLOW[t.state].owner, from: t.stageAt, to: CL_NOW, state: t.state }],
+    state: next, status: CL_FLOW[next].status, stageAt: CL_NOW, escalated: false,
+    chase: { reminders: 0, escalations: 0, events: [] }, subStatus: CL_FLOW[next].sub || null };
+}
+/* Intake field → captured value (C-6 Overview). */
+function clFieldVals(t) {
+  return {
+    "Policy No": t.policy, "Policy No.": t.policy, "Insured Name": t.client,
+    "Date & Time of Incident": clFdt(t.dol), "Date of loss": clFdt(t.dol), "Date of Loss": clFdt(t.dol),
+    "Date of Accident": clFdt(t.dol), "Date the claim or notice was received": clFdt(t.dol),
+    "Brief description about the incident": t.desc, "Loss description": t.desc, "Description of the claim": t.desc,
+    "Cause of Loss": t.cause, "Cause of the Accident": t.cause, "Nature of the allegation": t.cause,
+    "Claimant name": t.claimant, "Location of loss: full address": t.location, "Location of Loss": t.location,
+    "Location details (damage/loss)": t.location, "Location of accident": t.location,
+    "Estimated Loss Amount": t.loss ? clInr(t.loss) : null, "Estimated loss amount": t.loss ? clInr(t.loss) : null,
+    "Contact person name": t.contactName, "Contact person mobile": t.contactMobile,
+    "Photos": (CL_PHOTOS[t.product] || 0) + " images attached", "Photos of damage": (CL_PHOTOS[t.product] || 0) + " images attached",
+  };
+}
+/* What the bot will extract at a stage — keys only, for the waiting panel (C-2). */
+function clBotPreview(t) {
+  const poc = (CL_INSURERS[t.insurer] || {}).poc || "claims@" + t.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+  const M = {
+    S3: { type: "Claim registration", keys: ["Insurer claim number"] },
+    S4: { type: "Admissibility decision", keys: ["Decision", "Next step"] },
+    S5: { type: "Surveyor appointment", keys: ["Surveyor name", "Firm", "Mobile", "Proposed visit date"] },
+    S6: { type: "Inspection & assessment report", keys: ["Inspection outcome", "Assessed loss", "Report arrived as"] },
+    S8: { type: "Assessment report", keys: ["Inspection outcome", "Assessed loss", "Report arrived as"] },
+    S11: { type: "Payment confirmation", keys: ["Amount", "Mode", "UTR"] },
+    R2: { type: "Detailed rejection", keys: ["Outcome", "Grounds", "Challenges used"] },
+  };
+  return { from: poc, ...(M[t.state] || { type: "Inbound mail", keys: [] }) };
+}
+const CL_TAB_LABELS = { overview: "Overview", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & assessment", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
+
+/* A labelled field control used by the action-panel forms. */
+function ClInput({ label, value, onChange, type = "text", placeholder, options }) {
+  return (
+    <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">
+      <FieldLabel>{label}</FieldLabel>
+      {options
+        ? <select value={value} onChange={(e) => onChange(e.target.value)} style={FIELD}>{options.map((o) => <option key={o}>{o}</option>)}</select>
+        : <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={FIELD} />}
+    </label>
+  );
+}
+const ClNote = ({ tone, bg, children }) => (
+  <div className="w-full" style={{ background: bg, borderRadius: 10, padding: "10px 12px", fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: tone }}>{children}</div>
+);
+
+function ClaimsDetail({ t, role, act }) {
+  const [tab, setTab] = useState("overview");
+  const consented = CL_ORDER.indexOf(t.state) >= CL_ORDER.indexOf("S10");
+  const surveyTrack = !!t.surveyor || !!t.report || CL_ORDER.indexOf(t.state) >= CL_ORDER.indexOf("S5");
+  const qOpen = t.queries.filter((q) => q.status === "open").length;
+  const tabs = [["overview"], ["docs"], ["client"], ["mail"]]
+    .concat(surveyTrack ? [["survey"]] : []).concat(consented ? [["payment"]] : [])
+    .concat([["history"], ["manage"]])
+    .map(([k]) => [k, k === "client" && qOpen ? `Client channel (${qOpen})` : CL_TAB_LABELS[k]]);
+  const activeTab = (tab === "payment" && !consented) || (tab === "survey" && !surveyTrack) ? "overview" : tab;
+  const f = CL_FLOW[t.state], hc = clHealth(t);
+
+  return (
+    <div>
+      {/* header */}
+      <div className="mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="bk-num" style={{ fontSize: 24, fontWeight: 700, color: C.figInk }}>{t.id}</h1>
+          <Indicator label={clStageLabel(t)} ind={clStageInd(t)} big status />
+          <span className="flex-1" />
+          <Indicator label={t.priority} ind={clPrioInd(t.priority)} outline />
+          <Indicator label={t.product} ind="neutral" outline />
+          <Indicator label={`${t.channel} intake`} ind="neutral" outline />
+          <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+          <span>Client <b style={{ color: C.figInk }}>{t.client}</b></span>
+          <span>Policy <b style={{ color: C.figInk }}>{t.policy}</b></span>
+          <span>Insurer <b style={{ color: C.figInk }}>{t.insurer}</b> ({CL_INSURERS[t.insurer].mode})</span>
+          <span>Insurer claim no. <b style={{ color: C.figInk }}>{t.claimNo || "not yet issued"}</b></span>
+          <span>Client sees <b style={{ color: C.figInk }}>{clClientLabel(t)}</b></span>
+          <span>Owner <b style={{ color: C.figInk }}>{t.cm}</b></span>
+        </div>
+      </div>
+      <div className="mb-4" style={{ borderBottom: `1px solid ${C.lineSoft}` }}>
+        <TabBar tabs={tabs} tab={activeTab} setTab={setTab} />
+      </div>
+
+      {activeTab === "overview" && <ClOverview t={t} act={act} setTab={setTab} />}
+      {activeTab === "docs" && <ClDocs t={t} act={act} />}
+      {activeTab === "client" && <ClClient t={t} act={act} />}
+      {activeTab === "mail" && <ClMail t={t} />}
+      {activeTab === "survey" && <ClSurvey t={t} act={act} setTab={setTab} />}
+      {activeTab === "payment" && <ClPayment t={t} act={act} setTab={setTab} />}
+      {activeTab === "history" && <ClHistory t={t} />}
+      {activeTab === "manage" && <ClManage t={t} role={role} act={act} setTab={setTab} />}
+    </div>
+  );
+}
+
+function ClOverview({ t, act, setTab }) {
+  const f = CL_FLOW[t.state], hc = clHealth(t);
+  if (["SX", "ST", "RX"].includes(t.state)) {
+    return (
+      <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <SectionTitle>{clStageLabel(t)}</SectionTitle>
+        <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+          Closed {clFdt(t.stageAt)} by {t.cm}. The reason and before/after values are on the Ticket history tab.</p>
+        <p className="mt-3" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>Client sees: <b style={{ color: C.figInk }}>{clClientLabel(t)}</b> · {t.state === "ST" ? "Not reopenable — the client raises a fresh claim." : "A fresh claim would have to be raised."}</p>
+      </div>
+    );
+  }
+  const o = clOverdueBy(t), elapsed = CL_NOW - t.stageAt, budget = Math.max(1, clDue(t) - t.stageAt);
+  const pct = Math.min(100, (elapsed / budget) * 100);
+  const path = clPath(t), pIdx = path.indexOf(t.state);
+  const vals = clFieldVals(t);
+  const fields = CL_FIELDS[t.product] || [];
+  const tone = hc === "red" ? C.semError : hc === "amber" ? C.semCaution : C.figHint;
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
+      {/* left: stage clock */}
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl border p-4" style={{ borderColor: hc === "red" ? IND.error.line : hc === "amber" ? IND.caution.line : C.subtle, borderWidth: "0.5px", background: hc === "red" ? C.breachSoft : hc === "amber" ? C.warnSoft : C.white }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>Stage timeline</div>
+          <div className="bk-num mt-1" style={{ fontSize: 26, fontWeight: 700, color: tone }}>{f.terminal ? "Settled" : o > 0 ? clDur(o) + " over" : clDur(-o) + " left"}</div>
+          <div className="mt-2 overflow-hidden rounded-full" style={{ height: 6, background: "rgba(0,0,0,0.06)" }}>
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} /></div>
+          <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.6, color: C.figHint }}>
+            {clTatLabel(t)}{f.tat?.unit === "BH" ? " · Mon–Fri 10:00–19:00" : " · weekends and holidays excluded"}<br />
+            {clDur(elapsed)} elapsed · owed by <b style={{ color: C.figInk }}>{f.owner}</b>
+          </div>
+          {t.escalated && (
+            <div className="mt-2.5 border-t pt-2.5" style={{ borderColor: "rgba(0,0,0,0.08)", fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+              Escalated to {CL_HEAD}. The {f.owner === "Insurer" ? "insurer" : "BimaKavach"} owes the action, so it stays open and never terminates.</div>
+          )}
+        </div>
+        <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Where time has gone</div>
+          <ClAgeBars t={t} />
+        </div>
+      </div>
+
+      {/* right: workflow + capture + action */}
+      <div className="flex flex-col gap-4">
+        <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div className="flex items-baseline justify-between gap-3">
+            <SectionTitle>Claim workflow</SectionTitle>
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Claim age: {clDur(CL_NOW - t.createdAt)}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {CL_PHASES.map((p, i) => {
+              const st = i < f.phase ? "done" : i === f.phase ? "now" : "";
+              return <span key={p} className="flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ fontSize: 12, fontWeight: 500,
+                background: st === "now" ? C.brand : st === "done" ? C.brandBg : C.canvas,
+                color: st === "now" ? C.white : st === "done" ? C.brand : C.figTert }}>
+                <span className="rounded-full" style={{ width: 6, height: 6, background: st === "now" ? C.white : st === "done" ? C.brand : C.figTert }} />{p}</span>;
+            })}
+          </div>
+          <details className="mt-3 rounded-lg border" style={{ borderColor: C.lineSoft }}>
+            <summary className="flex cursor-pointer items-center gap-2 px-3 py-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>
+              <Indicator label={`Stage ${pIdx + 1} of ${path.length}`} ind="brand" /> Workflow stages
+            </summary>
+            <ol className="px-4 pb-3" style={{ fontSize: 13, lineHeight: 1.7 }}>
+              {path.map((c, pi) => {
+                const st = pIdx > -1 ? (pi < pIdx ? "done" : pi === pIdx ? "now" : "") : "";
+                return <li key={c} style={{ color: st === "now" ? C.figInk : st === "done" ? C.figHint : C.figTert, fontWeight: st === "now" ? 700 : 500 }}>
+                  {CL_FLOW[c].label}{CL_FLOW[c].tat ? <span style={{ color: C.figTert, fontWeight: 400 }}> · {CL_FLOW[c].tat.v} {CL_FLOW[c].tat.unit === "BH" ? "business hour(s)" : "working day(s)"} · {CL_FLOW[c].owner}</span> : ""}</li>;
+              })}
+            </ol>
+          </details>
+
+          <div className="mt-4 border-t pt-4" style={{ borderColor: C.lineSoft }}>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>Captured at intake</span>
+              <span className="flex-1" />
+              <Indicator label={t.missing ? "Incomplete" : "Complete"} ind={t.missing ? "caution" : "success"} />
+            </div>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.product} mandatory field set, from the product × claim-intimation master.</p>
+            <div className="mt-3 flex flex-col">
+              {fields.map((k) => {
+                const missing = (t.missing || []).includes(k);
+                const optional = clLossOptional(t.product) && k.toLowerCase().startsWith("estimated loss");
+                return (
+                  <div key={k} className="flex items-start gap-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>
+                    <span className="w-48 shrink-0" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{k}{optional && <span style={{ color: C.figTert, fontWeight: 500 }}> · optional</span>}</span>
+                    <span className="flex-1" style={{ fontSize: 13, fontWeight: 500, color: missing ? C.semCaution : C.figInk }}>
+                      {missing ? "Awaiting client" : vals[k] || (optional ? "Not declared — optional on " + t.product : "Captured")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <ClExtraPanels t={t} setTab={setTab} />
+          {(CL_FLOW[t.state].tab || "overview") === "overview" ? <ClActionPanel t={t} act={act} setTab={setTab} /> : <ClCtaPointer t={t} setTab={setTab} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClAgeBars({ t }) {
+  const buckets = { Client: 0, Insurer: 0, BimaKavach: 0 };
+  t.ownerLog.forEach((o) => { if (buckets[o.owner] != null) buckets[o.owner] += o.to - o.from; });
+  buckets[clOwner(t)] = (buckets[clOwner(t)] || 0) + (CL_NOW - t.stageAt);
+  const total = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
+  const ind = { Client: "info", Insurer: "caution", BimaKavach: "brand" };
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      {Object.entries(buckets).map(([k, v]) => (
+        <div key={k} className="flex items-center gap-2">
+          <span className="w-24 shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{k}</span>
+          <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
+            <span className="block h-full rounded-full" style={{ width: `${(v / total) * 100}%`, background: IND[ind[k]].dot }} /></span>
+          <span className="bk-num w-10 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{Math.round((v / CL_DAY) * 10) / 10}d</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ClExtraPanels({ t, setTab }) {
+  return (
+    <>
+      {t.admissibility && (
+        <div className="mt-4"><ClNote tone={C.link} bg={C.waitSoft}>BimaKavach admissibility: <b>{t.admissibility}</b>. Never shown to the client.{t.admissibility === "Outside policy terms" ? ` ${CL_HEAD} notified; the claim proceeded to the insurer regardless.` : ""}</ClNote></div>
+      )}
+      {t.assessedLoss && (
+        <div className="mt-4 rounded-lg border p-3" style={{ borderColor: C.lineSoft }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Assessment</div>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+            <span>Declared at intimation (immutable) <b style={{ color: C.figInk }}>{clInr(t.loss)}</b></span>
+            <span>Assessed loss <b style={{ color: C.figInk }}>{clInr(t.assessedLoss)}</b></span>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ClCtaPointer({ t, setTab }) {
+  const tab = CL_FLOW[t.state].tab;
+  const name = tab === "survey" ? "Survey & assessment" : "Payment";
+  const why = tab === "survey" ? "The surveyor, site inspection and assessment report are handled there." : "Bank details, payment records and settlement figures are handled there.";
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl p-3" style={{ background: C.waitSoft, border: `0.5px solid ${IND.info.line}` }}>
+      <span className="flex-1" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}><b>{CL_FLOW[t.state].label}.</b> {why}</span>
+      <Btn onClick={() => setTab(tab)} size="sm">Open {name}</Btn>
+    </div>
+  );
+}
+
+/* The working part — driver-distinct action panels (C-2). */
+function ClActionPanel({ t, act, setTab }) {
+  const f = CL_FLOW[t.state];
+  const [manual, setManual] = useState(false);
+  const [form, setForm] = useState({});
+  const [note, setNote] = useState("");
+  const [rejWhy, setRejWhy] = useState("");
+  const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
+  useEffect(() => { setManual(false); setForm({}); setNote(""); setRejWhy(""); }, [t.state, t.id]);
+
+  if (f.terminal) return <div className="mt-4"><ClNote tone={"#007B00"} bg={C.tealSoft}>This claim is closed. No further actions are available.</ClNote></div>;
+  if (t.dormant) return (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <ClNote tone={C.semCaution} bg={C.warnSoft}>Parked as dormant — {t.dormant.sub}. No chase runs while it sits here. Resume it from the Manage ticket tab, choosing which state to pick up at.</ClNote>
+      <Btn variant="secondary" size="sm" onClick={() => setTab("manage")}>Open Manage ticket</Btn>
+    </div>
+  );
+
+  const src = f.act.src || "cm";
+
+  /* bot / auto waiting panel */
+  if ((src === "bot" || src === "auto") && !manual) {
+    const bp = clBotPreview(t);
+    return (
+      <div className="mt-4 rounded-xl p-4" style={{ background: C.brandBg, border: `1.5px dashed ${C.brand}` }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Indicator label="Waiting on the bot" ind="brand" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{bp.type}</span>
+          <span className="flex-1" />
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>from {bp.from}</span>
+        </div>
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+          This stage advances automatically. The bot classifies the inbound mail, extracts the fields below and moves the claim on. A Claims Manager only steps in if extraction fails.</p>
+        <div className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {bp.keys.map((k) => (
+            <div key={k} className="flex items-center justify-between rounded-lg px-2.5 py-2" style={{ background: C.white, border: `0.5px solid ${C.lineSoft}` }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{k}</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>awaiting mail</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SimBtn onClick={() => act.bot(t.id)}>Simulate: {t.state === "S4" ? "an acceptance arrives" : "the mail arrives"}</SimBtn>
+          {t.state === "S4" && <SimBtn onClick={() => act.botReject(t.id)}>Simulate: a rejection arrives</SimBtn>}
+          <Btn variant="secondary" size="sm" onClick={() => setManual(true)}>Extraction failed — record manually</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  /* client waiting panel */
+  if (src === "client") {
+    const reject = t.state === "R1", rejectFinal = t.state === "R3";
+    const what = { S9: "Consent to the assessed amount", S10: "Bank details and cancelled cheque", S12: "Confirmation that the money arrived", R1: "Challenge the rejection, or accept it", R3: "Accept the rejection" }[t.state];
+    const detail = { S9: "The assessment report is published on BimaKendra with two actions — consent or object. Objections are capped at two rounds.", S10: "Asked for only now — after consent — so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm.", R1: "The rejection reason is published on BimaKendra as the insurer wrote it. The client may challenge it twice; each needs a reason. There is no withdrawal on this track.", R3: "Both challenges are used, so Accept is the only remaining action. The client stays free to approach IRDAI or a court; the platform records that, it does not offer it." }[t.state];
+    return (
+      <div className="mt-4 rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Indicator label="Waiting on the client" ind="caution" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{what}</span>
+          <span className="flex-1" />
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>on BimaKendra</span>
+        </div>
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{detail}</p>
+        {reject && (
+          <div className="mt-3 rounded-lg border p-3" style={{ borderColor: C.lineSoft, background: C.white }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>The insurer's reason, as written</div>
+            <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{t.rejection.reason}</p>
+            <div className="mt-3" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Challenges used — {t.challenges} of 2</div>
+            <textarea value={rejWhy} onChange={(e) => setRejWhy(e.target.value)} placeholder={`The client's reason for challenging. Mandatory. Goes to ${t.insurer} as written.`} className="mt-2 w-full" rows={3} style={{ ...FIELD, resize: "vertical" }} />
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {reject ? (
+            <>
+              <SimBtn onClick={() => act.challenge(t.id, rejWhy)}>Simulate: the client challenges</SimBtn>
+              <Btn variant="secondary" size="sm" onClick={() => act.acceptRej(t.id)}>Simulate: the client accepts</Btn>
+            </>
+          ) : rejectFinal ? (
+            <SimBtn onClick={() => act.acceptRej(t.id)}>Simulate: the client accepts</SimBtn>
+          ) : t.state === "S10" ? (
+            <Btn size="sm" onClick={() => setTab("payment")}>Open the Payment tab</Btn>
+          ) : (
+            <SimBtn onClick={() => act.clientRun(t.id)}>Simulate: the client acts on BimaKendra</SimBtn>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* CM data-entry form (and the bot manual-fallback form) */
+  const hint = {
+    S0: "The email bot created this in Draft. It flips to Under Review only when every mandatory item is captured.",
+    S1: "Two business-hour initial-response TAT. The assessment is a checkpoint, not a gate — the claim proceeds either way.",
+    S2: CL_INSURERS[t.insurer].mode === "Portal" ? "Portal insurer — a CM logs in and raises the claim. One-business-hour TAT." : "Mail insurer — TMS sends the automated mailer with all documents attached.",
+    S3: "Insurer owes the claim number.", S4: `On acceptance the route splits on the declared estimate of ${clInr(t.loss)}: ${(t.loss || 0) > CL_SURVEYOR_THRESHOLD ? "above ₹1 lakh, so a surveyor is appointed." : "at or below ₹1 lakh, so the insurer assesses internally."}`,
+    S5: "Surveyor name, mobile and visit date arrive by email and are bot-extracted.", S6: "Recording the report does not advance the claim; sharing it with the client does.", S8: "The insurer assesses internally below the threshold.",
+    S11: "The insurer pays the client directly. TMS records the payment; it never moves money.",
+  }[t.state] || "";
+  const formFor = () => {
+    switch (f.act.form) {
+      case "admiss": return <ClInput label="Assessment against policy terms" value={form.i1 || "Within policy terms"} onChange={set("i1")} options={["Within policy terms", "Outside policy terms"]} />;
+      case "claimno": return <ClInput label="Insurer claim number" value={form.i1 || ""} onChange={set("i1")} placeholder="e.g. IL/FIR/26/00000" />;
+      case "surveyor": return <><ClInput label="Surveyor name" value={form.i1 || ""} onChange={set("i1")} placeholder="Name" /><ClInput label="Mobile" value={form.i2 || ""} onChange={set("i2")} placeholder="10 digits" /><ClInput label="Visit date" type="date" value={form.i3 || ""} onChange={set("i3")} /></>;
+      case "report": return <><ClInput label="Inspection outcome" value={form.i0 || ""} onChange={set("i0")} placeholder="What the assessor found on site" /><ClInput label="Assessed loss (report value)" type="number" value={form.i1 || ""} onChange={set("i1")} placeholder={String(t.loss || 0)} /><ClInput label="Report arrived as" value={form.i2 || "Attached PDF"} onChange={set("i2")} options={["Attached PDF", "Email body"]} /></>;
+      case "payment": return <><ClInput label="Payment type" value={form.i1 || "Full and final"} onChange={set("i1")} options={["Full and final", "Instalment", "Instalment - Final"]} /><ClInput label="Amount paid" type="number" value={form.i2 || ""} onChange={set("i2")} placeholder="Amount" /><ClInput label="Payment reference (UTR)" value={form.i3 || ""} onChange={set("i3")} placeholder="Optional" /></>;
+      default: return null;
+    }
+  };
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      {manual
+        ? <div className="flex flex-wrap items-center gap-2"><ClNote tone={C.semCaution} bg={C.warnSoft}>Bot extraction failed. Recording manually against a one-hour TAT — the claim already has an owner, so it stays in your tray rather than the shared queue.</ClNote><Btn variant="secondary" size="sm" onClick={() => setManual(false)}>Wait for the bot instead</Btn></div>
+        : hint ? <ClNote tone={C.link} bg={C.waitSoft}>{hint}</ClNote> : null}
+      <div className="flex flex-wrap gap-3">{formFor()}</div>
+      <ClInput label="Note for the audit trail (optional)" value={note} onChange={setNote} placeholder="Why, in your own words" />
+      <div><Btn onClick={() => act.cmForm(t.id, f.act.form || "", form, note)}>{f.act.label}</Btn></div>
+    </div>
+  );
+}
+
+/* ---------- real document bytes (C-8.3) — minimal single-page PDF, no library ---------- */
+function clPdf(lines) {
+  const enc = (x) => String(x).replace(/[\\()]/g, (c) => "\\" + c);
+  let y = 790, ops = "";
+  lines.forEach((l) => { if (l.t) ops += "BT /F1 " + l.s + " Tf 56 " + y + " Td (" + enc(l.t) + ") Tj ET\n"; y -= (l.s >= 12 ? 22 : 16); });
+  const objs = { 1: "<< /Type /Catalog /Pages 2 0 R >>", 2: "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    3: "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    4: "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", 5: "<< /Length " + ops.length + " >>\nstream\n" + ops + "endstream" };
+  let pdf = "%PDF-1.4\n"; const off = {};
+  for (let i = 1; i <= 5; i++) { off[i] = pdf.length; pdf += i + " 0 obj\n" + objs[i] + "\nendobj\n"; }
+  const xref = pdf.length;
+  pdf += "xref\n0 6\n0000000000 65535 f \n";
+  for (let i = 1; i <= 5; i++) pdf += String(off[i]).padStart(10, "0") + " 00000 n \n";
+  pdf += "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF";
+  return pdf;
+}
+function clDocPdf(t, key) {
+  return clPdf([{ t: key.toUpperCase(), s: 16 }, { t: t.client + "  |  " + (t.claimNo || t.policy), s: 10 }, { t: "", s: 10 },
+    { t: "Insured:  " + t.client, s: 11 }, { t: "Policy:  " + t.policy + "    Product:  " + t.product, s: 11 },
+    { t: "Insurer:  " + t.insurer + "    Date of loss:  " + clFdate(t.dol), s: 11 }, { t: "", s: 10 },
+    { t: "This is a generated placeholder standing in for the document named above.", s: 10 },
+    { t: "In production this would be the actual file received from the client, insurer or surveyor.", s: 10 }]);
+}
+const clDataUrl = (str, type = "application/pdf") => `data:${type};base64,` + (typeof btoa === "function" ? btoa(unescape(encodeURIComponent(str))) : "");
+function clDownload(name, str, type = "application/pdf") {
+  try { const blob = new Blob([str], { type }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); } catch { /* sandboxed */ }
+}
+function clPhotos(t) {
+  const n = CL_PHOTOS[t.product] || 0;
+  return Array.from({ length: n }, (_, i) => ({ key: "Photograph " + (i + 1), file: "IMG-" + new Date(t.dol).toISOString().slice(0, 10).replace(/-/g, "") + "-" + String(i + 1).padStart(4, "0") + ".jpg", photo: true }));
+}
+function clPhotoSvg(t, i) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320"><rect width="480" height="320" fill="#ECECF1"/><text x="240" y="150" font-family="sans-serif" font-size="18" fill="#6F7378" text-anchor="middle">Damage photograph ${i}</text><text x="240" y="176" font-family="sans-serif" font-size="12" fill="#A9ACB1" text-anchor="middle">${t.location.split(",")[0]}</text></svg>`;
+}
+
+/* ---------- Document vault (C-8) ---------- */
+function ClDocs({ t, act }) {
+  const [view, setView] = useState(null);   // {name, url, real}
+  const docs = CL_DOCS[t.product] || [];
+  const photos = clPhotos(t);
+  const received = (key) => !!t.uploads[key];
+  const Row = ({ name, gotFile, photo, idx }) => {
+    const got = photo || gotFile;
+    return (
+      <div className="flex items-center gap-3 px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>
+        <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{name}</span>
+        {got ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Indicator label="Received" ind="success" outline />
+            <SoftBtn onClick={() => setView({ name, url: photo ? clDataUrl(clPhotoSvg(t, idx), "image/svg+xml") : clDataUrl(clDocPdf(t, name)), real: false })}>View</SoftBtn>
+            <SoftBtn onClick={() => photo ? clDownload(name.replace(/\s/g, "-") + ".svg", clPhotoSvg(t, idx), "image/svg+xml") : clDownload(name.replace(/\s/g, "-") + ".pdf", clDocPdf(t, name))}>Download</SoftBtn>
+            {!photo && <SoftBtn onClick={() => act.upload(t.id, name, name.replace(/\s/g, "-") + "-v2.pdf")}>Replace</SoftBtn>}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Indicator label="Not received" ind="muted" outline />
+            <SoftBtn onClick={() => act.upload(t.id, name, name.replace(/\s/g, "-") + ".pdf")}>Upload</SoftBtn>
+            <SoftBtn onClick={() => act.flash(`Chase sent to the client for ${name}.`)}>Chase</SoftBtn>
+          </div>
+        )}
+      </div>
+    );
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      {photos.length > 0 && (
+        <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 600, color: C.figInk }}>Intimation photographs <span style={{ color: C.figTert, fontWeight: 500 }}>· {photos.length} at intake</span></div>
+          {photos.map((p, i) => <Row key={p.key} name={p.key} photo idx={i + 1} />)}
+        </div>
+      )}
+      <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 600, color: C.figInk }}>{t.product} document set</div>
+        {docs.map((d) => <Row key={d} name={d} gotFile={received(d)} />)}
+        <div className="px-3 py-2.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>View and Download produce real bytes; a seeded document renders a generated placeholder PDF and the viewer says so.</div>
+      </div>
+      {view && (
+        <ModalShell title={view.name} sub="Generated placeholder — not a real upload." onClose={() => setView(null)} width={640}>
+          <iframe title={view.name} src={view.url} style={{ width: "100%", height: 420, border: `1px solid ${C.subtle}`, borderRadius: 8 }} />
+        </ModalShell>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Client channel: queries (C-7) ---------- */
+function ClClient({ t, act }) {
+  const [ask, setAsk] = useState(false);
+  const [text, setText] = useState("");
+  const [target, setTarget] = useState("");
+  const [src, setSrc] = useState("BimaKavach");
+  const queries = t.queries;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <SectionTitle>Client channel</SectionTitle>
+        <Btn size="sm" onClick={() => { setAsk(true); setText(""); setTarget(""); }}>Ask the client</Btn>
+      </div>
+      {queries.length === 0 && <Empty>No queries raised on this claim.</Empty>}
+      {queries.map((q) => (
+        <div key={q.id} className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Indicator label={q.status === "open" ? "Open" : q.status === "answered" ? "Answered" : "Closed"} ind={q.status === "open" ? "caution" : q.status === "answered" ? "success" : "muted"} />
+            {q.target && <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{q.target}</span>}
+            <span className="flex-1" />
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>on behalf of {q.src} · {clDur(CL_NOW - q.at)} ago</span>
+          </div>
+          <p className="mt-2" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{q.text}</p>
+          {q.response && <p className="mt-2 rounded-lg p-2.5" style={{ background: C.tealSoft, fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>Client: {q.response}</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {q.status === "open" && <SimBtn onClick={() => act.answer(t.id, q.id)}>Simulate: the client answers</SimBtn>}
+            {q.status === "answered" && <Btn size="xs" onClick={() => act.closeQuery(t.id, q.id)}>Close query</Btn>}
+            {q.status === "answered" && <Btn size="xs" variant="secondary" onClick={() => act.reopenQuery(t.id, q.id)}>Reopen</Btn>}
+          </div>
+        </div>
+      ))}
+      {ask && (
+        <ModalShell title="Raise a query" sub="The client sees it on their surface; email and WhatsApp tell them to go and look." onClose={() => setAsk(false)}
+          footer={<><Cancel onClick={() => setAsk(false)} /><Btn onClick={() => { if (!text.trim()) return act.flash("Say what you need. A query with no question is not a request."); act.ask(t.id, { target: target.trim(), text: text.trim(), src }); setAsk(false); }}>Send to client</Btn></>}>
+          <div className="flex flex-col gap-3">
+            <ClInput label="Detail or document (optional)" value={target} onChange={setTarget} placeholder="e.g. Repair quotation, or Date the panel was last serviced" />
+            <label className="flex flex-col gap-1.5"><FieldLabel>What is wrong, or what you need clarified</FieldLabel>
+              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="e.g. The declared estimate looks inconsistent with the repair quotation — please confirm the figure" style={{ ...FIELD, resize: "vertical" }} /></label>
+            <ClInput label="Raised on behalf of" value={src} onChange={setSrc} options={["BimaKavach", t.insurer, "Surveyor"]} />
+          </div>
+        </ModalShell>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Mail trail (C-11.4) ---------- */
+function ClMail({ t }) {
+  const items = [];
+  t.audit.forEach((a) => items.push({ at: a.at, who: a.actor, what: a.what, body: a.detail, bot: a.actor === "Email bot" || a.role === "Bot" }));
+  const thread = items.slice().sort((a, b) => b.at - a.at);
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionTitle>Mail trail</SectionTitle>
+      {thread.length === 0 && <Empty>No correspondence yet.</Empty>}
+      {thread.map((m, i) => (
+        <div key={i} className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: m.bot ? C.brandBg : C.white }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {m.bot && <Indicator label="Email bot" ind="brand" />}
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{m.what}</span>
+            <span className="flex-1" />
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{m.who} · {clFdt(m.at)}</span>
+          </div>
+          {m.body && <p className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{m.body}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Survey & assessment (C-6.1) ---------- */
+function ClSurvey({ t, act, setTab }) {
+  const needsAction = t.state === "S5" || (["S6", "S8"].includes(t.state) && !t.report);
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTitle>Survey &amp; assessment</SectionTitle>
+      {needsAction && <ClActionPanel t={t} act={act} setTab={setTab || (() => {})} />}
+      {t.surveyor ? (
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Surveyor</div>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+            <span>Name <b style={{ color: C.figInk }}>{t.surveyor.name}</b></span>
+            {t.surveyor.firm && <span>Firm <b style={{ color: C.figInk }}>{t.surveyor.firm}</b></span>}
+            <span>Mobile <b style={{ color: C.figInk }}>{t.surveyor.mobile}</b></span>
+            <span>Visit <b style={{ color: C.figInk }}>{t.surveyor.visit}</b></span>
+          </div>
+          <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Surveyors are appointed by the insurer above ₹1 lakh. Scheduling happens offline between the client and the surveyor.</p>
+        </div>
+      ) : <ClNote tone={C.link} bg={C.waitSoft}>No surveyor appointed yet. At this stage the appointment arrives by email and is bot-extracted.</ClNote>}
+
+      {t.inspection && (
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Inspection outcome</div>
+          <p className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{t.inspection}</p>
+        </div>
+      )}
+      {t.report && (
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Assessment report</span>
+            <Indicator label={t.report.shared ? "Shared with client" : "Not yet shared"} ind={t.report.shared ? "success" : "caution"} />
+            <span className="flex-1" />
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.report.author} · {t.report.converted ? "generated from the mail body" : "the assessor's own PDF"}</span>
+          </div>
+          {t.assessedLoss && <div className="mt-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>Net assessed loss: <b>{clInr(t.assessedLoss)}</b> {t.loss ? <span style={{ color: C.figTert }}>against {clInr(t.loss)} declared</span> : ""}</div>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <SoftBtn onClick={() => clDownload(t.report.file, clDocPdf(t, "Assessment report"))}>Download report</SoftBtn>
+            {!t.report.shared && ["S6", "S8"].includes(t.state) && <Btn size="sm" onClick={() => act.shareReport(t.id)}>Share with client on BimaKendra</Btn>}
+          </div>
+          {!t.report.shared && <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Recording the report did not advance the claim. Sharing it with the client starts consent.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Payment (C-6.1: only from S10) ---------- */
+function ClPayment({ t, act, setTab }) {
+  const [acc, setAcc] = useState(""); const [ifsc, setIfsc] = useState("");
+  const base = t.assessedLoss || t.loss || 0;
+  const paid = t.payments.reduce((a, p) => a + p.amt, 0);
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTitle>Payment</SectionTitle>
+      {["S11", "S12"].includes(t.state) && <ClActionPanel t={t} act={act} setTab={setTab || (() => {})} />}
+      {base > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div><div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Assessed loss</div><div className="bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{clInr(base)}</div></div>
+          <span className="flex-1" />
+          <Indicator label={`${clInr(paid)} of ${clInr(base)} paid`} ind={paid >= base ? "success" : "caution"} big />
+        </div>
+      )}
+      {/* bank details */}
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Bank details</div>
+        {t.bank ? (
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+            <span>Account <b style={{ color: C.figInk }}>{t.bank.acc}</b></span>
+            <span>IFSC <b style={{ color: C.figInk }}>{t.bank.ifsc}</b></span>
+            <span>Cancelled cheque <b style={{ color: C.figInk }}>{t.bank.cheque}</b></span>
+          </div>
+        ) : t.state === "S10" ? (
+          <>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Asked for only now — after consent — so only clients who will be paid are ever asked. Cancelled cheque is mandatory.</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <ClInput label="Account number" value={acc} onChange={setAcc} placeholder="Account number" />
+              <ClInput label="IFSC" value={ifsc} onChange={setIfsc} placeholder="e.g. HDFC0001188" />
+            </div>
+            <div className="mt-3"><Btn size="sm" onClick={() => { if (!acc.trim() || !ifsc.trim()) return act.flash("Account number and IFSC are both required."); if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase())) return act.flash("IFSC format is four letters, a 0, then six characters."); act.bank(t.id, { acc: acc.trim(), ifsc: ifsc.trim().toUpperCase() }); }}>Record bank details</Btn></div>
+          </>
+        ) : <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Not captured yet.</p>}
+      </div>
+      {/* payments */}
+      {t.payments.length > 0 && (
+        <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 600, color: C.figInk }}>Payments recorded</div>
+          {t.payments.map((p, i) => (
+            <div key={i} className="flex flex-wrap items-center gap-3 px-3 py-2.5" style={{ borderBottom: i === t.payments.length - 1 ? "none" : `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 500 }}>
+              <span style={{ color: C.figInk }}>{p.type}{p.n ? ` ${p.n}` : ""}</span>
+              <span className="bk-num" style={{ color: C.figInk, fontWeight: 700 }}>{clInr(p.amt)}</span>
+              <span className="flex-1" />
+              <span className="bk-num" style={{ color: C.figTert, fontSize: 12 }}>{p.utr || "UTR pending"} · {p.date}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>The insurer pays the client directly. TMS records the payment; it never moves money.</p>
+    </div>
+  );
+}
+
+/* ---------- Ticket history ---------- */
+function ClHistory({ t }) {
+  const rows = t.audit.slice().sort((a, b) => b.at - a.at);
+  return (
+    <div className="flex flex-col gap-3">
+      <SectionTitle>Ticket history</SectionTitle>
+      <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        {rows.map((a, i) => (
+          <div key={i} className="flex gap-3 px-3 py-3" style={{ borderBottom: i === rows.length - 1 ? "none" : `0.5px solid ${C.lineSoft}` }}>
+            <span className="mt-1 shrink-0 rounded-full" style={{ width: 6, height: 6, background: a.actor === "Email bot" ? C.brand : a.role === "Client" ? IND.info.dot : C.figTert }} />
+            <span className="min-w-0 flex-1">
+              <span className="block" style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{a.what}</span>
+              {a.detail && <span className="mt-0.5 block" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{a.detail}</span>}
+              <span className="mt-1 block" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{a.actor}{a.role ? ` · ${a.role}` : ""} · {clFdt(a.at)}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Manage ticket (C-6.4: exactly five cards) ---------- */
+function ManageCard({ title, available, reason, children }) {
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: available ? C.white : C.canvas }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: available ? C.figInk : C.figTert }}>{title}</div>
+      {available ? <div className="mt-2">{children}</div> : <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{reason}</p>}
+    </div>
+  );
+}
+function ClManage({ t, role, act, setTab }) {
+  const [reassignTo, setReassignTo] = useState(CL_CMS.find((c) => c !== t.cm) || CL_CMS[0]);
+  const [reassignWhy, setReassignWhy] = useState("");
+  const [withdrawWhy, setWithdrawWhy] = useState("");
+  const [parkWhy, setParkWhy] = useState("");
+  const [resumeWhy, setResumeWhy] = useState("");
+  const terminal = CL_FLOW[t.state].terminal;
+  const onRej = clIsRej(t);
+  const owner = clOwner(t);
+  const L = CL_LOOPS[clLoop(t)] || {};
+  const canPark = !terminal && !t.dormant && owner === "Client";
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <ManageCard title="Reassign" available={!terminal} reason="A closed claim has no owner to move.">
+        <div className="flex flex-wrap gap-3">
+          <ClInput label="Reassign to" value={reassignTo} onChange={setReassignTo} options={CL_CMS} />
+          <ClInput label="Reason" value={reassignWhy} onChange={setReassignWhy} placeholder="Why the move" />
+        </div>
+        <div className="mt-3"><Btn size="sm" onClick={() => { if (!reassignWhy.trim()) return act.flash("Reassignment needs a reason."); act.reassign(t.id, reassignTo, reassignWhy.trim()); }}>Reassign</Btn></div>
+      </ManageCard>
+
+      <ManageCard title="Mark as withdrawn" available={!terminal && !onRej} reason={onRej ? "Withdrawal is barred across the rejection track — the claim is already recorded as rejected." : "Already closed."}>
+        <ClInput label="Reason" value={withdrawWhy} onChange={setWithdrawWhy} placeholder="Why the client is withdrawing" />
+        <div className="mt-3"><Btn size="sm" tone={C.semError} onClick={() => { if (!withdrawWhy.trim()) return act.flash("Withdrawal needs a reason."); act.withdraw(t.id, withdrawWhy.trim()); }}>Mark as withdrawn</Btn></div>
+      </ManageCard>
+
+      <ManageCard title="Park as dormant" available={canPark} reason={terminal ? "Already closed." : t.dormant ? "Already parked as dormant." : `The ${owner === "Insurer" ? "insurer" : "we"} owe the next action, so this claim stays open and escalates. Parking it is how work disappears.`}>
+        <ClInput label="Reason" value={parkWhy} onChange={setParkWhy} placeholder="Why it is being parked" />
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Parking is silent — no client notification, and the client-facing label does not change.</p>
+        <div className="mt-3"><Btn size="sm" onClick={() => { if (!parkWhy.trim()) return act.flash("Parking needs a reason."); act.park(t.id, parkWhy.trim()); }}>Park as dormant</Btn></div>
+      </ManageCard>
+
+      <ManageCard title="Resume from dormant" available={!!t.dormant} reason="This claim is not parked.">
+        <p style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Resumes at {t.dormant ? CL_FLOW[t.dormant.fromState].label : "—"}. Preconditions are re-validated and cannot be overridden.</p>
+        <ClInput label="Reason" value={resumeWhy} onChange={setResumeWhy} placeholder="Why it is being resumed" />
+        <div className="mt-3"><Btn size="sm" onClick={() => { if (!resumeWhy.trim()) return act.flash("Resuming needs a reason."); act.resume(t.id, t.dormant.fromState, resumeWhy.trim()); }}>Resume</Btn></div>
+      </ManageCard>
+
+      <ManageCard title="Reminders and escalations" available={!terminal && !t.dormant} reason={terminal ? "Nothing to chase on a closed claim." : "No chase runs while parked as dormant."}>
+        <p style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{L.name} · owed by {L.who}. {L.ending}</p>
+        <div className="mt-1 flex items-center gap-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+          <span className="bk-num">{t.chase.reminders} of {L.reminders} reminders</span> · <span className="bk-num">{t.chase.escalations} of {L.escalations || 3} escalations</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Btn size="sm" variant="secondary" disabled={!L.reminders} title={!L.reminders ? `No reminder is sent on the internal chase — ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.` : undefined} onClick={() => act.sendReminder(t.id)}>Send reminder</Btn>
+          <Btn size="sm" tone={C.semError} onClick={() => act.escalate(t.id)}>Escalate to {CL_HEAD}</Btn>
+        </div>
+      </ManageCard>
+    </div>
+  );
+}
+
+/* ---------- Manual review queue (C-11) ---------- */
+function ClaimsReview({ tickets, mrq, role, act }) {
+  const [mail, setMail] = useState(null);   // mail being viewed
+  const [link, setLink] = useState(null);   // mail being linked
+  const [pick, setPick] = useState(null);
+  const [why, setWhy] = useState("");
+  const breach = mrq.filter(CL_MRQ_LATE).length;
+  const openLink = (m) => { const c = clCandidatesFor(m, tickets); setLink(m); setPick(c[0]?.t.id || null); setWhy(""); };
+  return (
+    <div>
+      <PageHead title="Manual review queue" hint="Claims only — separate from the endorsement queue."
+        right={<Indicator label={breach ? `${breach} past the 24-hour queue SLA` : "All within SLA"} ind={breach ? "error" : "success"} big />} />
+      {mrq.length === 0 ? <Empty>The queue is clear. Mail the bot could not classify or match will land here.</Empty> : (
+        <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          {mrq.map((m, i) => {
+            const age = CL_NOW - m.at, late = CL_MRQ_LATE(m), cands = clCandidatesFor(m, tickets);
+            const reject = m.reason === "R5" || m.reason === "R8";
+            return (
+              <div key={m.id} className="flex flex-wrap items-start gap-3 px-3 py-3" style={{ borderBottom: i === mrq.length - 1 ? "none" : `0.5px solid ${C.lineSoft}` }}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bk-num" style={{ fontSize: 12, fontWeight: 700, color: C.figInk }}>{m.id}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{m.fromName || m.from}</span>
+                    <Indicator label={`${m.conf}%`} ind={m.conf >= 80 ? "success" : "caution"} />
+                    {late ? <Indicator label={`${CL_HEAD} notified`} ind="error" outline /> : <Indicator label="Unassigned" ind="muted" outline />}
+                  </div>
+                  <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{m.subject}{m.att.length ? ` · ${m.att.length} attachment${m.att.length > 1 ? "s" : ""}` : ""}</div>
+                  <div className="mt-1.5" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+                    <b style={{ color: C.figInk }}>{m.reason}</b> · {CL_REASONS[m.reason]} — {m.note}</div>
+                  <div className="mt-1 flex items-center gap-2" style={{ fontSize: 11, fontWeight: 500, color: late ? C.semError : C.figTert }}>Guess: {m.guess} · {clDur(age)} in the queue</div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <SoftBtn onClick={() => setMail(m)}>View email</SoftBtn>
+                  {reject ? <Btn size="xs" tone={C.semError} onClick={() => act.rejectMail(m.id)}>Reject</Btn> : <Btn size="xs" onClick={() => act.createFromMail(m)}>Create claim</Btn>}
+                  {cands.length > 0 && <SoftBtn onClick={() => openLink(m)}>Link</SoftBtn>}
+                  <SoftBtn onClick={() => act.discardMail(m.id)}>Discard</SoftBtn>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
+        Pooled queue — every Claims Manager and the Claims Head sees it. Items have no ticket yet, so the two-hour CM clock does not apply; the queue runs its own 24-hour SLA and turns red past it.</p>
+
+      {mail && (
+        <ModalShell title={mail.subject} sub={`${mail.id} · ${mail.conf}% confidence`} onClose={() => setMail(null)} width={720} footer={<Btn variant="secondary" onClick={() => setMail(null)}>Close</Btn>}>
+          <div className="flex flex-wrap gap-x-8 gap-y-2" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+            <span>From <b style={{ color: C.figInk }}>{mail.fromName || mail.from}</b> · {mail.from}</span>
+            <span>To <b style={{ color: C.figInk }}>{mail.to}</b></span>
+            <span>Received <b style={{ color: C.figInk }}>{clFdt(mail.at)}</b></span>
+          </div>
+          <pre className="mt-3 whitespace-pre-wrap rounded-lg p-3" style={{ background: C.canvas, fontFamily: FONT, fontSize: 13, lineHeight: 1.6, color: C.figInk }}>{mail.body}</pre>
+          <div className="mt-3 flex flex-wrap gap-1.5">{mail.att.length ? mail.att.map((a) => <Indicator key={a} label={a} ind="neutral" outline />) : <span style={{ fontSize: 12, color: C.figTert }}>No attachments.</span>}</div>
+        </ModalShell>
+      )}
+      {link && (() => {
+        const cands = clCandidatesFor(link, tickets);
+        return (
+          <ModalShell title="Link to an existing claim" sub={`${link.subject} — from ${link.from}`} onClose={() => setLink(null)} width={620}
+            footer={<><Cancel onClick={() => setLink(null)} /><Btn onClick={() => { if (!pick) return act.flash("Choose the claim this mail belongs to."); if (!why.trim()) return act.flash("Record how you established this is the right claim. The mapping is audited."); act.linkMail(link.id, pick, why.trim()); setLink(null); }}>Link and apply</Btn></>}>
+            <ClNote tone={C.link} bg={C.waitSoft}>Linking attaches the mail and its attachments to the claim's trail and applies the bot's intended action for a <b>{link.guess.toLowerCase()}</b>. The mapping is audited; the bot never picks.</ClNote>
+            <div className="mt-3 flex flex-col gap-2">
+              {cands.map((c) => (
+                <label key={c.t.id} className="flex cursor-pointer items-start gap-2 rounded-lg border p-2.5" style={{ borderColor: pick === c.t.id ? C.brand : C.lineSoft, background: pick === c.t.id ? C.brandBg : C.white }}>
+                  <input type="radio" checked={pick === c.t.id} onChange={() => setPick(c.t.id)} className="mt-1" />
+                  <span className="min-w-0">
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{c.t.id}</span> <span style={{ fontSize: 13, color: C.figInk }}>{c.t.client}</span>
+                    <span className="block" style={{ fontSize: 12, color: C.figTert }}>{c.t.policy} · {CL_FLOW[c.t.state].label} · owned by {c.t.cm}<br />Matched on {c.basis.join(", ")}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <label className="mt-3 flex flex-col gap-1.5"><FieldLabel>Reason for the mapping</FieldLabel>
+              <textarea value={why} onChange={(e) => setWhy(e.target.value)} rows={2} placeholder="How you established this is the right claim" style={{ ...FIELD, resize: "vertical" }} /></label>
+          </ModalShell>
+        );
+      })()}
+    </div>
+  );
+}
+
+/* ---------- Reports ---------- */
+function ClaimsReports({ tickets, mrq, role }) {
+  const buckets = { Client: 0, Insurer: 0, BimaKavach: 0, Dormant: 0 };
+  tickets.forEach((t) => {
+    t.ownerLog.forEach((o) => { if (buckets[o.owner] != null) buckets[o.owner] += o.to - o.from; });
+    if (!CL_FLOW[t.state].terminal) buckets[clOwner(t)] = (buckets[clOwner(t)] || 0) + (CL_NOW - t.stageAt);
+  });
+  const bTotal = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
+  const bcol = { Client: IND.info.dot, Insurer: IND.caution.dot, BimaKavach: C.brand, Dormant: C.figTert };
+  const byStatus = {}; tickets.forEach((t) => { const s = CL_FLOW[t.state].status; byStatus[s] = (byStatus[s] || 0) + 1; });
+  const maxS = Math.max(1, ...Object.values(byStatus));
+  const perIns = {}; tickets.forEach((t) => { (perIns[t.insurer] = perIns[t.insurer] || { n: 0 }).n++; });
+  const insRows = Object.keys(perIns).map((k) => ({ k, n: perIns[k].n, d: CL_INSURERS[k].medianDays, mode: CL_INSURERS[k].mode })).sort((a, b) => b.d - a.d);
+  const maxD = Math.max(...insRows.map((r) => r.d));
+  const breaches = clLive(tickets, role).filter((t) => clOverdueBy(t) > 0);
+  const Bar = ({ label, w, col, val }) => (
+    <div className="flex items-center gap-2"><span className="w-40 shrink-0 truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{label}</span>
+      <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}><span className="block h-full rounded-full" style={{ width: `${w}%`, background: col }} /></span>
+      <span className="bk-num w-16 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{val}</span></div>
+  );
+  const Card = ({ title, hint, children }) => (
+    <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      <SectionTitle>{title}</SectionTitle><p className="mb-3 mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{hint}</p>{children}</div>
+  );
+  return (
+    <div>
+      <PageHead title="Reports" hint={`${tickets.length} claims in the book · ${clLive(tickets, role).length} live`} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Where the delay sits" hint="Four ageing buckets. Dormant is separated so one parked claim cannot swamp client responsiveness.">
+          <div className="flex flex-col gap-2">{Object.entries(buckets).map(([k, v]) => <Bar key={k} label={k} w={(v / bTotal) * 100} col={bcol[k]} val={Math.round(v / CL_DAY) + "d"} />)}</div>
+          <p className="mt-3 border-t pt-3" style={{ borderColor: C.lineSoft, fontSize: 12, fontWeight: 500, color: C.figTert }}>{Math.round((buckets.Insurer / bTotal) * 100)}% of elapsed time sits with insurers — the figure that makes insurer delay separable from ours.</p>
+        </Card>
+        <Card title="Insurer turnaround" hint="Median days from intimation to decision, with claim counts.">
+          <div className="flex flex-col gap-2">{insRows.map((r) => <Bar key={r.k} label={`${r.k} · ${r.mode}`} w={(r.d / maxD) * 100} col={r.d > 12 ? C.semError : r.d > 7 ? C.semCaution : "#00B200"} val={`${r.d}d · ${r.n}`} />)}</div>
+        </Card>
+        <Card title="Claims by status" hint={`All ${tickets.length} claims, live and closed.`}>
+          <div className="flex flex-col gap-2">{Object.entries(byStatus).sort((a, b) => b[1] - a[1]).map(([k, v]) => <Bar key={k} label={k} w={(v / maxS) * 100} col={C.brand} val={v} />)}</div>
+        </Card>
+        <Card title="Manual review queue" hint="Volume by reason code — the primary input for tuning the bot.">
+          {mrq.length ? <div className="flex flex-col gap-2">{Object.entries(mrq.reduce((a, m) => ({ ...a, [m.reason]: (a[m.reason] || 0) + 1 }), {})).map(([k, v]) => <Bar key={k} label={`${k} · ${CL_REASONS[k]}`} w={(v / mrq.length) * 100} col={C.brand} val={v} />)}</div> : <Empty>Queue is empty.</Empty>}
+        </Card>
+      </div>
+      <p className="mt-8 mb-3" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>TAT breaches right now</p>
+      {breaches.length ? (
+        <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          {breaches.map((t, i) => {
+            const f = CL_FLOW[t.state];
+            const end = f.owner === "Client" ? (["S10", "S12"].includes(t.state) ? "Parks dormant. Never terminates — payment is already approved." : "Reminders, then escalation, then dormant or terminated.") : `Escalates and stays open. A claim never terminates while ${f.owner === "Insurer" ? "the insurer" : "BimaKavach"} owes the action.`;
+            return (
+              <div key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5" style={{ borderBottom: i === breaches.length - 1 ? "none" : `0.5px solid ${C.lineSoft}` }}>
+                <span className="bk-num w-28 shrink-0" style={{ fontSize: 12, fontWeight: 700, color: C.figInk }}>{t.id}</span>
+                <span className="w-40 shrink-0 truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{f.label}</span>
+                <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
+                <span className="bk-num shrink-0" style={{ fontSize: 12, fontWeight: 600, color: C.semError }}>{clDur(clOverdueBy(t))} over</span>
+                <span className="min-w-0 flex-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{end}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : <Empty>No breaches. Everything is inside its stage TAT.</Empty>}
+    </div>
+  );
+}
+
+/* ---------- Create claim (C-9) ---------- */
+function ClaimsCreate({ onCreate, back, prefill }) {
+  const [f, setF] = useState({ client: prefill?.client || "", policy: "", product: "Fire", insurer: "Bajaj", dol: "", loss: "", desc: prefill?.desc || "", cause: "", loc: "", cname: "", cmob: "" });
+  const [err, setErr] = useState("");
+  const set = (k) => (v) => setF((s) => ({ ...s, [k]: v }));
+  const optional = clLossOptional(f.product);
+  const submit = () => {
+    const req = { client: "Client", policy: "Policy number", dol: "Date of loss", desc: "Loss description", cause: "Cause of loss", loc: "Location of loss", cname: "Contact person name", cmob: "Contact mobile" };
+    if (!optional) req.loss = "Estimated loss amount";
+    const missing = Object.keys(req).filter((k) => !String(f[k]).trim()).map((k) => req[k]);
+    if (missing.length) return setErr("Submission blocked. Still needed: " + missing.join(", ") + ".");
+    const mob = clCleanMob(f.cmob);
+    if (!CL_MOBILE.test(mob)) return setErr("Contact mobile must be a 10-digit Indian number starting 6, 7, 8 or 9. A +91 or 0 prefix is fine — it will be stripped.");
+    const dol = new Date(f.dol).getTime();
+    if (!dol || dol >= CL_NOW) return setErr("Date of loss must be earlier than the intimation date.");
+    onCreate({ ...f, mob, dol, loss: f.loss ? Number(f.loss) : null });
+  };
+  return (
+    <ModalShell title="Create claim" sub="Portal intake — validated at the door." onClose={back} width={760}
+      footer={<><Cancel onClick={back} /><Btn onClick={submit}>Create claim</Btn></>}>
+      <ClNote tone={C.link} bg={C.waitSoft}>Submission is blocked until every mandatory field is present. An incomplete portal claim never becomes a ticket.</ClNote>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ClInput label="Client" value={f.client} onChange={set("client")} placeholder="Registered client name" />
+        <ClInput label="Policy number" value={f.policy} onChange={set("policy")} placeholder="e.g. FIR/2026/00999" />
+        <ClInput label="Product" value={f.product} onChange={set("product")} options={Object.keys(CL_FIELDS)} />
+        <ClInput label="Insurer" value={f.insurer} onChange={set("insurer")} options={Object.keys(CL_INSURERS)} />
+        <ClInput label="Date of loss" type="date" value={f.dol} onChange={set("dol")} />
+        <ClInput label={`Estimated loss amount (₹)${optional ? " — optional on " + f.product : ""}`} type="number" value={f.loss} onChange={set("loss")} placeholder={optional ? "Often unquantified at notice" : "Client's own estimate"} />
+        <label className="flex flex-col gap-1.5 sm:col-span-2"><FieldLabel>Loss description</FieldLabel>
+          <textarea value={f.desc} onChange={(e) => set("desc")(e.target.value)} rows={2} placeholder="What happened, in the client's words. Mandatory for every product — the only evidence separating two real same-day losses from one claim submitted twice." style={{ ...FIELD, resize: "vertical" }} /></label>
+        <ClInput label="Cause of loss" value={f.cause} onChange={set("cause")} />
+        <ClInput label="Location of loss" value={f.loc} onChange={set("loc")} />
+        <ClInput label="Contact person name" value={f.cname} onChange={set("cname")} placeholder="Who we speak to" />
+        <ClInput label="Contact mobile" value={f.cmob} onChange={set("cmob")} placeholder="10 digits, starting 6–9" />
+      </div>
+      {err && <div className="mt-3"><ClNote tone={C.semError} bg={C.breachSoft}>{err}</ClNote></div>}
+    </ModalShell>
+  );
+}
+
+/* ---------- ClaimsApp: controller + shell ---------- */
+const CL_NAV = [["home", "Home", HeartHandshake], ["list", "My claims", ListChecks], ["review", "Manual Review", SquareDashedMousePointer], ["reports", "Reports", TextSearch]];
+const CL_SURVEYORS = [
+  { name: "K. Venkatesh", firm: "Survey Associates", mobile: "9845011902" },
+  { name: "R. Deshmukh", firm: "Deshmukh & Co Surveyors", mobile: "9820447715" },
+  { name: "S. Iyer", firm: "Meridian Loss Assessors", mobile: "9740228806" },
+];
+const CL_REJ_REASONS = [
+  "Repudiated under the exclusion for unattended premises at the time of loss.",
+  "Repudiated — the loss falls outside the period of insurance on the policy schedule.",
+  "Repudiated — breach of warranty relating to maintenance of the affected plant.",
+  "Repudiated — the cause of loss is excluded under the wear, tear and gradual deterioration clause.",
+];
+const CL_ROUTES = { home: "/claims", list: "/claims/tickets", review: "/claims/review", reports: "/claims/reports" };
+const clPathOf = (view, id) => (view === "ticket" && id ? "/claims/tickets/" + id : CL_ROUTES[view] || "/claims");
+function clReadRoute() {
+  try {
+    const p = window.location.pathname;
+    const m = p.match(/\/claims\/tickets\/(CLM-[\d-]+)/);
+    if (m) return { view: "ticket", openId: m[1] };
+    if (/\/claims\/tickets/.test(p)) return { view: "list" };
+    if (/\/claims\/review/.test(p)) return { view: "review" };
+    if (/\/claims\/reports/.test(p)) return { view: "reports" };
+  } catch { /* sandboxed */ }
+  return { view: "home" };
+}
+function RoleToggle({ role, onChange }) {
+  return (
+    <div className="flex items-center rounded-lg p-0.5" style={{ background: C.canvas, border: `0.5px solid ${C.subtle}` }}>
+      {[["cm", CL_ME], ["head", "Admin View"]].map(([r, name]) => (
+        <button key={r} onClick={() => onChange(r)} title={r === "head" ? "Admin overview — the whole team's claims" : `View ${CL_ME}'s own desk`} className="rounded-md px-2.5 py-1 leading-none" style={{ fontSize: 12, fontWeight: 600, background: role === r ? C.white : "transparent", color: role === r ? C.brand : C.figHint, boxShadow: role === r ? "0 1px 2px rgba(28,27,31,0.10)" : "none" }}>
+          {name}
+        </button>
+      ))}
+    </div>
+  );
+}
+function ClaimsSearch({ open, onClose, tickets, role, openTicket }) {
+  const [q, setQ] = useState("");
+  if (!open) return null;
+  const ql = q.trim().toLowerCase();
+  const pool = clVisible(tickets, role);
+  const rows = ql ? pool.filter((t) => [t.id, t.client, t.insurer, t.product, CL_FLOW[t.state].status].join(" ").toLowerCase().includes(ql)) : pool.slice().sort((a, b) => b.stageAt - a.stageAt).slice(0, 4);
+  return (
+    <Overlay className="bk-scrim fixed inset-0 flex items-start justify-center p-4" style={{ zIndex: 50, background: "rgba(28,27,31,0.32)", backdropFilter: "blur(2px)" }} onClick={onClose}>
+      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl" style={{ maxWidth: 1000, maxHeight: "86vh", background: C.white }} onClick={(e) => e.stopPropagation()}>
+        <div className="p-6">
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search claims by id, client, insurer, product or status" style={{ ...FIELD, width: "100%", fontSize: 16, padding: "12px 14px" }} />
+          <div className="mt-2" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>{ql ? "Results" : "Recent claims"}</div>
+          <div className="mt-3"><ClaimsTable rows={rows} onOpen={openTicket} showCM={role === "head"} empty="No claims match." /></div>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
+function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
+  const boot = useMemo(clReadRoute, []);
+  const [tickets, setTickets] = useState(makeCLTickets);
+  const [mrq, setMrq] = useState(makeCLMRQ);
+  /* Umesh (Claims & Endorsements Head) lands on the Head view; Ruksana on her own desk. */
+  const [role, setRole] = useState(/umesh/i.test(user?.name || "") ? "head" : "cm");
+  const [view, setView] = useState(boot.view);
+  const [openId, setOpenId] = useState(boot.openId || null);
+  const [filter, setFilter] = useState("attention");
+  const [toast, setToast] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState(null);
+
+  const flash = (m) => { setToast(m); setTimeout(() => setToast(null), 3000); };
+  const go = (v, f) => { if (f) setFilter(f); setView(v); };
+  const openTicket = (id) => { setOpenId(id); setView("ticket"); };
+  const mut = (id, fn) => setTickets((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
+  const actor = () => (role === "head" ? CL_HEAD : CL_ME);
+  const roleName = () => (role === "head" ? "Claims Head" : "Claims Manager");
+  const nextSeq = () => Math.max(1063, ...tickets.map((t) => parseInt(String(t.id).split("-").pop(), 10) || 0)) + 1;
+
+  useEffect(() => { try { const p = clPathOf(view, openId); if (window.location.pathname !== p) window.history.pushState({}, "", p + window.location.hash); } catch { /* sandboxed */ } }, [view, openId]);
+  useEffect(() => { const back = () => { const r = clReadRoute(); setView(r.view); if (r.openId) setOpenId(r.openId); }; window.addEventListener("popstate", back); return () => window.removeEventListener("popstate", back); }, []);
+
+  const switchRole = (r) => {
+    setRole(r); setFilter("attention");
+    if (view === "ticket") { const t = tickets.find((x) => x.id === openId); if (t && !clVisible(tickets, r).includes(t)) setView("home"); }
+    flash(r === "head" ? `Viewing as ${CL_HEAD}, Claims & Endorsements Head. You see the whole team's claims.` : `Viewing as ${CL_ME}, Claims Manager. You see the claims assigned to you.`);
+  };
+
+  /* ---- mutation handlers (React state only) ---- */
+  const cmForm = (id, form, v, note) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (form === "claimno" && !String(v.i1 || "").trim()) return flash("Enter the insurer claim number to continue.");
+    if (form === "surveyor") { if (!String(v.i1 || "").trim()) return flash("Surveyor name is required."); if (!CL_MOBILE.test(clCleanMob(v.i2))) return flash("Surveyor mobile must be a 10-digit Indian number starting 6, 7, 8 or 9."); }
+    if (form === "report") { if (!String(v.i0 || "").trim()) return flash("Record what the assessor found before capturing the figure."); if (!Number(v.i1)) return flash("Enter the assessed loss from the report."); }
+    if (form === "payment" && !Number(v.i2)) return flash("Amount paid is required.");
+    const f = CL_FLOW[t0.state];
+    let to = f.act.to; if (to === "BRANCH") to = (t0.loss || 0) > CL_SURVEYOR_THRESHOLD ? "S5" : "S8";
+    const stay = form === "report" || (form === "payment" && v.i1 === "Instalment");
+    let extra = {}, detail = "";
+    if (form === "admiss") { extra.admissibility = v.i1; detail = "Assessment: " + v.i1; if (v.i1 === "Outside policy terms") setTimeout(() => flash(`${CL_HEAD} notified. The claim proceeds to the insurer regardless.`), 0); }
+    else if (form === "claimno") { extra.claimNo = v.i1.trim(); detail = "Claim number " + extra.claimNo; }
+    else if (form === "surveyor") { extra.surveyor = { name: v.i1.trim(), mobile: clCleanMob(v.i2), visit: v.i3 ? clFdate(new Date(v.i3).getTime()) : "to be confirmed" }; detail = "Surveyor " + extra.surveyor.name + " appointed"; }
+    else if (form === "report") { extra.inspection = v.i0.trim(); extra.assessedLoss = Number(v.i1); extra.report = { source: v.i2, converted: v.i2 !== "Attached PDF", author: t0.surveyor ? "Surveyor" : t0.insurer, file: t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; detail = "Inspection recorded · assessed " + clInr(extra.assessedLoss) + " · arrived as " + v.i2; }
+    else if (form === "payment") { const type = v.i1, amt = Number(v.i2); const n = type.startsWith("Instalment") ? t0.payments.filter((p) => p.type.startsWith("Instalment")).length + 1 : null; extra.payments = [...t0.payments, { type, n, date: clFdate(CL_NOW), amt, utr: v.i3 || null }]; detail = type + " · " + clInr(amt); }
+    if (t0.state === "S0") extra.missing = null;
+    mut(id, (t) => { const t1 = clAudit({ ...t, ...extra }, f.act.label, detail + (note ? (detail ? " — " : "") + note : ""), actor(), roleName()); return stay ? t1 : clStep(t1, to); });
+    flash(stay ? (form === "report" ? "Recorded. Share it on the Survey tab to start consent." : "Instalment recorded. Add another, or close with a final payment.") : CL_FLOW[to].terminal ? "Claim closed as Settled." : `Moved to “${CL_FLOW[to].label}”. Client now sees “${CL_FLOW[to].client}”.`);
+  };
+  const bot = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    const s = t0.state, poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    if (s === "S3") { const cn = t0.insurer.split(" ")[0].slice(0, 2).toUpperCase() + "/" + t0.product.slice(0, 3).toUpperCase() + "/26/" + (10000 + Math.floor(Math.random() * 89999)); mut(id, (t) => clStep(clAudit({ ...t, claimNo: cn }, "Claim registration classified and extracted", "Insurer claim number: " + cn + " · 96% confidence, from " + poc, "Email bot"), "S4")); return flash("Bot advanced the claim to “Awaiting admissibility decision”."); }
+    if (s === "S4") { mut(id, (t) => clStep(clAudit(t, "Admissibility decision classified and extracted", "Decision: Admitted · 94% confidence, from " + poc, "Email bot"), "BRANCH")); return flash("Bot recorded the insurer's acceptance and routed the claim. No human touched it."); }
+    if (s === "S5") { const sv = CL_SURVEYORS[t0.id.charCodeAt(t0.id.length - 1) % CL_SURVEYORS.length]; const surveyor = { name: sv.name, firm: sv.firm, mobile: sv.mobile, visit: clFdate(CL_NOW + 3 * CL_DAY), source: "Bot-extracted from insurer mail" }; mut(id, (t) => clStep(clAudit({ ...t, surveyor }, "Surveyor appointment classified and extracted", "Surveyor " + sv.name + " (" + sv.firm + ") · 93% confidence, from " + poc, "Email bot"), "S6")); return flash("Bot advanced the claim to “Inspection & assessment report”."); }
+    if (s === "S6" || s === "S8") { const assessed = Math.round((t0.loss || 250000) * 0.88 / 1000) * 1000; const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection — assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, assessedLoss: assessed, report }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and extracted", "Assessed loss " + clInr(assessed) + " · arrived as " + (asPdf ? "attached PDF" : "email body"), "Email bot")); return flash("Report extracted. Share it with the client on the Survey tab to start consent."); }
+    if (s === "R2") { const n = t0.challenges; const body = n === 1 ? "We have re-examined the file against the challenge raised. The exclusion relied on is unchanged, but we set out below the basis on which it was applied." : "This is our final position. The file has been reviewed a second time. The repudiation stands and no further internal review is available."; mut(id, (t) => { const to = t.challenges >= 2 ? "R3" : "R1"; const rej = { ...t.rejection, responses: [...t.rejection.responses, { kind: "reply", n: t.challenges, text: body, at: CL_NOW }] }; return clStep(clAudit({ ...t, rejection: rej }, "Insurer's detailed reply to challenge " + t.challenges, "Rejection upheld · 96% confidence, from " + poc, "Email bot"), to); }); return flash("Insurer's reply recorded and published to the client."); }
+    if (s === "S11") { mut(id, (t) => { const pay = { type: "Full and final", n: null, date: clFdate(CL_NOW), amt: t.assessedLoss || t.loss || 0, utr: "UTR" + String(CL_NOW).slice(2, 10), mode: "NEFT" }; return clStep(clAudit({ ...t, payments: [...t.payments, pay] }, "Payment confirmation classified and extracted", "Amount " + clInr(pay.amt) + " · UTR " + pay.utr + " · 97% confidence, from " + poc, "Email bot"), "S12"); }); return flash("Bot recorded the payment. Client now sees “Payment Released”."); }
+    return flash("No inbound mail is expected at this stage.");
+  };
+  const botReject = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    const reason = CL_REJ_REASONS[t0.id.charCodeAt(t0.id.length - 1) % CL_REJ_REASONS.length];
+    mut(id, (t) => clStep(clAudit({ ...t, rejection: { reason, at: CL_NOW, responses: [] }, challenges: 0 }, "Insurer rejection classified and extracted", reason + " · 96% confidence, from " + poc, "Email bot"), "R1"));
+    flash("Rejection recorded and published to the client. They may challenge it twice.");
+  };
+  const clientRun = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    const to = CL_FLOW[t0.state].act.to;
+    const what = { S9: "Client consented to the assessed amount on BimaKendra", S12: "Client confirmed receipt on BimaKendra" }[t0.state] || "Client acted on BimaKendra";
+    mut(id, (t) => clStep(clAudit(t, what, "Recorded from BimaKendra", t.client, "Client"), to));
+    flash(CL_FLOW[to].terminal ? "Claim closed as Settled." : `Moved to “${CL_FLOW[to].label}”.`);
+  };
+  const challenge = (id, reason) => {
+    if (!String(reason || "").trim()) return flash("A challenge needs a reason from the client. It is mandatory and goes to the insurer as written.");
+    mut(id, (t) => { const ch = t.challenges + 1; const rej = { ...t.rejection, responses: [...t.rejection.responses, { kind: "challenge", n: ch, text: reason.trim(), at: CL_NOW }] }; return clStep(clAudit({ ...t, challenges: ch, rejection: rej }, "Challenge " + ch + " of 2 raised by the client", reason.trim(), t.client, "Client"), "R2"); });
+    flash("Challenge forwarded to the insurer. They owe a fuller explanation.");
+  };
+  const acceptRej = (id) => { mut(id, (t) => clStep(clAudit(t, "Client accepted the rejection", "Closed with reason Rejection accepted. The client remains free to approach IRDAI or a court — the platform records that, it does not offer it.", t.client, "Client"), "RX", { closureReason: "Rejection accepted", subStatus: null })); flash("Closed as Rejection accepted."); };
+  const shareReport = (id) => { mut(id, (t) => clStep(clAudit({ ...t, report: { ...t.report, shared: true, sharedAt: CL_NOW } }, "Assessment report shared on BimaKendra", t.report.file + " · assessed loss " + clInr(t.assessedLoss), actor(), roleName()), "S9")); flash("Shared. The client can now consent or object — two rounds, same as a rejection."); };
+  const ask = (id, q) => { mut(id, (t) => { const qid = "Q" + (t.queries.length + 1); return clAudit({ ...t, queries: [...t.queries, { id: qid, target: q.target, text: q.text, src: q.src, status: "open", at: CL_NOW, response: null }] }, "Query raised" + (q.target ? " on " + q.target : ""), q.text + " · on behalf of " + q.src, actor(), roleName()); }); flash("Sent to the client. They see it on their surface; the reminder cycle starts now."); };
+  const answer = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "answered", response: "Sharing the requested detail from our records.", respondedAt: CL_NOW } : q)), audit: [{ at: CL_NOW, actor: t.client, role: "Client", what: "Client responded to a query", detail: "" }, ...t.audit] })); flash("Response recorded."); };
+  const closeQuery = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "closed" } : q)) })); flash("Query closed."); };
+  const reopenQuery = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "open" } : q)) })); flash("Query reopened."); };
+  const bank = (id, b) => { mut(id, (t) => clStep(clAudit({ ...t, bank: { acc: b.acc, ifsc: b.ifsc, cheque: "cancelled-cheque.pdf" } }, "Bank details recorded", "Recorded and sent to " + t.insurer, actor(), roleName()), "S11")); flash("Bank details recorded. Moved to Payment in Progress."); };
+  const upload = (id, key, name) => { mut(id, (t) => { const q = t.queries.find((x) => x.status === "open" && x.target === key); return clAudit({ ...t, uploads: { ...t.uploads, [key]: { name, at: CL_NOW, by: actor() } }, queries: q ? t.queries.map((x) => (x.id === q.id ? { ...x, status: "answered", response: "Uploaded " + name } : x)) : t.queries }, "Document received: " + key, name, actor(), roleName()); }); flash("Uploaded " + name + "."); };
+  const reassign = (id, cm, reason) => { mut(id, (t) => clAudit({ ...t, cm }, "Reassigned to " + cm, reason, actor(), roleName())); flash("Reassigned to " + cm + "."); };
+  const withdraw = (id, reason) => { mut(id, (t) => clStep(clAudit(t, "Marked as withdrawn", reason, actor(), roleName()), "SX", { closureReason: "Withdrawn", subStatus: null })); flash("Marked as withdrawn."); };
+  const park = (id, reason) => { mut(id, (t) => clAudit({ ...t, dormant: { sub: t.state === "S10" ? "Awaiting bank details" : "Client unresponsive", fromState: t.state, note: reason, at: CL_NOW } }, "Parked as dormant", reason + " · silent, no client notification", actor(), roleName())); flash("Parked as dormant — silently, with no client notification."); };
+  const resume = (id, toState, reason) => { mut(id, (t) => clAudit({ ...t, dormant: null, state: toState, status: CL_FLOW[toState].status, stageAt: CL_NOW, chase: { reminders: 0, escalations: 0, events: [] } }, "Resumed from dormant", "Resumed at " + CL_FLOW[toState].label + " · " + reason, actor(), roleName())); flash("Resumed from dormant at " + CL_FLOW[toState].label + "."); };
+  const sendReminder = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return; const L = CL_LOOPS[clLoop(t0)];
+    if (!L || !L.reminders) return flash(`No reminder is sent on the internal chase — ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.`);
+    if (t0.chase.reminders >= L.reminders) return flash(`All ${L.reminders} reminders have been sent. Escalating to ${CL_HEAD} is the next step.`);
+    mut(id, (t) => clAudit({ ...t, chase: { ...t.chase, reminders: t.chase.reminders + 1 } }, "Reminder sent", L.name + " · reminder " + (t0.chase.reminders + 1) + " of " + L.reminders + ", owed by " + L.who, actor(), roleName()));
+    flash("Reminder sent. Ticket colour is now amber.");
+  };
+  const escalate = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return; const L = CL_LOOPS[clLoop(t0)] || { escalations: 3, kind: "hold" };
+    mut(id, (t) => {
+      const n = t.chase.escalations + 1; let x = { ...t, escalated: true, chase: { ...t.chase, escalations: n } };
+      if (n >= (L.escalations || 3)) {
+        if (L.kind === "dormant") x.dormant = { sub: t.state === "S10" ? "Awaiting bank details" : "Client unresponsive", fromState: t.state, note: "Auto-parked after escalations with no client response", at: CL_NOW };
+        else if (L.kind && L.kind.startsWith("terminate")) { x.state = "ST"; x.status = "Terminated"; x.stageAt = CL_NOW; }
+      }
+      return clAudit(x, "Escalated to " + CL_HEAD, L.name + " · escalation " + n + " of " + (L.escalations || 3) + (L.kind === "hold" ? " · this claim never terminates" : ""), actor(), roleName());
+    });
+    flash("Escalated to " + CL_HEAD + ".");
+  };
+  const createClaim = (d) => {
+    const seq = nextSeq(), id = "CLM-2026-0" + seq;
+    const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
+    const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared — optional on " + d.product + ", so the insurer will assess internally." : "") }];
+    if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
+    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
+    setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
+    flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
+  };
+  const createFromMail = (m) => {
+    const seq = nextSeq(), id = "CLM-2026-0" + seq; const uploads = {};
+    m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
+    const base = { id, client: m.cand || "New client — to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
+    flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
+  };
+  const linkMail = (mailId, ticketId, why) => {
+    const m = mrq.find((x) => x.id === mailId); if (!m) return;
+    mut(ticketId, (t) => { const uploads = { ...t.uploads }; m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; }); return clAudit({ ...t, uploads, inbox: [...t.inbox, { at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }] }, "Mail mapped from the review queue", m.id + " · " + m.guess + " at " + m.conf + "% · from " + m.from + (m.att.length ? " · " + m.att.length + " attachment" + (m.att.length > 1 ? "s" : "") + " filed" : "") + " — " + why, actor(), roleName()); });
+    setMrq((q) => q.filter((x) => x.id !== mailId)); setOpenId(ticketId); setView("ticket");
+    flash("Linked to " + ticketId + ". The mail is on its trail and the mapping is audited.");
+  };
+  const discardMail = (id) => { setMrq((q) => q.filter((x) => x.id !== id)); flash("Discarded and logged for threshold tuning. No reply sent."); };
+  const rejectMail = (id) => { const m = mrq.find((x) => x.id === id); setMrq((q) => q.filter((x) => x.id !== id)); flash("Rejected. A reasoned reply went to " + (m ? m.from : "the sender") + " — no ticket created."); };
+
+  const act = { cmForm, bot, botReject, clientRun, challenge, acceptRej, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash };
+  const current = tickets.find((t) => t.id === openId);
+  /* Only Umesh (the Claims & Endorsements Head) gets the admin/manager view switcher. */
+  const isAdmin = /umesh/i.test(user?.name || "");
+  /* Sidebar identity follows the role toggle: Claims Manager = Ruksana, Head = Umesh. */
+  const identity = role === "head"
+    ? { name: PORTAL_USERS["umesh.bagri@bimakavach.com"].name, role: "Claims & Endorsements Head", avatar: PORTAL_USERS["umesh.bagri@bimakavach.com"].avatar }
+    : { name: PORTAL_USERS["ruksana.khan@bimakavach.com"].name, role: "Claims Manager", avatar: PORTAL_USERS["ruksana.khan@bimakavach.com"].avatar };
+  const toList = () => setView("list");
+  const CRUMBS = ({ home: [{ label: "Home" }], list: [{ label: "My claims" }], ticket: [{ label: "My claims", onClick: toList }, { label: openId || "" }], review: [{ label: "Manual review queue" }], reports: [{ label: "Reports" }] }[view]) || [{ label: "Home" }];
+
+  return (
+    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+      <style>{GLOBAL_CSS}</style>
+      <div className="flex h-full w-full overflow-hidden rounded-2xl border" style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+        <Sidebar view={view} go={go} mails={mrq} openId={openId} openTicket={openTicket} collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)} tool="BimaClaim" nav={CL_NAV} identity={identity} envs={user?.envs} onSwitchEnv={setEnv} />
+        <main className="flex flex-1 flex-col overflow-hidden">
+          <div className="shrink-0 px-6 py-4">
+            <Breadcrumb segments={CRUMBS} right={(
+              <div className="flex items-center gap-2">
+                {isAdmin && <RoleToggle role={role} onChange={switchRole} />}
+                <button onClick={() => setCreateOpen(true)} className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
+                  style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>Create Claim</button>
+              </div>
+            )} />
+          </div>
+          <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
+            <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
+              {view === "home" && <ClaimsHome tickets={tickets} role={role} mrq={mrq} go={go} openTicket={openTicket} user={user} isAdmin={isAdmin} />}
+              {view === "list" && <ClaimsList tickets={tickets} role={role} filter={filter} setFilter={setFilter} openTicket={openTicket} />}
+              {view === "ticket" && current && <ClaimsDetail t={current} role={role} act={act} />}
+              {view === "ticket" && !current && <ClaimsList tickets={tickets} role={role} filter={filter} setFilter={setFilter} openTicket={openTicket} />}
+              {view === "review" && <ClaimsReview tickets={tickets} mrq={mrq} role={role} act={act} />}
+              {view === "reports" && <ClaimsReports tickets={tickets} mrq={mrq} role={role} />}
+            </div>
+          </div>
+        </main>
+      </div>
+      {createOpen && <ClaimsCreate onCreate={createClaim} back={() => { setCreateOpen(false); setCreatePrefill(null); }} prefill={createPrefill} />}
+      <ClaimsSearch open={searchOpen} onClose={() => setSearchOpen(false)} tickets={tickets} role={role} openTicket={(id) => { setSearchOpen(false); openTicket(id); }} />
+      {toast && createPortal(
+        <div className="fixed bottom-5 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm" style={{ background: C.figInk, color: C.white, boxShadow: "0 8px 24px rgba(28,27,31,0.18)" }}>
+          <CheckCircle2 size={14} className="shrink-0" style={{ color: "#6EE7B7" }} /> {toast}
+        </div>, document.body)}
+    </div>
+  );
+}
+
+function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
   const [tickets, setTickets] = useState(() =>
     SEED.map((t) => {
       return { ...t, history: seedTrail(t) };
@@ -4691,11 +6608,6 @@ export default function App() {
   const [preset, setPreset] = useState(null);
   const [toast, setToast] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);   /* Collapsed by default; React state — no browser storage here */
-  const bootSess = useMemo(readSession, []);
-  const [authed, setAuthed] = useState(!!bootSess);
-  const [user, setUser] = useState(bootSess?.user || null);
-  const [env, setEnv] = useState(bootSess?.env || null);   /* the tool the current session entered (a TOOLS key) */
   const [createFrom, setCreateFrom] = useState("list");   /* the view the Create modal sits over */
 
   const go = (v, f, p) => { if (f) setFilter(f); setPreset(p || null); setView(v); };
@@ -4973,24 +6885,12 @@ export default function App() {
   const current = tickets.find((t) => t.id === openId);
   const bc = useMemo(() => tickets.filter((t) => t.owner === "Nanditha P" && breached(t)).length, [tickets]);
 
-  useAnek();
-  useSquircle();
-
   useEffect(() => {
     try {
       const path = pathOf(view, openId);
       if (window.location.pathname !== path) window.history.pushState({}, "", path + window.location.hash);
     } catch { /* sandboxed frame - the app still works, the address bar just will not follow */ }
   }, [view, openId]);
-
-  /* Keep the session code in the hash so a refresh stays signed in. Replace (not
-     push) — the session is not a navigable step — and keep the current path. */
-  useEffect(() => {
-    try {
-      const h = authed && user && env ? sessHash(user, env) : "";
-      if ((window.location.hash || "") !== h) window.history.replaceState({}, "", window.location.pathname + h);
-    } catch { /* sandboxed frame */ }
-  }, [authed, user, env]);
 
   useEffect(() => {
     const back = () => { const r = readRoute(); setView(r.view); if (r.openId) setOpenId(r.openId); };
@@ -5015,68 +6915,6 @@ export default function App() {
     () => tickets.filter((x) => scope === "team" || x.owner === "Nanditha P").slice().sort(riskSort),
     [tickets, scope]);
 
-  if (!authed) {
-    return (
-      <div style={{ color: C.ink, fontFamily: FONT }}>
-        <style>{GLOBAL_CSS}</style>
-        <Login onSignIn={(u, e) => { setUser(u); setEnv(e); setAuthed(true); }} />
-      </div>
-    );
-  }
-
-  /* A tool the session entered that isn't built (BimaClaim): the real shell,
-     branded for that tool and carrying the signed-in identity, under an
-     "under construction" notice. Only BimaEndorse falls through to the app. */
-  if (env && !TOOLS[env]?.built) {
-    const tool = TOOLS[env];
-    return (
-      <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
-        <style>{GLOBAL_CSS}</style>
-        <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
-          style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
-          <Sidebar view="home" go={() => {}} mails={[]} openId={null} openTicket={() => {}}
-            collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)}
-            tool={env} identity={user || {}} />
-          <main className="flex flex-1 flex-col overflow-hidden" />
-
-          {/* Scrim (Figma 1172:72800) — blurs the shell and blocks all interaction;
-              the under-construction modal floats over it. */}
-          <div className="bk-scrim absolute inset-0 z-40 flex items-center justify-center p-4"
-            style={{ background: "rgba(169,172,177,0.08)", backdropFilter: "blur(1.5px)", WebkitBackdropFilter: "blur(1.5px)" }}>
-            <div className="bk-modal overflow-hidden" style={{ width: 480, maxWidth: "calc(100% - 32px)",
-              background: C.white, border: `1px solid ${C.subtle}`, borderRadius: 32, boxShadow: "0 0 24px rgba(169,172,177,0.24)" }}>
-              {/* header: wordmark + close, then the notice */}
-              <div className="flex flex-col gap-1" style={{ padding: 24 }}>
-                <div className="flex items-start justify-between gap-3">
-                  <span className="leading-none" style={{ fontSize: 28, fontWeight: 500 }}>
-                    <span style={{ color: C.figInk }}>{tool.split[0]}</span><span style={{ color: tool.color }}>{tool.split[1]}</span>
-                  </span>
-                  <button onClick={() => setAuthed(false)} title="Back to login"
-                    className="bk-iconctrl flex shrink-0 items-center justify-center"
-                    style={{ width: 28, height: 28, borderRadius: 9, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}>
-                    <X size={18} />
-                  </button>
-                </div>
-                <p style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{env} is currently under construction</p>
-              </div>
-              {/* footer: the two ways out */}
-              <div className="flex items-center justify-end gap-3" style={{ padding: "16px 32px", borderTop: "1px solid #DFE0E2" }}>
-                <button onClick={() => setAuthed(false)} className="bk-uc-btn bk-uc-secondary leading-none"
-                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.subtle}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.figInk }}>
-                  Back to Login
-                </button>
-                <button onClick={() => setEnv("BimaEndorse")} className="bk-uc-btn bk-uc-primary leading-none"
-                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.brand}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.brand }}>
-                  Visit BimaEndorse
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
       <style>{GLOBAL_CSS}</style>
@@ -5084,7 +6922,9 @@ export default function App() {
         style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
 
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
-          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} onSearch={() => setSearchOpen(true)} />
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
+          envs={user?.envs} onSwitchEnv={setEnv}
+          identity={user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
           {/* Fixed top nav — the sunken breadcrumb card; 16px above and below it. */}
@@ -5103,7 +6943,7 @@ export default function App() {
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
             <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
               {/* Home — the desk and the progress dashboard. Its cards route into My Tickets. */}
-              {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
+              {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
               {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
@@ -5123,4 +6963,91 @@ export default function App() {
         </div>, document.body)}
     </div>
   );
+}
+
+/* =========================================================================
+   Top-level gate: auth → environment. BimaClaim and BimaEndorse are sibling
+   environments in one app; the login tool-selector switches between them and
+   the session hash restores the choice on refresh.
+   ========================================================================= */
+export default function App() {
+  const bootSess = useMemo(readSession, []);
+  const [authed, setAuthed] = useState(!!bootSess);
+  const [user, setUser] = useState(bootSess?.user || null);
+  const [env, setEnv] = useState(bootSess?.env || null);   /* the tool the current session entered (a TOOLS key) */
+  const [collapsed, setCollapsed] = useState(true);        /* Collapsed by default; React state — no browser storage */
+
+  useAnek();
+  useSquircle();
+
+  /* Keep the session code in the hash so a refresh stays signed in. */
+  useEffect(() => {
+    try {
+      const h = authed && user && env ? sessHash(user, env) : "";
+      if ((window.location.hash || "") !== h) window.history.replaceState({}, "", window.location.pathname + h);
+    } catch { /* sandboxed frame */ }
+  }, [authed, user, env]);
+
+  if (!authed) {
+    return (
+      <div style={{ color: C.ink, fontFamily: FONT }}>
+        <style>{GLOBAL_CSS}</style>
+        <Login onSignIn={(u, e) => { setUser(u); setEnv(e); setAuthed(true); }} />
+      </div>
+    );
+  }
+
+  /* Claims — the second built environment. */
+  if (env === "BimaClaim") {
+    return <ClaimsApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
+  }
+
+  /* Any other tool the session entered that isn't built: the real shell,
+     branded for that tool, under an "under construction" notice. */
+  if (env && !TOOLS[env]?.built) {
+    const tool = TOOLS[env];
+    return (
+      <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+        <style>{GLOBAL_CSS}</style>
+        <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
+          style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+          <Sidebar view="home" go={() => {}} mails={[]} openId={null} openTicket={() => {}}
+            collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)}
+            tool={env} identity={user || {}} />
+          <main className="flex flex-1 flex-col overflow-hidden" />
+          <div className="bk-scrim absolute inset-0 z-40 flex items-center justify-center p-4"
+            style={{ background: "rgba(169,172,177,0.08)", backdropFilter: "blur(1.5px)", WebkitBackdropFilter: "blur(1.5px)" }}>
+            <div className="bk-modal overflow-hidden" style={{ width: 480, maxWidth: "calc(100% - 32px)",
+              background: C.white, border: `1px solid ${C.subtle}`, borderRadius: 32, boxShadow: "0 0 24px rgba(169,172,177,0.24)" }}>
+              <div className="flex flex-col gap-1" style={{ padding: 24 }}>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="leading-none" style={{ fontSize: 28, fontWeight: 500 }}>
+                    <span style={{ color: C.figInk }}>{tool.split[0]}</span><span style={{ color: tool.color }}>{tool.split[1]}</span>
+                  </span>
+                  <button onClick={() => setAuthed(false)} title="Back to login"
+                    className="bk-iconctrl flex shrink-0 items-center justify-center"
+                    style={{ width: 28, height: 28, borderRadius: 9, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}>
+                    <X size={18} />
+                  </button>
+                </div>
+                <p style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{env} is currently under construction</p>
+              </div>
+              <div className="flex items-center justify-end gap-3" style={{ padding: "16px 32px", borderTop: "1px solid #DFE0E2" }}>
+                <button onClick={() => setAuthed(false)} className="bk-uc-btn bk-uc-secondary leading-none"
+                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.subtle}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.figInk }}>
+                  Back to Login
+                </button>
+                <button onClick={() => setEnv("BimaEndorse")} className="bk-uc-btn bk-uc-primary leading-none"
+                  style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.brand}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.brand }}>
+                  Visit BimaEndorse
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <EndorseApp collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={() => setAuthed(false)} user={user} setEnv={setEnv} />;
 }
