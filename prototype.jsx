@@ -4951,7 +4951,7 @@ function clBuckets(tickets, role) {
 function clMake(o, i) {
   const f = CL_FLOW[o.state];
   return Object.assign({
-    id: "CLM-" +(1064 + i),
+    id: "CLM-" +(1067 + i),
     priority: "Medium", cm: CL_ME, flagged: false, subStatus: null,
     claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null,
     payments: [], admissibility: null, docs: {}, escalated: false,
@@ -6589,7 +6589,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const mut = (id, fn) => setTickets((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
   const actor = () => (role === "head" ? CL_HEAD : CL_ME);
   const roleName = () => (role === "head" ? "Claims Head" : "Claims Manager");
-  const nextSeq = () => Math.max(1063, ...tickets.map((t) => parseInt(String(t.id).split("-").pop(), 10) || 0)) + 1;
+  const nextSeq = () => Math.max(1066, ...tickets.map((t) => parseInt(String(t.id).split("-").pop(), 10) || 0)) + 1;
 
   useEffect(() => { try { const p = clPathOf(view, openId); if (window.location.pathname !== p) window.history.pushState({}, "", p + window.location.hash); } catch { /* sandboxed */ } }, [view, openId]);
   useEffect(() => { const back = () => { const r = clReadRoute(); setView(r.view); if (r.openId) setOpenId(r.openId); }; window.addEventListener("popstate", back); return () => window.removeEventListener("popstate", back); }, []);
