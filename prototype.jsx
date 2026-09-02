@@ -4379,7 +4379,7 @@ const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` 
 /* END is redundant on the sidebar rail — we are already inside BimaEndorse — so
    the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
    hover title and everywhere else. */
-const shortId = (id) => (id || "").replace(/^END/, "");
+const shortId = (id) => (id || "").replace(/^(END|CLM)/, "");
 function routeOf(path) {
   const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
   if (m) return { view: "ticket", openId: m[1] };
