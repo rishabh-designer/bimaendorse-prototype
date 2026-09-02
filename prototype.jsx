@@ -1024,6 +1024,37 @@ function Greeting({ right, user }) {
     </div>
   );
 }
+/* Me/Team scope switch (Figma 1438:99008 / states 1438:99009). A segmented
+   control whose white pill smart-animates (slides) between the two options on
+   selection; the active label reads brand, the inactive muted, and hovering the
+   inactive option previews it in brand — exactly the four variants in the node. */
+function ScopeSwitch({ value, onChange }) {
+  const opts = [["mine", "Me"], ["team", "Team"]];
+  const idx = value === "team" ? 1 : 0;
+  const [hover, setHover] = useState(null);
+  const W = 64, H = 40, GAP = 2;
+  return (
+    <div className="relative flex items-center" data-no-squircle
+      style={{ background: C.brandBg, border: "1px solid #D1C6FF", borderRadius: 24, gap: GAP }}>
+      {/* the smart-animate pill — slides between the two seats */}
+      <span aria-hidden className="pointer-events-none absolute" style={{
+        top: 0, left: 0, width: W, height: H, borderRadius: 32, background: C.white,
+        border: "1px solid #D1C6FF", boxShadow: "0 0 6px rgba(14,43,114,0.24)",
+        transform: `translateX(${idx * (W + GAP)}px)`, transition: "transform .3s cubic-bezier(.5,0,.5,1)" }} />
+      {opts.map(([v, label], i) => {
+        const on = idx === i, preview = hover === v && !on;
+        return (
+          <button key={v} onClick={() => onChange(v)} onMouseEnter={() => setHover(v)} onMouseLeave={() => setHover(null)}
+            className="relative flex items-center justify-center"
+            style={{ width: W, height: H, borderRadius: 32, background: "transparent", zIndex: 1, cursor: "pointer",
+              fontSize: 14, fontWeight: 500, color: on || preview ? C.brand : C.greet, transition: "color .2s ease" }}>
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 const toneOf = (s) => s === "breached" ? C.breach : s === "atRisk" ? C.warn : s === "held" ? C.wait : C.teal;
 const Chip = ({ children, color, bg, mono }) => (
   <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg ${mono ? "bk-num" : "font-medium"}`}
@@ -1780,12 +1811,7 @@ function Home({ tickets, scope, setScope, go, user }) {
            desk — she sees only her own queue and never the toggle. A manager's
            view (e.g. Umesh) keeps it. Gated on the user-role master (ROLES). */
         ROLES[user?.name]?.role === "Servicing executive" ? null : (
-          <div className="flex overflow-hidden rounded-lg border" style={{ borderColor: C.line }}>
-            {["mine", "team"].map((s) => (
-              <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 text-xs font-semibold capitalize"
-                style={{ background: scope === s ? C.brand : C.white, color: scope === s ? C.white : C.figHint }}>{s}</button>
-            ))}
-          </div>
+          <ScopeSwitch value={scope} onChange={setScope} />
         )
       } />
 
@@ -4925,7 +4951,7 @@ function clBuckets(tickets, role) {
 function clMake(o, i) {
   const f = CL_FLOW[o.state];
   return Object.assign({
-    id: "CLM-2026-0" + (1064 + i),
+    id: "CLM-" +(1064 + i),
     priority: "Medium", cm: CL_ME, flagged: false, subStatus: null,
     claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null,
     payments: [], admissibility: null, docs: {}, escalated: false,
@@ -5129,7 +5155,7 @@ function ClaimsFilterPills({ counts, active, onPick }) {
 }
 
 /* ---------- Home (C-5) ---------- */
-function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
+function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole }) {
   const [range, setRange] = useState("Last Week");
   const B = clBuckets(tickets, role);
   const isHead = role === "head";
@@ -5194,8 +5220,11 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin }) {
     <div>
       {/* Same structure as the Endorsement Greeting: the signed-in user's own
           avatar, the date/time line, then their greeting — Ruksana in Hindi,
-          admins (Umesh) in English. */}
-      <Greeting user={user} />
+          admins (Umesh) in English. The Me/Team scope switch (admins only) sits
+          in the same right slot as Endorsement: Me = a manager desk, Team = all. */}
+      <Greeting user={user} right={isAdmin ? (
+        <ScopeSwitch value={role === "head" ? "team" : "mine"} onChange={(v) => onRole(v === "team" ? "head" : "cm")} />
+      ) : null} />
       <h2 className="mt-6 mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{isHead ? "The Book" : "Your Desk"}</h2>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {cells.map((c) => (
@@ -5366,9 +5395,12 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
 }
 
 /* ---------- My claims — column table (same idiom as the Endorsement list) ---------- */
-const CL_COLS = { id: { w: 152 }, client: { w: 168, pl: 8 }, stage: { w: 176 }, owner: { w: 118 }, prio: { w: 96 }, age: { w: 96 }, cm: { w: 84 } };
+/* Fixed columns hold their width; the two content columns (Client, Stage) share
+   the leftover space equally via `clFlex`, so the row fills the width evenly and
+   stays responsive — no single column runs away (mirrors the Endorsement table). */
+const CL_COLS = { id: { w: 150 }, owner: { w: 116 }, prio: { w: 96 }, age: { w: 92 }, cm: { w: 84 }, due: { w: 132 } };
 const clCell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0, paddingLeft: c.pl, paddingRight: c.pr, ...extra });
-const clDueCol = { flex: "1 1 0", minWidth: 130 };
+const clFlex = (extra) => ({ flex: "1 1 0", minWidth: 148, paddingRight: 8, ...extra });
 const CL_PAGE = 10;
 function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
   const [owner, setOwner] = useState(new Set());
@@ -5427,13 +5459,13 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
       <section className="flex flex-col gap-1">
         <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
           <SortHead label="Claim" k="id" style={clCell(CL_COLS.id)} />
-          <span className="truncate" style={clCell(CL_COLS.client, th)}>Client</span>
-          <span style={clCell(CL_COLS.stage)}><HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} /></span>
+          <span className="truncate" style={clFlex(th)}>Client</span>
+          <span style={clFlex()}><HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} /></span>
           <span style={clCell(CL_COLS.owner)}><HeaderFilter id="owner" label="Owed by" options={OWNER_OPTS} selected={owner} setSelected={setOwner} {...hf} /></span>
           <span style={clCell(CL_COLS.prio)}><HeaderFilter id="prio" label="Priority" options={PRIO_OPTS} selected={prio} setSelected={setPrio} {...hf} /></span>
           <SortHead label="Ticket Age" k="age" style={clCell(CL_COLS.age)} />
           {head && <span className="truncate" style={clCell(CL_COLS.cm, th)}>Manager</span>}
-          <SortHead label="Stage due" k="due" style={clDueCol} />
+          <SortHead label="Stage due" k="due" style={clCell(CL_COLS.due)} />
         </div>
         {view.length ? view.map((t) => (
           <button key={t.id} onClick={() => openTicket(t.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50" style={{ cursor: "pointer" }}>
@@ -5441,16 +5473,16 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
               <span className="bk-num truncate" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
               {t.escalated && <span className="shrink-0 rounded-full" title="Escalated" style={{ width: 6, height: 6, background: IND.error.dot }} />}
             </span>
-            <span className="truncate" style={clCell(CL_COLS.client)}>
+            <span className="truncate" style={clFlex()}>
               <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{t.client}</span>
               <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{t.product} · {t.insurer}</span>
             </span>
-            <span style={clCell(CL_COLS.stage)}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
+            <span style={clFlex()}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
             <span style={clCell(CL_COLS.owner)}><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
             <span style={clCell(CL_COLS.prio)}><Indicator label={t.priority} ind={clPrioInd(t.priority)} outline /></span>
             <span className="bk-num" style={clCell(CL_COLS.age, { fontSize: 12, fontWeight: 500, color: C.figHint })}>{clDur(CL_NOW - t.createdAt)}</span>
             {head && <span className="truncate" style={clCell(CL_COLS.cm, { fontSize: 12, fontWeight: 600, color: C.figHint })}>{t.cm}</span>}
-            <span style={clDueCol}><ClDue t={t} /></span>
+            <span style={clCell(CL_COLS.due)}><ClDue t={t} /></span>
           </button>
         )) : <Empty>No claims match these filters.</Empty>}
       </section>
@@ -5542,6 +5574,7 @@ function ClaimsDetail({ t, role, act }) {
           <Indicator label={t.product} ind="neutral" outline />
           <Indicator label={`${t.channel} intake`} ind="neutral" outline />
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
+          <ClParticipants t={t} down />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
           <span>Client <b style={{ color: C.figInk }}>{t.client}</b></span>
@@ -5568,6 +5601,86 @@ function ClaimsDetail({ t, role, act }) {
   );
 }
 
+/* The people on a claim, stacked (same idiom as the Endorsement Participants):
+   the Claims Manager, the insurer, and the client. Hover isolates one + names it. */
+function ClParticipants({ t, size = 20, down }) {
+  const who = [{ kind: "owner", name: t.cm, role: "Claims Manager" }, { kind: "insurer", name: t.insurer, role: "Insurer" }, { kind: "client", name: t.client, role: "Client" }];
+  const [over, setOver] = useState(-1);
+  return (
+    <span className="flex shrink-0 items-center" onMouseLeave={() => setOver(-1)}>
+      {who.map((p, i) => (
+        <span key={p.kind} className="relative flex" onMouseEnter={() => setOver(i)} style={{ marginLeft: i ? -6 : 0, zIndex: over === i ? who.length + 1 : who.length - i }}>
+          <Mark kind={p.kind} name={p.name} size={size} title={null} style={{ opacity: over >= 0 && over !== i ? 0.1 : 1, boxShadow: over === i ? "0 0 4px rgba(65,0,207,0.25)" : undefined, transition: "opacity .15s ease-out" }} />
+          {over === i && <Tip down={down}>{p.name} · {p.role}</Tip>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/* Claim stage timeline — the Endorsement SlaCard, verbatim in structure, fed
+   with Claims context (owner party badge, spelled-out TAT, BH/WD calendar). */
+function ClSlaCard({ t }) {
+  const f = CL_FLOW[t.state], hc = clHealth(t);
+  const noClock = f.terminal || !f.tat;
+  const held = hc === "parked";
+  const over = hc === "red";
+  const head = noClock ? (f.terminal ? "Clock stopped" : "No clock on this stage")
+    : held ? "On hold"
+    : over ? `${clDur(clOverdueBy(t))} over` : `${clDur(-clOverdueBy(t))} left`;
+  const sk = noClock ? { grad: C.canvas, border: C.subtle, head: C.figHint, remain: C.subtle }
+    : held ? { grad: C.waitSoft, border: "#C7CCEB", head: C.wait, remain: C.wait }
+    : over ? { grad: "#FFECEC", border: "#FFABAB", head: "#CF0000", remain: "#F10000" }
+    : hc === "amber" ? { grad: "#FFF9E6", border: "#FFE890", head: "#B38F0A", remain: "#FFCF0E" }
+    : { grad: "#ECFBEA", border: "#A9EAA2", head: "#007B00", remain: "#00B200" };
+  const owner = clOwner(t);
+  const party = owner === "Insurer" ? t.insurer : owner === "Client" ? t.client : "BimaKavach";
+  const pInd = clOwnerInd(t);
+  const span = Math.max(1, clDue(t) - t.stageAt);
+  const usedPct = over ? 100 : Math.max(0, Math.min(100, ((CL_NOW - t.stageAt) / span) * 100));
+  const leftPct = Math.max(0, 100 - usedPct);
+  return (
+    <div style={{ background: `linear-gradient(180deg, ${C.white} 50%, ${sk.grad} 100%)`, border: `0.5px solid ${sk.border}`, borderRadius: 12, padding: "14px 16px 20px" }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, lineHeight: 1.2 }}>Claim Stage Timeline</span>
+        {!noClock && (
+          <span className="flex items-center gap-1.5" title={clTatLabel(t)}>
+            <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 20, height: 20, background: IND_TEXT[pInd] || C.brand, color: C.white, fontFamily: SERIF, fontStyle: "italic", fontSize: 13, lineHeight: 1 }}>{party.charAt(0)}</span>
+            <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figInk, maxWidth: 150 }}>{party}</span>
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: sk.head }}>{head}</div>
+      {!noClock && (
+        <>
+          <div className="mt-2 overflow-hidden" style={{ height: 3, borderRadius: 999, background: "#F10000", boxShadow: "0px 2px 8px 0px rgba(169,172,177,0.24)" }}>
+            <div style={{ height: "100%", background: sk.remain, width: `${leftPct}%`, opacity: held ? 0.5 : 1, transition: "width .3s ease-out" }} />
+          </div>
+          <p className="mt-2" style={{ fontSize: 14, fontWeight: 500, color: C.figPlaceholder }}>
+            <span style={{ color: sk.head }}>{clTatLabel(t)} total</span>
+            {` • ${clDur(CL_NOW - t.stageAt)} elapsed`}
+          </p>
+          <div className="mt-2 flex items-start gap-1.5 py-1" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+            <span className="mt-0.5"><ClockFading size={14} color={C.figInk} /></span>
+            <span>{over ? "Was due" : "Due"} {fmtWhen(new Date(clDue(t)))}</span>
+          </div>
+          {t.escalated && (
+            <div className="flex items-start gap-1.5" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.4, color: C.semError }}>
+              <span>Escalated to {CL_HEAD} — {owner === "Insurer" ? "the insurer" : owner === "Client" ? "the client" : "BimaKavach"} owes the action, so it stays open.</span>
+            </div>
+          )}
+        </>
+      )}
+      {held && (
+        <div className="mt-1 flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.wait }}>
+          <PauseCircle size={12} className="shrink-0" />
+          {t.dormant ? "Parked as dormant — no chase runs while it sits here." : "Held — awaiting court."}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClOverview({ t, act, setTab }) {
   const f = CL_FLOW[t.state], hc = clHealth(t);
   if (["SX", "ST", "RX"].includes(t.state)) {
@@ -5590,20 +5703,7 @@ function ClOverview({ t, act, setTab }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
       {/* left: stage clock */}
       <div className="flex flex-col gap-4">
-        <div className="rounded-xl border p-4" style={{ borderColor: hc === "red" ? IND.error.line : hc === "amber" ? IND.caution.line : C.subtle, borderWidth: "0.5px", background: hc === "red" ? C.breachSoft : hc === "amber" ? C.warnSoft : C.white }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>Stage timeline</div>
-          <div className="bk-num mt-1" style={{ fontSize: 26, fontWeight: 700, color: tone }}>{f.terminal ? "Settled" : o > 0 ? clDur(o) + " over" : clDur(-o) + " left"}</div>
-          <div className="mt-2 overflow-hidden rounded-full" style={{ height: 6, background: "rgba(0,0,0,0.06)" }}>
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: tone }} /></div>
-          <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.6, color: C.figHint }}>
-            {clTatLabel(t)}{f.tat?.unit === "BH" ? " · Mon–Fri 10:00–19:00" : " · weekends and holidays excluded"}<br />
-            {clDur(elapsed)} elapsed · owed by <b style={{ color: C.figInk }}>{f.owner}</b>
-          </div>
-          {t.escalated && (
-            <div className="mt-2.5 border-t pt-2.5" style={{ borderColor: "rgba(0,0,0,0.08)", fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
-              Escalated to {CL_HEAD}. The {f.owner === "Insurer" ? "insurer" : "BimaKavach"} owes the action, so it stays open and never terminates.</div>
-          )}
-        </div>
+        <ClSlaCard t={t} />
         <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Where time has gone</div>
           <ClAgeBars t={t} />
@@ -6392,17 +6492,6 @@ function clReadRoute() {
   } catch { /* sandboxed */ }
   return { view: "home" };
 }
-function RoleToggle({ role, onChange }) {
-  return (
-    <div className="flex items-center rounded-lg p-0.5" style={{ background: C.canvas, border: `0.5px solid ${C.subtle}` }}>
-      {[["cm", CL_ME], ["head", "Admin View"]].map(([r, name]) => (
-        <button key={r} onClick={() => onChange(r)} title={r === "head" ? "Admin overview — the whole team's claims" : `View ${CL_ME}'s own desk`} className="rounded-md px-2.5 py-1 leading-none" style={{ fontSize: 12, fontWeight: 600, background: role === r ? C.white : "transparent", color: role === r ? C.brand : C.figHint, boxShadow: role === r ? "0 1px 2px rgba(28,27,31,0.10)" : "none" }}>
-          {name}
-        </button>
-      ))}
-    </div>
-  );
-}
 function ClaimsSearch({ open, onClose, tickets, role, openTicket }) {
   const [q, setQ] = useState("");
   if (!open) return null;
@@ -6535,7 +6624,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     flash("Escalated to " + CL_HEAD + ".");
   };
   const createClaim = (d) => {
-    const seq = nextSeq(), id = "CLM-2026-0" + seq;
+    const seq = nextSeq(), id = "CLM-" +seq;
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
     const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared — optional on " + d.product + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
@@ -6544,7 +6633,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
   };
   const createFromMail = (m) => {
-    const seq = nextSeq(), id = "CLM-2026-0" + seq; const uploads = {};
+    const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
     const base = { id, client: m.cand || "New client — to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
@@ -6561,12 +6650,18 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
 
   const act = { cmForm, bot, botReject, clientRun, challenge, acceptRej, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash };
   const current = tickets.find((t) => t.id === openId);
+  /* The order the ticket pager walks — the same urgency order the queues use. */
+  const pagerList = useMemo(() => clVisible(tickets, role).slice().sort((a, b) => {
+    const rk = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 ? 1 : 2);
+    return rk(a) - rk(b) || clOverdueBy(b) - clOverdueBy(a);
+  }), [tickets, role]);
   /* Only Umesh (the Claims & Endorsements Head) gets the admin/manager view switcher. */
   const isAdmin = /umesh/i.test(user?.name || "");
-  /* Sidebar identity follows the role toggle: Claims Manager = Ruksana, Head = Umesh. */
-  const identity = role === "head"
-    ? { name: PORTAL_USERS["umesh.bagri@bimakavach.com"].name, role: "Claims & Endorsements Head", avatar: PORTAL_USERS["umesh.bagri@bimakavach.com"].avatar }
-    : { name: PORTAL_USERS["ruksana.khan@bimakavach.com"].name, role: "Claims Manager", avatar: PORTAL_USERS["ruksana.khan@bimakavach.com"].avatar };
+  /* Sidebar identity is always the signed-in user — the Me/Team switch changes
+     the data scope, not who is logged in (so it stays put when Umesh toggles). */
+  const identity = user
+    ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status }
+    : { name: PORTAL_USERS["ruksana.khan@bimakavach.com"].name, role: "Claims executive", avatar: PORTAL_USERS["ruksana.khan@bimakavach.com"].avatar };
   const toList = () => setView("list");
   const CRUMBS = ({ home: [{ label: "Home" }], list: [{ label: "My claims" }], ticket: [{ label: "My claims", onClick: toList }, { label: openId || "" }], review: [{ label: "Manual review queue" }], reports: [{ label: "Reports" }] }[view]) || [{ label: "Home" }];
 
@@ -6577,17 +6672,16 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
         <Sidebar view={view} go={go} mails={mrq} openId={openId} openTicket={openTicket} collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)} tool="BimaClaim" nav={CL_NAV} identity={identity} envs={user?.envs} onSwitchEnv={setEnv} />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="shrink-0 px-6 py-4">
-            <Breadcrumb segments={CRUMBS} right={(
-              <div className="flex items-center gap-2">
-                {isAdmin && <RoleToggle role={role} onChange={switchRole} />}
-                <button onClick={() => setCreateOpen(true)} className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
-                  style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>Create Claim</button>
-              </div>
+            <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
+              <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
+            ) : (
+              <button onClick={() => setCreateOpen(true)} className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
+                style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>Create Claim</button>
             )} />
           </div>
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
             <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
-              {view === "home" && <ClaimsHome tickets={tickets} role={role} mrq={mrq} go={go} openTicket={openTicket} user={user} isAdmin={isAdmin} />}
+              {view === "home" && <ClaimsHome tickets={tickets} role={role} mrq={mrq} go={go} openTicket={openTicket} user={user} isAdmin={isAdmin} onRole={switchRole} />}
               {view === "list" && <ClaimsList tickets={tickets} role={role} filter={filter} setFilter={setFilter} openTicket={openTicket} />}
               {view === "ticket" && current && <ClaimsDetail t={current} role={role} act={act} />}
               {view === "ticket" && !current && <ClaimsList tickets={tickets} role={role} filter={filter} setFilter={setFilter} openTicket={openTicket} />}
