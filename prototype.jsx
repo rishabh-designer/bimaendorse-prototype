@@ -8,7 +8,7 @@ import {
   MailOpen, Globe, Phone, MessageSquare, Hourglass, HelpCircle, MessageCircleQuestion, Cpu, Sparkles, UserMinus, RefreshCw, SlidersHorizontal, IndianRupee, Link as LinkIcon, Landmark, RotateCcw,
   HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
   Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
-  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Hash
+  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Tags
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -5576,23 +5576,17 @@ function ClaimsDetail({ t, role, act }) {
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
           <ClParticipants t={t} down />
         </div>
-        {/* meta row — same format as the Endorsement: value then its icon/logo. */}
+        {/* meta row — same format as the Endorsement: value then its icon/logo,
+            with a hover tooltip naming each field. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
           {[
-            { key: "client", text: t.client, icon: User },
-            { key: "policy", text: t.policy, icon: FileText, num: true },
-            { key: "product", text: t.product, icon: Layers, img: clProductIcon(t.product), imgH: 24 },
-            { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22 },
-            { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Hash, num: true },
-            { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye },
-          ].map((m) => (
-            <span key={m.key} className="flex items-center gap-1.5">
-              <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
-              {m.img
-                ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
-                : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
-            </span>
-          ))}
+            { key: "client", text: t.client, icon: User, label: "Client" },
+            { key: "policy", text: t.policy, icon: FileText, num: true, label: "Policy number" },
+            { key: "product", text: t.product, icon: Layers, img: clProductIcon(t.product), imgH: 24, label: "Product" },
+            { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22, label: "Insurer · intimation mode" },
+            { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Tags, num: true, label: "Insurer claim number" },
+            { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye, label: "What the client sees" },
+          ].map((m) => <ClMetaItem key={m.key} m={m} />)}
         </div>
       </div>
       <div className="mb-4" style={{ borderBottom: `1px solid ${C.lineSoft}` }}>
@@ -5646,6 +5640,21 @@ function ClParticipants({ t, size = 20, down }) {
           {over === i && <Tip down={down}>{p.name} · {p.role}</Tip>}
         </span>
       ))}
+    </span>
+  );
+}
+
+/* One meta-row entry (value + icon/logo) with a hover tooltip naming the field,
+   the same recessed Tip the participant avatars use. */
+function ClMetaItem({ m }) {
+  const [over, setOver] = useState(false);
+  return (
+    <span className="relative flex items-center gap-1.5" onMouseEnter={() => setOver(true)} onMouseLeave={() => setOver(false)}>
+      <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
+      {m.img
+        ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
+        : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
+      {over && <Tip down>{m.label}</Tip>}
     </span>
   );
 }
