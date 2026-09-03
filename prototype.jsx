@@ -5168,7 +5168,8 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
     { n: B.today.length, lb: "Due today", ind: "caution", f: "today" },
     { n: B.client.length, lb: "Awaiting client", ind: "info", f: "client" },
     { n: B.insurer.length, lb: "Awaiting insurer", ind: "caution", f: "insurer" },
-    { n: B.escalated.length, lb: "Escalated", ind: "error", f: "escalated" },
+    /* Escalated is an admin-only lens — visible to Umesh, hidden from Ruksana's desk. */
+    ...(isAdmin ? [{ n: B.escalated.length, lb: "Escalated", ind: "error", f: "escalated" }] : []),
     { n: B.fresh.length, lb: "Freshly assigned", ind: "success", f: "fresh" },
   ];
   const headCells = [
@@ -5226,7 +5227,10 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
         <ScopeSwitch value={role === "head" ? "team" : "mine"} onChange={(v) => onRole(v === "team" ? "head" : "cm")} />
       ) : null} />
       <h2 className="mt-6 mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{isHead ? "The Book" : "Your Desk"}</h2>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+      {/* One row on desktop: the column count tracks the number of desk cells
+          (6 for the CM, 6 for the head, 7 for the admin CM view), so the strip
+          never wraps — the cards simply narrow to fit. */}
+      <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-${cells.length}`}>
         {cells.map((c) => (
           <DeskCard key={c.lb} count={c.n} tint={CL_TINT[c.ind]}
             pills={[{ label: c.lb, ind: c.ind, outline: true }]}
@@ -5300,9 +5304,6 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
               <button onClick={() => go("list", "escalated")} className="bk-dim" style={{ fontSize: 13, fontWeight: 600, color: C.brand }}>See them →</button>
             </div>
           )}
-
-          <h2 className="mt-8 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Needs You First</h2>
-          <div><ClaimsTable rows={B.attention.slice(0, 4)} onOpen={openTicket} empty="Nothing needs you first — every live claim is green." /></div>
         </>
       )}
     </div>
