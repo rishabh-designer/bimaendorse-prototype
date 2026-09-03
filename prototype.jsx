@@ -1514,17 +1514,31 @@ const Mark = ({ kind, name, size = 20, ring = true, style, title }) => (
 /* Peetal tooltip 87:23267 - recessed ground, 8/4 padding, r8, arrow beneath.
    The stack sits at the right edge of its row, so the body grows leftward and
    the arrow is scrubbed to land on the mark - the same trick the frame uses. */
-const Tip = ({ children, down }) => (
+const Tip = ({ children, down, w }) => (
   <span className="pointer-events-none absolute flex flex-col items-end"
     style={{ [down ? "top" : "bottom"]: "calc(100% + 3px)", right: -6, zIndex: 50 }}>
     {down && <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
       borderRight: "6px solid transparent", borderBottom: `7px solid ${C.subtle}` }} />}
-    <span className="whitespace-nowrap" style={{ background: C.subtle, borderRadius: 8, padding: "4px 8px",
-      fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{children}</span>
+    <span className={w ? "" : "whitespace-nowrap"} style={{ background: C.subtle, borderRadius: 8, padding: "4px 8px",
+      fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: C.figInk,
+      ...(w ? { width: w, whiteSpace: "normal", textAlign: "left" } : {}) }}>{children}</span>
     {!down && <span style={{ width: 0, height: 0, marginRight: 10, borderLeft: "6px solid transparent",
       borderRight: "6px solid transparent", borderTop: `7px solid ${C.subtle}` }} />}
   </span>
 );
+/* Info glyph with the same styled hover tooltip the avatars use (not a native
+   title). Shared by the progress cards and the time-distribution widgets across
+   both BimaEndorse and BimaClaim. */
+function InfoTip({ tip, down = true }) {
+  const [over, setOver] = useState(false);
+  return (
+    <span className="relative flex" style={{ cursor: "help" }}
+      onMouseEnter={() => setOver(true)} onMouseLeave={() => setOver(false)}>
+      <Info size={14} style={{ color: C.link }} />
+      {over && <Tip down={down} w={240}>{tip}</Tip>}
+    </span>
+  );
+}
 
 /* Hovering one mark isolates it: the rest fall to 10% and a tooltip above names
    the one under the cursor. Figma 968:119943. */
@@ -1635,7 +1649,7 @@ function ProgressCard({ title, value, status, score, sub, subTone, tip }) {
           <FileText size={14} style={{ color: C.figHint }} />
           <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{title}</span>
         </div>
-        <span title={tip} style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+        <InfoTip tip={tip} />
       </div>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -1861,9 +1875,7 @@ function Home({ tickets, scope, setScope, go, user }) {
                 <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} Tickets</div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <span title="Hours each party held your tickets: you, insurer, client, placements." style={{ cursor: "help" }}>
-                  <Info size={14} style={{ color: C.link }} />
-                </span>
+                <InfoTip tip="Hours each party held your tickets: you, insurer, client, placements." />
                 <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
               </div>
             </div>
@@ -5197,6 +5209,11 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   const used = B.open.map((t) => { const span = Math.max(1, clDue(t) - t.stageAt); return Math.min(1.5, (CL_NOW - t.stageAt) / span); }).sort((a, b) => a - b);
   const medUsed = used.length ? used[Math.floor(used.length / 2)] : 0;
   const turnScore = Math.max(0, 1 - medUsed);
+  /* Median turnaround is shown in days (the honest unit for the title) — the
+     median age of open claims — not as a % of the stage clock, which read as
+     misleading. The performance meter still runs on the stage-clock score. */
+  const ageDays = B.open.map((t) => (CL_NOW - t.createdAt) / CL_DAY).sort((a, b) => a - b);
+  const medDays = ageDays.length ? Math.round(ageDays[Math.floor(ageDays.length / 2)]) : 0;
   const green = "#007B00";
   const medians = Object.entries(CL_INSURERS).slice(0, 6).sort((a, b) => a[1].medianDays - b[1].medianDays);
   const maxM = Math.max(...medians.map((m) => m[1].medianDays));
@@ -5212,12 +5229,12 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
     "Last Week": {
       count: totalOpen,
       closure: { value: `${onTrack}/${totalOpen || 1}`, status: scoreStatus(closureScore), score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue — on top of it", subTone: overdue ? C.semCaution : green },
-      turn: { value: `${Math.round(medUsed * 100)}%`, status: scoreStatus(turnScore), score: turnScore, sub: `${Math.round(medUsed * 100)}% of stage SLA used (median)`, subTone: scoreStatus(turnScore) === "Poor" ? C.semCaution : green },
+      turn: { value: `${medDays} Days`, status: scoreStatus(turnScore), score: turnScore, sub: "10% lower than last week", subTone: green },
       segments,
     },
-    "Last Month": { count: 19, closure: { value: "13/19", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution }, turn: { value: "44%", status: "On Track", score: 0.56, sub: "44% of stage SLA used (median)", subTone: green }, segments },
-    "Last Quarter": { count: 54, closure: { value: "48/54", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green }, turn: { value: "29%", status: "Well Done", score: 0.71, sub: "29% of stage SLA used (median)", subTone: green }, segments },
-    "Custom": { count: 12, closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution }, turn: { value: "63%", status: "Poor", score: 0.37, sub: "63% of stage SLA used (median)", subTone: C.semCaution }, segments },
+    "Last Month": { count: 19, closure: { value: "13/19", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution }, turn: { value: "16 Days", status: "On Track", score: 0.56, sub: "8% lower than last month", subTone: green }, segments },
+    "Last Quarter": { count: 54, closure: { value: "48/54", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green }, turn: { value: "11 Days", status: "Well Done", score: 0.71, sub: "14% lower than last quarter", subTone: green }, segments },
+    "Custom": { count: 12, closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution }, turn: { value: "21 Days", status: "Poor", score: 0.37, sub: "12% higher than the prior range", subTone: C.semCaution }, segments },
   };
   const prog = PROG[range];
   const pie = prog.segments.filter((s) => s.hrs >= 0.5);
@@ -5261,7 +5278,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
                 tip="Open claims still inside SLA — on-track over total open." />
               <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
                 sub={prog.turn.sub} subTone={prog.turn.subTone}
-                tip="Median share of the stage clock used; lower is faster." />
+                tip="Median age of your open claims, in days; fewer is faster." />
             </div>
             <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
               <div className="flex items-start justify-between">
@@ -5271,7 +5288,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
                   <div className="bk-num mt-1" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} {prog.count === 1 ? "Claim" : "Claims"}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <span title="Hours each party held your claims: you, the insurer, the client." style={{ cursor: "help" }}><Info size={14} style={{ color: C.link }} /></span>
+                  <InfoTip tip="Hours each party held your claims: you, the insurer, the client." />
                   <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
                 </div>
               </div>
