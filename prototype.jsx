@@ -6216,23 +6216,38 @@ function ClClient({ t, act }) {
 /* ---------- Mail trail (C-11.4) ---------- */
 function ClMail({ t }) {
   const items = [];
-  t.audit.forEach((a) => items.push({ at: a.at, who: a.actor, what: a.what, body: a.detail, bot: a.actor === "Email bot" || a.role === "Bot" }));
+  t.audit.forEach((a) => items.push({ at: a.at, who: a.actor, role: a.role, what: a.what, body: a.detail, bot: a.actor === "Email bot" || a.role === "Bot" }));
   const thread = items.slice().sort((a, b) => b.at - a.at);
+  /* Same threaded layout as the Endorsement Mail Trail: a party avatar, the
+     sender and time, a subline, then the subject and body, split by hairlines. */
+  const kindOf = (m) => m.who === t.insurer ? "insurer" : (m.role === "Client" || m.who === t.client) ? "client" : "owner";
+  const ago = (at) => `${clDur(CL_NOW - at)} ago`;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="space-y-4">
       <SectionTitle>Mail trail</SectionTitle>
-      {thread.length === 0 && <Empty>No correspondence yet.</Empty>}
-      {thread.map((m, i) => (
-        <div key={i} className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: m.bot ? C.brandBg : C.white }}>
-          <div className="flex flex-wrap items-center gap-2">
-            {m.bot && <Indicator label="Email bot" ind="brand" />}
-            <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{m.what}</span>
-            <span className="flex-1" />
-            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{m.who} · {clFdt(m.at)}</span>
+      <div>
+        {thread.map((m, i) => (
+          <div key={i}>
+            <div className="flex items-start gap-3">
+              <Mark kind={kindOf(m)} name={m.who} size={40} ring={false} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{m.who}</span>
+                  <span className="bk-num shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{ago(m.at)}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>
+                  {!m.bot && m.role && <span>{m.role}</span>}
+                  {m.bot && <MiniTag tone={C.brand} bg={C.brandBg} line={C.brand200}>Email bot</MiniTag>}
+                </div>
+                <div className="mt-2" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{m.what}</div>
+                {m.body && <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: C.figInk }}>{m.body}</div>}
+              </div>
+            </div>
+            {i < thread.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
           </div>
-          {m.body && <p className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{m.body}</p>}
-        </div>
-      ))}
+        ))}
+        {!thread.length && <Empty>No correspondence yet.</Empty>}
+      </div>
     </div>
   );
 }
