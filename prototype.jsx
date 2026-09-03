@@ -5118,7 +5118,7 @@ function ClaimsRow({ t, onOpen, showCM, last }) {
           {t.escalated && <Indicator label="Escalated" ind="error" outline />}
         </span>
         <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
-          {t.client} · {t.product} · {t.insurer}
+          {t.client} · {clProductLabel(t.product)} · {t.insurer}
         </span>
       </span>
       <span className="hidden min-w-0 flex-col gap-1 sm:flex" style={{ flexBasis: 180 }}>
@@ -5505,7 +5505,7 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
             </span>
             <span className="truncate" style={clFlex()}>
               <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{t.client}</span>
-              <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{t.product} · {t.insurer}</span>
+              <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{clProductLabel(t.product)} · {t.insurer}</span>
             </span>
             <span style={clFlex()}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
             <span style={clCell(CL_COLS.owner)}><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
@@ -5603,7 +5603,7 @@ function ClaimsDetail({ t, role, act }) {
           <Indicator label={clStageLabel(t)} ind={clStageInd(t)} big status />
           <span className="flex-1" />
           <Indicator label={t.priority} ind={clPrioInd(t.priority)} outline />
-          <Indicator label={t.product} ind="neutral" outline />
+          {/* Product chip removed — it's in the meta row below with Client and Policy. */}
           <Indicator label={`${t.channel} intake`} ind="neutral" outline />
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
           <ClParticipants t={t} down />
@@ -5614,7 +5614,7 @@ function ClaimsDetail({ t, role, act }) {
           {[
             { key: "client", text: t.client, icon: User, label: "Client" },
             { key: "policy", text: t.policy, icon: FileText, num: true, label: "Policy number" },
-            { key: "product", text: t.product, icon: Layers, img: clProductIcon(t.product), imgH: 24, label: "Product" },
+            { key: "product", text: clProductLabel(t.product), icon: Layers, img: clProductIcon(t.product), imgH: 24, label: "Product" },
             { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22, label: "Insurer · intimation mode" },
             { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Tags, num: true, label: "Insurer claim number" },
             { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye, label: "Client's claim status on BimaKendra" },
@@ -5643,8 +5643,13 @@ const clInsurerLogo = (name) => INSURER_LOGO[name] || INSURER_LOGO[CL_LOGO_ALIAS
 /* First-name CM → portal photo (only Ruksana has one; the rest read as initials). */
 const clCmAvatar = (cm) => (cm === "Ruksana" ? AVATAR_RUKSANA : null);
 /* Claims short product names → the endorsement product-rosette master keys. */
-const CL_PRODUCT_ALIAS = { Fire: "Fire & Burglary", Marine: "Marine Cargo", WC: "Workmen Compensation (WC)", CGL: "Commercial General Liability (CGL)", PI: "Professional Indemnity (PI)", "D&O": "Directors & Officers (D&O)" };
+const CL_PRODUCT_ALIAS = { Fire: "Fire & Burglary", Marine: "Marine Cargo", MBD: "Engineering (CAR / EAR / CPM)", WC: "Workmen Compensation (WC)", CGL: "Commercial General Liability (CGL)", PI: "Professional Indemnity (PI)", "D&O": "Directors & Officers (D&O)" };
 const clProductIcon = (p) => PRODUCT_ICON[p] || PRODUCT_ICON[CL_PRODUCT_ALIAS[p]] || null;
+/* Display the product in full — the short codes (MBD, WC, CGL …) are master
+   keys, not what the desk should read. Icon lookups still use the short code. */
+const CL_PRODUCT_FULL = { Fire: "Fire & Burglary", Marine: "Marine Cargo", MBD: "Machinery Breakdown",
+  WC: "Workmen Compensation", CGL: "Commercial General Liability", PI: "Professional Indemnity", "D&O": "Directors & Officers" };
+const clProductLabel = (p) => CL_PRODUCT_FULL[p] || p;
 
 /* The people on a claim, stacked (same idiom as the Endorsement Participants):
    the Claims Manager (photo where we have one), the insurer (its logo, sized to
@@ -5788,7 +5793,52 @@ function ClSlaCard({ t }) {
   );
 }
 
+/* Workflow-stages list — the Endorsement StageList, verbatim in structure:
+   timeline dot + connector, a per-stage card tinted by state, the stage label
+   (struck through once done), the owning party, its TAT, the time spent, and a
+   done/now/next check. Fed by the claim's own stage path and ownerLog. */
+function ClStageList({ t }) {
+  const path = clPath(t), here = path.indexOf(t.state);
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      {path.map((k, i) => {
+        const sg = CL_FLOW[k], leg = (t.ownerLog || []).find((o) => o.state === k);
+        const done = i < here, now = i === here, over = now && clOverdueBy(t) > 0;
+        const dur = leg ? clDur(leg.to - leg.from) : now && !sg.terminal ? `LIVE · ${clDur(CL_NOW - t.stageAt)}` : "-";
+        const tat = sg.tat ? `${sg.tat.v} ${sg.tat.unit === "BH" ? "business hour(s)" : "working day(s)"}` : "no clock";
+        const ownInd = CL_OWNER_IND[sg.owner] || "neutral";
+        return (
+          <div key={k} className="flex items-stretch gap-3">
+            <span className="relative flex shrink-0 items-center justify-center" style={{ width: 28, height: 40, borderRadius: 8, background: "transparent" }}>
+              <span className="flex items-center justify-center" style={{ width: 28, height: 28, borderRadius: 8, background: now ? C.brandBg : C.canvas }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: now ? C.brand : C.figTert }} />
+              </span>
+              {i < path.length - 1 && <span className="absolute" style={{ top: 34, bottom: -8, left: 13.5, width: 0, borderLeft: `1px dashed ${C.line}` }} />}
+            </span>
+            <div className="flex min-w-0 flex-1 items-center gap-2"
+              style={{ padding: "10px 12px", borderRadius: 8, background: done ? C.canvas : now ? C.brand200 : C.white, border: `1px solid ${done || now ? "transparent" : C.subtle}` }}>
+              <span className="truncate" style={{ fontSize: 14, fontWeight: now ? 600 : 500,
+                color: over ? C.semError : done ? C.figHint : C.figInk, textDecoration: done ? "line-through" : "none" }}>{sg.label}</span>
+              <span className="flex-1" />
+              {sg.owner && sg.owner !== "—" && (
+                <span className="flex shrink-0 items-center gap-1">
+                  <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: (IND[ownInd] || IND.neutral).dot }} />
+                  <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>{sg.owner}</span>
+                </span>
+              )}
+              <span className="bk-num whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>{tat}</span>
+              <span className="bk-num w-20 shrink-0 whitespace-nowrap text-right"
+                style={{ fontSize: 13, fontWeight: 500, color: over ? C.semError : now ? C.figInk : C.figHint }}>{dur}</span>
+              <StageCheck state={done ? "done" : now ? "now" : "next"} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 function ClOverview({ t, act, setTab }) {
+  const [stagesOpen, setStagesOpen] = useState(false);
   const f = CL_FLOW[t.state], hc = clHealth(t);
   if (["SX", "ST", "RX"].includes(t.state)) {
     return (
@@ -5811,10 +5861,6 @@ function ClOverview({ t, act, setTab }) {
       {/* left: stage clock */}
       <div className="flex flex-col gap-4">
         <ClSlaCard t={t} />
-        <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Where time has gone</div>
-          <ClAgeBars t={t} />
-        </div>
       </div>
 
       {/* right: workflow + capture + action */}
@@ -5825,18 +5871,12 @@ function ClOverview({ t, act, setTab }) {
             <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Claim age: {clDur(CL_NOW - t.createdAt)}</span>
           </div>
           <div className="mt-3"><ClPhaseBar t={t} /></div>
-          <details className="mt-3 rounded-lg border" style={{ borderColor: C.lineSoft }}>
-            <summary className="flex cursor-pointer items-center gap-2 px-3 py-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>
-              <Indicator label={`Stage ${pIdx + 1} of ${path.length}`} ind="brand" /> Workflow stages
-            </summary>
-            <ol className="px-4 pb-3" style={{ fontSize: 13, lineHeight: 1.7 }}>
-              {path.map((c, pi) => {
-                const st = pIdx > -1 ? (pi < pIdx ? "done" : pi === pIdx ? "now" : "") : "";
-                return <li key={c} style={{ color: st === "now" ? C.figInk : st === "done" ? C.figHint : C.figTert, fontWeight: st === "now" ? 700 : 500 }}>
-                  {CL_FLOW[c].label}{CL_FLOW[c].tat ? <span style={{ color: C.figTert, fontWeight: 400 }}> · {CL_FLOW[c].tat.v} {CL_FLOW[c].tat.unit === "BH" ? "business hour(s)" : "working day(s)"} · {CL_FLOW[c].owner}</span> : ""}</li>;
-              })}
-            </ol>
-          </details>
+          <div className="mt-3">
+            <Drawer icon={ListChecks} title="Workflow Stages" open={stagesOpen} setOpen={setStagesOpen}
+              badge={<MiniTag>{path.length} stages</MiniTag>}>
+              <ClStageList t={t} />
+            </Drawer>
+          </div>
 
           <div className="mt-4 border-t pt-4" style={{ borderColor: C.lineSoft }}>
             <div className="flex items-center gap-2">
@@ -5844,7 +5884,7 @@ function ClOverview({ t, act, setTab }) {
               <span className="flex-1" />
               <Indicator label={t.missing ? "Incomplete" : "Complete"} ind={t.missing ? "caution" : "success"} />
             </div>
-            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.product} mandatory field set, from the product × claim-intimation master.</p>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{clProductLabel(t.product)} mandatory field set, from the product × claim-intimation master.</p>
             <div className="mt-3 flex flex-col">
               {fields.map((k) => {
                 const missing = (t.missing || []).includes(k);
@@ -5853,7 +5893,7 @@ function ClOverview({ t, act, setTab }) {
                   <div key={k} className="flex items-start gap-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>
                     <span className="w-48 shrink-0" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{k}{optional && <span style={{ color: C.figTert, fontWeight: 500 }}> · optional</span>}</span>
                     <span className="flex-1" style={{ fontSize: 13, fontWeight: 500, color: missing ? C.semCaution : C.figInk }}>
-                      {missing ? "Awaiting client" : vals[k] || (optional ? "Not declared — optional on " + t.product : "Captured")}</span>
+                      {missing ? "Awaiting client" : vals[k] || (optional ? "Not declared — optional on " + clProductLabel(t.product) : "Captured")}</span>
                   </div>
                 );
               })}
@@ -6114,7 +6154,7 @@ function ClDocs({ t, act }) {
         </div>
       )}
       <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-        <div className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 600, color: C.figInk }}>{t.product} document set</div>
+        <div className="px-3 py-2.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 13, fontWeight: 600, color: C.figInk }}>{clProductLabel(t.product)} document set</div>
         {docs.map((d) => <Row key={d} name={d} gotFile={received(d)} />)}
         <div className="px-3 py-2.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>View and Download produce real bytes; a seeded document renders a generated placeholder PDF and the viewer says so.</div>
       </div>
@@ -6610,13 +6650,13 @@ function ClaimsCreate({ onCreate, back, prefill }) {
               </Field>
               <Field label="Product" locked required={false} value={f.product}
                 trail={clProductIcon(f.product) && <img src={clProductIcon(f.product)} alt="" className="shrink-0" style={{ height: 22, width: "auto" }} />}>
-                <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product || "Auto-filled from policy"}</span>
+                <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product ? clProductLabel(f.product) : "Auto-filled from policy"}</span>
               </Field>
               <Field label="Date of loss" value={f.dol} onClear={() => setF({ ...f, dol: "" })}>
                 <input type="date" value={f.dol} onChange={set("dol")} className={inputCls} style={inputSt} />
               </Field>
               <Field label="Estimated loss amount (₹)" required={!optional} value={f.loss} onClear={() => setF({ ...f, loss: "" })}
-                hint={optional ? `optional on ${f.product}` : null}>
+                hint={optional ? `optional on ${clProductLabel(f.product)}` : null}>
                 <input type="number" value={f.loss} onChange={set("loss")} placeholder={optional ? "Often unquantified at notice" : "Client's own estimate"} className={inputCls} style={inputSt} />
               </Field>
             </div>
@@ -6827,7 +6867,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const createClaim = (d) => {
     const seq = nextSeq(), id = "CLM-" +seq;
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
-    const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared — optional on " + d.product + ", so the insurer will assess internally." : "") }];
+    const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared — optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
     const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
