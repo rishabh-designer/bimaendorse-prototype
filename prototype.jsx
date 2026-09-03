@@ -558,6 +558,7 @@ const SEED = [
     quote: { base: 15200, gst: 2736, total: 17936, file: "quote_GMC_2026_00390.pdf", version: 1, at: 18, source: "bot", confidence: 0.96 },
     payMode: "Email", payLink: { ref: "PL-1065-1", at: 17, expiresIn: 48, source: "bot-email", by: "Mail bot", confidence: 0.97, regens: [] },
     payment: { mode: "NEFT", utr: "UTR106588421903", date: "Fri 21 Aug, 3:40 PM", file: "payment_proof_nimbuseng.pdf", at: 6 } },
+  { id: "END-1066", client: "Everest Packaging Ltd", short: "everestpack", policy: "FIRE/2026/01034", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 2.4, lastAction: 2.4, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 1.2 }], missing: [] },
 ];
 
 const SEED_MAILS = [
@@ -5313,9 +5314,9 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
 /* Claims Head home body — escalation matrix + team load (C-5.2/5.3). */
 function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
   const rank = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 && !t.dormant ? 1 : t.dormant ? 3 : 2);
-  const rows = tickets.filter((t) => !CL_FLOW[t.state].terminal).sort((a, b) => rank(a) - rank(b) || clOverdueBy(b) - clOverdueBy(a));
-  const nEsc = rows.filter((t) => t.escalated).length;
-  const nOver = rows.filter((t) => clOverdueBy(t) > 0 && !t.dormant && !t.escalated).length;
+  /* Escalated-to-you list: only claims actually escalated to the Head are shown
+     here (the strip and the every-live-claim listing were dropped per request). */
+  const rows = tickets.filter((t) => !CL_FLOW[t.state].terminal && t.escalated).sort((a, b) => rank(a) - rank(b) || clOverdueBy(b) - clOverdueBy(a));
   const mrqLate = mrq.filter(CL_MRQ_LATE);
   const team = CL_CMS.map((cm) => {
     const own = tickets.filter((t) => t.cm === cm);
@@ -5329,19 +5330,14 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
   return (
     <>
       <h2 className="mt-6 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
-      <div className="mb-3 rounded-xl px-4 py-3" style={{ background: nEsc ? C.breachSoft : nOver ? C.warnSoft : C.brandBg, border: `0.5px solid ${(nEsc ? IND.error : nOver ? IND.caution : IND.brand).line}` }}>
-        <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>
-          {nEsc ? <b>{nEsc} claim{nEsc > 1 ? "s" : ""} escalated to you. </b> : ""}
-          {nOver ? `${nOver} more past a stage TAT and climbing the ladder. ` : ""}
-          {!nEsc && !nOver ? "Nothing escalated and nothing breached. " : ""}
-          Every live claim is listed, because the ladder can reach you from any stage.
-        </span>
-      </div>
       <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
         <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
           <span className="flex-1">Claim</span><span className="hidden w-20 md:block">Manager</span>
           <span className="hidden w-28 sm:block">Owed by</span><span className="w-24">Escalations</span><span className="w-24 text-right">Stage due</span>
         </div>
+        {rows.length === 0 && (
+          <div className="px-4 py-6 text-center" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>Nothing escalated to you right now.</div>
+        )}
         {rows.map((t) => {
           const L = CL_LOOPS[clLoop(t)] || {}; const n = t.chase.escalations, max = L.escalations || 3;
           return (
