@@ -4781,6 +4781,8 @@ function clWdBetween(a, b) {
   return n;
 }
 const clInr = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"));
+/* Present a 10-digit Indian mobile grouped 4-3-3, e.g. 9007 296 854. */
+const clFmtMob = (m) => { const d = String(m || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}` : (m || ""); };
 function clDur(ms) {
   const a = Math.abs(ms);
   if (a < CL_HOUR) return Math.max(1, Math.round(a / 6e4)) + " min";
@@ -5215,6 +5217,16 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   const ageDays = B.open.map((t) => (CL_NOW - t.createdAt) / CL_DAY).sort((a, b) => a - b);
   const medDays = ageDays.length ? Math.round(ageDays[Math.floor(ageDays.length / 2)]) : 0;
   const green = "#007B00";
+  /* First response time — dwell in "Under Review – BimaKavach" (S1), the first
+     action after a claim is assigned. That stage's TAT is 2 business hours, so
+     under 2h reads Well Done, ~2h On Track, over 2h Poor. Measured on the claims
+     currently under review (time elapsed so far). */
+  const frLive = clVisible(tickets, role).filter((t) => t.state === "S1").map((t) => (CL_NOW - t.stageAt) / CL_HOUR).sort((a, b) => a - b);
+  const medFR = frLive.length ? frLive[Math.floor(frLive.length / 2)] : 2;
+  const frStatus = medFR > 2.1 ? "Poor" : medFR < 1.9 ? "Well Done" : "On Track";
+  const frScore = frStatus === "Well Done" ? 0.85 : frStatus === "On Track" ? 0.55 : 0.22;
+  const frSub = frStatus === "Poor" ? "Over the 2-hour first-response target"
+    : frStatus === "On Track" ? "At the 2-hour first-response target" : "Inside the 2-hour first-response target";
   const medians = Object.entries(CL_INSURERS).slice(0, 6).sort((a, b) => a[1].medianDays - b[1].medianDays);
   const maxM = Math.max(...medians.map((m) => m[1].medianDays));
   /* owner time-split over live claims (real leg + current-stage time) */
@@ -5228,13 +5240,13 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   const PROG = {
     "Last Week": {
       count: totalOpen,
-      closure: { value: `${onTrack}/${totalOpen || 1}`, status: scoreStatus(closureScore), score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue — on top of it", subTone: overdue ? C.semCaution : green },
+      resp: { value: `${medFR.toFixed(1)} Hrs`, status: frStatus, score: frScore, sub: frSub, subTone: frStatus === "Poor" ? C.semCaution : green },
       turn: { value: `${medDays} Days`, status: scoreStatus(turnScore), score: turnScore, sub: "10% lower than last week", subTone: green },
       segments,
     },
-    "Last Month": { count: 19, closure: { value: "13/19", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution }, turn: { value: "16 Days", status: "On Track", score: 0.56, sub: "8% lower than last month", subTone: green }, segments },
-    "Last Quarter": { count: 54, closure: { value: "48/54", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green }, turn: { value: "11 Days", status: "Well Done", score: 0.71, sub: "14% lower than last quarter", subTone: green }, segments },
-    "Custom": { count: 12, closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution }, turn: { value: "21 Days", status: "Poor", score: 0.37, sub: "12% higher than the prior range", subTone: C.semCaution }, segments },
+    "Last Month": { count: 19, resp: { value: "1.8 Hrs", status: "Well Done", score: 0.85, sub: "Inside the 2-hour first-response target", subTone: green }, turn: { value: "16 Days", status: "On Track", score: 0.56, sub: "8% lower than last month", subTone: green }, segments },
+    "Last Quarter": { count: 54, resp: { value: "1.6 Hrs", status: "Well Done", score: 0.85, sub: "Comfortably inside the 2-hour target", subTone: green }, turn: { value: "11 Days", status: "Well Done", score: 0.71, sub: "14% lower than last quarter", subTone: green }, segments },
+    "Custom": { count: 12, resp: { value: "2.6 Hrs", status: "Poor", score: 0.22, sub: "Over the 2-hour first-response target", subTone: C.semCaution }, turn: { value: "21 Days", status: "Poor", score: 0.37, sub: "12% higher than the prior range", subTone: C.semCaution }, segments },
   };
   const prog = PROG[range];
   const pie = prog.segments.filter((s) => s.hrs >= 0.5);
@@ -5273,9 +5285,9 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
               the same construction as the Endorsement Your-Progress block. */}
           <div key={range} className="bk-reveal mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-4 lg:col-span-1">
-              <ProgressCard title="Claims Closure" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
-                sub={prog.closure.sub} subTone={prog.closure.subTone}
-                tip="Open claims still inside SLA — on-track over total open." />
+              <ProgressCard title="First Response Time" value={prog.resp.value} status={prog.resp.status} score={prog.resp.score}
+                sub={prog.resp.sub} subTone={prog.resp.subTone}
+                tip="Time in Under Review – BimaKavach — your first action after a claim is assigned. Target is 2 business hours." />
               <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
                 sub={prog.turn.sub} subTone={prog.turn.subTone}
                 tip="Median age of your open claims, in days; fewer is faster." />
@@ -5533,7 +5545,9 @@ function clFieldVals(t) {
     "Claimant name": t.claimant, "Location of loss: full address": t.location, "Location of Loss": t.location,
     "Location details (damage/loss)": t.location, "Location of accident": t.location,
     "Estimated Loss Amount": t.loss ? clInr(t.loss) : null, "Estimated loss amount": t.loss ? clInr(t.loss) : null,
-    "Contact person name": t.contactName, "Contact person mobile": t.contactMobile,
+    "Contact person name": t.contactName, "Contact person mobile": clFmtMob(t.contactMobile),
+    "Contact Person Name & No": t.contactName ? `${t.contactName} · ${clFmtMob(t.contactMobile)}` : null,
+    "Contact person name & mobile": t.contactName ? `${t.contactName} · ${clFmtMob(t.contactMobile)}` : null,
     "Photos": (CL_PHOTOS[t.product] || 0) + " images attached", "Photos of damage": (CL_PHOTOS[t.product] || 0) + " images attached",
   };
 }
@@ -5857,7 +5871,9 @@ function ClOverview({ t, act, setTab }) {
 function ClAgeBars({ t }) {
   const buckets = { Client: 0, Insurer: 0, BimaKavach: 0 };
   t.ownerLog.forEach((o) => { if (buckets[o.owner] != null) buckets[o.owner] += o.to - o.from; });
-  buckets[clOwner(t)] = (buckets[clOwner(t)] || 0) + (CL_NOW - t.stageAt);
+  /* Only attribute the current stage to one of the three real owners — a terminal
+     claim's owner is "—", which has no bar (and no colour), so skip it. */
+  const cur = clOwner(t); if (buckets[cur] != null) buckets[cur] += (CL_NOW - t.stageAt);
   const total = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
   const ind = { Client: "info", Insurer: "caution", BimaKavach: "brand" };
   return (
@@ -5866,7 +5882,7 @@ function ClAgeBars({ t }) {
         <div key={k} className="flex items-center gap-2">
           <span className="w-24 shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figInk }}>{k}</span>
           <span className="flex-1 overflow-hidden rounded-full" style={{ height: 8, background: C.lineSoft }}>
-            <span className="block h-full rounded-full" style={{ width: `${(v / total) * 100}%`, background: IND[ind[k]].dot }} /></span>
+            <span className="block h-full rounded-full" style={{ width: `${(v / total) * 100}%`, background: (IND[ind[k]] || IND.neutral).dot }} /></span>
           <span className="bk-num w-10 shrink-0 text-right" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{Math.round((v / CL_DAY) * 10) / 10}d</span>
         </div>
       ))}
@@ -6512,11 +6528,38 @@ function ClaimsReports({ tickets, mrq, role }) {
 }
 
 /* ---------- Create claim (C-9) ---------- */
+/* Same demo policy lookup the Endorsement Create modal uses: a known policy
+   resolves from the seed, any other sample number ("Example1", …) gets a stable
+   demo record. Fills Client / Insurer / Product; prototype only. */
+const CL_DEMO_CLIENTS = ["Acme Manufacturing", "Sunrise Chemicals Ltd", "Redwood Logistics Ltd", "Vertex Pharma Ltd",
+  "Meridian Foods Pvt Ltd", "Orchid Hospitality Pvt Ltd", "Vanguard Textiles Pvt Ltd", "Northgate Advisory LLP"];
+const clFetchPolicy = (policy) => {
+  const key = String(policy || "").trim().toUpperCase();
+  if (!key) return { client: "", insurer: "", product: "" };
+  const seed = CL_SEED.find((t) => (t.policy || "").toUpperCase() === key);
+  if (seed) return { client: seed.client, insurer: seed.insurer, product: seed.product };
+  const h = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const insurers = Object.keys(CL_INSURERS), products = Object.keys(CL_FIELDS);
+  return { client: CL_DEMO_CLIENTS[h % CL_DEMO_CLIENTS.length], insurer: insurers[h % insurers.length], product: products[(h * 7) % products.length] };
+};
+
+/* Mirrors the Endorsement Create-ticket modal: the policy number auto-fetches
+   (and locks) Client / Insurer / Product; the remaining intake is still demanded
+   before submission (C-9 validation unchanged). */
 function ClaimsCreate({ onCreate, back, prefill }) {
-  const [f, setF] = useState({ client: prefill?.client || "", policy: "", product: "Fire", insurer: "Bajaj", dol: "", loss: "", desc: prefill?.desc || "", cause: "", loc: "", cname: "", cmob: "" });
+  const [f, setF] = useState({ client: prefill?.client || "", policy: "", product: "", insurer: "", dol: "", loss: "", desc: prefill?.desc || "", cause: "", loc: "", cname: "", cmob: "" });
   const [err, setErr] = useState("");
-  const set = (k) => (v) => setF((s) => ({ ...s, [k]: v }));
   const optional = clLossOptional(f.product);
+  const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
+  const onPolicyChange = (e) => setF((p) => ({ ...p, policy: e.target.value }));
+  /* Fetch only on Enter — never on keystroke, so partial input doesn't populate. */
+  const onPolicyKey = (e) => { if (e.key !== "Enter") return; e.preventDefault(); setF((p) => ({ ...p, ...clFetchPolicy(p.policy) })); };
+
+  const need = ["policy", "client", "product", "insurer", "dol", "desc", "cause", "loc", "cname", "cmob", ...(optional ? [] : ["loss"])];
+  const done = need.filter((k) => String(f[k]).trim()).length;
+  const pct = Math.round((done / need.length) * 100);
+  const ready = done === need.length;
+
   const submit = () => {
     const req = { client: "Client", policy: "Policy number", dol: "Date of loss", desc: "Loss description", cause: "Cause of loss", loc: "Location of loss", cname: "Contact person name", cmob: "Contact mobile" };
     if (!optional) req.loss = "Estimated loss amount";
@@ -6528,26 +6571,99 @@ function ClaimsCreate({ onCreate, back, prefill }) {
     if (!dol || dol >= CL_NOW) return setErr("Date of loss must be earlier than the intimation date.");
     onCreate({ ...f, mob, dol, loss: f.loss ? Number(f.loss) : null });
   };
+
+  const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
+  const inputSt = { fontSize: 16, fontWeight: 500, color: C.brand };
+
   return (
-    <ModalShell title="Create claim" sub="Portal intake — validated at the door." onClose={back} width={760}
-      footer={<><Cancel onClick={back} /><Btn onClick={submit}>Create claim</Btn></>}>
-      <ClNote tone={C.link} bg={C.waitSoft}>Submission is blocked until every mandatory field is present. An incomplete portal claim never becomes a ticket.</ClNote>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <ClInput label="Client" value={f.client} onChange={set("client")} placeholder="Registered client name" />
-        <ClInput label="Policy number" value={f.policy} onChange={set("policy")} placeholder="e.g. FIR/2026/00999" />
-        <ClInput label="Product" value={f.product} onChange={set("product")} options={Object.keys(CL_FIELDS)} />
-        <ClInput label="Insurer" value={f.insurer} onChange={set("insurer")} options={Object.keys(CL_INSURERS)} />
-        <ClInput label="Date of loss" type="date" value={f.dol} onChange={set("dol")} />
-        <ClInput label={`Estimated loss amount (₹)${optional ? " — optional on " + f.product : ""}`} type="number" value={f.loss} onChange={set("loss")} placeholder={optional ? "Often unquantified at notice" : "Client's own estimate"} />
-        <label className="flex flex-col gap-1.5 sm:col-span-2"><FieldLabel>Loss description</FieldLabel>
-          <textarea value={f.desc} onChange={(e) => set("desc")(e.target.value)} rows={2} placeholder="What happened, in the client's words. Mandatory for every product — the only evidence separating two real same-day losses from one claim submitted twice." style={{ ...FIELD, resize: "vertical" }} /></label>
-        <ClInput label="Cause of loss" value={f.cause} onChange={set("cause")} />
-        <ClInput label="Location of loss" value={f.loc} onChange={set("loc")} />
-        <ClInput label="Contact person name" value={f.cname} onChange={set("cname")} placeholder="Who we speak to" />
-        <ClInput label="Contact mobile" value={f.cmob} onChange={set("cmob")} placeholder="10 digits, starting 6–9" />
+    <Overlay className="bk-scrim fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-6"
+      style={{ background: "rgba(14,26,31,0.45)" }} onClick={back}>
+      <div onClick={(e) => e.stopPropagation()} className="bk-modal scroll-slim my-auto w-full max-w-5xl overflow-hidden rounded-2xl"
+        style={{ background: C.white, boxShadow: "0 24px 64px rgba(28,27,31,0.24)" }}>
+
+        <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
+          <div>
+            <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand, lineHeight: 1.2 }}>Create claim</h2>
+            <p className="mt-1" style={{ fontSize: 14, fontWeight: 500, color: C.figTert, lineHeight: 1.4 }}>
+              Portal intake — the policy number fills Client, Insurer and Product; submission is blocked until every mandatory field is present.
+            </p>
+          </div>
+          <button onClick={back} title="Close" className="bk-iconctrl flex shrink-0 items-center justify-center rounded-md border"
+            style={{ width: 24, height: 24, background: C.white, borderColor: C.subtle, color: C.figHint }}><X size={12} /></button>
+        </div>
+
+        <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
+          <div className="grid gap-x-10 sm:grid-cols-2">
+            {/* Left — policy in, then the read-only trio it fetches */}
+            <div className="min-w-0">
+              <Field label="Policy Number" value={f.policy}
+                onClear={() => setF({ ...f, policy: "", client: "", insurer: "", product: "" })}>
+                <input value={f.policy} onChange={onPolicyChange} onKeyDown={onPolicyKey}
+                  placeholder="Enter Policy Number, then press Enter" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Client" locked required={false} value={f.client}>
+                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Insurer" locked required={false} value={f.insurer}
+                trail={clInsurerLogo(f.insurer) && <img src={clInsurerLogo(f.insurer)} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
+                <span className={inputCls} style={{ ...inputSt, color: f.insurer ? C.figHint : C.figPlaceholder }}>{f.insurer ? `${f.insurer} (${CL_INSURERS[f.insurer].mode})` : "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Product" locked required={false} value={f.product}
+                trail={clProductIcon(f.product) && <img src={clProductIcon(f.product)} alt="" className="shrink-0" style={{ height: 22, width: "auto" }} />}>
+                <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product || "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Date of loss" value={f.dol} onClear={() => setF({ ...f, dol: "" })}>
+                <input type="date" value={f.dol} onChange={set("dol")} className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Estimated loss amount (₹)" required={!optional} value={f.loss} onClear={() => setF({ ...f, loss: "" })}
+                hint={optional ? `optional on ${f.product}` : null}>
+                <input type="number" value={f.loss} onChange={set("loss")} placeholder={optional ? "Often unquantified at notice" : "Client's own estimate"} className={inputCls} style={inputSt} />
+              </Field>
+            </div>
+
+            {/* Right — the rest of the intake the portal still demands */}
+            <div className="min-w-0">
+              <Field label="Cause of loss" value={f.cause} onClear={() => setF({ ...f, cause: "" })}>
+                <input value={f.cause} onChange={set("cause")} placeholder="How the loss occurred" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Location of loss" value={f.loc} onClear={() => setF({ ...f, loc: "" })}>
+                <input value={f.loc} onChange={set("loc")} placeholder="Full address" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Contact person name" value={f.cname} onClear={() => setF({ ...f, cname: "" })}>
+                <input value={f.cname} onChange={set("cname")} placeholder="Who we speak to" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Contact mobile" value={f.cmob} onClear={() => setF({ ...f, cmob: "" })}>
+                <input value={f.cmob} onChange={set("cmob")} placeholder="10 digits, starting 6–9" className={inputCls} style={inputSt} />
+              </Field>
+              <Field label="Loss description" value={f.desc} onClear={() => setF({ ...f, desc: "" })}>
+                <input value={f.desc} onChange={set("desc")} placeholder="What happened, in the client's words" className={inputCls} style={inputSt} />
+              </Field>
+            </div>
+          </div>
+
+          {err && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl px-3 py-2.5" style={{ background: C.breachSoft, color: C.semError, fontSize: 13 }}>
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />{err}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-4 border-t px-6 py-4" style={{ borderColor: C.lineSoft }}>
+          <div className="min-w-0 flex-1">
+            <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: C.subtle }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: C.accent, transition: "width .2s" }} />
+            </div>
+            <div className="mt-1.5 bk-num" style={{ fontSize: 13, fontWeight: 500, color: C.accent }}>{pct}% Complete</div>
+          </div>
+          <button disabled={!ready} onClick={submit}
+            className="shrink-0 rounded-xl px-7 py-3.5" style={{ fontSize: 16, fontWeight: 600,
+              background: ready ? C.brand : "rgba(169,172,177,0.24)", color: ready ? C.white : C.figPlaceholder,
+              cursor: ready ? "pointer" : "not-allowed" }}>
+            Create claim
+          </button>
+        </div>
       </div>
-      {err && <div className="mt-3"><ClNote tone={C.semError} bg={C.breachSoft}>{err}</ClNote></div>}
-    </ModalShell>
+    </Overlay>
   );
 }
 
