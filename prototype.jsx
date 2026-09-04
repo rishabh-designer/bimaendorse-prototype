@@ -9118,6 +9118,7 @@ function PlSlaCell({ sla, wide = false }) {
    route into My Cases, and a progress dashboard. Every number is read live off
    the case model (SLA state) - no invented placement intelligence. */
 function PlHomeScreen({ cases, onOpen, setNav, user }) {
+  const [range, setRange] = useState("Last Week");
   const active = cases.filter((c) => c.stage !== "closed");
   const slaOf = (c) => plCurrentSla(c);
 
@@ -9156,6 +9157,55 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
   const turnStatus = scoreStatus(turnScore);
   const green = "#007B00";
 
+  /* Case Time Distribution - the hours each party currently holds. Read live off
+     the SLA model: elapsed = target - remaining on the case's current clock,
+     attributed to that SLA's owner. No invented history (contract J1). */
+  const partyOf = (owner) => (/insurer/i.test(owner) ? "Insurer" : /RM|Client/i.test(owner) ? "RM / Client" : "Placement");
+  const PL_PIE = { Insurer: { ind: "caution", fill: "#FFF9E6" }, "RM / Client": { ind: "info", fill: "#EEF4FF" }, Placement: { ind: "brand", fill: "#F4F1FF" } };
+  const held = { Insurer: 0, "RM / Client": 0, Placement: 0 };
+  active.forEach((c) => {
+    const s = plCurrentSla(c);
+    if (!s || !s.mins) return;
+    held[partyOf(s.owner)] += Math.max(0, (s.mins - (s.remaining ?? s.mins)) / 60);
+  });
+  const segments = Object.keys(held)
+    .map((k) => ({ label: k, ind: PL_PIE[k].ind, fill: PL_PIE[k].fill, hrs: held[k] }))
+    .filter((s) => s.hrs >= 0.25);
+
+  /* The range controller. Last Week reads the live desk; the wider windows are
+     illustrative - the seeded cases are all under a month old, so month / quarter
+     / custom are stand-ins, exactly as the sister environments handle it. */
+  const seg = (ins, rmc, pl) => ["Insurer", "RM / Client", "Placement"]
+    .map((label, k) => ({ label, ind: PL_PIE[label].ind, fill: PL_PIE[label].fill, hrs: [ins, rmc, pl][k] }));
+  const PROG = {
+    "Last Week": {
+      count: active.length,
+      closure: { value: `${onTrack}/${active.length}`, status: closureStatus, score: closureScore, sub: overdue.length ? `${overdue.length} overdue right now` : "None overdue - on top of it", subTone: overdue.length ? C.semCaution : green },
+      turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of the current SLA target used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
+      segments,
+    },
+    "Last Month": {
+      count: 24,
+      closure: { value: "19/24", status: "On Track", score: 0.62, sub: "3 breached this month", subTone: C.semCaution },
+      turn: { value: "46%", status: "On Track", score: 0.54, sub: "46% of the SLA target used (median)", subTone: green },
+      segments: seg(58, 41, 12),
+    },
+    "Last Quarter": {
+      count: 63,
+      closure: { value: "57/63", status: "Well Done", score: 0.9, sub: "9% above the desk average", subTone: green },
+      turn: { value: "31%", status: "Well Done", score: 0.69, sub: "31% of the SLA target used (median)", subTone: green },
+      segments: seg(61, 44, 14),
+    },
+    "Custom": {
+      count: 11,
+      closure: { value: "7/11", status: "Poor", score: 0.36, sub: "4 breached in range", subTone: C.semCaution },
+      turn: { value: "64%", status: "Poor", score: 0.36, sub: "64% of the SLA target used (median)", subTone: C.semCaution },
+      segments: seg(29, 22, 9),
+    },
+  };
+  const prog = PROG[range] || PROG["Last Week"];
+  const pie = prog.segments.filter((s) => s.hrs >= 0.25);
+
   return (
     <div className="space-y-6">
       <Greeting user={user} />
@@ -9174,21 +9224,40 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
 
       <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
-      {/* Your Progress - two metric cards read live off the case SLA model. */}
+      {/* Your Progress - two metric cards over a case-time donut; the range
+          controller morphs the whole block (keyed reveal), like the sister envs. */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
-          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Across {active.length} active cases</span>
+          <RangePills value={range} onChange={setRange} />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ProgressCard title="Cases On Track" value={`${onTrack}/${active.length}`} status={closureStatus} score={closureScore}
-            sub={overdue.length ? `${overdue.length} overdue right now` : "None overdue - on top of it"}
-            subTone={overdue.length ? C.semCaution : green}
-            tip="Active cases not in a Placement-owned SLA breach - external waits don't count against you." />
-          <ProgressCard title="Median SLA Used" value={`${Math.round(medUsed * 100)}%`} status={turnStatus} score={turnScore}
-            sub={`${Math.round(medUsed * 100)}% of the current SLA target used (median)`}
-            subTone={turnStatus === "Poor" ? C.semCaution : green}
-            tip="Median share of the live Placement-owned SLA clock already spent; lower is faster." />
+        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="flex flex-col gap-4 lg:col-span-1">
+            <ProgressCard title="Cases On Track" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
+              sub={prog.closure.sub} subTone={prog.closure.subTone}
+              tip="Active cases not in a Placement-owned SLA breach - external waits don't count against you." />
+            <ProgressCard title="Median SLA Used" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
+              sub={prog.turn.sub} subTone={prog.turn.subTone}
+              tip="Median share of the live Placement-owned SLA clock already spent; lower is faster." />
+          </div>
+          <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <FileText size={14} style={{ color: C.figHint }} />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Case Time Distribution</span>
+                </div>
+                <div className="mt-1 bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{prog.count} {prog.count === 1 ? "Case" : "Cases"}</div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <InfoTip tip="Hours each party currently holds your active cases: you, the insurers, and the RM / client." />
+                <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last refreshed 4 Hrs. ago</span>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-center">
+              {pie.length ? <Donut segments={pie} /> : <Empty>No time on the clock yet.</Empty>}
+            </div>
+          </div>
         </div>
       </div>
     </div>
