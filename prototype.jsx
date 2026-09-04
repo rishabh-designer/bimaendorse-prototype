@@ -11925,7 +11925,7 @@ const plNavFor = (u) => [
 
 function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [cases, setCases] = useState(() => PL_ALL_CASES.map(plSeedSla));
-  const [nav, setNav] = useState("cases");
+  const [nav, setNav] = useState("home");   /* land on Home at login */
   const [openId, setOpenId] = useState(null);
   const [openTab, setOpenTab] = useState(null);
   const [reviewDone, setReviewDone] = useState({});
