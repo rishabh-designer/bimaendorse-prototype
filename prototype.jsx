@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
- *  BimaKavach TMS — non-financial endorsement
+ *  BimaKavach TMS - non-financial endorsement
  *  SLA is stage-wise only. Ticket age is shown but never judged.
  * ------------------------------------------------------------------ */
 
@@ -27,28 +27,28 @@ const C = {
   warn: "#A15C00", warnSoft: "#FDF2E1",
   wait: "#4B5EAA", waitSoft: "#EAECF7",
 
-  /* Chrome — carried across from V001.1. Semantic tones above are untouched:
+  /* Chrome - carried across from V001.1. Semantic tones above are untouched:
      colour still means what docs/DESIGN-SYSTEM.md says it means. Purple dresses
      the shell only; it never states a ticket's condition. */
   brand: "#4100CF", brand600: "#320099", brand400: "#7A4DEB",
   brand200: "#EDE6FF", brandBg: "#F4F1FF",
-  cream: "#FFF6ED",   /* brand-secondary-subtle — V001.1 used it as the page ground; unused here */
+  cream: "#FFF6ED",   /* brand-secondary-subtle - V001.1 used it as the page ground; unused here */
   accent: "#FF7700", greet: "#9082B3",
   figInk: "#1C1D1F", figHint: "#6F7378", figTert: "#A9ACB1", figPlaceholder: "#BEC2C6",
   figDisabled: "rgba(169,172,177,0.48)",
-  /* label/semantic — the countdown colours in Stage due */
+  /* label/semantic - the countdown colours in Stage due */
   semError: "#CF0000", semCaution: "#B38F0A",
 };
 
 /* ------------------------------------------------------------------ *
- *  CHROME PRIMITIVES — the V001.1 treatments, hand-rolled.
+ *  CHROME PRIMITIVES - the V001.1 treatments, hand-rolled.
  *  figma-squircle, framer-motion and the /public assets are not
  *  available here, so each is reproduced inside this file.
  * ------------------------------------------------------------------ */
 
 /* Figma corner smoothing. Ported from figma-squircle (MIT, Tien Pham) after
    figma.com/blog/desperately-seeking-squircles. Only the uniform-radius case
-   is needed — every element here carries one radius on all four corners. */
+   is needed - every element here carries one radius on all four corners. */
 const SQ_SMOOTHING = 0.6;
 const rad = (deg) => (deg * Math.PI) / 180;
 
@@ -94,7 +94,7 @@ function squirclePath(w, h, radius, smoothing) {
 /* Global manager, mirroring V001.1's src/lib/squircle.ts: masks every rounded-lg
    element with its own radius, using mask-image rather than clip-path so the
    shadows survive. Skips pills, already-masked nodes, and overflow-visible
-   containers holding a positioned child — masking those would clip an open
+   containers holding a positioned child - masking those would clip an open
    dropdown or a tooltip. */
 function useSquircle() {
   useEffect(() => {
@@ -172,7 +172,7 @@ function useAnek() {
     /* Anek Kannada rides alongside Latin so a Kannadiga user can be greeted in
        her own script. Anek covers ten Indic scripts; add the face when a user
        arrives who needs another. */
-    /* Instrument Serif Italic is the display face — it sets initials on the
+    /* Instrument Serif Italic is the display face - it sets initials on the
        participant marks and the mail avatars, and nothing else. */
     l.href = "https://fonts.googleapis.com/css2?family=Anek+Latin:wght@100..800&family=Anek+Kannada:wght@100..800&family=Anek+Devanagari:wght@100..800&family=Instrument+Serif:ital@1&display=swap";
     document.head.appendChild(l);
@@ -181,7 +181,7 @@ function useAnek() {
 const FONT = '"Anek Latin", "Anek Kannada", "Anek Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif';
 const SERIF = '"Instrument Serif", Georgia, "Times New Roman", serif';
 
-/* Ikkat — the block-print motif. v1 is outlined, v2 solid; the rule alternates
+/* Ikkat - the block-print motif. v1 is outlined, v2 solid; the rule alternates
    them on a 20px pitch. Inlined as data URIs because /public does not exist here. */
 const IKKAT_V1 = "M1.33962 1.5283C1.55845 1.5283 1.73585 1.35091 1.73585 1.13208C1.73585 0.913246 1.91325 0.735849 2.13208 0.735849H2.68868C2.89188 0.735849 3.0566 0.571124 3.0566 0.367924C3.0566 0.164725 3.22133 0 3.42453 0H4.57547C4.77867 0 4.9434 0.164725 4.9434 0.367924C4.9434 0.571124 5.10812 0.735849 5.31132 0.735849H6.01887C6.2377 0.735849 6.41509 0.913246 6.41509 1.13208C6.41509 1.35091 6.59249 1.5283 6.81132 1.5283L7.5283 1.5283C7.78881 1.5283 8 1.73949 8 2C8 2.26051 7.78881 2.4717 7.5283 2.4717H6.81132C6.59249 2.4717 6.41509 2.64909 6.41509 2.86792C6.41509 3.08675 6.2377 3.26415 6.01887 3.26415H5.31132C5.10812 3.26415 4.9434 3.42888 4.9434 3.63208C4.9434 3.83527 4.77867 4 4.57547 4L3.42453 4C3.22133 4 3.0566 3.83527 3.0566 3.63208C3.0566 3.42888 2.89188 3.26415 2.68868 3.26415H2.13208C1.91325 3.26415 1.73585 3.08675 1.73585 2.86792C1.73585 2.64909 1.55845 2.4717 1.33962 2.4717H0.471698C0.211187 2.4717 0 2.26051 0 2C0 1.73949 0.211186 1.5283 0.471698 1.5283H1.33962ZM3.24528 1.99071C3.24528 2.21467 3.42684 2.39623 3.6508 2.39623H4.38694C4.6109 2.39623 4.79245 2.21467 4.79245 1.99071C4.79245 1.76675 4.6109 1.5852 4.38694 1.5852L3.6508 1.5852C3.42684 1.5852 3.24528 1.76675 3.24528 1.99071Z";
 const IKKAT_V2 = "M1.33962 1.5283C1.55845 1.5283 1.73585 1.35091 1.73585 1.13208C1.73585 0.913245 1.91325 0.735849 2.13208 0.735849H2.68868C2.89188 0.735849 3.0566 0.571124 3.0566 0.367924C3.0566 0.164725 3.22133 -7.38057e-08 3.42453 -7.38057e-08H4.57547C4.77867 -7.38057e-08 4.9434 0.164725 4.9434 0.367924C4.9434 0.571124 5.10812 0.735849 5.31132 0.735849H6.01887C6.2377 0.735849 6.41509 0.913245 6.41509 1.13208C6.41509 1.35091 6.59249 1.5283 6.81132 1.5283L7.5283 1.5283C7.78881 1.5283 8 1.73949 8 2C8 2.26051 7.78881 2.4717 7.5283 2.4717H6.81132C6.59249 2.4717 6.41509 2.64909 6.41509 2.86792C6.41509 3.08675 6.2377 3.26415 6.01887 3.26415H5.31132C5.10812 3.26415 4.9434 3.42888 4.9434 3.63208C4.9434 3.83527 4.77867 4 4.57547 4L3.42453 4C3.22133 4 3.0566 3.83527 3.0566 3.63208C3.0566 3.42888 2.89188 3.26415 2.68868 3.26415H2.13208C1.91325 3.26415 1.73585 3.08675 1.73585 2.86792C1.73585 2.64909 1.55845 2.4717 1.33962 2.4717H0.471698C0.211187 2.4717 0 2.26051 0 2C0 1.73949 0.211186 1.5283 0.471698 1.5283H1.33962Z";
@@ -200,7 +200,7 @@ const IKKAT_TRAIL_URI = svgUri(32, pathEl(IKKAT_V1));
 const stagger = (i) => ({ animationDelay: `${(0.1 + Math.min(i, 6) * 0.06).toFixed(2)}s` });
 
 const GLOBAL_CSS = `
-/* Squircle corners — Figma's "corner smoothing" as CSS. Every element that
+/* Squircle corners - Figma's "corner smoothing" as CSS. Every element that
    already carries a border-radius gets a superellipse corner (var --sq, log2 of
    the exponent; 1.8 ~ Figma 60%). True circles and pills stay perfectly round:
    a superellipse on a full-radius shape distorts it. Degrades to plain rounded
@@ -211,7 +211,7 @@ const GLOBAL_CSS = `
 [style*="border-radius: 999px"], [style*="border-radius: 9999px"],
 [style*="border-radius: 50%"] { corner-shape: round; }
 @keyframes bkFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-/* Modal entrance — the card fades in while sliding up from a lower Y; the
+/* Modal entrance - the card fades in while sliding up from a lower Y; the
    backdrop just fades. Reduced-motion is neutralised by the block below. */
 @keyframes bkModalIn { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
 @keyframes bkScrimIn { from { opacity: 0; } to { opacity: 1; } }
@@ -224,14 +224,14 @@ const GLOBAL_CSS = `
 .bk-route { animation: bkRoute .4s cubic-bezier(.22,1,.36,1) .05s backwards; }
 .bk-num   { font-variant-numeric: tabular-nums; }
 .bk-opt:hover { background: #F4F1FF; }
-/* Scope pill hover (Figma 914:103545) — an inactive pill goes brand on hover;
+/* Scope pill hover (Figma 914:103545) - an inactive pill goes brand on hover;
    overrides the inline default colours, so !important is required. */
 .bk-pill:hover { border-color: #4100CF !important; color: #4100CF !important; }
 .bk-pill:hover .bk-pill-dot { background: #4100CF !important; }
-/* Detail tab hover (Figma 1126:41615) — an inactive tab gets a subtle lavender
+/* Detail tab hover (Figma 1126:41615) - an inactive tab gets a subtle lavender
    underline and brand text; overrides the inline default, so !important. */
 .bk-tab:hover { border-bottom-color: #D1C6FF !important; color: #4100CF !important; }
-/* Primary button interaction (Peetal 4128:8511) — hover darkens to #3800B4,
+/* Primary button interaction (Peetal 4128:8511) - hover darkens to #3800B4,
    press to #2C0091 (brightness reproduces both brand tokens and works for any
    tone); a fill button darkens, an outline one tints lavender; focus shows the
    #E8E2FF ring. */
@@ -241,41 +241,41 @@ const GLOBAL_CSS = `
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
 .bk-btn-ghost:not(:disabled):active { background-color: #E8E2FF !important; }
-/* Secondary button (manual-log twin) — a soft grey glow on hover, like Back to Login. */
+/* Secondary button (manual-log twin) - a soft grey glow on hover, like Back to Login. */
 .bk-btn-secondary:not(:disabled):hover  { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
 .bk-btn-secondary:not(:disabled):active { box-shadow: 0 0 16px rgba(169,172,177,0.48); background-color: #F4F5F6 !important; }
-/* Simulate pill hover — deepen the lavender fill. */
+/* Simulate pill hover - deepen the lavender fill. */
 .bk-sim { transition: background-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-sim:not(:disabled):hover { background-color: #EDE6FF !important; }
-/* Soft in-panel buttons (View / Download / etc.) — a gentle darken on hover. */
+/* Soft in-panel buttons (View / Download / etc.) - a gentle darken on hover. */
 .bk-soft { transition: filter .12s ease-out; }
 .bk-soft:not(:disabled):hover  { filter: brightness(0.95); }
 .bk-soft:not(:disabled):active { filter: brightness(0.9); }
-/* Plain text / small icon buttons — deepen to ink on hover. */
+/* Plain text / small icon buttons - deepen to ink on hover. */
 .bk-dim { transition: color .12s ease-out; }
 .bk-dim:not(:disabled):hover { color: #1C1D1F !important; }
 /* Placeholders read as label/neutral/disabled (A9ACB1 @ 60%), not the browser
-   default grey — matched by empty <select>s so every unfilled field looks alike. */
+   default grey - matched by empty <select>s so every unfilled field looks alike. */
 input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacity: 1; }
-/* Sidebar profile card hover (Figma 437:2239) — lavender border + soft brand glow. */
+/* Sidebar profile card hover (Figma 437:2239) - lavender border + soft brand glow. */
 .bk-profile { transition: border-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-profile:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.12); }
-/* Your Desk cards — hover lifts with a brand tint; pressing shows the firmer
+/* Your Desk cards - hover lifts with a brand tint; pressing shows the firmer
    neutral stroke + soft elevation from the old selected look (Figma 1249:89610). */
 .bk-desk { transition: box-shadow .18s ease, border-color .18s ease; }
 .bk-desk:hover { border-color: #D1C6FF !important; box-shadow: 0 0 12px rgba(65,0,207,0.10); }
 .bk-desk:active { border-color: #D2D5D8 !important; box-shadow: 0 0 2px rgba(169,172,177,0.24); }
-/* BimaClaim under-construction buttons hover (Figma 1172:72883/72884) — a soft glow. */
+/* BimaClaim under-construction buttons hover (Figma 1172:72883/72884) - a soft glow. */
 .bk-uc-btn { transition: box-shadow .12s ease-out, border-color .12s ease-out; }
 .bk-uc-secondary:hover { box-shadow: 0 0 16px rgba(169,172,177,0.48); }
 .bk-uc-primary:hover { box-shadow: 0 0 8px rgba(65,0,207,0.24); border-color: #F4F1FF !important; }
-/* Square icon controls — chevron.controls / close (Figma 3583:8881). Default is
+/* Square icon controls - chevron.controls / close (Figma 3583:8881). Default is
    a grey (hint) glyph; hover tints lavender with a brand glyph; focus sinks with
    a thicker lavender ring. Overrides the inline base, so !important. */
 .bk-iconctrl { transition: background-color .12s ease-out, border-color .12s ease-out, color .12s ease-out; }
 .bk-iconctrl:not(:disabled):hover { background-color: #F4F1FF !important; border-color: #D1C6FF !important; color: #4100CF !important; }
 .bk-iconctrl:not(:disabled):focus-visible { outline: none; background-color: #F4F5F6 !important; border-color: #D1C6FF !important; border-width: 1.5px; color: #4100CF !important; }
-/* Sidebar nav item hover (Figma 1214:79971) — an inactive tab lifts to a white
+/* Sidebar nav item hover (Figma 1214:79971) - an inactive tab lifts to a white
    fill with ink text. Only applied to inactive, enabled items. */
 .bk-navitem { transition: background-color .12s ease-out, color .12s ease-out; }
 .bk-navitem:hover { background-color: #FFFFFF !important; color: #1C1D1F !important; }
@@ -298,19 +298,19 @@ input::placeholder, textarea::placeholder { color: rgba(169,172,177,0.6); opacit
 .bk-spin { animation: bkSpin .7s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; }
-  /* the spinner still has to read as "working" — slow it, do not freeze it */
+  /* the spinner still has to read as "working" - slow it, do not freeze it */
   .bk-spin { animation-duration: 1.6s !important; }
 }
 `;
 
 
 /* ------------------------------------------------------------------ *
- *  MASTERS — mirrors the tabs of Endorsement_master.
+ *  MASTERS - mirrors the tabs of Endorsement_master.
  *  Everything below is configuration, not code. When the sheet is
  *  filled, these blocks are what gets replaced (or fetched at runtime).
  * ------------------------------------------------------------------ */
 
-/* Tab: Insurer list — endorsement desk contact + working calendar owner */
+/* Tab: Insurer list - endorsement desk contact + working calendar owner */
 const INSURERS = {
   "ICICI Lombard": { desk: "endorsement@icicilombard.com", pod: "Pod A", payMode: "Email", linkExpiryH: 48 },
   "Bajaj Allianz": { desk: "corp.endo@bajajallianz.co.in", pod: "Pod A", payMode: "Email", linkExpiryH: 48 },
@@ -331,7 +331,7 @@ const ROLES = {
 };
 const ESCALATION = { podLead: "Service Manager Head", serviceHead: "Service Head", insurerHead: "Insurer Head + Service Head", opsHead: "Operations Head", rm: "Relationship manager" };
 
-/* Manual review escalation. Taken from Figma 917:106299 — "1 Que over 8Hrs ·
+/* Manual review escalation. Taken from Figma 917:106299 - "1 Que over 8Hrs ·
    Escalated to Endorsements Head" and the Status column's "Endorsements Manager
    Notified". The 8-hour threshold and the Endorsements Head / Manager roles are
    NOT in the master workbook; they come from the design and need confirming. */
@@ -342,7 +342,7 @@ const ASSIGNMENT = { rule: "By insurer → pod, then round-robin within pod", po
 
 /* Tab: Reminder Schedule Master + Escalation Matrix (Appendix E #6, #7).
    Values are working hours into the stage. */
-/* Keyed to the SLA Master's status names — the Reminder Schedule tab labels the
+/* Keyed to the SLA Master's status names - the Reminder Schedule tab labels the
    same statuses differently, and one vocabulary has to win. Not yet wired:
    remindersOf() derives from ALL_STAGES.followUp. */
 const REMINDERS = {
@@ -364,7 +364,7 @@ const NOTIFY = {
   endorsement_delivered: ["Client", "RM"],
 };
 
-/* Tab: SLA Master and breach behaviour — verbatim from the master.
+/* Tab: SLA Master and breach behaviour - verbatim from the master.
    unit: BH = business hours (10:00–19:00 Mon–Fri) · WD = working days, same
    clock time on the Nth working day · CD = calendar days 24×7 · MIN = minutes. */
 const ALL_STAGES = {
@@ -433,7 +433,7 @@ const TERMINAL = {
 };
 const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
 const readOnly = (t) => isTerminal(t);
-/* A chase only makes sense while the ball is in the insurer's court — the three
+/* A chase only makes sense while the ball is in the insurer's court - the three
    stages the master gives owner:"insurer" (Submitted / Awaiting Quote / Awaiting
    Endorsement Copy). Once the copy lands (Copy Received / Closed) there is nothing
    to chase, so the Mail Trail hides the control. */
@@ -455,10 +455,10 @@ const PRIORITY = {
   Low: { rank: 3, color: C.ink3, bg: C.lineSoft },
 };
 
-/* Tab: Product x Endorsement list — 32 canonical endorsement types.
+/* Tab: Product x Endorsement list - 32 canonical endorsement types.
    Mandatory fields and documents depend on the TYPE only (verified against
    the master: no type's requirements differ by product). Product decides
-   which types are offered. Classification is not a column in the sheet —
+   which types are offered. Classification is not a column in the sheet -
    the values below are assumed and need confirming. */
 const TYPES = {
   "Hypothecation - Addition": { kind: "Non-Financial", fields: ["Bank name"], docs: [] },
@@ -513,8 +513,8 @@ const PRODUCTS = {
   "Motor": ["Address Change / Correction / Update", "Others"],
 };
 
-/* Tab: brand assets — the client's own marks, from Public/. */
-/* Insurer wordmarks — Public/Insurance.Comp, downscaled and inlined because the
+/* Tab: brand assets - the client's own marks, from Public/. */
+/* Insurer wordmarks - Public/Insurance.Comp, downscaled and inlined because the
    artifact has no /public. Keys are the INSURERS master; an insurer with no mark
    on file falls back to the shield glyph rather than a stand-in. */
 const INSURER_LOGO = {
@@ -528,9 +528,9 @@ const INSURER_LOGO = {
   "Future Generali": "data:image/webp;base64,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",
 };
 
-/* Product marks — Public/Prod.Icon. Keys are the PRODUCTS master. Four products
+/* Product marks - Public/Prod.Icon. Keys are the PRODUCTS master. Four products
    have no mark on file (Trade Credit, E&O, Public Liability, Motor); they render
-   the layers glyph instead — the near-matches in the folder are different covers. */
+   the layers glyph instead - the near-matches in the folder are different covers. */
 const PRODUCT_ICON = {
   "Fire & Burglary": "data:image/webp;base64,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",
   "Marine Cargo": "data:image/webp;base64,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",
@@ -569,14 +569,14 @@ const SEED_MAILS = [
     body: "Hello,\n\nI would like to update the nominee on my company's policy. Please let me know the process and the documents you need from me.\n\nThanks,\nRavi Menon" },
 ];
 
-/* Clock — stage only ---------------------------------------------- */
+/* Clock - stage only ---------------------------------------------- */
 /* Units spelled out per house style: "Mins."/"Hrs." (abbreviations take a
    period), "Days" (full word, none), with correct singular/plural. */
 const tUnit = (v, s, p) => `${v} ${v === 1 ? s : p}`;
 const fmtAgo = (h) => h < 1 ? `${tUnit(Math.round(h * 60), "Min.", "Mins.")} ago`
   : h < 24 ? `${tUnit(Math.round(h), "Hr.", "Hrs.")} ago`
   : `${tUnit(Math.round(h / 24), "Day", "Days")} ago`;
-/* The trail spells it out — it is a record, and a record reads in words. */
+/* The trail spells it out - it is a record, and a record reads in words. */
 const fmtAgoLong = (h) => {
   const u = (v, w) => `${v} ${w}${v === 1 ? "" : "s"} Ago`;
   if (h < 1) return u(Math.max(0, Math.round(h * 60)), "Min");
@@ -594,7 +594,7 @@ const fmtDur = (h) => {
 const isOpen = (t) => t.stage !== "Closed" && !t.terminal;
 const isRouting = (t) => stageOf(t.stage).system === true;   // not yet on anyone's desk
 const ageOf = (t) => t.legs.reduce((a, l) => a + l.h, 0) + (isOpen(t) ? t.inStage : 0);
-/* Ticket age in whole days — creation→now while open, frozen at creation→closure
+/* Ticket age in whole days - creation→now while open, frozen at creation→closure
    once closed (ageOf stops accruing once isOpen is false). Drives the Ticket Age
    column, the Overview line, and the Oldest/Newest-first sorts. */
 const ageDays = (t) => Math.max(0, Math.round(ageOf(t) / 24));
@@ -624,7 +624,7 @@ const breached = (t) => isOpen(t) && clock(t).state === "breached";
 const atRisk = (t) => isOpen(t) && clock(t).state === "atRisk";
 const isFresh = (t) => isOpen(t) && !isRouting(t) && !t.touched;
 const isSilent = (t) => isOpen(t) && t.lastAction >= 360;
-/* PRD §5.1 — the displayed status is the stage, overlaid with sub-states.
+/* PRD §5.1 - the displayed status is the stage, overlaid with sub-states.
    Pending Customer Response and Manual Review both return the ticket to the
    status it held before, so they are derived rather than stored as stages. */
 function statusOf(t) {
@@ -640,7 +640,7 @@ function statusOf(t) {
 
 /* Who is on this ticket so far. Grows as it moves: the owner from the start,
    the insurer once it has been submitted, the client once they have been asked
-   something. Derived, never stored — FUNCTIONAL-SPEC §4. */
+   something. Derived, never stored - FUNCTIONAL-SPEC §4. */
 function participantsOf(t) {
   const who = [{ kind: "owner", name: t.owner }];
   if (atOrPast(t, "Submitted to Insurer")) who.push({ kind: "insurer", name: t.insurer });
@@ -717,10 +717,10 @@ function intakeOf(t) {
 const fieldGaps = (t) => (t.missingFields || []).length;
 const gapCount = (t) => t.missing.length + fieldGaps(t);
 
-/* The endorsement copy is the deliverable, so it is tracked in its own right —
+/* The endorsement copy is the deliverable, so it is tracked in its own right -
    how it arrived, and every time it went out to the client. */
 /* Reminder and escalation history, derived from elapsed working hours against
-   the schedule — no scheduler needed to demonstrate the behaviour. */
+   the schedule - no scheduler needed to demonstrate the behaviour. */
 function remindersOf(t) {
   const st = stageOf(t.stage);
   if (!st.followUp || !isOpen(t)) return { fired: [], next: null, cfg: null };
@@ -751,7 +751,7 @@ function sendsOf(t) {
   return [];
 }
 
-/* "Summarise email" — the bot reads the whole trail and returns a précis.
+/* "Summarise email" - the bot reads the whole trail and returns a précis.
    Built deterministically from the thread so the prototype needs no model call. */
 function summariseThread(t) {
   const m = mailOf(t);
@@ -845,7 +845,7 @@ const NEFT = (t) => ({
 });
 
 const FIN_ON_ENTER = {
-  /* M5 FR-056/057/058 — bot reads the quote and extracts the premium */
+  /* M5 FR-056/057/058 - bot reads the quote and extracts the premium */
   "Awaiting Payment Link": (t) => {
     const base = 8000 + (t.id.charCodeAt(6) % 9) * 2350;
     const gst = Math.round(base * 0.18);
@@ -856,8 +856,8 @@ const FIN_ON_ENTER = {
       childTicket: mode === "Portal" ? `PAY-${t.id.slice(4)}` : null,
       __log: TRAIL.quoteIn(t, quote, mode).map((l) => ({ ...l, at: 0 })) };
   },
-  /* Awaiting Payment is entered by the link arriving — see receiveLink */
-  /* M6 FR-083 / M7 — leaving Awaiting Payment banks the proof and clears the copy
+  /* Awaiting Payment is entered by the link arriving - see receiveLink */
+  /* M6 FR-083 / M7 - leaving Awaiting Payment banks the proof and clears the copy
      slot for the insurer. Non-financial tickets reach here from the insurer's
      acceptance instead, so they only get the reset. */
   "Awaiting Endorsement Copy": (t) => (t.kind !== "Financial" ? { endo: null } : {
@@ -869,10 +869,10 @@ const FIN_ON_ENTER = {
 };
 
 
-/* ── The audit trail — Figma 802:65143 ------------------------------ *
+/* ── The audit trail - Figma 802:65143 ------------------------------ *
  *  The trail is the ticket's story, so each sentence has exactly one
- *  home. A seeded ticket replays what a driven one writes — same words,
- *  same actor — and only the timestamps differ between them.
+ *  home. A seeded ticket replays what a driven one writes - same words,
+ *  same actor - and only the timestamps differ between them.
  * ------------------------------------------------------------------ */
 
 /* "Under verification after 36m". The destination is named only when the ticket
@@ -886,7 +886,7 @@ const TRAIL = {
   raised: (t) => trailLine("Ticket raised from client mail", "Auto-linked by policy number", `${t.type} · ${t.policy}`),
   leg: (from, h, to, by) => trailLine(legLine(from, h, to), by),
 
-  /* M5 FR-056/057/058 — the bot reads the quote and the link is requested */
+  /* M5 FR-056/057/058 - the bot reads the quote and the link is requested */
   quoteIn: (t, quote, mode) => [
     trailLine(`Quote received - premium ${money(quote.total)} extracted by bot`, "Mail bot",
       `Confidence ${Math.round(quote.confidence * 100)}% · ${quote.file}`),
@@ -895,7 +895,7 @@ const TRAIL = {
       : `Payment link requested from ${t.insurer} by email`, "Workflow engine", `${mode} flow (BR-030)`),
     trailLine("Premium withheld from the customer until the link is ready", "System", "BR-026 / FR-061"),
   ],
-  /* M6 — the link lands from whichever source the insurer is configured for */
+  /* M6 - the link lands from whichever source the insurer is configured for */
   linkIn: (t, confidence) => [
     t.payMode === "Portal"
       ? trailLine(`Payment link uploaded by Operations on ${t.childTicket}`, "Operations", "Portal flow · child ticket closed")
@@ -903,7 +903,7 @@ const TRAIL = {
           `Confidence ${Math.round((confidence || 0.95) * 100)}% · Email flow`),
     trailLine("Premium and link now visible to the customer", "Notification engine", "Email + WhatsApp + BimaKendra (FR-071)"),
   ],
-  /* M6 FR-083 / FR-085 / FR-086 — proof in, proof out, insurer confirms */
+  /* M6 FR-083 / FR-085 / FR-086 - proof in, proof out, insurer confirms */
   paidIn: (t) => [
     trailLine("Payment proof uploaded by customer in BimaKendra", t.client, null),
     trailLine("Payment proof emailed to insurer for verification", "Workflow engine", "FR-085 / FR-086"),
@@ -933,7 +933,7 @@ function onEnterTrail(t, stage) {
 
 /* Replay a seeded ticket's life from its own legs, so its trail reads like one
    that was worked rather than one that was invented. `at` is hours ago, and it
-   falls out of the legs — which is why the story is honest about pace: the
+   falls out of the legs - which is why the story is honest about pace: the
    stages we own close in minutes, the ones we wait on take days. */
 function seedTrail(t) {
   const out = [];
@@ -950,7 +950,7 @@ function seedTrail(t) {
   return out;
 }
 
-/* Who signed a line. A person, or one of the desk's system personas — the
+/* Who signed a line. A person, or one of the desk's system personas - the
    product itself, Operations, the notification engine, or the client. */
 const PRODUCT_ACTOR = { name: "BimaEndorse", kind: "product" };
 const ACTORS = {
@@ -980,7 +980,7 @@ const Eyebrow = ({ children, right }) => (
   </div>
 );
 
-/* Page header — title, one line of orientation, then the ikkat rule. */
+/* Page header - title, one line of orientation, then the ikkat rule. */
 function PageHead({ title, hint, right, ruleFirst, noRule }) {
   return (
     <div className="mb-5">
@@ -997,20 +997,20 @@ function PageHead({ title, hint, right, ruleFirst, noRule }) {
   );
 }
 
-/* Table controls — Figma 888:88939. Filters live in the column headings; the
+/* Table controls - Figma 888:88939. Filters live in the column headings; the
    lifecycle slices are pills on the title row; sorting stands apart. */
 
 /* The desk clock, deliberately not the wall clock. NOW is pinned to 11:00 on the
    next working day and every deadline on screen derives from it; a live clock
    here would disagree with the SLA countdowns sitting inches below. */
 function Greeting({ right, user }) {
-  /* The date/time line is a live wall clock (display only) — it ticks in real
+  /* The date/time line is a live wall clock (display only) - it ticks in real
      time, independent of the SLA-pinned NOW that all countdowns still use. */
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(id); }, []);
   const h = clock.getHours();
   const word = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  /* The greeting is the user's, not the page's — see PORTAL_USERS. */
+  /* The greeting is the user's, not the page's - see PORTAL_USERS. */
   const hello = user?.greeting || `${word}, ${user?.first || "there"}.`;
   const when = clock.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "long" }) +
     " · " + clock.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
@@ -1033,7 +1033,7 @@ function Greeting({ right, user }) {
 /* Me/Team scope switch (Figma 1438:99008 / states 1438:99009). A segmented
    control whose white pill smart-animates (slides) between the two options on
    selection; the active label reads brand, the inactive muted, and hovering the
-   inactive option previews it in brand — exactly the four variants in the node. */
+   inactive option previews it in brand - exactly the four variants in the node. */
 function ScopeSwitch({ value, onChange }) {
   const opts = [["mine", "Me"], ["team", "Team"]];
   const idx = value === "team" ? 1 : 0;
@@ -1042,7 +1042,7 @@ function ScopeSwitch({ value, onChange }) {
   return (
     <div className="relative flex items-center" data-no-squircle
       style={{ background: C.brandBg, border: "1px solid #D1C6FF", borderRadius: 24, gap: GAP }}>
-      {/* the smart-animate pill — slides between the two seats */}
+      {/* the smart-animate pill - slides between the two seats */}
       <span aria-hidden className="pointer-events-none absolute" style={{
         top: 0, left: 0, width: W, height: H, borderRadius: 32, background: C.white,
         border: "1px solid #D1C6FF", boxShadow: "0 0 6px rgba(14,43,114,0.24)",
@@ -1125,9 +1125,9 @@ function Metric({ icon: Icon, label, value, tone, onClick, note }) {
   );
 }
 
-/* Indicator — Figma 900:96152. The dot and the hairline carry the meaning; the
+/* Indicator - Figma 900:96152. The dot and the hairline carry the meaning; the
    label always stays basic ink. Tokens are the Peetal semantic set. */
-/* `fill` is the table/type treatment; `tint` is the status treatment — a status
+/* `fill` is the table/type treatment; `tint` is the status treatment - a status
    pill always carries its tone as a wash (Figma 179:3672). */
 const IND = {
   error:   { dot: "#F10000", line: "#FFABAB", fill: "rgba(241,0,0,0.08)",    tint: "rgba(241,0,0,0.08)" },
@@ -1142,7 +1142,7 @@ const PRIO_IND = { Critical: "error", High: "caution", Medium: "neutral", Low: "
 const KIND_IND = { Financial: "success", "Non-Financial": "info", "Return-Premium": "caution" };
 /* One spelling of the classification. The master calls a refund "Return-Premium";
    every surface shows "Refund", and it used to be remapped in three places. */
-/* A ticket raised in the app carries no `kind` at all — see OPEN-QUESTIONS —
+/* A ticket raised in the app carries no `kind` at all - see OPEN-QUESTIONS -
    so the fallback keeps the pill from rendering blank until that is decided. */
 const kindLabel = (k) => k === "Return-Premium" ? "Refund" : (k || "Non-Financial");
 /* Stage: awaiting an outside party reads info, terminal reads neutral, anything
@@ -1159,9 +1159,9 @@ const stageInd = (t) => {
 const IND_TEXT = { error: "#CF0000", caution: "#B38F0A", info: "#1868F4", success: "#007B00",
   brand: "#4100CF", neutral: "#6F7378", muted: "#A9ACB1" };
 /* Three sizes, all from the design and all deliberate:
-     default — table row pill:        6px pad · r8  · 0.5px
-     big     — card status pill:      8px pad · r10 · 0.5px   (874:83812)
-     thick   — card type/priority:  3/6px pad · r8  · 1px     (874:83823) */
+     default - table row pill:        6px pad · r8  · 0.5px
+     big     - card status pill:      8px pad · r10 · 0.5px   (874:83812)
+     thick   - card type/priority:  3/6px pad · r8  · 1px     (874:83823) */
 const IND_SIZE = {
   default: { padding: "6px", borderRadius: 8, bw: "0.5px" },
   big:     { padding: "8px", borderRadius: 10, bw: "0.5px" },
@@ -1202,7 +1202,7 @@ function StagePills({ counts, active, onPick }) {
   );
 }
 
-/* Action list item — Figma 900:97172. px-8 py-12, r8, 16/500, selected on brandBg. */
+/* Action list item - Figma 900:97172. px-8 py-12, r8, 16/500, selected on brandBg. */
 const MenuOpt = ({ label, on, onClick }) => (
   <button onClick={onClick} className="bk-opt flex w-full items-center justify-between gap-6 rounded-lg px-2 py-3 text-left"
     style={{ fontSize: 16, fontWeight: 500, color: C.figHint, background: on ? C.brandBg : "transparent", lineHeight: 1 }}>
@@ -1248,7 +1248,7 @@ function HeaderFilter({ id, label, options, selected, setSelected, openKey, setO
   );
 }
 
-/* Sort — Figma 900:97172, rendered to its stated properties: 187px wide, a
+/* Sort - Figma 900:97172, rendered to its stated properties: 187px wide, a
    0.5px brand underline, label at 16/500 in brand, then chevron · divider ·
    sort bars. Open swaps the chevron for a cross. */
 function SortControl({ sort, setSort, openKey, setOpenKey }) {
@@ -1387,16 +1387,16 @@ function Panel({ title, count, hint, children, action }) {
 }
 const Empty = ({ children }) => <div className="px-3 py-8 text-center text-sm" style={{ color: C.figTert }}>{children}</div>;
 
-/* Home — Figma 874:83640. Two blocks: Your Desk counts what is waiting and
+/* Home - Figma 874:83640. Two blocks: Your Desk counts what is waiting and
    links into a pre-set My Tickets; Priority Cases pages the hot ones three at a
    time. Home reads and links; it never mutates a ticket. */
 
 const DESK_ARROW = { background: "#FFFFFF", border: "0.5px solid #E6E8EA", borderRadius: 10 };
 
-/* Desk card — routes into My Tickets pre-filtered. Hover lifts it with a brand
+/* Desk card - routes into My Tickets pre-filtered. Hover lifts it with a brand
    tint; pressing shows the firmer neutral stroke + soft elevation carried over
    from the old selected look (bk-desk in GLOBAL_CSS). The arrow never changes. */
-function DeskCard({ count, pills, tint, onOpen }) {
+function DeskCard({ count, pills, tint, onOpen, noun = "Ticket" }) {
   return (
     <div role="button" tabIndex={0} onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
@@ -1405,7 +1405,7 @@ function DeskCard({ count, pills, tint, onOpen }) {
         backgroundImage: `linear-gradient(59.34deg, ${C.white} 49.85%, ${tint} 99.918%)` }}>
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-2">
         <span className="bk-num leading-none" style={{ fontSize: 18, fontWeight: 600, color: C.figInk }}>
-          {count} {count === 1 ? "Ticket" : "Tickets"} in
+          {count} {count === 1 ? noun : `${noun}s`} in
         </span>
         <span className="flex flex-wrap items-center gap-2">
           {pills.map((p) => <Indicator key={p.label} label={p.label} ind={p.ind} outline={p.outline} />)}
@@ -1418,7 +1418,7 @@ function DeskCard({ count, pills, tint, onOpen }) {
   );
 }
 
-/* One ticket, as a card. The whole card is the target — a click anywhere opens
+/* One ticket, as a card. The whole card is the target - a click anywhere opens
    the ticket, so there is no separate action button. Shared by Priority Cases
    and the queue accordions (Figma 1005:121468 / 1005:122258) so both read alike.
    `style` lets the caller set the flex-basis for the Priority carousel. */
@@ -1463,7 +1463,7 @@ function CaseCard({ t, onOpen, style }) {
 
 /* A queue as an accordion: the same count-and-label header as before, but it
    opens in place to reveal its tickets rather than routing to a filtered list.
-   The buckets (bucketOf 1/2/3) are unchanged — only how Home surfaces them. */
+   The buckets (bucketOf 1/2/3) are unchanged - only how Home surfaces them. */
 function QueueAccordion({ label, ind, list, openTicket }) {
   const [open, setOpen] = useState(true);
   const count = list.length;
@@ -1563,7 +1563,7 @@ function Participants({ t, size = 20, down }) {
 }
 
 const PRIO_PER_PAGE = 3;
-const PRIO_GAP = 16;   // px — matches gap-4 on the track
+const PRIO_GAP = 16;   // px - matches gap-4 on the track
 const PRIO_PEEK = 40;  // px of the next card left visible, so the queue never looks like just three
 
 function PriorityCases({ list, openTicket }) {
@@ -1605,7 +1605,7 @@ function PriorityCases({ list, openTicket }) {
   );
 }
 
-/* Your Progress — the status of a metric drives an illustrative sparkline
+/* Your Progress - the status of a metric drives an illustrative sparkline
    (Figma 1283:91535 / 1243:83339 / 1280:91518): Well Done trends up, On Track
    holds flat, Poor trends down. The shapes are fixed art, not plotted data. */
 const scoreStatus = (s) => (s >= 0.7 ? "Well Done" : s >= 0.4 ? "On Track" : "Poor");
@@ -1626,7 +1626,7 @@ function Spark({ status }) {
     </svg>
   );
 }
-/* The Poor→On Track→Well Done gauge — bars fill left-to-right by the score. */
+/* The Poor→On Track→Well Done gauge - bars fill left-to-right by the score. */
 function PerfMeter({ score }) {
   const N = 24, filled = Math.max(1, Math.round(score * N));
   return (
@@ -1672,7 +1672,7 @@ function ProgressCard({ title, value, status, score, sub, subTone, tip }) {
     </div>
   );
 }
-/* Ticket Time Distribution — a donut of hours held by each player (Figma
+/* Ticket Time Distribution - a donut of hours held by each player (Figma
    1280:91430). Slices and labels come from real leg/stage time on the desk. */
 const PIE_IND = { Insurer: "caution", Client: "brand", BimaKavach: "error", BimaPlacement: "info" };
 const PIE_FILL = { Insurer: "#FFF9E6", Client: "#F4F1FF", BimaKavach: "#FFECEC", BimaPlacement: "#EEF4FF" };
@@ -1713,7 +1713,7 @@ function Donut({ segments }) {
     </div>
   );
 }
-/* Range selector — the window the stats describe. Same pill component as the My
+/* Range selector - the window the stats describe. Same pill component as the My
    Tickets filters (StagePills): bk-pill hover, brand fill when active. Last Week
    reads real data; the other windows are illustrative (no historical store). */
 const RANGES = ["Last Week", "Last Month", "Last Quarter", "Custom"];
@@ -1736,7 +1736,7 @@ function RangePills({ value, onChange }) {
   );
 }
 
-/* Home — the desk (six count-cards that route into My Tickets) over a progress
+/* Home - the desk (six count-cards that route into My Tickets) over a progress
    dashboard. Home and My Tickets are separate pages again (Figma 1197:73447). */
 function Home({ tickets, scope, setScope, go, user }) {
   const [range, setRange] = useState("Last Week");
@@ -1753,20 +1753,20 @@ function Home({ tickets, scope, setScope, go, user }) {
     { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], preset: { slice: "qFresh" } },
   ];
 
-  /* Ticket Closure — the share of open tickets still inside SLA. */
+  /* Ticket Closure - the share of open tickets still inside SLA. */
   const onTrack = open.filter((t) => !breached(t)).length;
   const overdue = open.filter(breached).length;
   const closureScore = onTrack / totalOpen;
   const closureStatus = scoreStatus(closureScore);
 
-  /* Median Turnaround — the median share of the stage clock already spent;
+  /* Median Turnaround - the median share of the stage clock already spent;
      less consumed reads as a healthier turnaround. */
   const used = open.map((t) => Math.min(1, Math.max(0, clock(t).used || 0))).sort((a, b) => a - b);
   const medUsed = used.length ? used[Math.floor((used.length - 1) / 2)] : 0;
   const turnScore = 1 - medUsed;
   const turnStatus = scoreStatus(turnScore);
 
-  /* Ticket Time Distribution — hours each player has held the ticket, from the
+  /* Ticket Time Distribution - hours each player has held the ticket, from the
      stage legs + the current stage, weighted equally per ticket then scaled to a
      typical ticket's lifetime so one stuck ticket cannot swamp the picture. */
   /* Player = who holds the ticket at each stage. BimaKavach = the service
@@ -1790,7 +1790,7 @@ function Home({ tickets, scope, setScope, go, user }) {
     .map((p) => ({ label: p, ind: PIE_IND[p], fill: PIE_FILL[p], hrs: (acc[p] / nShare) * medLife }))
     .filter((s) => s.hrs >= 0.5);
 
-  /* Last Week reads the live desk; the wider windows are illustrative — our
+  /* Last Week reads the live desk; the wider windows are illustrative - our
      oldest ticket is under a month old, so month/quarter figures are stand-ins. */
   const seg = (i, cl, b, p) => ["Insurer", "Client", "BimaKavach", "BimaPlacement"]
     .map((label, k) => ({ label, ind: PIE_IND[label], fill: PIE_FILL[label], hrs: [i, cl, b, p][k] }));
@@ -1798,7 +1798,7 @@ function Home({ tickets, scope, setScope, go, user }) {
   const PROG = {
     "Last Week": {
       count: open.length,
-      closure: { value: `${onTrack}/${totalOpen}`, status: closureStatus, score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue — on top of it", subTone: overdue ? C.semCaution : green },
+      closure: { value: `${onTrack}/${totalOpen}`, status: closureStatus, score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue - on top of it", subTone: overdue ? C.semCaution : green },
       turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of stage SLA used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
       segments,
     },
@@ -1828,14 +1828,14 @@ function Home({ tickets, scope, setScope, go, user }) {
     <div className="space-y-6">
       <Greeting user={user} right={
         /* Mine/Team is a supervisor control. A Servicing Executive owns a single
-           desk — she sees only her own queue and never the toggle. A manager's
+           desk - she sees only her own queue and never the toggle. A manager's
            view (e.g. Umesh) keeps it. Gated on the user-role master (ROLES). */
         ROLES[user?.name]?.role === "Servicing executive" ? null : (
           <ScopeSwitch value={scope} onChange={setScope} />
         )
       } />
 
-      {/* Your Desk — the six count-cards; each routes into My Tickets pre-filtered. */}
+      {/* Your Desk - the six count-cards; each routes into My Tickets pre-filtered. */}
       <div>
         <div className="mb-4 flex items-center gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
@@ -1850,7 +1850,7 @@ function Home({ tickets, scope, setScope, go, user }) {
 
       <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
-      {/* Your Progress — two metric cards over an SLA time-distribution donut.
+      {/* Your Progress - two metric cards over an SLA time-distribution donut.
           Switching the range morphs the whole block (fade + slide, keyed on range). */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1861,7 +1861,7 @@ function Home({ tickets, scope, setScope, go, user }) {
           <div className="flex flex-col gap-4 lg:col-span-1">
             <ProgressCard title="Ticket Closure" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
               sub={prog.closure.sub} subTone={prog.closure.subTone}
-              tip="Open tickets still inside SLA — on-track over total open." />
+              tip="Open tickets still inside SLA - on-track over total open." />
             <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
               sub={prog.turn.sub} subTone={prog.turn.subTone}
               tip="Median share of the stage clock used; lower is faster." />
@@ -1914,12 +1914,12 @@ const SLICES = {
   silent: { label: "Pending 15d+ only", fn: isSilent },
   blocked: { label: "Intake gaps only", fn: blocked },
   held: { label: "Awaiting client only", fn: onHold },
-  /* Queue slices — the three collapsed rows on Home. They mirror bucketOf, which
+  /* Queue slices - the three collapsed rows on Home. They mirror bucketOf, which
      is a mutually exclusive cascade (silent outranks breached), so a row's count
      always equals what clicking it opens. Not due-date slices, so `queue: true`
      keeps them out of the Stage due menu. */
   /* Desk-card queues. Each mirrors its card's plain meaning DIRECTLY, not the
-     mutually-exclusive bucketOf cascade — the cascade lets "silent" (15d idle)
+     mutually-exclusive bucketOf cascade - the cascade lets "silent" (15d idle)
      outrank a live breach, so a breached-but-silent ticket would vanish from the
      Overdue card. So the count always equals what clicking the card opens.
      Overdue/Due today route to the visible breached/risk slices; these three are
@@ -1929,12 +1929,12 @@ const SLICES = {
   qInsurer: { label: "Awaiting insurer queue", queue: true, fn: awaitingInsurer },
 };
 
-/* Tab: Working hours and holidays — the stage clock only runs inside these
+/* Tab: Working hours and holidays - the stage clock only runs inside these
    hours, so a ticket raised 6 PM Saturday is not late by Monday morning. */
 const BIZ = {
   days: [1, 2, 3, 4, 5],             // Mon–Fri (PRD §8.1)
   startH: 10, endH: 19,              // 10:00–19:00 → 9 working hours/day
-  // Tab: Working hours and holidays — Keka 2026 list
+  // Tab: Working hours and holidays - Keka 2026 list
   holidays: ["2026-01-01", "2026-01-14", "2026-01-26", "2026-03-04", "2026-03-31",
              "2026-05-28", "2026-09-14", "2026-10-02", "2026-10-20", "2026-11-09", "2026-12-25"],
 };
@@ -1977,7 +1977,7 @@ function addBiz(from, hours) {
   return cur;
 }
 
-/* WD — "firing at the same clock time on the next working day" */
+/* WD - "firing at the same clock time on the next working day" */
 function addWD(from, days) {
   let left = days, cur = new Date(from);
   for (let i = 0; i < 400 && left > 0; i++) {
@@ -2021,7 +2021,7 @@ function fmtWhen(d) {
     : d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
   return `${label} ${time}`;
 }
-/* Working hours read badly past a day — 27h means nothing, 3 working days does */
+/* Working hours read badly past a day - 27h means nothing, 3 working days does */
 const fmtBiz = (h) => {
   const a = Math.abs(h);
   if (a < 1) return tUnit(Math.max(1, Math.round(a * 60)), "Min.", "Mins.");   // under an hour reads in minutes
@@ -2034,7 +2034,7 @@ const fmtBiz = (h) => {
 };
 
 /* The SLA cell: state pill first, absolute deadline second.
-   A countdown says how long; a deadline says when — the second is what you
+   A countdown says how long; a deadline says when - the second is what you
    can actually plan a day around. Proportion moves to the ticket detail. */
 function SlaCell({ t, stacked }) {
   const c = clock(t);
@@ -2060,7 +2060,7 @@ function SlaCell({ t, stacked }) {
   );
 }
 
-/* Column widths, verbatim from Figma 900:96152. Stage due takes the remainder —
+/* Column widths, verbatim from Figma 900:96152. Stage due takes the remainder -
    it holds the longest string, Client the shortest. They shrink rather than drop,
    so every column stays on screen at laptop widths. */
 const COLS = {
@@ -2077,7 +2077,7 @@ const cell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0,
 const dueCell = { flex: "1 1 0", minWidth: 130 };
 
 /* Stage due, as one line: the countdown in its tone, the deadline behind it.
-   All five clock states still render — ok, at risk, breached, held, closed. */
+   All five clock states still render - ok, at risk, breached, held, closed. */
 function StageDue({ t }) {
   const c = clock(t);
   if (c.state === "closed") return <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Closed</span>;
@@ -2119,7 +2119,7 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
 
 function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset }) {
   const [sort, setSort] = useState("urgency");
-  /* Empty set means All — the same thing the old "All priorities" option meant. */
+  /* Empty set means All - the same thing the old "All priorities" option meant. */
   const [prio, setPrio] = useState(() =>
     preset?.prio === "hot" ? new Set(["Critical", "High"]) : preset?.prio ? new Set([preset.prio]) : new Set());
   const [stage, setStage] = useState(new Set());
@@ -2170,12 +2170,12 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
     { value: "Non-Financial", label: "Non-Financial" },
     { value: "Return-Premium", label: "Refund" },
   ];
-  /* Filter on what the column actually prints, so the derived statuses — awaiting
-     customer information, manual review, the terminal ones — are selectable. */
+  /* Filter on what the column actually prints, so the derived statuses - awaiting
+     customer information, manual review, the terminal ones - are selectable. */
   const STAGE_OPTS = [...new Set(scoped.map((t) => statusOf(t).label))].sort().map((v) => ({ value: v, label: v }));
   const SLICE_OPTS = Object.entries(SLICES).filter(([k, v]) => k !== "all" && !v.queue)
     .map(([k, v]) => ({ value: k, label: v.label.replace(" only", "") }));
-  /* Only the endorsement types actually present — nothing invented. */
+  /* Only the endorsement types actually present - nothing invented. */
   const REQ_OPTS = [...new Set(scoped.map((t) => t.type))].sort().map((v) => ({ value: v, label: v }));
 
   const hf = { openKey, setOpenKey };
@@ -2289,14 +2289,14 @@ const Note = ({ icon: Icon, tone, bg, children }) => (
 const Cancel = ({ onClick }) => (
   <button onClick={onClick} className="bk-dim" style={{ padding: "12px 20px", fontSize: 14, fontWeight: 600, color: C.figHint }}>Cancel</button>
 );
-/* The completion tick beside a field — blue when satisfied, muted otherwise. */
+/* The completion tick beside a field - blue when satisfied, muted otherwise. */
 const CheckDot = ({ on }) => (
   <span className="flex shrink-0 items-center justify-center rounded-full"
     style={{ width: 14, height: 14, background: on ? "#1458D2" : C.subtle }}>
     <Check size={9} strokeWidth={3} style={{ color: C.white }} />
   </span>
 );
-/* The corner grabber that marks a field as multi-line / resizable — the "bottom
+/* The corner grabber that marks a field as multi-line / resizable - the "bottom
    icon" in the DS input anatomy (TMS 1128:42313), two diagonal strokes pinned
    into the field's bottom-right. Decorative: it signifies a longer-form field. */
 const ResizeGrip = ({ color = C.figTert }) => (
@@ -2307,7 +2307,7 @@ const ResizeGrip = ({ color = C.figTert }) => (
 /* A multi-line question field built to the DS multiline-input spec (Peetal
    3313:24451): a padded wrapper with a 0.5px underline that goes brand once
    filled, top-aligned so text fills downward, the tick at the top-right, and
-   the resize grabber in the corner — not merely a taller single-line row. */
+   the resize grabber in the corner - not merely a taller single-line row. */
 const MultilineField = ({ value, onChange, placeholder, rows = 2 }) => (
   <div className="relative" style={{ background: C.white, padding: 12,
     borderBottom: `0.5px solid ${value.trim() ? C.brand : C.line}` }}>
@@ -2339,7 +2339,7 @@ const ProgressFooter = ({ pct, onClose, onConfirm, disabled, label }) => (
   </div>
 );
 
-/* Document preview. The design for this screen is not drawn yet — it keeps the
+/* Document preview. The design for this screen is not drawn yet - it keeps the
    page treatment so the sheet reads as the file it stands for. */
 function DocViewer({ doc, onClose }) {
   if (!doc) return null;
@@ -2451,7 +2451,7 @@ function QueryModal({ ctx, t, onSend, onClose }) {
 }
 
 
-/* Logging receipt manually requires the copy itself — otherwise the stage moves
+/* Logging receipt manually requires the copy itself - otherwise the stage moves
    forward with nothing to send the client. */
 function UploadModal({ t, onConfirm, onClose }) {
   const [file, setFile] = useState("");
@@ -2479,7 +2479,7 @@ function UploadModal({ t, onConfirm, onClose }) {
 }
 
 
-/* Customer Withdrawn (M3 FR-036/037, BR-017) — terminal, and blocked until the
+/* Customer Withdrawn (M3 FR-036/037, BR-017) - terminal, and blocked until the
    customer's withdrawal email is on file. */
 function WithdrawModal({ t, onConfirm, onClose }) {
   const [file, setFile] = useState("");
@@ -2512,7 +2512,7 @@ function WithdrawModal({ t, onConfirm, onClose }) {
   );
 }
 
-/* Reassignment (M2 FR-020/021, BR-008/010) — reason mandatory, SLA continues. */
+/* Reassignment (M2 FR-020/021, BR-008/010) - reason mandatory, SLA continues. */
 function ReassignModal({ t, onConfirm, onClose }) {
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
@@ -2548,13 +2548,13 @@ function ReassignModal({ t, onConfirm, onClose }) {
 
 
 /* ------------------------------------------------------------------ *
- *  TICKET SCREEN — Figma 917:106239
+ *  TICKET SCREEN - Figma 917:106239
  *  Two panels. The left one is the clock and the record of who did what;
  *  the right one is the work. Neither stores anything: every figure is
  *  read off the ticket by the derived functions above.
  * ------------------------------------------------------------------ */
 
-/* 10px metadata pill — Verified, v1, a filename, a stage owner. */
+/* 10px metadata pill - Verified, v1, a filename, a stage owner. */
 const MiniTag = ({ children, tone, bg, line, title }) => (
   <span title={title} className="inline-flex shrink-0 items-center whitespace-nowrap"
     style={{ padding: "1px 4px", borderRadius: 4, fontSize: 10, fontWeight: 500, lineHeight: "14px",
@@ -2563,7 +2563,7 @@ const MiniTag = ({ children, tone, bg, line, title }) => (
   </span>
 );
 
-/* Quiet control — View, Upload, Download. */
+/* Quiet control - View, Upload, Download. */
 const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
   <button onClick={onClick} disabled={disabled} title={title}
     className="bk-soft flex shrink-0 items-center gap-1.5 whitespace-nowrap"
@@ -2576,9 +2576,9 @@ const SoftBtn = ({ children, onClick, disabled, title, tone, bg, line }) => (
   </button>
 );
 
-/* Demo control — a dashed lavender pill (Figma), deliberately unlike a real
+/* Demo control - a dashed lavender pill (Figma), deliberately unlike a real
    action, standing in for the insurer / client / Operations. */
-/* Simulate / demo control — the DS "simulation" button (Figma 1126:41654):
+/* Simulate / demo control - the DS "simulation" button (Figma 1126:41654):
    a full-size dashed brand pill on a lavender fill, plus the leading dot. */
 const SimBtn = ({ children, onClick, title }) => (
   <button onClick={onClick} title={title}
@@ -2604,7 +2604,7 @@ const Btn = ({ children, onClick, disabled, title, variant = "fill", tone = C.br
   /* secondary = the neutral twin (subtle border, ink label) that glows on hover,
      like the "Back to Login" control (Figma 1172:72883). */
   const secondary = variant === "secondary";
-  const xs = size === "xs";   /* matches SoftBtn — the in-panel, non-primary action size */
+  const xs = size === "xs";   /* matches SoftBtn - the in-panel, non-primary action size */
   const sm = size === "sm";
   return (
     <button onClick={onClick} disabled={disabled} title={title}
@@ -2636,7 +2636,7 @@ const ClockFading = ({ size = 14, color = "currentColor" }) => (
   </svg>
 );
 
-/* Whose clock it is, as a person or a party rather than a role name — the same
+/* Whose clock it is, as a person or a party rather than a role name - the same
    vocabulary the audit trail signs its lines with. */
 const stageActor = (t, k) => {
   const o = stageOf(k).owner;
@@ -2673,7 +2673,7 @@ function Drawer({ icon: Icon, tint = C.accent, title, open, setOpen, badge, chil
   );
 }
 
-/* Stage marker — closed, running, not yet reached. */
+/* Stage marker - closed, running, not yet reached. */
 const StageCheck = ({ state }) => {
   const box = { width: 18, height: 18, borderRadius: 6 };
   if (state === "done") return (
@@ -2841,7 +2841,7 @@ function SlaCard({ t }) {
         /* The bar reads REMAINING time and drains right-to-left: a state-toned
            segment on the LEFT (green when ok, amber at-risk) for what's left,
            over a red track that shows through on the right for what's gone. A
-           breached clock has no remaining segment — the track is all red, no bar
+           breached clock has no remaining segment - the track is all red, no bar
            left, just the red container (Figma 1040:158796). */
         const usedPct = s.state === "breached" ? 100 : Math.max(0, Math.min(100, s.used));
         const leftPct = Math.max(0, 100 - usedPct);
@@ -2873,7 +2873,7 @@ function SlaCard({ t }) {
   );
 }
 
-/* Three counters beside the clock. Each is derived from the ticket — the
+/* Three counters beside the clock. Each is derived from the ticket - the
    prototype holds no bot-confidence figure for a non-financial endorsement,
    so intake completeness takes that slot instead of an invented number. */
 function StatCard({ label, value, tone, icon: Icon, grow, dense, stack, title }) {
@@ -2971,7 +2971,7 @@ function TrailRow({ h, t, last }) {
   );
 }
 
-/* Update Quote (M5) — the SM revises the premium; every update is stored as a
+/* Update Quote (M5) - the SM revises the premium; every update is stored as a
    new version, nothing overwritten. Ported from prototype2 onto the BimaEndorse
    modal shell. The handler (onRevise) keeps the prior versions. */
 function UpdateQuoteModal({ t, onConfirm, onClose }) {
@@ -3041,9 +3041,9 @@ function UpdateQuoteModal({ t, onConfirm, onClose }) {
   );
 }
 
-/* Ticket — Figma 1040:158792 --------------------------------------- *
+/* Ticket - Figma 1040:158792 --------------------------------------- *
  *  Header (id + chips, no action button), an ikkat rule, then a narrow left
- *  stack — the stage-timeline clock and three metric counters — and a wide
+ *  stack - the stage-timeline clock and three metric counters - and a wide
  *  Action Panel: tabs of work (Overview, Documents, Query Line, Mail Trail,
  *  Ticket Trail, Payment, Manage) over ONE persistent footer that carries the
  *  audit note and the primary stage action on every tab.
@@ -3070,7 +3070,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const qcDone = !!t.qcPassed;
   const openQ = queries.filter((q) => q.status === "open");
   /* A captured value or document can be challenged with the client only while
-     the desk still holds the ticket — i.e. before it is submitted to the insurer.
+     the desk still holds the ticket - i.e. before it is submitted to the insurer.
      Once it goes to the insurer the intake is locked, so the Query controls
      disappear. A query routes it to Awaiting Customer Information and returns to
      the prior stage once answered. */
@@ -3082,7 +3082,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const pendingDocs = docs.filter((d) => d.status === "Awaiting").length;
   const pendingAll = pendingDocs + fieldGaps(t);
 
-  /* Mandatory intake, straight off the type master — the figure the Intake
+  /* Mandatory intake, straight off the type master - the figure the Intake
      counter reports and the thing that blocks submission to the insurer. */
   const mandTotal = (TYPES[t.type]?.fields || []).length + (TYPES[t.type]?.docs || []).length;
   const mandGaps = gapCount(t);
@@ -3090,7 +3090,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   /* The next action, resolved once and used in both the header and the footer
      so the two can never disagree. Predicates unchanged. */
   /* Intake is complete at creation (the bot collects everything first), so
-     submission is never blocked on intake — only on an open client query. */
+     submission is never blocked on intake - only on an open client query. */
   const advBlocked = (t.stage === "Under Verification" && openQ.length > 0) ||
     (t.stage === "Copy Received" && (!endo || !qcDone || !sends.length));
   const advLabel = st.verb;
@@ -3176,7 +3176,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
   return (
     <div>
-      {/* header — id + status on the left; classification chips and the people
+      {/* header - id + status on the left; classification chips and the people
           on the right. No action button here: the primary action lives at the
           bottom of the Action Panel, reachable from every tab. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3209,8 +3209,8 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
       <div className="bk-rule my-5" aria-hidden />
 
-      {/* Two panels: a narrow left rail — the stage-timeline clock and three
-          metric counters — beside the wide Action Panel where the work happens. */}
+      {/* Two panels: a narrow left rail - the stage-timeline clock and three
+          metric counters - beside the wide Action Panel where the work happens. */}
       <div className="flex" style={{ gap: 28, height: "calc(100vh - 264px)", minHeight: 480 }}>
 
         {/* left - the stage timeline and the metrics */}
@@ -3508,7 +3508,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
             </div>
           )}
 
-          {/* Ticket Trail — the audit history, relocated from the left rail into
+          {/* Ticket Trail - the audit history, relocated from the left rail into
               its own tab. Reverse-chronological, actor + timestamp on the right. */}
           {live === "trail" && (
             <div className="space-y-1">
@@ -3524,7 +3524,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
           {live === "payment" && (
             <div className="space-y-3">
-                {/* M5 — quote & premium */}
+                {/* M5 - quote & premium */}
                 <div className="space-y-4">
                   <SectionTitle right={t.quote && <MiniTag {...OK}><FileCheck2 size={10} /> {t.quote.file}</MiniTag>}>Quote &amp; premium</SectionTitle>
                   {t.quote ? (
@@ -3552,7 +3552,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                         </div>
                       </Drawer>
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        {/* Update Quote is hidden globally — the quote is issued by the insurer;
+                        {/* Update Quote is hidden globally - the quote is issued by the insurer;
                             the desk's only action here is to View it. */}
                         <SoftBtn onClick={() => setPreview({ name: "Insurer quote", kind: "Insurer issued", file: t.quote.file, size: "184 KB", by: t.insurer, status: "Verified", at: t.quote.at })}>View Quote</SoftBtn>
                       </div>
@@ -3565,7 +3565,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   ) : <Empty>Waiting on the insurer's quote.</Empty>}
                 </div>
 
-                {/* M6 — payment link */}
+                {/* M6 - payment link */}
                 {t.quote && (
                   <>
                     <div className="bk-rule" aria-hidden />
@@ -3658,7 +3658,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                   </>
                 )}
 
-                {/* M6 FR-075 / FR-157 — proof and the revert path */}
+                {/* M6 FR-075 / FR-157 - proof and the revert path */}
                 {t.payment && (
                   <>
                     <div className="bk-rule" aria-hidden />
@@ -3764,7 +3764,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 }
 
 /* Review + Create ------------------------------------------------- */
-/* Manual review queue — Figma 917:106299 / 917:107326. Same table treatment as
+/* Manual review queue - Figma 917:106299 / 917:107326. Same table treatment as
    My Tickets: no border, no outer padding, 14px, header on a canvas strip. This
    queue is not filterable, so the headings carry no chevrons. */
 const MR_COLS = {
@@ -3851,11 +3851,11 @@ function Review({ mails, onClaim }) {
         const late = open.received >= MR_ESCALATION.overH;
         return (
           <ModalShell icon={SquareDashedMousePointer} title={`Manual review · ${open.id}`}
-            sub="The bot could not match this mail to a policy on its own — review it and create the ticket."
+            sub="The bot could not match this mail to a policy on its own - review it and create the ticket."
             width={760} onClose={() => setOpen(null)}
             footer={<Btn onClick={() => { onClaim(open.id); setOpen(null); }}>Create Ticket</Btn>}>
             <div className="grid gap-6" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
-              {/* left — the bot's read of the mail */}
+              {/* left - the bot's read of the mail */}
               <div className="space-y-5">
                 <div>
                   <FieldLabel>Bot guess</FieldLabel>
@@ -3882,7 +3882,7 @@ function Review({ mails, onClaim }) {
                   </div>
                 </div>
               </div>
-              {/* right — the mail itself */}
+              {/* right - the mail itself */}
               <div style={{ borderLeft: `1px solid ${C.subtle}`, paddingLeft: 24 }}>
                 <div className="flex items-start gap-3">
                   <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 40, height: 40, background: C.brandBg, color: C.brand }}><Mail size={18} /></span>
@@ -3904,9 +3904,9 @@ function Review({ mails, onClaim }) {
   );
 }
 
-/* Upload field — Peetal 3316:80930, four states. The illustrations are the
+/* Upload field - Peetal 3316:80930, four states. The illustrations are the
    design's own, inlined. The disabled art exported blank from Figma, so it is
-   the error art desaturated — same drawing, which is what the spec shows. */
+   the error art desaturated - same drawing, which is what the spec shows. */
 const UP_ART = {
   default: "data:image/webp;base64,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",
   success: "data:image/webp;base64,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",
@@ -3960,7 +3960,7 @@ function UploadField({ label, doc, state = "default", file, onPick, onReset }) {
   );
 }
 
-/* Create endorsement ticket — Figma 900:99062 / 917:104341. A modal over the
+/* Create endorsement ticket - Figma 900:99062 / 917:104341. A modal over the
    list, not a page. Type is chosen here and drives the classification, the
    mandatory fields and the documents beneath it. */
 /* No policy master exists in the workbook yet (see OPEN-QUESTIONS), so the Create
@@ -3979,7 +3979,7 @@ const fetchPolicy = (policy) => {
   const seed = SEED.find((t) => t.policy.toUpperCase() === key);
   if (seed) return { client: seed.client, insurer: seed.insurer, product: seed.product };
   if (POLICY_BOOK[key]) return POLICY_BOOK[key];
-  /* Any other policy number gets a deterministic demo record — the same string
+  /* Any other policy number gets a deterministic demo record - the same string
      always resolves the same way, but different sample numbers (Example1,
      Example2, …) return different client / insurer / product. Prototype only. */
   const h = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -3989,7 +3989,7 @@ const fetchPolicy = (policy) => {
 };
 
 /* Create-form field: label, a bottom-ruled control, and a trailing tick. Kept at
-   MODULE scope so it is not recreated on every Create render — an inline component
+   MODULE scope so it is not recreated on every Create render - an inline component
    would remount the input each keystroke and steal focus. `locked` = read-only grey. */
 const okFieldStyle = (v) => ({ borderBottom: `1px solid ${v ? C.brand : C.line}`,
   background: v ? "rgba(65,0,207,0.02)" : "transparent" });
@@ -4035,7 +4035,7 @@ function Create({ onCreate, back, prefill }) {
   /* The three inputs the SM fills; entering the policy auto-fetches (and locks)
      Client / Insurer / Product, and resets the type since its list is per-product. */
   const onPolicyChange = (e) => setF((prev) => ({ ...prev, policy: e.target.value }));
-  /* Fetch ONLY when the SM commits the policy with Enter — never on keystroke,
+  /* Fetch ONLY when the SM commits the policy with Enter - never on keystroke,
      so partial input like "E" doesn't populate the trio or steal focus. */
   const onPolicyKey = (e) => {
     if (e.key !== "Enter") return;
@@ -4068,7 +4068,7 @@ function Create({ onCreate, back, prefill }) {
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
           <div className="grid gap-x-10 sm:grid-cols-2">
-            {/* Left — the three inputs, then the read-only trio fetched from the policy */}
+            {/* Left - the three inputs, then the read-only trio fetched from the policy */}
             <div className="min-w-0">
               <Field label="Policy Number" value={f.policy}
                 onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
@@ -4103,7 +4103,7 @@ function Create({ onCreate, back, prefill }) {
               </Field>
             </div>
 
-            {/* Right — the endorsement type's own fields and document uploads, kept
+            {/* Right - the endorsement type's own fields and document uploads, kept
                 beside the core so the form stays on one screen (empty until a type
                 that has such fields is chosen) */}
             <div className="min-w-0">
@@ -4156,7 +4156,7 @@ function Create({ onCreate, back, prefill }) {
  *  registered: typing a known one names the user and their environment.
  * ------------------------------------------------------------------ */
 
-/* Admin portal access — TOOLS, PORTAL_USERS and PORTAL_PASSWORD are defined
+/* Admin portal access - TOOLS, PORTAL_USERS and PORTAL_PASSWORD are defined
    just below, after the avatar assets the user records reference. */
 const AVATAR = "data:image/webp;base64,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";
 const AVATAR_UMESH = "data:image/webp;base64,UklGRnADAABXRUJQVlA4IGQDAACwEgCdASpAAEAAPlEijUQjoiEY+q5IOAUEtgBgErZ/APxA7Oa9XKfxA/KrpluEO+vILHC69f0n3Hdq3bb+YD9d+pN6AH9Q6i30APLY9lT9ufSeu/D1R01TOaODpYrVrpB6HiMTKKUL1eK3CIOuP9EQEdbs4meOCKBazb5Sr4xlzR2S2Xvvuyh9aC5yPjskIJUFbEnJ6S0logVXi3Z/AAD+8CoPU+Ch8FD8M0h/ljffxcSuVcVHy2VtjYz+juzkM+oDWOzfFP/pj5ZYbarr/AxRn9LumdXBoylFbOvssh+Qwt9rG2n6qGFpUiR6tEkl4GF79975mfv4mTCnacuN675eOWQeQP3dlwq3QeUk5lKmOzqZw7AuKrW5Kp5XNQtQm+yHZk1/3+grmirzL3JKR54EZm9dRgFsBU1wBj3MnTyfnNPhB56HmC2RTi6qlFbt1L2dttq9rpb6CUQFwvO95Y1cHeMXnne+jVZnNFqQY1u2dL5e9fET5ry/HQf8xJC/Ar36QtCO1Zii1aL63M8dUsLt9F2nI4W0O7JIEYQ3Jyh5pLYLxSoYfTAAnuNLtW9f2Khp7GOrsUxWCediahIAP/zZef2R+/sB2xeAm9x037wyAq/qje/H2LFo/Cf8W4AIgom50nlem9O6VGcxc7TQZ+cz0xzlUMg76itKZQLBnXOYvQsKn2cd0y+QcDwphiqgdNvQVvj2zo8ZLo9cjQ555M2vZgo8iS8wS6pbrMD1duGCyx8imRKw3PrijvgZoiXv7bli6OhigTNTEu9xeZTc5/rLJcIZ5/erFV+v1HUwVqHzOg7/y6oRE9nYCrVm9gUGIsP8lgNJWaxlF/YTjo1mLeubJT+lXwbwFM2jRdxi4LpmObOKQLdBxKFrO4zwbn8DIL5O43YetbuJmiK7bhk9g+MksZWdaGVVHXVY9fJbEO/FHJ70MfnCLp6mOkPjJmdsGC4Xj/md1voGPXlIh+RLUL00Q0E3cTA06dzi4GI82t8FaVaqZIpejz+zWlk2WmocRn6AEEXe3U3FdbDhzv0DioJKjveq7B69romRkVFizJO6Syaxfrgdws5T+Xmrf3dnpwyMYKsh/td6ToCB8s3Fm9e78Q0OcWyHCdF2jcXkDu/ZfpV1cys34u2/7H2+m50xxuUnHoAA";
@@ -4169,7 +4169,7 @@ const AVATAR_SALVI = "data:image/webp;base64,UklGRtITAQBXRUJQVlA4WAoAAAAQAAAA5wM
 const TOOLS = {
   BimaEndorse:   { split: ["Bima", "Endorse"],   color: C.accent, built: true },
   BimaClaim:     { split: ["Bima", "Claim"],     color: C.brand,  built: true },   /* Claim = Primary 500 (#4100CF), not Info */
-  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true },   /* Placement = Info (#1458D2) — Placement Manager Workbench */
+  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true },   /* Placement = Info (#1458D2) - Placement Manager Workbench */
 };
 
 /* Presence shown as a 6px dot beside the name on the sidebar profile card
@@ -4181,26 +4181,26 @@ const STATUS = {
 };
 
 /* Admin portal access. Only these addresses may sign in; each is recognised
-   (not registered) and routed to the tool(s) it holds. `envs` lists tool keys —
+   (not registered) and routed to the tool(s) it holds. `envs` lists tool keys -
    one entry locks the environment chevron, several turn it into a picker. */
 const PORTAL_USERS = {
   /* `status` omitted → presence is derived from working hours (online in-hours,
-     offline otherwise). A fixed `status` overrides that — Ruksana is OOO. */
+     offline otherwise). A fixed `status` overrides that - Ruksana is OOO. */
   "nanditha.p@bimakavach.com": {
     name: "Nanditha P", first: "Nanditha", role: "Servicing executive",
     avatar: AVATAR, envs: ["BimaEndorse"],
-    /* Nanditha is Kannadiga, so she is greeted in Kannada — "Welcome, Nanditha." */
+    /* Nanditha is Kannadiga, so she is greeted in Kannada - "Welcome, Nanditha." */
     greeting: "ಸ್ವಾಗತ, ನಂದಿತಾ.", lang: "kn",
   },
   "ruksana.khan@bimakavach.com": {
     name: "Ruksana Khan", first: "Ruksana", role: "Claims executive", status: "ooo",
     avatar: AVATAR_RUKSANA, envs: ["BimaClaim"],
-    /* Greeted in Devanagari — "Welcome, Ruksana." */
+    /* Greeted in Devanagari - "Welcome, Ruksana." */
     greeting: "स्वागत है, रुख़्साना", lang: "hi",
   },
   "umesh.bagri@bimakavach.com": {
     name: "Umesh Bagri", first: "Umesh", role: "Claims & Endorsements Head",
-    avatar: AVATAR_UMESH, envs: ["BimaEndorse", "BimaClaim"],   /* no BimaPlacement — that desk is Himani's */
+    avatar: AVATAR_UMESH, envs: ["BimaEndorse", "BimaClaim"],   /* no BimaPlacement - that desk is Himani's */
   },
   "salvi@bimakavach.com": {
     name: "Salvi Vaishya", first: "Salvi", role: "Placement Executive",
@@ -4213,7 +4213,7 @@ const PORTAL_USERS = {
 };
 const PORTAL_PASSWORD = "pass-word";
 
-/* Peetal interactive.input/alphanumeric — label, a bottom-ruled field, a suffix
+/* Peetal interactive.input/alphanumeric - label, a bottom-ruled field, a suffix
    stack, and a right-aligned help line. Three states: idle · success · error. */
 function LoginField({ label, value, onChange, placeholder, masked, reveal, onReveal, state, help, onSubmit, autoFocus }) {
   const ok = state === "ok", bad = state === "error";
@@ -4272,13 +4272,13 @@ function Login({ onSignIn }) {
   const [verified, setVerified] = useState(false);   /* email confirmed → reveal identity, tool and password */
 
   const user = PORTAL_USERS[email.trim().toLowerCase()] || null;
-  /* Only judge the address once it looks finished — no shouting mid-keystroke. */
+  /* Only judge the address once it looks finished - no shouting mid-keystroke. */
   const looksDone = /@.+\..+/.test(email.trim());
   const emailState = user ? "ok" : looksDone ? "error" : "idle";
   const canVerify = !!user;
   const ready = !!user && verified && pw.length > 0;
 
-  /* Editing the address after verifying drops back to step one — the password
+  /* Editing the address after verifying drops back to step one - the password
      was for that address, so it cannot carry over to another. */
   const editEmail = (v) => { setEmail(v); if (verified) { setVerified(false); setPw(""); setPwErr(null); setEnvOpen(false); } };
   const verify = () => { if (canVerify) { setVerified(true); setPwErr(null); } };
@@ -4316,14 +4316,14 @@ function Login({ onSignIn }) {
                     <span style={{ color: TOOLS[selTool].color }}>{TOOLS[selTool].split[1]}</span>
                   </span>
                   {multiEnv ? (
-                    /* Holds more than one tool — the chevron opens a picker. */
+                    /* Holds more than one tool - the chevron opens a picker. */
                     <button onClick={() => setEnvOpen((o) => !o)} title="Switch environment"
                       className="bk-iconctrl flex h-4 w-4 items-center justify-center rounded-md border"
                       style={{ background: envOpen ? C.brandBg : C.white, borderColor: C.subtle, color: envOpen ? C.brand : C.figHint }}>
                       <ChevronDown size={12} />
                     </button>
                   ) : (
-                    /* One tool only — the control is inert and says why. */
+                    /* One tool only - the control is inert and says why. */
                     <span className="flex h-4 w-4 items-center justify-center rounded-md border"
                       title={`${selTool} is your only environment`}
                       style={{ background: "rgba(169,172,177,0.24)", borderColor: "rgba(169,172,177,0.56)", color: C.figTert }}>
@@ -4404,7 +4404,7 @@ function Login({ onSignIn }) {
 
 const ROUTES = { home: "/", list: "/tickets", review: "/review", create: "/tickets/new" };
 const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` : ROUTES[view] || "/";
-/* END is redundant on the sidebar rail — we are already inside BimaEndorse — so
+/* END is redundant on the sidebar rail - we are already inside BimaEndorse - so
    the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
    hover title and everywhere else. */
 const shortId = (id) => (id || "").replace(/^(END|CLM)/, "");
@@ -4419,7 +4419,7 @@ function routeOf(path) {
 /* Reading the address bar can throw in a sandboxed frame; the app must not. */
 const readRoute = () => { try { return routeOf(window.location.pathname); } catch { return { view: "home" }; } };
 
-/* Session survives a refresh via the URL hash — no browser storage is available.
+/* Session survives a refresh via the URL hash - no browser storage is available.
    The code is short and non-identifying (a letter per admin, a letter per tool),
    so a reload restores who is signed in and which tool they entered, while every
    ticket / mail mutation re-seeds from scratch (that state is never persisted). */
@@ -4446,7 +4446,7 @@ const NAV = [
   ["reports", "Reports",       TextSearch, true],   /* shown, never reachable */
 ];
 
-/* Wrap the first case-insensitive occurrence of `q` in a brand highlight — the
+/* Wrap the first case-insensitive occurrence of `q` in a brand highlight - the
    "match" chip the search results carry (Figma 1292:92846). */
 function Highlight({ text, q }) {
   const s = String(text ?? ""), query = (q || "").trim();
@@ -4455,7 +4455,7 @@ function Highlight({ text, q }) {
   return <>{s.slice(0, i)}<span style={{ background: C.brand, color: C.white, borderRadius: 3, padding: "0 2px" }}>{s.slice(i, i + query.length)}</span>{s.slice(i + query.length)}</>;
 }
 
-/* A ticket as a search result — the case card plus a Take Action button; the
+/* A ticket as a search result - the case card plus a Take Action button; the
    query is highlighted wherever it lands (Figma 1249:86386 / 1292:92457). */
 function SearchCard({ t, q, onOpen }) {
   const st = statusOf(t), c = clock(t), over = c.state === "breached";
@@ -4498,9 +4498,9 @@ function SearchCard({ t, q, onOpen }) {
   );
 }
 
-/* The search lightbox — a modal over a blurred scrim (Figma 1249:86383). Empty,
+/* The search lightbox - a modal over a blurred scrim (Figma 1249:86383). Empty,
    it shows Recent Tickets; typed, it filters across the active scopes and
-   highlights the match. No index — it reads the live ticket list. */
+   highlights the match. No index - it reads the live ticket list. */
 const SEARCH_SCOPES = ["Tickets", "Clients", "Insurers"];
 function SearchModal({ open, onClose, tickets, openTicket }) {
   const [q, setQ] = useState("");
@@ -4562,7 +4562,7 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
   );
 }
 
-/* Sidebar — Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
+/* Sidebar - Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
 function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch, nav = NAV,
@@ -4597,7 +4597,7 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
               <span className="leading-none" style={{ fontSize: 20, fontWeight: 500 }}>
                 <span style={{ color: C.figInk }}>{TOOLS[tool].split[0]}</span><span style={{ color: TOOLS[tool].color }}>{TOOLS[tool].split[1]}</span>
               </span>
-              {/* environment lockup — a live picker for multi-env admins, else inert */}
+              {/* environment lockup - a live picker for multi-env admins, else inert */}
               <div className="relative" data-envmenu>
                 {multiEnv ? (
                   <button data-envmenu title="Switch environment"
@@ -4664,14 +4664,14 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                       cursor: off ? "not-allowed" : "pointer" }}>
                     <span className="relative shrink-0">
                       <Icon size={collapsed ? 20 : 24} className="shrink-0" />
-                      {/* unread manual-review mails — a dot on the icon corner, not a count (Figma 917:106812) */}
+                      {/* unread manual-review mails - a dot on the icon corner, not a count (Figma 917:106812) */}
                       {k === "review" && !off && mails.length > 0 && (
                         <span className="absolute rounded-full" style={{ top: -1, right: -1, width: 6, height: 6, background: "#F10000" }} />
                       )}
                     </span>
                     {!collapsed && <span className="flex-1 text-left text-sm font-semibold">{label}</span>}
                   </button>
-                  {/* collapsed, the open ticket is a caption under its icon — the
+                  {/* collapsed, the open ticket is a caption under its icon - the
                       design's sidebar/ticket variant */}
                   {collapsed && k === "list" && view === "ticket" && openId && (
                     <button onClick={() => openTicket(openId)} title={openId}
@@ -4721,9 +4721,9 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
   );
 }
 
-/* Breadcrumb — the way back out of a ticket, so the screen needs no Back
+/* Breadcrumb - the way back out of a ticket, so the screen needs no Back
    button of its own. A segment with an onClick is a link; the last is not. */
-/* The top bar itself — a sunken rounded card (Figma 1249:87244 / 1197:73452 /
+/* The top bar itself - a sunken rounded card (Figma 1249:87244 / 1197:73452 /
    917:107508): bg card-sunken, 12px radius, 12px padding, crumb left, action right. */
 function Breadcrumb({ segments, right }) {
   return (
@@ -4747,7 +4747,7 @@ function Breadcrumb({ segments, right }) {
 }
 
 /* Step through the desk in the order the queues use, without going back to the
-   list. Reads only — the ticket it lands on is unchanged. */
+   list. Reads only - the ticket it lands on is unchanged. */
 function TicketPager({ id, list, onOpen }) {
   const i = list.findIndex((x) => x.id === id);
   const box = { width: 18, height: 18, borderRadius: 6, background: C.white, border: `0.5px solid ${C.subtle}` };
@@ -4770,7 +4770,7 @@ function TicketPager({ id, list, onOpen }) {
 }
 
 /* =========================================================================
-   ===================  BIMACLAIM — CLAIMS TMS DOMAIN LAYER  ================
+   ===================  BIMACLAIM - CLAIMS TMS DOMAIN LAYER  ================
    A sibling ticketing environment. Behaviour is ported verbatim from the
    BimaClaim reference prototype + 01-behaviour-contract.md; it reuses the
    Endorsement design system and the shared BIZ/addBiz/addWD/NOW calendar.
@@ -4778,20 +4778,20 @@ function TicketPager({ id, list, onOpen }) {
    ========================================================================= */
 
 const CL_HOUR = 36e5, CL_DAY = 864e5;
-/* Deterministic demo clock — reuse the shared pinned NOW (11:00 next working day). */
+/* Deterministic demo clock - reuse the shared pinned NOW (11:00 next working day). */
 const CL_NOW = NOW.getTime();
 const clAgo = (h) => CL_NOW - h * CL_HOUR;
 const clAddBH = (ts, hours) => addBiz(new Date(ts), hours).getTime();
 const clAddWD = (ts, days) => addWD(new Date(ts), days).getTime();
 const clAddTat = (ts, v, unit) => (unit === "BH" ? clAddBH(ts, v) : clAddWD(ts, v));
-/* Working days elapsed — ageing buckets and ending thresholds (C-3). */
+/* Working days elapsed - ageing buckets and ending thresholds (C-3). */
 function clWdBetween(a, b) {
   if (b <= a) return 0;
   const d = new Date(a); let n = 0;
   while (d.getTime() < b) { d.setDate(d.getDate() + 1); if (isWorkday(d)) n++; }
   return n;
 }
-const clInr = (n) => (n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN"));
+const clInr = (n) => (n == null ? "-" : "₹" + Number(n).toLocaleString("en-IN"));
 /* Present a 10-digit Indian mobile grouped 4-3-3, e.g. 9007 296 854. */
 const clFmtMob = (m) => { const d = String(m || "").replace(/\D/g, "").slice(-10); return d.length === 10 ? `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}` : (m || ""); };
 function clDur(ms) {
@@ -4860,7 +4860,7 @@ const CL_SURVEYOR_THRESHOLD = 100000;
 /* ---------- state machine (C-1) ---------- */
 const CL_PHASES = ["Intake", "BK Review", "Insurer", "Assessment & Consent", "Settlement & Closure"];
 const CL_FLOW = {
-  S0: { status: "Draft", label: "Draft — intake incomplete", client: "Details Required", phase: 0, owner: "Client", tat: { v: 2, unit: "WD" }, act: { label: "Mark intake complete", to: "S1" } },
+  S0: { status: "Draft", label: "Draft - intake incomplete", client: "Details Required", phase: 0, owner: "Client", tat: { v: 2, unit: "WD" }, act: { label: "Mark intake complete", to: "S1" } },
   S1: { status: "Under Review", label: "Under Review – BimaKavach", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 2, unit: "BH" }, act: { label: "Record admissibility assessment", to: "S2", form: "admiss" } },
   S2: { status: "Under Review", label: "Ready for insurer intimation", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 1, unit: "BH" }, act: { label: "Submit to insurer", to: "S3" } },
   S3: { status: "With Insurer", label: "Awaiting claim number", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 1, unit: "WD" }, act: { src: "auto", label: "Record insurer claim number", to: "S4", form: "claimno" } },
@@ -4872,13 +4872,13 @@ const CL_FLOW = {
   S10: { tab: "payment", status: "Bank Details Pending", label: "Bank Details Pending", client: "Bank Details Required", phase: 4, owner: "Client", tat: { v: 3, unit: "WD" }, act: { src: "client", label: "Record bank details", to: "S11", form: "bank" } },
   S11: { tab: "payment", status: "Payment in Progress", label: "Payment in Progress", client: "Payment in Progress", phase: 4, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record payment", to: "S12", form: "payment" } },
   S12: { tab: "payment", status: "Payment Confirmation", label: "Awaiting Client Confirmation", client: "Payment Released", phase: 4, owner: "Client", tat: { v: 5, unit: "WD" }, act: { src: "client", label: "Record client confirmation of receipt", to: "S13" } },
-  S13: { status: "Closed", label: "Closed – Settled", client: "Claim Settled", phase: 4, owner: "—", terminal: true },
+  S13: { status: "Closed", label: "Closed – Settled", client: "Claim Settled", phase: 4, owner: "-", terminal: true },
   R1: { status: "Rejected", label: "Rejection shared", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's response", to: "R2" } },
   R2: { status: "Rejected", label: "Challenge with insurer", client: "Claim Rejected", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, sub: "Awaiting insurer", act: { src: "bot", label: "Record the insurer's detailed reply", to: "R1" } },
   R3: { status: "Rejected", label: "Challenges exhausted", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's acceptance", to: "RX" } },
-  RX: { status: "Closed", label: "Closed – Rejection accepted", client: "Claim Closed", phase: 4, owner: "—", terminal: true },
-  SX: { status: "Closed", label: "Closed", client: "Claim Closed", phase: 4, owner: "—", terminal: true },
-  ST: { status: "Terminated", label: "Terminated – Inactivity", client: "Claim Closed – No Response", phase: 4, owner: "—", terminal: true },
+  RX: { status: "Closed", label: "Closed – Rejection accepted", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
+  SX: { status: "Closed", label: "Closed", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
+  ST: { status: "Terminated", label: "Terminated – Inactivity", client: "Claim Closed – No Response", phase: 4, owner: "-", terminal: true },
 };
 const CL_ORDER = ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "S8", "S9", "S10", "S11", "S12", "S13"];
 const CL_REJ = ["S0", "S1", "S2", "S3", "S4", "R1", "R2", "R3", "RX"];
@@ -4886,7 +4886,7 @@ const clIsRej = (t) => ["R1", "R2", "R3", "RX"].includes(t.state) || (t.rejectio
 const clPathBase = (t) => CL_ORDER.filter((c) => ((t.loss || 0) > CL_SURVEYOR_THRESHOLD ? c !== "S8" : !["S5", "S6"].includes(c)));
 const clPath = (t) => (clIsRej(t) ? CL_REJ : clPathBase(t));
 const clStageIndex = (t) => { const p = clPath(t); const i = p.indexOf(t.state); return i > -1 ? i : (CL_FLOW[t.state].terminal ? p.length : CL_ORDER.indexOf(t.state)); };
-const clTatLabel = (t) => { const T = CL_FLOW[t.state].tat; if (!T) return "—"; return T.v + " " + (T.unit === "BH" ? (T.v === 1 ? "business hour" : "business hours") : (T.v === 1 ? "working day" : "working days")); };
+const clTatLabel = (t) => { const T = CL_FLOW[t.state].tat; if (!T) return "-"; return T.v + " " + (T.unit === "BH" ? (T.v === 1 ? "business hour" : "business hours") : (T.v === 1 ? "working day" : "working days")); };
 
 /* ---------- chase loops (C-4) ---------- */
 const CL_LOOPS = {
@@ -4894,10 +4894,10 @@ const CL_LOOPS = {
   B: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30.", kind: "terminate", threshold: 30 },
   C: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30, and email the insurer to close their claim.", kind: "terminate-insurer", threshold: 30 },
   D: { name: "Document chase", who: "Client", reminders: 3, interval: 5, basis: "WD", escalations: 3, escInterval: 5, ending: "Terminate at day 30.", kind: "terminate", threshold: 30 },
-  E: { name: "Decision chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant — client unresponsive.", kind: "dormant" },
-  G: { name: "Bank details chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant — awaiting bank details. Never terminates.", kind: "dormant" },
+  E: { name: "Decision chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant - client unresponsive.", kind: "dormant" },
+  G: { name: "Bank details chase", who: "Client", reminders: 3, interval: 3, basis: "WD", escalations: 3, escInterval: 3, ending: "Parks dormant - awaiting bank details. Never terminates.", kind: "dormant" },
   H: { name: "Insurer chase", who: "Insurer", reminders: 3, interval: 2, basis: "WD", escalations: 3, escInterval: 1, ending: "Escalates and stays open. A claim never terminates while the insurer owes the action.", kind: "hold" },
-  I: { name: "Internal chase", who: "BimaKavach", reminders: 0, interval: null, basis: "BH", escalations: 3, escInterval: 1, ending: "Escalates and stays open. Never terminates — parking it is how work disappears.", kind: "hold" },
+  I: { name: "Internal chase", who: "BimaKavach", reminders: 0, interval: null, basis: "BH", escalations: 3, escInterval: 1, ending: "Escalates and stays open. Never terminates - parking it is how work disappears.", kind: "hold" },
 };
 const CL_RULES = { resetOnStateChange: true, loopINoReminder: true, stateChaseContinues: true, remindDuringAutoAdvance: false };
 function clLoopForState(c) {
@@ -4939,14 +4939,14 @@ function clClientLabel(t) {
   return CL_FLOW[t.state].client;
 }
 function clDueText(t) {
-  if (CL_FLOW[t.state].terminal) return { cls: "fine", txt: "—" };
+  if (CL_FLOW[t.state].terminal) return { cls: "fine", txt: "-" };
   if (t.dormant) return { cls: "fine", txt: "No chase" };
   if (t.subStatus === "Awaiting Court") return { cls: "fine", txt: "Held" };
   const o = clOverdueBy(t);
   if (o > 0) return { cls: "over", txt: clDur(o) + " over" };
   return { cls: o > -6 * CL_HOUR ? "soon" : "fine", txt: clDur(-o) + " left" };
 }
-/* Chase ladder position — for the Head escalation matrix and Manage tab. */
+/* Chase ladder position - for the Head escalation matrix and Manage tab. */
 function clLadder(t) {
   const L = CL_LOOPS[clLoop(t)] || {};
   const r = t.chase.reminders, n = t.chase.escalations;
@@ -5020,15 +5020,15 @@ function makeCLTickets() {
     };
     rj.challenges = 1;
     rj.subStatus = "Awaiting client";
-    rj.botLog.unshift({ at: rj.rejection.at, state: "S4", type: "Insurer rejection", conf: 96, from: poc, extract: { Outcome: "Repudiated", Reason: "Warranty breach — duct cleaning" } });
+    rj.botLog.unshift({ at: rj.rejection.at, state: "S4", type: "Insurer rejection", conf: 96, from: poc, extract: { Outcome: "Repudiated", Reason: "Warranty breach - duct cleaning" } });
     rj.audit.unshift(
-      { at: rj.rejection.at, actor: "Email bot", role: "", what: "Insurer rejection classified and extracted", detail: "Warranty breach — duct cleaning · 96% confidence, from " + poc },
+      { at: rj.rejection.at, actor: "Email bot", role: "", what: "Insurer rejection classified and extracted", detail: "Warranty breach - duct cleaning · 96% confidence, from " + poc },
       { at: rj.rejection.responses[0].at, actor: rj.client, role: "Client", what: "Challenge 1 of 2 raised by the client", detail: rj.rejection.responses[0].text },
-      { at: rj.rejection.responses[1].at, actor: "Email bot", role: "", what: "Insurer's detailed reply to challenge 1", detail: "Rejection upheld — warranty treated as a condition precedent · 96% confidence, from " + poc },
+      { at: rj.rejection.responses[1].at, actor: "Email bot", role: "", what: "Insurer's detailed reply to challenge 1", detail: "Rejection upheld - warranty treated as a condition precedent · 96% confidence, from " + poc },
     );
     rj.audit.sort((a, b) => b.at - a.at);
   }
-  /* A ticket past its stage TAT has already been chased — seed the reminder count. */
+  /* A ticket past its stage TAT has already been chased - seed the reminder count. */
   TICKETS.forEach((t) => {
     if (CL_FLOW[t.state].terminal) return;
     const L = CL_LOOPS[clLoop(t)];
@@ -5040,7 +5040,7 @@ function makeCLTickets() {
     t.chase.events = Array.from({ length: t.chase.reminders }, (_, i) => ({ at: clDue(t) + gap * i, kind: "reminder", text: "Reminder " + (i + 1) + " of " + L.reminders + " sent to " + L.who.toLowerCase() })).reverse();
     if (t.escalated) {
       t.chase.escalations = 1;
-      t.chase.events.unshift({ at: CL_NOW - 2 * CL_HOUR, kind: "escalation", text: "Escalation 1 of " + L.escalations + " — " + CL_HEAD + " notified" });
+      t.chase.events.unshift({ at: CL_NOW - 2 * CL_HOUR, kind: "escalation", text: "Escalation 1 of " + L.escalations + " - " + CL_HEAD + " notified" });
     }
   });
   /* Seed owner history + intimation audit so ageing has something real to show. */
@@ -5062,13 +5062,13 @@ function makeCLTickets() {
 const CL_REASONS = { R1: "Low confidence, no linkage", R2: "Ambiguous linkage", R3: "Classification failed outright", R4: "Policy not found", R5: "Policy not active", R6: "Sender unrecognised", R7: "Critical extraction failed", R8: "Out of scope" };
 function makeCLMRQ() {
   return [
-    { id: "MB-2291", from: "accounts@vertexpharma.in", fromName: "Priya Nair, Vertex Pharma Ltd", to: "claims@bimakavach.com", at: clAgo(2), subject: "Regarding our claim — please advise", body: "Hi team,\n\nFollowing up on the matter we discussed with your office last week. The transporter has now come back to us and is disputing the damage certificate. Please advise how you want us to proceed, and whether this changes anything on the survey side.\n\nAlso attaching the revised packing list as promised.\n\nRegards,\nPriya", att: ["revised-packing-list.pdf"], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "accounts@vertexpharma.in" }, guess: "Client additional data", conf: 63, reason: "R1", cand: "Vertex Pharma Ltd", note: "No policy number in the mail or the thread. Sender domain matches a client with more than one live claim." },
+    { id: "MB-2291", from: "accounts@vertexpharma.in", fromName: "Priya Nair, Vertex Pharma Ltd", to: "claims@bimakavach.com", at: clAgo(2), subject: "Regarding our claim - please advise", body: "Hi team,\n\nFollowing up on the matter we discussed with your office last week. The transporter has now come back to us and is disputing the damage certificate. Please advise how you want us to proceed, and whether this changes anything on the survey side.\n\nAlso attaching the revised packing list as promised.\n\nRegards,\nPriya", att: ["revised-packing-list.pdf"], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "accounts@vertexpharma.in" }, guess: "Client additional data", conf: 63, reason: "R1", cand: "Vertex Pharma Ltd", note: "No policy number in the mail or the thread. Sender domain matches a client with more than one live claim." },
     { id: "MB-2284", from: "ravi.menon@gmail.com", fromName: "Ravi Menon", to: "claims@bimakavach.com", at: clAgo(19), subject: "Fire at our unit last night", body: "Sir,\n\nThere was a fire at our unit at Peenya last night around 11pm. Fire brigade attended. Machinery in the assembly shed is damaged. We have insurance through your office. Kindly start the claim.\n\nRavi Menon\n9845000000", att: ["IMG-20260901-0043.jpg", "IMG-20260901-0044.jpg"], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "ravi.menon@gmail.com" }, guess: "New claim intimation", conf: 71, reason: "R6", cand: null, note: "Sender domain is not linked to any client, agent, insurer or surveyor record. A personal address on a commercial claim." },
-    { id: "MB-2279", from: "claims.blr@iffcotokio.co.in", fromName: "Iffco Tokio, Bengaluru claims", to: "claims@bimakavach.com", at: clAgo(27), subject: "Surveyor appointment — loss reported", body: "Dear Partner,\n\nWe have appointed a surveyor for the loss reported by Sunrise Chemicals Ltd. Details will follow by separate mail. The insured may be advised to keep the site undisturbed until the visit.\n\nRegards,\nClaims desk", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "claims.blr@iffcotokio.co.in" }, guess: "Surveyor appointment", conf: 89, reason: "R2", cand: "Sunrise Chemicals Ltd", note: "Above the classification threshold, but no claim number is quoted and the client has more than one live claim. Attaching a surveyor to the wrong claim would send them to the wrong site." },
-    { id: "MB-2272", from: "ops@northstarpackaging.co.in", fromName: "Northstar Packaging", to: "claims@bimakavach.com", at: clAgo(6), subject: "Claim intimation — policy FIR/2024/00119", body: "Please register a claim under policy FIR/2024/00119 for water damage to stored cartons following heavy rain on the 28th. Estimated loss around 3.5 lakh. Documents to follow.", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "ops@northstarpackaging.co.in" }, guess: "New claim intimation", conf: 93, reason: "R5", cand: null, note: "Policy matched but expired on 31 March 2026. A claim cannot be raised on an expired policy." },
+    { id: "MB-2279", from: "claims.blr@iffcotokio.co.in", fromName: "Iffco Tokio, Bengaluru claims", to: "claims@bimakavach.com", at: clAgo(27), subject: "Surveyor appointment - loss reported", body: "Dear Partner,\n\nWe have appointed a surveyor for the loss reported by Sunrise Chemicals Ltd. Details will follow by separate mail. The insured may be advised to keep the site undisturbed until the visit.\n\nRegards,\nClaims desk", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "claims.blr@iffcotokio.co.in" }, guess: "Surveyor appointment", conf: 89, reason: "R2", cand: "Sunrise Chemicals Ltd", note: "Above the classification threshold, but no claim number is quoted and the client has more than one live claim. Attaching a surveyor to the wrong claim would send them to the wrong site." },
+    { id: "MB-2272", from: "ops@northstarpackaging.co.in", fromName: "Northstar Packaging", to: "claims@bimakavach.com", at: clAgo(6), subject: "Claim intimation - policy FIR/2024/00119", body: "Please register a claim under policy FIR/2024/00119 for water damage to stored cartons following heavy rain on the 28th. Estimated loss around 3.5 lakh. Documents to follow.", att: [], headers: { "In-Reply-To": "none", References: "none", "Return-Path": "ops@northstarpackaging.co.in" }, guess: "New claim intimation", conf: 93, reason: "R5", cand: null, note: "Policy matched but expired on 31 March 2026. A claim cannot be raised on an expired policy." },
   ];
 }
-/* Ranked candidates for linking (C-11.3) — by reliability of the match basis. */
+/* Ranked candidates for linking (C-11.3) - by reliability of the match basis. */
 function clCandidatesFor(m, tickets) {
   const out = [];
   tickets.filter((t) => !CL_FLOW[t.state].terminal).forEach((t) => {
@@ -5087,13 +5087,13 @@ function clCandidatesFor(m, tickets) {
 const CL_MRQ_LATE = (m) => CL_NOW - m.at > 24 * CL_HOUR;
 
 /* =========================================================================
-   ===================  BIMACLAIM — CLAIMS TMS UI  =========================
+   ===================  BIMACLAIM - CLAIMS TMS UI  =========================
    Screens composed from the shared Endorsement design system. Behaviour
    read from the CL_ domain layer; state mutated in ClaimsApp (React only).
    ========================================================================= */
 
 /* Owner → indicator token. Client reads info (blue), insurer caution (amber),
-   our side brand (violet) — the "whose fault is the delay" signal (C-2). */
+   our side brand (violet) - the "whose fault is the delay" signal (C-2). */
 const CL_OWNER_IND = { Client: "info", Insurer: "caution", BimaKavach: "brand" };
 const CL_HEALTH_IND = { red: "error", amber: "caution", green: "success", parked: "neutral", done: "muted" };
 const CL_TINT = { error: C.breachSoft, caution: C.warnSoft, info: C.waitSoft, success: C.tealSoft, brand: C.brandBg, neutral: C.brandBg, muted: C.canvas };
@@ -5101,10 +5101,10 @@ const clOwnerInd = (t) => CL_OWNER_IND[clOwner(t)] || "neutral";
 const clPrioInd = (p) => PRIO_IND[p] || "neutral";
 const clStageInd = (t) => (CL_FLOW[t.state].terminal ? "muted" : t.escalated ? "error" : CL_HEALTH_IND[clHealth(t)] || "neutral");
 
-/* Stage-due cell — the state pill then the deadline, mirroring the Endorsement
+/* Stage-due cell - the state pill then the deadline, mirroring the Endorsement
    SlaCell idiom. Never abbreviates BH/WD (C-3.2). */
 function ClDue({ t }) {
-  if (CL_FLOW[t.state].terminal) return <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>—</span>;
+  if (CL_FLOW[t.state].terminal) return <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>-</span>;
   if (t.dormant) return <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>No chase</span>;
   const d = clDueText(t);
   const tone = d.cls === "over" ? C.semError : d.cls === "soon" ? C.semCaution : C.figHint;
@@ -5116,7 +5116,7 @@ function ClDue({ t }) {
   );
 }
 
-/* One claim as a table row — the whole row opens the ticket. Shared by the
+/* One claim as a table row - the whole row opens the ticket. Shared by the
    list and the home "needs you first" strip. `showCM` adds the manager column. */
 function ClaimsRow({ t, onOpen, showCM, last }) {
   return (
@@ -5158,7 +5158,7 @@ function ClaimsTable({ rows, onOpen, showCM, empty }) {
   );
 }
 
-/* Filter pills — the StagePills idiom over the Claims lifecycle slices. */
+/* Filter pills - the StagePills idiom over the Claims lifecycle slices. */
 const CL_FILTERS = [
   ["attention", "Needs attention"], ["open", "All open"], ["critical", "High & critical"],
   ["overdue", "Overdue"], ["today", "Due today"], ["client", "Awaiting client"],
@@ -5198,7 +5198,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
     { n: B.today.length, lb: "Due today", ind: "caution", f: "today" },
     { n: B.client.length, lb: "Awaiting client", ind: "info", f: "client" },
     { n: B.insurer.length, lb: "Awaiting insurer", ind: "caution", f: "insurer" },
-    /* Escalated is an admin-only lens — visible to Umesh, hidden from Ruksana's desk. */
+    /* Escalated is an admin-only lens - visible to Umesh, hidden from Ruksana's desk. */
     ...(isAdmin ? [{ n: B.escalated.length, lb: "Escalated", ind: "error", f: "escalated" }] : []),
     { n: B.fresh.length, lb: "Freshly assigned", ind: "success", f: "fresh" },
   ];
@@ -5212,7 +5212,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   ];
   const cells = isHead ? headCells : cmCells;
 
-  /* progress dashboard (CM) — mirrors the Endorsement ProgressCard metrics:
+  /* progress dashboard (CM) - mirrors the Endorsement ProgressCard metrics:
      closure (on-track over open) and median stage-clock turnaround, each with a
      Spark sparkline + performance meter, over an owner time-distribution donut. */
   const totalOpen = B.open.length;
@@ -5222,13 +5222,13 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   const used = B.open.map((t) => { const span = Math.max(1, clDue(t) - t.stageAt); return Math.min(1.5, (CL_NOW - t.stageAt) / span); }).sort((a, b) => a - b);
   const medUsed = used.length ? used[Math.floor(used.length / 2)] : 0;
   const turnScore = Math.max(0, 1 - medUsed);
-  /* Median turnaround is shown in days (the honest unit for the title) — the
-     median age of open claims — not as a % of the stage clock, which read as
+  /* Median turnaround is shown in days (the honest unit for the title) - the
+     median age of open claims - not as a % of the stage clock, which read as
      misleading. The performance meter still runs on the stage-clock score. */
   const ageDays = B.open.map((t) => (CL_NOW - t.createdAt) / CL_DAY).sort((a, b) => a - b);
   const medDays = ageDays.length ? Math.round(ageDays[Math.floor(ageDays.length / 2)]) : 0;
   const green = "#007B00";
-  /* First response time — dwell in "Under Review – BimaKavach" (S1), the first
+  /* First response time - dwell in "Under Review – BimaKavach" (S1), the first
      action after a claim is assigned. That stage's TAT is 2 business hours, so
      under 2h reads Well Done, ~2h On Track, over 2h Poor. Measured on the claims
      currently under review (time elapsed so far). */
@@ -5265,7 +5265,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   return (
     <div>
       {/* Same structure as the Endorsement Greeting: the signed-in user's own
-          avatar, the date/time line, then their greeting — Ruksana in Hindi,
+          avatar, the date/time line, then their greeting - Ruksana in Hindi,
           admins (Umesh) in English. The Me/Team scope switch (admins only) sits
           in the same right slot as Endorsement: Me = a manager desk, Team = all. */}
       <Greeting user={user} right={isAdmin ? (
@@ -5274,7 +5274,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
       <h2 className="mt-6 mb-4" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{isHead ? "The Book" : "Your Desk"}</h2>
       {/* One row on desktop: the column count tracks the number of desk cells
           (6 for the CM, 6 for the head, 7 for the admin CM view), so the strip
-          never wraps — the cards simply narrow to fit. */}
+          never wraps - the cards simply narrow to fit. */}
       <div className={`grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-${cells.length}`}>
         {cells.map((c) => (
           <DeskCard key={c.lb} count={c.n} tint={CL_TINT[c.ind]}
@@ -5292,13 +5292,13 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
             <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
             <RangePills value={range} onChange={setRange} />
           </div>
-          {/* Two ProgressCards (Spark + performance meter) over the owner donut —
+          {/* Two ProgressCards (Spark + performance meter) over the owner donut -
               the same construction as the Endorsement Your-Progress block. */}
           <div key={range} className="bk-reveal mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-4 lg:col-span-1">
               <ProgressCard title="First Response Time" value={prog.resp.value} status={prog.resp.status} score={prog.resp.score}
                 sub={prog.resp.sub} subTone={prog.resp.subTone}
-                tip="Time in Under Review – BimaKavach — your first action after a claim is assigned. Target is 2 business hours." />
+                tip="Time in Under Review – BimaKavach - your first action after a claim is assigned. Target is 2 business hours." />
               <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
                 sub={prog.turn.sub} subTone={prog.turn.subTone}
                 tip="Median age of your open claims, in days; fewer is faster." />
@@ -5323,7 +5323,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
             </div>
           </div>
 
-          {/* Insurer median turnaround — a Claims-specific view, kept below the graphs. */}
+          {/* Insurer median turnaround - a Claims-specific view, kept below the graphs. */}
           <div className="mt-4 rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-center gap-1.5"><FileText size={14} style={{ color: C.figHint }} />
               <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Insurer median turnaround</span></div>
@@ -5345,7 +5345,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
             <div className="mt-6 flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={{ background: C.breachSoft, border: `0.5px solid ${IND.error.line}` }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: C.semError }}>
                 {B.escalated.length} of your claims {B.escalated.length === 1 ? "has" : "have"} been escalated to {CL_HEAD}.</span>
-              <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>They stay in your queue — escalation raises visibility, it does not move ownership.</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>They stay in your queue - escalation raises visibility, it does not move ownership.</span>
               <button onClick={() => go("list", "escalated")} className="bk-dim" style={{ fontSize: 13, fontWeight: 600, color: C.brand }}>See them →</button>
             </div>
           )}
@@ -5355,7 +5355,7 @@ function ClaimsHome({ tickets, role, mrq, go, openTicket, user, isAdmin, onRole 
   );
 }
 
-/* Claims Head home body — escalation matrix + team load (C-5.2/5.3). */
+/* Claims Head home body - escalation matrix + team load (C-5.2/5.3). */
 function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
   const rank = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 && !t.dormant ? 1 : t.dormant ? 3 : 2);
   /* Escalated-to-you list: only claims actually escalated to the Head are shown
@@ -5421,24 +5421,24 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
               <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: x.esc ? C.semError : C.figTert }}>{x.esc}</td>
               <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{x.dorm}</td>
               <td className="bk-num px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{x.closed}</td>
-              <td className="px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: C.figHint }}>{x.oldest ? clDur(x.oldest) : "—"}</td>
+              <td className="px-3" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, color: C.figHint }}>{x.oldest ? clDur(x.oldest) : "-"}</td>
             </tr>))}</tbody>
         </table>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl px-4 py-3" style={{ background: mrqLate.length ? C.breachSoft : C.brandBg, border: `0.5px solid ${(mrqLate.length ? IND.error : IND.brand).line}` }}>
         <span style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>
-          <b>Manual review queue.</b> {mrq.length} item{mrq.length === 1 ? "" : "s"} with no ticket yet, so nobody is individually accountable — that is why the 24-hour queue SLA escalates to you. {mrqLate.length ? `${mrqLate.length} past it.` : "All within it."}</span>
+          <b>Manual review queue.</b> {mrq.length} item{mrq.length === 1 ? "" : "s"} with no ticket yet, so nobody is individually accountable - that is why the 24-hour queue SLA escalates to you. {mrqLate.length ? `${mrqLate.length} past it.` : "All within it."}</span>
         <button onClick={() => go("review")} className="bk-dim" style={{ fontSize: 13, fontWeight: 600, color: C.brand }}>Open the queue →</button>
       </div>
     </>
   );
 }
 
-/* ---------- My claims — column table (same idiom as the Endorsement list) ---------- */
+/* ---------- My claims - column table (same idiom as the Endorsement list) ---------- */
 /* Fixed columns hold their width; the two content columns (Client, Stage) share
    the leftover space equally via `clFlex`, so the row fills the width evenly and
-   stays responsive — no single column runs away (mirrors the Endorsement table). */
+   stays responsive - no single column runs away (mirrors the Endorsement table). */
 const CL_COLS = { id: { w: 150 }, owner: { w: 116 }, prio: { w: 96 }, age: { w: 92 }, cm: { w: 84 }, due: { w: 132 } };
 const clCell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0, paddingLeft: c.pl, paddingRight: c.pr, ...extra });
 const clFlex = (extra) => ({ flex: "1 1 0", minWidth: 148, paddingRight: 8, ...extra });
@@ -5562,7 +5562,7 @@ function clFieldVals(t) {
     "Photos": (CL_PHOTOS[t.product] || 0) + " images attached", "Photos of damage": (CL_PHOTOS[t.product] || 0) + " images attached",
   };
 }
-/* What the bot will extract at a stage — keys only, for the waiting panel (C-2). */
+/* What the bot will extract at a stage - keys only, for the waiting panel (C-2). */
 function clBotPreview(t) {
   const poc = (CL_INSURERS[t.insurer] || {}).poc || "claims@" + t.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
   const M = {
@@ -5614,12 +5614,12 @@ function ClaimsDetail({ t, role, act }) {
           <Indicator label={clStageLabel(t)} ind={clStageInd(t)} big status />
           <span className="flex-1" />
           <Indicator label={t.priority} ind={clPrioInd(t.priority)} outline />
-          {/* Product chip removed — it's in the meta row below with Client and Policy. */}
+          {/* Product chip removed - it's in the meta row below with Client and Policy. */}
           <Indicator label={`${t.channel} intake`} ind="neutral" outline />
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
           <ClParticipants t={t} down />
         </div>
-        {/* meta row — same format as the Endorsement: value then its icon/logo,
+        {/* meta row - same format as the Endorsement: value then its icon/logo,
             with a hover tooltip naming each field. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
           {[
@@ -5656,7 +5656,7 @@ const clCmAvatar = (cm) => (cm === "Ruksana" ? AVATAR_RUKSANA : null);
 /* Claims short product names → the endorsement product-rosette master keys. */
 const CL_PRODUCT_ALIAS = { Fire: "Fire & Burglary", Marine: "Marine Cargo", MBD: "Engineering (CAR / EAR / CPM)", WC: "Workmen Compensation (WC)", CGL: "Commercial General Liability (CGL)", PI: "Professional Indemnity (PI)", "D&O": "Directors & Officers (D&O)" };
 const clProductIcon = (p) => PRODUCT_ICON[p] || PRODUCT_ICON[CL_PRODUCT_ALIAS[p]] || null;
-/* Display the product in full — the short codes (MBD, WC, CGL …) are master
+/* Display the product in full - the short codes (MBD, WC, CGL …) are master
    keys, not what the desk should read. Icon lookups still use the short code. */
 const CL_PRODUCT_FULL = { Fire: "Fire & Burglary", Marine: "Marine Cargo", MBD: "Machinery Breakdown",
   WC: "Workmen Compensation", CGL: "Commercial General Liability", PI: "Professional Indemnity", "D&O": "Directors & Officers" };
@@ -5707,7 +5707,7 @@ function ClMetaItem({ m }) {
   );
 }
 
-/* Claim workflow phases — the Endorsement PhaseBar: a progress-line segment per
+/* Claim workflow phases - the Endorsement PhaseBar: a progress-line segment per
    phase (green done · amber current · red if the current phase is breached),
    with the phase label beneath. Phases group the ticket's own path stages. */
 function ClPhaseBar({ t }) {
@@ -5741,7 +5741,7 @@ function ClPhaseBar({ t }) {
   );
 }
 
-/* Claim stage timeline — the Endorsement SlaCard, verbatim in structure, fed
+/* Claim stage timeline - the Endorsement SlaCard, verbatim in structure, fed
    with Claims context (owner party badge, spelled-out TAT, BH/WD calendar). */
 function ClSlaCard({ t }) {
   const f = CL_FLOW[t.state], hc = clHealth(t);
@@ -5789,7 +5789,7 @@ function ClSlaCard({ t }) {
           </div>
           {t.escalated && (
             <div className="flex items-start gap-1.5" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.4, color: C.semError }}>
-              <span>Escalated to {CL_HEAD} — {owner === "Insurer" ? "the insurer" : owner === "Client" ? "the client" : "BimaKavach"} owes the action, so it stays open.</span>
+              <span>Escalated to {CL_HEAD} - {owner === "Insurer" ? "the insurer" : owner === "Client" ? "the client" : "BimaKavach"} owes the action, so it stays open.</span>
             </div>
           )}
         </>
@@ -5797,14 +5797,14 @@ function ClSlaCard({ t }) {
       {held && (
         <div className="mt-1 flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: C.wait }}>
           <PauseCircle size={12} className="shrink-0" />
-          {t.dormant ? "Parked as dormant — no chase runs while it sits here." : "Held — awaiting court."}
+          {t.dormant ? "Parked as dormant - no chase runs while it sits here." : "Held - awaiting court."}
         </div>
       )}
     </div>
   );
 }
 
-/* Workflow-stages list — the Endorsement StageList, verbatim in structure:
+/* Workflow-stages list - the Endorsement StageList, verbatim in structure:
    timeline dot + connector, a per-stage card tinted by state, the stage label
    (struck through once done), the owning party, its TAT, the time spent, and a
    done/now/next check. Fed by the claim's own stage path and ownerLog. */
@@ -5831,7 +5831,7 @@ function ClStageList({ t }) {
               <span className="truncate" style={{ fontSize: 14, fontWeight: now ? 600 : 500,
                 color: over ? C.semError : done ? C.figHint : C.figInk, textDecoration: done ? "line-through" : "none" }}>{sg.label}</span>
               <span className="flex-1" />
-              {sg.owner && sg.owner !== "—" && (
+              {sg.owner && sg.owner !== "-" && (
                 <span className="flex shrink-0 items-center gap-1">
                   <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: (IND[ownInd] || IND.neutral).dot }} />
                   <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>{sg.owner}</span>
@@ -5857,7 +5857,7 @@ function ClOverview({ t, act, setTab }) {
         <SectionTitle>{clStageLabel(t)}</SectionTitle>
         <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
           Closed {clFdt(t.stageAt)} by {t.cm}. The reason and before/after values are on the Ticket history tab.</p>
-        <p className="mt-3" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>Client sees: <b style={{ color: C.figInk }}>{clClientLabel(t)}</b> · {t.state === "ST" ? "Not reopenable — the client raises a fresh claim." : "A fresh claim would have to be raised."}</p>
+        <p className="mt-3" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>Client sees: <b style={{ color: C.figInk }}>{clClientLabel(t)}</b> · {t.state === "ST" ? "Not reopenable - the client raises a fresh claim." : "A fresh claim would have to be raised."}</p>
       </div>
     );
   }
@@ -5904,7 +5904,7 @@ function ClOverview({ t, act, setTab }) {
                   <div key={k} className="flex items-start gap-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>
                     <span className="w-48 shrink-0" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{k}{optional && <span style={{ color: C.figTert, fontWeight: 500 }}> · optional</span>}</span>
                     <span className="flex-1" style={{ fontSize: 13, fontWeight: 500, color: missing ? C.semCaution : C.figInk }}>
-                      {missing ? "Awaiting client" : vals[k] || (optional ? "Not declared — optional on " + clProductLabel(t.product) : "Captured")}</span>
+                      {missing ? "Awaiting client" : vals[k] || (optional ? "Not declared - optional on " + clProductLabel(t.product) : "Captured")}</span>
                   </div>
                 );
               })}
@@ -5922,8 +5922,8 @@ function ClOverview({ t, act, setTab }) {
 function ClAgeBars({ t }) {
   const buckets = { Client: 0, Insurer: 0, BimaKavach: 0 };
   t.ownerLog.forEach((o) => { if (buckets[o.owner] != null) buckets[o.owner] += o.to - o.from; });
-  /* Only attribute the current stage to one of the three real owners — a terminal
-     claim's owner is "—", which has no bar (and no colour), so skip it. */
+  /* Only attribute the current stage to one of the three real owners - a terminal
+     claim's owner is "-", which has no bar (and no colour), so skip it. */
   const cur = clOwner(t); if (buckets[cur] != null) buckets[cur] += (CL_NOW - t.stageAt);
   const total = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
   const ind = { Client: "info", Insurer: "caution", BimaKavach: "brand" };
@@ -5972,7 +5972,7 @@ function ClCtaPointer({ t, setTab }) {
   );
 }
 
-/* The working part — driver-distinct action panels (C-2). */
+/* The working part - driver-distinct action panels (C-2). */
 function ClActionPanel({ t, act, setTab }) {
   const f = CL_FLOW[t.state];
   const [manual, setManual] = useState(false);
@@ -5985,7 +5985,7 @@ function ClActionPanel({ t, act, setTab }) {
   if (f.terminal) return <div className="mt-4"><ClNote tone={"#007B00"} bg={C.tealSoft}>This claim is closed. No further actions are available.</ClNote></div>;
   if (t.dormant) return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
-      <ClNote tone={C.semCaution} bg={C.warnSoft}>Parked as dormant — {t.dormant.sub}. No chase runs while it sits here. Resume it from the Manage ticket tab, choosing which state to pick up at.</ClNote>
+      <ClNote tone={C.semCaution} bg={C.warnSoft}>Parked as dormant - {t.dormant.sub}. No chase runs while it sits here. Resume it from the Manage ticket tab, choosing which state to pick up at.</ClNote>
       <Btn variant="secondary" size="sm" onClick={() => setTab("manage")}>Open Manage ticket</Btn>
     </div>
   );
@@ -6016,7 +6016,7 @@ function ClActionPanel({ t, act, setTab }) {
         <div className="mt-3 flex flex-wrap gap-2">
           <SimBtn onClick={() => act.bot(t.id)}>Simulate: {t.state === "S4" ? "an acceptance arrives" : "the mail arrives"}</SimBtn>
           {t.state === "S4" && <SimBtn onClick={() => act.botReject(t.id)}>Simulate: a rejection arrives</SimBtn>}
-          <Btn variant="secondary" size="sm" onClick={() => setManual(true)}>Extraction failed — record manually</Btn>
+          <Btn variant="secondary" size="sm" onClick={() => setManual(true)}>Extraction failed - record manually</Btn>
         </div>
       </div>
     );
@@ -6026,7 +6026,7 @@ function ClActionPanel({ t, act, setTab }) {
   if (src === "client") {
     const reject = t.state === "R1", rejectFinal = t.state === "R3";
     const what = { S9: "Consent to the assessed amount", S10: "Bank details and cancelled cheque", S12: "Confirmation that the money arrived", R1: "Challenge the rejection, or accept it", R3: "Accept the rejection" }[t.state];
-    const detail = { S9: "The assessment report is published on BimaKendra with two actions — consent or object. Objections are capped at two rounds.", S10: "Asked for only now — after consent — so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm.", R1: "The rejection reason is published on BimaKendra as the insurer wrote it. The client may challenge it twice; each needs a reason. There is no withdrawal on this track.", R3: "Both challenges are used, so Accept is the only remaining action. The client stays free to approach IRDAI or a court; the platform records that, it does not offer it." }[t.state];
+    const detail = { S9: "The assessment report is published on BimaKendra with two actions - consent or object. Objections are capped at two rounds.", S10: "Asked for only now - after consent - so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm.", R1: "The rejection reason is published on BimaKendra as the insurer wrote it. The client may challenge it twice; each needs a reason. There is no withdrawal on this track.", R3: "Both challenges are used, so Accept is the only remaining action. The client stays free to approach IRDAI or a court; the platform records that, it does not offer it." }[t.state];
     return (
       <div className="mt-4 rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
         <div className="flex flex-wrap items-center gap-2">
@@ -6040,7 +6040,7 @@ function ClActionPanel({ t, act, setTab }) {
           <div className="mt-3 rounded-lg border p-3" style={{ borderColor: C.lineSoft, background: C.white }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>The insurer's reason, as written</div>
             <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{t.rejection.reason}</p>
-            <div className="mt-3" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Challenges used — {t.challenges} of 2</div>
+            <div className="mt-3" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Challenges used - {t.challenges} of 2</div>
             <textarea value={rejWhy} onChange={(e) => setRejWhy(e.target.value)} placeholder={`The client's reason for challenging. Mandatory. Goes to ${t.insurer} as written.`} className="mt-2 w-full" rows={3} style={{ ...FIELD, resize: "vertical" }} />
           </div>
         )}
@@ -6065,8 +6065,8 @@ function ClActionPanel({ t, act, setTab }) {
   /* CM data-entry form (and the bot manual-fallback form) */
   const hint = {
     S0: "The email bot created this in Draft. It flips to Under Review only when every mandatory item is captured.",
-    S1: "Two business-hour initial-response TAT. The assessment is a checkpoint, not a gate — the claim proceeds either way.",
-    S2: CL_INSURERS[t.insurer].mode === "Portal" ? "Portal insurer — a CM logs in and raises the claim. One-business-hour TAT." : "Mail insurer — TMS sends the automated mailer with all documents attached.",
+    S1: "Two business-hour initial-response TAT. The assessment is a checkpoint, not a gate - the claim proceeds either way.",
+    S2: CL_INSURERS[t.insurer].mode === "Portal" ? "Portal insurer - a CM logs in and raises the claim. One-business-hour TAT." : "Mail insurer - TMS sends the automated mailer with all documents attached.",
     S3: "Insurer owes the claim number.", S4: `On acceptance the route splits on the declared estimate of ${clInr(t.loss)}: ${(t.loss || 0) > CL_SURVEYOR_THRESHOLD ? "above ₹1 lakh, so a surveyor is appointed." : "at or below ₹1 lakh, so the insurer assesses internally."}`,
     S5: "Surveyor name, mobile and visit date arrive by email and are bot-extracted.", S6: "Recording the report does not advance the claim; sharing it with the client does.", S8: "The insurer assesses internally below the threshold.",
     S11: "The insurer pays the client directly. TMS records the payment; it never moves money.",
@@ -6084,7 +6084,7 @@ function ClActionPanel({ t, act, setTab }) {
   return (
     <div className="mt-4 flex flex-col gap-3">
       {manual
-        ? <div className="flex flex-wrap items-center gap-2"><ClNote tone={C.semCaution} bg={C.warnSoft}>Bot extraction failed. Recording manually against a one-hour TAT — the claim already has an owner, so it stays in your tray rather than the shared queue.</ClNote><Btn variant="secondary" size="sm" onClick={() => setManual(false)}>Wait for the bot instead</Btn></div>
+        ? <div className="flex flex-wrap items-center gap-2"><ClNote tone={C.semCaution} bg={C.warnSoft}>Bot extraction failed. Recording manually against a one-hour TAT - the claim already has an owner, so it stays in your tray rather than the shared queue.</ClNote><Btn variant="secondary" size="sm" onClick={() => setManual(false)}>Wait for the bot instead</Btn></div>
         : hint ? <ClNote tone={C.link} bg={C.waitSoft}>{hint}</ClNote> : null}
       <div className="flex flex-wrap gap-3">{formFor()}</div>
       <ClInput label="Note for the audit trail (optional)" value={note} onChange={setNote} placeholder="Why, in your own words" />
@@ -6093,7 +6093,7 @@ function ClActionPanel({ t, act, setTab }) {
   );
 }
 
-/* ---------- real document bytes (C-8.3) — minimal single-page PDF, no library ---------- */
+/* ---------- real document bytes (C-8.3) - minimal single-page PDF, no library ---------- */
 function clPdf(lines) {
   const enc = (x) => String(x).replace(/[\\()]/g, (c) => "\\" + c);
   let y = 790, ops = "";
@@ -6170,7 +6170,7 @@ function ClDocs({ t, act }) {
         <div className="px-3 py-2.5" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>View and Download produce real bytes; a seeded document renders a generated placeholder PDF and the viewer says so.</div>
       </div>
       {view && (
-        <ModalShell title={view.name} sub="Generated placeholder — not a real upload." onClose={() => setView(null)} width={640}>
+        <ModalShell title={view.name} sub="Generated placeholder - not a real upload." onClose={() => setView(null)} width={640}>
           <iframe title={view.name} src={view.url} style={{ width: "100%", height: 420, border: `1px solid ${C.subtle}`, borderRadius: 8 }} />
         </ModalShell>
       )}
@@ -6215,7 +6215,7 @@ function ClClient({ t, act }) {
           <div className="flex flex-col gap-3">
             <ClInput label="Detail or document (optional)" value={target} onChange={setTarget} placeholder="e.g. Repair quotation, or Date the panel was last serviced" />
             <label className="flex flex-col gap-1.5"><FieldLabel>What is wrong, or what you need clarified</FieldLabel>
-              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="e.g. The declared estimate looks inconsistent with the repair quotation — please confirm the figure" style={{ ...FIELD, resize: "vertical" }} /></label>
+              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="e.g. The declared estimate looks inconsistent with the repair quotation - please confirm the figure" style={{ ...FIELD, resize: "vertical" }} /></label>
             <ClInput label="Raised on behalf of" value={src} onChange={setSrc} options={["BimaKavach", t.insurer, "Surveyor"]} />
           </div>
         </ModalShell>
@@ -6336,7 +6336,7 @@ function ClPayment({ t, act, setTab }) {
           </div>
         ) : t.state === "S10" ? (
           <>
-            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Asked for only now — after consent — so only clients who will be paid are ever asked. Cancelled cheque is mandatory.</p>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Asked for only now - after consent - so only clients who will be paid are ever asked. Cancelled cheque is mandatory.</p>
             <div className="mt-3 flex flex-wrap gap-3">
               <ClInput label="Account number" value={acc} onChange={setAcc} placeholder="Account number" />
               <ClInput label="IFSC" value={ifsc} onChange={setIfsc} placeholder="e.g. HDFC0001188" />
@@ -6416,19 +6416,19 @@ function ClManage({ t, role, act, setTab }) {
         <div className="mt-3"><Btn size="sm" onClick={() => { if (!reassignWhy.trim()) return act.flash("Reassignment needs a reason."); act.reassign(t.id, reassignTo, reassignWhy.trim()); }}>Reassign</Btn></div>
       </ManageCard>
 
-      <ManageCard title="Mark as withdrawn" available={!terminal && !onRej} reason={onRej ? "Withdrawal is barred across the rejection track — the claim is already recorded as rejected." : "Already closed."}>
+      <ManageCard title="Mark as withdrawn" available={!terminal && !onRej} reason={onRej ? "Withdrawal is barred across the rejection track - the claim is already recorded as rejected." : "Already closed."}>
         <ClInput label="Reason" value={withdrawWhy} onChange={setWithdrawWhy} placeholder="Why the client is withdrawing" />
         <div className="mt-3"><Btn size="sm" tone={C.semError} onClick={() => { if (!withdrawWhy.trim()) return act.flash("Withdrawal needs a reason."); act.withdraw(t.id, withdrawWhy.trim()); }}>Mark as withdrawn</Btn></div>
       </ManageCard>
 
       <ManageCard title="Park as dormant" available={canPark} reason={terminal ? "Already closed." : t.dormant ? "Already parked as dormant." : `The ${owner === "Insurer" ? "insurer" : "we"} owe the next action, so this claim stays open and escalates. Parking it is how work disappears.`}>
         <ClInput label="Reason" value={parkWhy} onChange={setParkWhy} placeholder="Why it is being parked" />
-        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Parking is silent — no client notification, and the client-facing label does not change.</p>
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Parking is silent - no client notification, and the client-facing label does not change.</p>
         <div className="mt-3"><Btn size="sm" onClick={() => { if (!parkWhy.trim()) return act.flash("Parking needs a reason."); act.park(t.id, parkWhy.trim()); }}>Park as dormant</Btn></div>
       </ManageCard>
 
       <ManageCard title="Resume from dormant" available={!!t.dormant} reason="This claim is not parked.">
-        <p style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Resumes at {t.dormant ? CL_FLOW[t.dormant.fromState].label : "—"}. Preconditions are re-validated and cannot be overridden.</p>
+        <p style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Resumes at {t.dormant ? CL_FLOW[t.dormant.fromState].label : "-"}. Preconditions are re-validated and cannot be overridden.</p>
         <ClInput label="Reason" value={resumeWhy} onChange={setResumeWhy} placeholder="Why it is being resumed" />
         <div className="mt-3"><Btn size="sm" onClick={() => { if (!resumeWhy.trim()) return act.flash("Resuming needs a reason."); act.resume(t.id, t.dormant.fromState, resumeWhy.trim()); }}>Resume</Btn></div>
       </ManageCard>
@@ -6439,7 +6439,7 @@ function ClManage({ t, role, act, setTab }) {
           <span className="bk-num">{t.chase.reminders} of {L.reminders} reminders</span> · <span className="bk-num">{t.chase.escalations} of {L.escalations || 3} escalations</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Btn size="sm" variant="secondary" disabled={!L.reminders} title={!L.reminders ? `No reminder is sent on the internal chase — ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.` : undefined} onClick={() => act.sendReminder(t.id)}>Send reminder</Btn>
+          <Btn size="sm" variant="secondary" disabled={!L.reminders} title={!L.reminders ? `No reminder is sent on the internal chase - ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.` : undefined} onClick={() => act.sendReminder(t.id)}>Send reminder</Btn>
           <Btn size="sm" tone={C.semError} onClick={() => act.escalate(t.id)}>Escalate to {CL_HEAD}</Btn>
         </div>
       </ManageCard>
@@ -6457,7 +6457,7 @@ function ClaimsReview({ tickets, mrq, role, act }) {
   const openLink = (m) => { const c = clCandidatesFor(m, tickets); setLink(m); setPick(c[0]?.t.id || null); setWhy(""); };
   return (
     <div>
-      <PageHead title="Manual review queue" hint="Claims only — separate from the endorsement queue."
+      <PageHead title="Manual review queue" hint="Claims only - separate from the endorsement queue."
         right={<Indicator label={breach ? `${breach} past the 24-hour queue SLA` : "All within SLA"} ind={breach ? "error" : "success"} big />} />
       {mrq.length === 0 ? <Empty>The queue is clear. Mail the bot could not classify or match will land here.</Empty> : (
         <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
@@ -6475,7 +6475,7 @@ function ClaimsReview({ tickets, mrq, role, act }) {
                   </div>
                   <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{m.subject}{m.att.length ? ` · ${m.att.length} attachment${m.att.length > 1 ? "s" : ""}` : ""}</div>
                   <div className="mt-1.5" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
-                    <b style={{ color: C.figInk }}>{m.reason}</b> · {CL_REASONS[m.reason]} — {m.note}</div>
+                    <b style={{ color: C.figInk }}>{m.reason}</b> · {CL_REASONS[m.reason]} - {m.note}</div>
                   <div className="mt-1 flex items-center gap-2" style={{ fontSize: 11, fontWeight: 500, color: late ? C.semError : C.figTert }}>Guess: {m.guess} · {clDur(age)} in the queue</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -6490,7 +6490,7 @@ function ClaimsReview({ tickets, mrq, role, act }) {
         </div>
       )}
       <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
-        Pooled queue — every Claims Manager and the Claims Head sees it. Items have no ticket yet, so the two-hour CM clock does not apply; the queue runs its own 24-hour SLA and turns red past it.</p>
+        Pooled queue - every Claims Manager and the Claims Head sees it. Items have no ticket yet, so the two-hour CM clock does not apply; the queue runs its own 24-hour SLA and turns red past it.</p>
 
       {mail && (
         <ModalShell title={mail.subject} sub={`${mail.id} · ${mail.conf}% confidence`} onClose={() => setMail(null)} width={720} footer={<Btn variant="secondary" onClick={() => setMail(null)}>Close</Btn>}>
@@ -6506,7 +6506,7 @@ function ClaimsReview({ tickets, mrq, role, act }) {
       {link && (() => {
         const cands = clCandidatesFor(link, tickets);
         return (
-          <ModalShell title="Link to an existing claim" sub={`${link.subject} — from ${link.from}`} onClose={() => setLink(null)} width={620}
+          <ModalShell title="Link to an existing claim" sub={`${link.subject} - from ${link.from}`} onClose={() => setLink(null)} width={620}
             footer={<><Cancel onClick={() => setLink(null)} /><Btn onClick={() => { if (!pick) return act.flash("Choose the claim this mail belongs to."); if (!why.trim()) return act.flash("Record how you established this is the right claim. The mapping is audited."); act.linkMail(link.id, pick, why.trim()); setLink(null); }}>Link and apply</Btn></>}>
             <ClNote tone={C.link} bg={C.waitSoft}>Linking attaches the mail and its attachments to the claim's trail and applies the bot's intended action for a <b>{link.guess.toLowerCase()}</b>. The mapping is audited; the bot never picks.</ClNote>
             <div className="mt-3 flex flex-col gap-2">
@@ -6559,7 +6559,7 @@ function ClaimsReports({ tickets, mrq, role }) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Where the delay sits" hint="Four ageing buckets. Dormant is separated so one parked claim cannot swamp client responsiveness.">
           <div className="flex flex-col gap-2">{Object.entries(buckets).map(([k, v]) => <Bar key={k} label={k} w={(v / bTotal) * 100} col={bcol[k]} val={Math.round(v / CL_DAY) + "d"} />)}</div>
-          <p className="mt-3 border-t pt-3" style={{ borderColor: C.lineSoft, fontSize: 12, fontWeight: 500, color: C.figTert }}>{Math.round((buckets.Insurer / bTotal) * 100)}% of elapsed time sits with insurers — the figure that makes insurer delay separable from ours.</p>
+          <p className="mt-3 border-t pt-3" style={{ borderColor: C.lineSoft, fontSize: 12, fontWeight: 500, color: C.figTert }}>{Math.round((buckets.Insurer / bTotal) * 100)}% of elapsed time sits with insurers - the figure that makes insurer delay separable from ours.</p>
         </Card>
         <Card title="Insurer turnaround" hint="Median days from intimation to decision, with claim counts.">
           <div className="flex flex-col gap-2">{insRows.map((r) => <Bar key={r.k} label={`${r.k} · ${r.mode}`} w={(r.d / maxD) * 100} col={r.d > 12 ? C.semError : r.d > 7 ? C.semCaution : "#00B200"} val={`${r.d}d · ${r.n}`} />)}</div>
@@ -6567,7 +6567,7 @@ function ClaimsReports({ tickets, mrq, role }) {
         <Card title="Claims by status" hint={`All ${tickets.length} claims, live and closed.`}>
           <div className="flex flex-col gap-2">{Object.entries(byStatus).sort((a, b) => b[1] - a[1]).map(([k, v]) => <Bar key={k} label={k} w={(v / maxS) * 100} col={C.brand} val={v} />)}</div>
         </Card>
-        <Card title="Manual review queue" hint="Volume by reason code — the primary input for tuning the bot.">
+        <Card title="Manual review queue" hint="Volume by reason code - the primary input for tuning the bot.">
           {mrq.length ? <div className="flex flex-col gap-2">{Object.entries(mrq.reduce((a, m) => ({ ...a, [m.reason]: (a[m.reason] || 0) + 1 }), {})).map(([k, v]) => <Bar key={k} label={`${k} · ${CL_REASONS[k]}`} w={(v / mrq.length) * 100} col={C.brand} val={v} />)}</div> : <Empty>Queue is empty.</Empty>}
         </Card>
       </div>
@@ -6576,7 +6576,7 @@ function ClaimsReports({ tickets, mrq, role }) {
         <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           {breaches.map((t, i) => {
             const f = CL_FLOW[t.state];
-            const end = f.owner === "Client" ? (["S10", "S12"].includes(t.state) ? "Parks dormant. Never terminates — payment is already approved." : "Reminders, then escalation, then dormant or terminated.") : `Escalates and stays open. A claim never terminates while ${f.owner === "Insurer" ? "the insurer" : "BimaKavach"} owes the action.`;
+            const end = f.owner === "Client" ? (["S10", "S12"].includes(t.state) ? "Parks dormant. Never terminates - payment is already approved." : "Reminders, then escalation, then dormant or terminated.") : `Escalates and stays open. A claim never terminates while ${f.owner === "Insurer" ? "the insurer" : "BimaKavach"} owes the action.`;
             return (
               <div key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5" style={{ borderBottom: i === breaches.length - 1 ? "none" : `0.5px solid ${C.lineSoft}` }}>
                 <span className="bk-num w-28 shrink-0" style={{ fontSize: 12, fontWeight: 700, color: C.figInk }}>{t.id}</span>
@@ -6618,7 +6618,7 @@ function ClaimsCreate({ onCreate, back, prefill }) {
   const optional = clLossOptional(f.product);
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const onPolicyChange = (e) => setF((p) => ({ ...p, policy: e.target.value }));
-  /* Fetch only on Enter — never on keystroke, so partial input doesn't populate. */
+  /* Fetch only on Enter - never on keystroke, so partial input doesn't populate. */
   const onPolicyKey = (e) => { if (e.key !== "Enter") return; e.preventDefault(); setF((p) => ({ ...p, ...clFetchPolicy(p.policy) })); };
 
   const need = ["policy", "client", "product", "insurer", "dol", "desc", "cause", "loc", "cname", "cmob", ...(optional ? [] : ["loss"])];
@@ -6632,7 +6632,7 @@ function ClaimsCreate({ onCreate, back, prefill }) {
     const missing = Object.keys(req).filter((k) => !String(f[k]).trim()).map((k) => req[k]);
     if (missing.length) return setErr("Submission blocked. Still needed: " + missing.join(", ") + ".");
     const mob = clCleanMob(f.cmob);
-    if (!CL_MOBILE.test(mob)) return setErr("Contact mobile must be a 10-digit Indian number starting 6, 7, 8 or 9. A +91 or 0 prefix is fine — it will be stripped.");
+    if (!CL_MOBILE.test(mob)) return setErr("Contact mobile must be a 10-digit Indian number starting 6, 7, 8 or 9. A +91 or 0 prefix is fine - it will be stripped.");
     const dol = new Date(f.dol).getTime();
     if (!dol || dol >= CL_NOW) return setErr("Date of loss must be earlier than the intimation date.");
     onCreate({ ...f, mob, dol, loss: f.loss ? Number(f.loss) : null });
@@ -6651,7 +6651,7 @@ function ClaimsCreate({ onCreate, back, prefill }) {
           <div>
             <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand, lineHeight: 1.2 }}>Create claim</h2>
             <p className="mt-1" style={{ fontSize: 14, fontWeight: 500, color: C.figTert, lineHeight: 1.4 }}>
-              Portal intake — the policy number fills Client, Insurer and Product; submission is blocked until every mandatory field is present.
+              Portal intake - the policy number fills Client, Insurer and Product; submission is blocked until every mandatory field is present.
             </p>
           </div>
           <button onClick={back} title="Close" className="bk-iconctrl flex shrink-0 items-center justify-center rounded-md border"
@@ -6660,7 +6660,7 @@ function ClaimsCreate({ onCreate, back, prefill }) {
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
           <div className="grid gap-x-10 sm:grid-cols-2">
-            {/* Left — policy in, then the read-only trio it fetches */}
+            {/* Left - policy in, then the read-only trio it fetches */}
             <div className="min-w-0">
               <Field label="Policy Number" value={f.policy}
                 onClear={() => setF({ ...f, policy: "", client: "", insurer: "", product: "" })}>
@@ -6687,7 +6687,7 @@ function ClaimsCreate({ onCreate, back, prefill }) {
               </Field>
             </div>
 
-            {/* Right — the rest of the intake the portal still demands */}
+            {/* Right - the rest of the intake the portal still demands */}
             <div className="min-w-0">
               <Field label="Cause of loss" value={f.cause} onClear={() => setF({ ...f, cause: "" })}>
                 <input value={f.cause} onChange={set("cause")} placeholder="How the loss occurred" className={inputCls} style={inputSt} />
@@ -6742,9 +6742,9 @@ const CL_SURVEYORS = [
 ];
 const CL_REJ_REASONS = [
   "Repudiated under the exclusion for unattended premises at the time of loss.",
-  "Repudiated — the loss falls outside the period of insurance on the policy schedule.",
-  "Repudiated — breach of warranty relating to maintenance of the affected plant.",
-  "Repudiated — the cause of loss is excluded under the wear, tear and gradual deterioration clause.",
+  "Repudiated - the loss falls outside the period of insurance on the policy schedule.",
+  "Repudiated - breach of warranty relating to maintenance of the affected plant.",
+  "Repudiated - the cause of loss is excluded under the wear, tear and gradual deterioration clause.",
 ];
 const CL_ROUTES = { home: "/claims", list: "/claims/tickets", review: "/claims/review", reports: "/claims/reports" };
 const clPathOf = (view, id) => (view === "ticket" && id ? "/claims/tickets/" + id : CL_ROUTES[view] || "/claims");
@@ -6826,7 +6826,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     else if (form === "report") { extra.inspection = v.i0.trim(); extra.assessedLoss = Number(v.i1); extra.report = { source: v.i2, converted: v.i2 !== "Attached PDF", author: t0.surveyor ? "Surveyor" : t0.insurer, file: t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; detail = "Inspection recorded · assessed " + clInr(extra.assessedLoss) + " · arrived as " + v.i2; }
     else if (form === "payment") { const type = v.i1, amt = Number(v.i2); const n = type.startsWith("Instalment") ? t0.payments.filter((p) => p.type.startsWith("Instalment")).length + 1 : null; extra.payments = [...t0.payments, { type, n, date: clFdate(CL_NOW), amt, utr: v.i3 || null }]; detail = type + " · " + clInr(amt); }
     if (t0.state === "S0") extra.missing = null;
-    mut(id, (t) => { const t1 = clAudit({ ...t, ...extra }, f.act.label, detail + (note ? (detail ? " — " : "") + note : ""), actor(), roleName()); return stay ? t1 : clStep(t1, to); });
+    mut(id, (t) => { const t1 = clAudit({ ...t, ...extra }, f.act.label, detail + (note ? (detail ? " - " : "") + note : ""), actor(), roleName()); return stay ? t1 : clStep(t1, to); });
     flash(stay ? (form === "report" ? "Recorded. Share it on the Survey tab to start consent." : "Instalment recorded. Add another, or close with a final payment.") : CL_FLOW[to].terminal ? "Claim closed as Settled." : `Moved to “${CL_FLOW[to].label}”. Client now sees “${CL_FLOW[to].client}”.`);
   };
   const bot = (id) => {
@@ -6835,7 +6835,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     if (s === "S3") { const cn = t0.insurer.split(" ")[0].slice(0, 2).toUpperCase() + "/" + t0.product.slice(0, 3).toUpperCase() + "/26/" + (10000 + Math.floor(Math.random() * 89999)); mut(id, (t) => clStep(clAudit({ ...t, claimNo: cn }, "Claim registration classified and extracted", "Insurer claim number: " + cn + " · 96% confidence, from " + poc, "Email bot"), "S4")); return flash("Bot advanced the claim to “Awaiting admissibility decision”."); }
     if (s === "S4") { mut(id, (t) => clStep(clAudit(t, "Admissibility decision classified and extracted", "Decision: Admitted · 94% confidence, from " + poc, "Email bot"), "BRANCH")); return flash("Bot recorded the insurer's acceptance and routed the claim. No human touched it."); }
     if (s === "S5") { const sv = CL_SURVEYORS[t0.id.charCodeAt(t0.id.length - 1) % CL_SURVEYORS.length]; const surveyor = { name: sv.name, firm: sv.firm, mobile: sv.mobile, visit: clFdate(CL_NOW + 3 * CL_DAY), source: "Bot-extracted from insurer mail" }; mut(id, (t) => clStep(clAudit({ ...t, surveyor }, "Surveyor appointment classified and extracted", "Surveyor " + sv.name + " (" + sv.firm + ") · 93% confidence, from " + poc, "Email bot"), "S6")); return flash("Bot advanced the claim to “Inspection & assessment report”."); }
-    if (s === "S6" || s === "S8") { const assessed = Math.round((t0.loss || 250000) * 0.88 / 1000) * 1000; const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection — assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, assessedLoss: assessed, report }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and extracted", "Assessed loss " + clInr(assessed) + " · arrived as " + (asPdf ? "attached PDF" : "email body"), "Email bot")); return flash("Report extracted. Share it with the client on the Survey tab to start consent."); }
+    if (s === "S6" || s === "S8") { const assessed = Math.round((t0.loss || 250000) * 0.88 / 1000) * 1000; const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection - assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, assessedLoss: assessed, report }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and extracted", "Assessed loss " + clInr(assessed) + " · arrived as " + (asPdf ? "attached PDF" : "email body"), "Email bot")); return flash("Report extracted. Share it with the client on the Survey tab to start consent."); }
     if (s === "R2") { const n = t0.challenges; const body = n === 1 ? "We have re-examined the file against the challenge raised. The exclusion relied on is unchanged, but we set out below the basis on which it was applied." : "This is our final position. The file has been reviewed a second time. The repudiation stands and no further internal review is available."; mut(id, (t) => { const to = t.challenges >= 2 ? "R3" : "R1"; const rej = { ...t.rejection, responses: [...t.rejection.responses, { kind: "reply", n: t.challenges, text: body, at: CL_NOW }] }; return clStep(clAudit({ ...t, rejection: rej }, "Insurer's detailed reply to challenge " + t.challenges, "Rejection upheld · 96% confidence, from " + poc, "Email bot"), to); }); return flash("Insurer's reply recorded and published to the client."); }
     if (s === "S11") { mut(id, (t) => { const pay = { type: "Full and final", n: null, date: clFdate(CL_NOW), amt: t.assessedLoss || t.loss || 0, utr: "UTR" + String(CL_NOW).slice(2, 10), mode: "NEFT" }; return clStep(clAudit({ ...t, payments: [...t.payments, pay] }, "Payment confirmation classified and extracted", "Amount " + clInr(pay.amt) + " · UTR " + pay.utr + " · 97% confidence, from " + poc, "Email bot"), "S12"); }); return flash("Bot recorded the payment. Client now sees “Payment Released”."); }
     return flash("No inbound mail is expected at this stage.");
@@ -6859,8 +6859,8 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     mut(id, (t) => { const ch = t.challenges + 1; const rej = { ...t.rejection, responses: [...t.rejection.responses, { kind: "challenge", n: ch, text: reason.trim(), at: CL_NOW }] }; return clStep(clAudit({ ...t, challenges: ch, rejection: rej }, "Challenge " + ch + " of 2 raised by the client", reason.trim(), t.client, "Client"), "R2"); });
     flash("Challenge forwarded to the insurer. They owe a fuller explanation.");
   };
-  const acceptRej = (id) => { mut(id, (t) => clStep(clAudit(t, "Client accepted the rejection", "Closed with reason Rejection accepted. The client remains free to approach IRDAI or a court — the platform records that, it does not offer it.", t.client, "Client"), "RX", { closureReason: "Rejection accepted", subStatus: null })); flash("Closed as Rejection accepted."); };
-  const shareReport = (id) => { mut(id, (t) => clStep(clAudit({ ...t, report: { ...t.report, shared: true, sharedAt: CL_NOW } }, "Assessment report shared on BimaKendra", t.report.file + " · assessed loss " + clInr(t.assessedLoss), actor(), roleName()), "S9")); flash("Shared. The client can now consent or object — two rounds, same as a rejection."); };
+  const acceptRej = (id) => { mut(id, (t) => clStep(clAudit(t, "Client accepted the rejection", "Closed with reason Rejection accepted. The client remains free to approach IRDAI or a court - the platform records that, it does not offer it.", t.client, "Client"), "RX", { closureReason: "Rejection accepted", subStatus: null })); flash("Closed as Rejection accepted."); };
+  const shareReport = (id) => { mut(id, (t) => clStep(clAudit({ ...t, report: { ...t.report, shared: true, sharedAt: CL_NOW } }, "Assessment report shared on BimaKendra", t.report.file + " · assessed loss " + clInr(t.assessedLoss), actor(), roleName()), "S9")); flash("Shared. The client can now consent or object - two rounds, same as a rejection."); };
   const ask = (id, q) => { mut(id, (t) => { const qid = "Q" + (t.queries.length + 1); return clAudit({ ...t, queries: [...t.queries, { id: qid, target: q.target, text: q.text, src: q.src, status: "open", at: CL_NOW, response: null }] }, "Query raised" + (q.target ? " on " + q.target : ""), q.text + " · on behalf of " + q.src, actor(), roleName()); }); flash("Sent to the client. They see it on their surface; the reminder cycle starts now."); };
   const answer = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "answered", response: "Sharing the requested detail from our records.", respondedAt: CL_NOW } : q)), audit: [{ at: CL_NOW, actor: t.client, role: "Client", what: "Client responded to a query", detail: "" }, ...t.audit] })); flash("Response recorded."); };
   const closeQuery = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "closed" } : q)) })); flash("Query closed."); };
@@ -6869,11 +6869,11 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const upload = (id, key, name) => { mut(id, (t) => { const q = t.queries.find((x) => x.status === "open" && x.target === key); return clAudit({ ...t, uploads: { ...t.uploads, [key]: { name, at: CL_NOW, by: actor() } }, queries: q ? t.queries.map((x) => (x.id === q.id ? { ...x, status: "answered", response: "Uploaded " + name } : x)) : t.queries }, "Document received: " + key, name, actor(), roleName()); }); flash("Uploaded " + name + "."); };
   const reassign = (id, cm, reason) => { mut(id, (t) => clAudit({ ...t, cm }, "Reassigned to " + cm, reason, actor(), roleName())); flash("Reassigned to " + cm + "."); };
   const withdraw = (id, reason) => { mut(id, (t) => clStep(clAudit(t, "Marked as withdrawn", reason, actor(), roleName()), "SX", { closureReason: "Withdrawn", subStatus: null })); flash("Marked as withdrawn."); };
-  const park = (id, reason) => { mut(id, (t) => clAudit({ ...t, dormant: { sub: t.state === "S10" ? "Awaiting bank details" : "Client unresponsive", fromState: t.state, note: reason, at: CL_NOW } }, "Parked as dormant", reason + " · silent, no client notification", actor(), roleName())); flash("Parked as dormant — silently, with no client notification."); };
+  const park = (id, reason) => { mut(id, (t) => clAudit({ ...t, dormant: { sub: t.state === "S10" ? "Awaiting bank details" : "Client unresponsive", fromState: t.state, note: reason, at: CL_NOW } }, "Parked as dormant", reason + " · silent, no client notification", actor(), roleName())); flash("Parked as dormant - silently, with no client notification."); };
   const resume = (id, toState, reason) => { mut(id, (t) => clAudit({ ...t, dormant: null, state: toState, status: CL_FLOW[toState].status, stageAt: CL_NOW, chase: { reminders: 0, escalations: 0, events: [] } }, "Resumed from dormant", "Resumed at " + CL_FLOW[toState].label + " · " + reason, actor(), roleName())); flash("Resumed from dormant at " + CL_FLOW[toState].label + "."); };
   const sendReminder = (id) => {
     const t0 = tickets.find((x) => x.id === id); if (!t0) return; const L = CL_LOOPS[clLoop(t0)];
-    if (!L || !L.reminders) return flash(`No reminder is sent on the internal chase — ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.`);
+    if (!L || !L.reminders) return flash(`No reminder is sent on the internal chase - ${CL_HEAD} is alerted as soon as the time is up. There is nobody outside to remind.`);
     if (t0.chase.reminders >= L.reminders) return flash(`All ${L.reminders} reminders have been sent. Escalating to ${CL_HEAD} is the next step.`);
     mut(id, (t) => clAudit({ ...t, chase: { ...t.chase, reminders: t.chase.reminders + 1 } }, "Reminder sent", L.name + " · reminder " + (t0.chase.reminders + 1) + " of " + L.reminders + ", owed by " + L.who, actor(), roleName()));
     flash("Reminder sent. Ticket colour is now amber.");
@@ -6893,7 +6893,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const createClaim = (d) => {
     const seq = nextSeq(), id = "CLM-" +seq;
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
-    const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared — optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
+    const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared - optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
     const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
@@ -6902,29 +6902,29 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const createFromMail = (m) => {
     const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
-    const base = { id, client: m.cand || "New client — to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
     flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
   };
   const linkMail = (mailId, ticketId, why) => {
     const m = mrq.find((x) => x.id === mailId); if (!m) return;
-    mut(ticketId, (t) => { const uploads = { ...t.uploads }; m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; }); return clAudit({ ...t, uploads, inbox: [...t.inbox, { at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }] }, "Mail mapped from the review queue", m.id + " · " + m.guess + " at " + m.conf + "% · from " + m.from + (m.att.length ? " · " + m.att.length + " attachment" + (m.att.length > 1 ? "s" : "") + " filed" : "") + " — " + why, actor(), roleName()); });
+    mut(ticketId, (t) => { const uploads = { ...t.uploads }; m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; }); return clAudit({ ...t, uploads, inbox: [...t.inbox, { at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }] }, "Mail mapped from the review queue", m.id + " · " + m.guess + " at " + m.conf + "% · from " + m.from + (m.att.length ? " · " + m.att.length + " attachment" + (m.att.length > 1 ? "s" : "") + " filed" : "") + " - " + why, actor(), roleName()); });
     setMrq((q) => q.filter((x) => x.id !== mailId)); setOpenId(ticketId); setView("ticket");
     flash("Linked to " + ticketId + ". The mail is on its trail and the mapping is audited.");
   };
   const discardMail = (id) => { setMrq((q) => q.filter((x) => x.id !== id)); flash("Discarded and logged for threshold tuning. No reply sent."); };
-  const rejectMail = (id) => { const m = mrq.find((x) => x.id === id); setMrq((q) => q.filter((x) => x.id !== id)); flash("Rejected. A reasoned reply went to " + (m ? m.from : "the sender") + " — no ticket created."); };
+  const rejectMail = (id) => { const m = mrq.find((x) => x.id === id); setMrq((q) => q.filter((x) => x.id !== id)); flash("Rejected. A reasoned reply went to " + (m ? m.from : "the sender") + " - no ticket created."); };
 
   const act = { cmForm, bot, botReject, clientRun, challenge, acceptRej, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash };
   const current = tickets.find((t) => t.id === openId);
-  /* The order the ticket pager walks — the same urgency order the queues use. */
+  /* The order the ticket pager walks - the same urgency order the queues use. */
   const pagerList = useMemo(() => clVisible(tickets, role).slice().sort((a, b) => {
     const rk = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 ? 1 : 2);
     return rk(a) - rk(b) || clOverdueBy(b) - clOverdueBy(a);
   }), [tickets, role]);
   /* Only Umesh (the Claims & Endorsements Head) gets the admin/manager view switcher. */
   const isAdmin = /umesh/i.test(user?.name || "");
-  /* Sidebar identity is always the signed-in user — the Me/Team switch changes
+  /* Sidebar identity is always the signed-in user - the Me/Team switch changes
      the data scope, not who is logged in (so it stays put when Umesh toggles). */
   const identity = user
     ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status }
@@ -7005,7 +7005,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash(c.state === "breached" ? `${stageOf(t0.stage).code} closed ${c.label} over SLA.` : "Stage closed inside SLA.");
   };
 
-  /* M7 FR-091/093 — the copy arriving IS the transition: it closes SLA-09 and
+  /* M7 FR-091/093 - the copy arriving IS the transition: it closes SLA-09 and
      opens SLA-11 (Copy received), where QC and delivery happen. */
   const attachCopy = (id, opts) => {
     const manual = opts?.source === "manual";
@@ -7089,7 +7089,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
   };
 
   /* The client answers through the portal, against a specific query, so the
-     response is structurally bound to the query — no matching, no confidence,
+     response is structurally bound to the query - no matching, no confidence,
      no chance of it landing on the wrong one. */
   const receiveReply = (id, qid) => {
     setTickets((ts) => ts.map((t) => {
@@ -7117,7 +7117,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Portal response received. Back to SLA-03 - re-verification, fresh 4 BH clock.");
   };
 
-  /* M3 FR-036/037 — terminal, blocked without the withdrawal email */
+  /* M3 FR-036/037 - terminal, blocked without the withdrawal email */
   const withdraw = (id, { file, reason }) => {
     setTickets((ts) => ts.map((t) => t.id === id ? { ...t, terminal: "Customer Withdrawn", lastAction: 0,
       queries: (t.queries || []).map((q) => q.status === "open" ? { ...q, status: "closed" } : q),
@@ -7127,14 +7127,14 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Ticket marked Customer Withdrawn. It is now read-only.");
   };
 
-  /* M2 FR-020/021 — reason mandatory, SLA continues (inStage untouched) */
+  /* M2 FR-020/021 - reason mandatory, SLA continues (inStage untouched) */
   const reassign = (id, { to, reason }) => {
     setTickets((ts) => ts.map((t) => t.id === id ? { ...t, owner: to, lastAction: 0,
       history: [...t.history, { text: `Reassigned from ${t.owner} to ${to}`, by: t.owner, at: 0, note: `${reason} · SLA continues, not reset` }] } : t));
     flash(`Reassigned to ${to}. SLA continues.`);
   };
 
-  /* M8/M9 — Manual Review is raised by the email bot, never by hand. The SM can
+  /* M8/M9 - Manual Review is raised by the email bot, never by hand. The SM can
      only resolve it, which returns the ticket to the status it held before. */
   const resolveManualReview = (id) => {
     setTickets((ts) => ts.map((t) => t.id === id && t.manualReview
@@ -7144,7 +7144,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Manual review resolved. Workflow resumed.");
   };
 
-  /* M3 FR-151 / BR-058 — classification editable only before insurer submission */
+  /* M3 FR-151 / BR-058 - classification editable only before insurer submission */
   const changeType = (id, type) => {
     setTickets((ts) => ts.map((t) => t.id === id ? { ...t, type, missing: [], missingFields: [], lastAction: 0,
       kind: kindOfType(type), history: [...t.history, { text: `Endorsement type corrected to ${type} (${kindOfType(type)})`, by: t.owner, at: 0, note: "Permitted only before insurer submission (BR-058)" }] } : t));
@@ -7158,7 +7158,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Reminder sent.");
   };
 
-  /* M6 FR-064/065/066 — the link never arrives by hand. Portal flow: Operations
+  /* M6 FR-064/065/066 - the link never arrives by hand. Portal flow: Operations
      upload it on the child ticket and it auto-attaches. Email flow: the bot
      extracts it from the insurer's mail. Either way the customer is told
      automatically the moment it lands (FR-071). */
@@ -7190,7 +7190,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Payment link attached automatically and sent to the customer.");
   };
 
-  /* M5 — the SM revises the premium in the Update Quote modal. Every update is
+  /* M5 - the SM revises the premium in the Update Quote modal. Every update is
      stored as a new version; nothing is overwritten in place, and the previous
      versions stay viewable in the version-history drawer. */
   const reviseQuote = (id, { base, gst, file, reason } = {}) => {
@@ -7207,7 +7207,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Quote updated and saved as a new version.");
   };
 
-  /* M6 FR-079/080, BR-032/033 — unlimited regeneration, every attempt logged */
+  /* M6 FR-079/080, BR-032/033 - unlimited regeneration, every attempt logged */
   const regenerateLink = (id) => {
     setTickets((ts) => ts.map((t) => {
       if (t.id !== id || !t.payLink) return t;
@@ -7225,7 +7225,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Payment link regenerated and the customer notified.");
   };
 
-  /* M6 FR-157 — revert a mismatched payment, reason mandatory and audited */
+  /* M6 FR-157 - revert a mismatched payment, reason mandatory and audited */
   const revertPayment = (id) => {
     setTickets((ts) => ts.map((t) => {
       if (t.id !== id) return t;
@@ -7304,7 +7304,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
           identity={user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
-          {/* Fixed top nav — the sunken breadcrumb card; 16px above and below it. */}
+          {/* Fixed top nav - the sunken breadcrumb card; 16px above and below it. */}
           <div className="shrink-0 px-6 py-4">
             <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
               <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
@@ -7319,7 +7319,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
 
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
             <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
-              {/* Home — the desk and the progress dashboard. Its cards route into My Tickets. */}
+              {/* Home - the desk and the progress dashboard. Its cards route into My Tickets. */}
               {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
@@ -7349,12 +7349,12 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
    ========================================================================= */
 
 /* ================================================================== *
- *  BIMAPLACEMENT — Placement Manager Workbench (ported env)
+ *  BIMAPLACEMENT - Placement Manager Workbench (ported env)
  * ================================================================== */
 
 /* ---------- scratch_pl_domain.jsx ---------- */
 /* ==================================================================== *
- *  PLACEMENT MANAGER — DATA + LOGIC LAYER  (ported, behaviour-preserved)
+ *  PLACEMENT MANAGER - DATA + LOGIC LAYER  (ported, behaviour-preserved)
  *
  *  Faithful extraction of the data + pure-logic layer from
  *  BimaPlacement/placement-manager-workbench.jsx. No business logic,
@@ -7394,11 +7394,11 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
  *  Internally it uses the ported `patch` + `withLog` (created per-factory).
  *
  *  --------------------------------------------------------------------
- *  (b) DELIBERATELY LEFT OUT (visual — belong to the UI layer, original
+ *  (b) DELIBERATELY LEFT OUT (visual - belong to the UI layer, original
  *      names):
- *    T (colour object), FONT, MONO, TONES  — styling tokens
+ *    T (colour object), FONT, MONO, TONES  - styling tokens
  *    Chip Btn Card Label Mono KV Divider Modal TextArea Input Select
- *    Tick Empty SlaChip UsableMeter  — primitives
+ *    Tick Empty SlaChip UsableMeter  - primitives
  *    (and every screen / tab / modal / rail component)
  *
  *  Note on status maps: PL_STAGE / PL_OUTCOME / PL_TSTAT / PL_DECISION_CHIP
@@ -7414,7 +7414,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
  *      plInr / plInrL / plFmtH / plFmtMins / plFmtVal are included here
  *      (they are pure) so nothing external is required.
  *      The only injected dependency is React's `setCases` (and an
- *      optional `say` toast fn) passed into makePlacementApi — created
+ *      optional `say` toast fn) passed into makePlacementApi - created
  *      inside the React component, exactly as the reference does.
  *      The UI still owns: the TONES palette used to render every `tone`
  *      string above, and PL_RAIL is the label list for the lifecycle rail.
@@ -7439,29 +7439,29 @@ const PL_INSURERS = {
   oriental: { name: "Oriental Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC"], sectors: "PSU, Heavy engineering", note: "Commercial lines only for this segment." },
 };
 
-/* Insurer Contact Master — routing key is Insurer + Product + Geography/Branch.
+/* Insurer Contact Master - routing key is Insurer + Product + Geography/Branch.
    Illustrative prototype contacts, not real BimaKavach data. */
 const PL_CONTACTS = {
-  icici: { branch: "Mumbai — Corporate", status: "Active", primary: "Rahul Sharma", alternates: ["Rahul Sharma", "Neha Kulkarni"], senior: "Anand Iyer" },
-  hdfc: { branch: "Pune — Commercial Lines", status: "Active", primary: "Ankit Sabharwal", alternates: ["Ankit Sabharwal", "Divya Rane"], senior: "Vivek Nair" },
-  bajaj: { branch: "Pune — EB Desk", status: "Active", primary: "Kartik Bhamre", alternates: ["Kartik Bhamre", "Sana Qureshi"], senior: "Amit Deshpande" },
-  tata: { branch: "Mumbai — Specialty", status: "Active", primary: "Gautam Vyas", alternates: ["Gautam Vyas", "Reema Fernandes"], senior: "Sonal Batra" },
-  nia: { branch: "Mumbai — DO 1", status: "Active", primary: "Sridhar Rao", alternates: ["Sridhar Rao", "P. Lakshmi"], senior: "M. Venkatesh" },
-  digit: { branch: "Bengaluru — SME", status: "Active", primary: "Aisha Khan", alternates: ["Aisha Khan", "Rohan Pai"], senior: "Naveen Shetty" },
-  sbi: { branch: "Mumbai — Corporate", status: "Active", primary: "Deepak Mishra", alternates: ["Deepak Mishra"], senior: "R. Krishnan" },
-  chola: { branch: "Chennai — Commercial", status: "Active", primary: "Vignesh Kumar", alternates: ["Vignesh Kumar"], senior: "S. Prabhu" },
-  reliance: { branch: "Mumbai — Corporate", status: "Active", primary: "Farhan Merchant", alternates: ["Farhan Merchant"], senior: "Ketan Joshi" },
-  liberty: { branch: "Mumbai — Liability", status: "Active", primary: "Nikhil Advani", alternates: ["Nikhil Advani"], senior: "Preeti Malhotra" },
-  care: { branch: "Delhi — Group Health", status: "Active", primary: "Ritu Bansal", alternates: ["Ritu Bansal"], senior: "Harsh Vardhan" },
-  star: { branch: "Chennai — Group Health", status: "Active", primary: "Lakshmi Narayanan", alternates: ["Lakshmi Narayanan"], senior: "K. Sundaram" },
-  sompo: { branch: "Mumbai — Property", status: "Active", primary: "Manish Tandon", alternates: ["Manish Tandon"], senior: "Alok Ranjan" },
-  oriental: { branch: "Delhi — RO 2", status: "Do Not Float", primary: "B. K. Saxena", alternates: ["B. K. Saxena"], senior: "R. P. Gupta" },
+  icici: { branch: "Mumbai - Corporate", status: "Active", primary: "Rahul Sharma", alternates: ["Rahul Sharma", "Neha Kulkarni"], senior: "Anand Iyer" },
+  hdfc: { branch: "Pune - Commercial Lines", status: "Active", primary: "Ankit Sabharwal", alternates: ["Ankit Sabharwal", "Divya Rane"], senior: "Vivek Nair" },
+  bajaj: { branch: "Pune - EB Desk", status: "Active", primary: "Kartik Bhamre", alternates: ["Kartik Bhamre", "Sana Qureshi"], senior: "Amit Deshpande" },
+  tata: { branch: "Mumbai - Specialty", status: "Active", primary: "Gautam Vyas", alternates: ["Gautam Vyas", "Reema Fernandes"], senior: "Sonal Batra" },
+  nia: { branch: "Mumbai - DO 1", status: "Active", primary: "Sridhar Rao", alternates: ["Sridhar Rao", "P. Lakshmi"], senior: "M. Venkatesh" },
+  digit: { branch: "Bengaluru - SME", status: "Active", primary: "Aisha Khan", alternates: ["Aisha Khan", "Rohan Pai"], senior: "Naveen Shetty" },
+  sbi: { branch: "Mumbai - Corporate", status: "Active", primary: "Deepak Mishra", alternates: ["Deepak Mishra"], senior: "R. Krishnan" },
+  chola: { branch: "Chennai - Commercial", status: "Active", primary: "Vignesh Kumar", alternates: ["Vignesh Kumar"], senior: "S. Prabhu" },
+  reliance: { branch: "Mumbai - Corporate", status: "Active", primary: "Farhan Merchant", alternates: ["Farhan Merchant"], senior: "Ketan Joshi" },
+  liberty: { branch: "Mumbai - Liability", status: "Active", primary: "Nikhil Advani", alternates: ["Nikhil Advani"], senior: "Preeti Malhotra" },
+  care: { branch: "Delhi - Group Health", status: "Active", primary: "Ritu Bansal", alternates: ["Ritu Bansal"], senior: "Harsh Vardhan" },
+  star: { branch: "Chennai - Group Health", status: "Active", primary: "Lakshmi Narayanan", alternates: ["Lakshmi Narayanan"], senior: "K. Sundaram" },
+  sompo: { branch: "Mumbai - Property", status: "Active", primary: "Manish Tandon", alternates: ["Manish Tandon"], senior: "Alok Ranjan" },
+  oriental: { branch: "Delhi - RO 2", status: "Do Not Float", primary: "B. K. Saxena", alternates: ["B. K. Saxena"], senior: "R. P. Gupta" },
 };
 const plPocOf = (c, id) => (c.pocs && c.pocs[id]) || PL_CONTACTS[id].primary;
 
 const PL_PRODUCTS = {
   GMC: "Group Medical Cover", GPA: "Group Personal Accident", GTL: "Group Term Life",
-  Cyber: "Cyber Liability", "D&O": "Directors & Officers Liability", Fire: "Property — Fire & Special Perils",
+  Cyber: "Cyber Liability", "D&O": "Directors & Officers Liability", Fire: "Property - Fire & Special Perils",
   Marine: "Marine Cargo (Open Policy)", CGL: "Commercial General Liability", PI: "Professional Indemnity",
   PL: "Product Liability", WC: "Workmen's Compensation",
 };
@@ -7534,10 +7534,10 @@ const plAu = (at, actor, actorType, event, detail = "") => ({ at, actor, actorTy
 /* -------------------------------- formatting (pure) ------------------------ */
 
 const plInr = (n) =>
-  n == null ? "—" : "₹" + n.toLocaleString("en-IN");
+  n == null ? "-" : "₹" + n.toLocaleString("en-IN");
 
 const plInrL = (n) => {
-  if (n == null) return "—";
+  if (n == null) return "-";
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`;
   if (n >= 100000) return `₹${(n / 100000).toFixed(2).replace(/\.00$/, "")} L`;
   return plInr(n);
@@ -7555,17 +7555,17 @@ const PL_SEED = [
   /* 1 ── RFQ review: classification conflict + missing information */
   {
     id: "PC-1024", priority: "Standard", stage: "rfq_review", outcome: null,
-    client: { name: "Nutrigrain Foods Pvt Ltd", industry: "Food processing — packaged snacks", city: "Indore, MP", headcount: 640, turnover: "₹212 Cr", spoc: "Meenal Trivedi, Head HR", rm: "Rohit Desai" },
+    client: { name: "Nutrigrain Foods Pvt Ltd", industry: "Food processing - packaged snacks", city: "Indore, MP", headcount: 640, turnover: "₹212 Cr", spoc: "Meenal Trivedi, Head HR", rm: "Rohit Desai" },
     products: ["GMC", "GPA"], receivedAt: "25 Aug, 09:40", renewal: "01 Oct 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "25 Aug, 09:40",
       sections: [
-        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "640 employees + dependants (≈2,180 lives)"], ["Family definition sought", "Not stated — RM to confirm"], ["Existing insurer", "Star Health"], ["Expiring premium", "₹78,40,000"], ["Maternity", "Required, limit to be confirmed"]] },
+        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "640 employees + dependants (≈2,180 lives)"], ["Family definition sought", "Not stated - RM to confirm"], ["Existing insurer", "Star Health"], ["Expiring premium", "₹78,40,000"], ["Maternity", "Required, limit to be confirmed"]] },
         { product: "GPA", si: "24× monthly salary", detail: [["Lives to be covered", "640 employees"], ["Cover scope", "24 hours, worldwide"], ["Expiring premium", "₹4,10,000"], ["Medical extension", "Required"]] },
       ],
       classification: {
-        rmEntered: "FMCG — Retail & Distribution",
-        suggested: "Food processing — packaged foods (NIC 1079)",
+        rmEntered: "FMCG - Retail & Distribution",
+        suggested: "Food processing - packaged foods (NIC 1079)",
         flagged: true, confirmed: null,
         basis: [
           "GST filings attached to the RFQ describe manufacture of ready-to-eat snack products, not distribution.",
@@ -7592,9 +7592,9 @@ const PL_SEED = [
       { id: "bajaj", reasons: ["Active appetite for GMC and GPA in manufacturing.", "Requires the three-year claims history before quoting."] },
     ],
     notRecommended: [
-      { id: "star", reasons: ["Currently the expiring insurer — RM has asked to test the market first.", "Health-only, cannot quote the GPA section."] },
+      { id: "star", reasons: ["Currently the expiring insurer - RM has asked to test the market first.", "Health-only, cannot quote the GPA section."] },
       { id: "oriental", reasons: ["No stated appetite for employee benefits in this segment."] },
-      { id: "nia", reasons: ["Health and employee-benefit sections are written from a different branch — routing would split the submission."] },
+      { id: "nia", reasons: ["Health and employee-benefit sections are written from a different branch - routing would split the submission."] },
     ],
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm risk classification before floating", due: "Today", owner: "You", done: false }],
@@ -7608,7 +7608,7 @@ const PL_SEED = [
   /* 2 ── Insurer selection */
   {
     id: "PC-1025", priority: "Standard", stage: "insurer_selection", outcome: null,
-    client: { name: "Vertex Analytics Pvt Ltd", industry: "IT/ITES — data analytics SaaS", city: "Bengaluru, KA", headcount: 310, turnover: "₹96 Cr", spoc: "Karthik Menon, CFO", rm: "Priya Nair" },
+    client: { name: "Vertex Analytics Pvt Ltd", industry: "IT/ITES - data analytics SaaS", city: "Bengaluru, KA", headcount: 310, turnover: "₹96 Cr", spoc: "Karthik Menon, CFO", rm: "Priya Nair" },
     products: ["Cyber", "D&O"], receivedAt: "21 Aug, 15:02", renewal: "20 Sep 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "validated", createdAt: "21 Aug, 15:02", validatedAt: "22 Aug, 11:20",
@@ -7616,19 +7616,19 @@ const PL_SEED = [
         { product: "Cyber", si: "₹15 Cr limit of indemnity", detail: [["Records held", "1.9 million customer records"], ["Territory", "India, US, EU"], ["Prior incidents", "Nil in last 5 years"], ["Retention sought", "₹25,00,000"], ["Key extensions", "Business interruption, ransomware, regulatory defence"]] },
         { product: "D&O", si: "₹10 Cr limit of indemnity", detail: [["Entity", "Unlisted, Series C funded"], ["Board size", "7 (incl. 2 investor nominees)"], ["Retroactive date sought", "Inception 2018"], ["Prior claims", "Nil"]] },
       ],
-      classification: { rmEntered: "IT/ITES — Software services", suggested: "IT/ITES — Software services", flagged: false, confirmed: "IT/ITES — Software services", basis: ["RM entry matches GST filings and prior policy schedule."], impact: "" },
+      classification: { rmEntered: "IT/ITES - Software services", suggested: "IT/ITES - Software services", flagged: false, confirmed: "IT/ITES - Software services", basis: ["RM entry matches GST filings and prior policy schedule."], impact: "" },
       missing: [], rmThread: [],
     }],
     panel: { locked: false, selected: ["tata", "icici", "bajaj"], excluded: [] },
     recommend: [
       { id: "tata", reasons: ["Preferred market for D&O on unlisted, VC-funded companies.", "Writes both product sections."] },
       { id: "icici", reasons: ["Writes both product sections, so a single thread covers the submission.", "Accepts the requested 2018 retroactive date on D&O without referral."] },
-      { id: "bajaj", reasons: ["Active Cyber appetite for IT/ITES with US and EU exposure.", "Cyber limits above ₹25 Cr are referred to reinsurers — this ₹15 Cr request is within direct authority."] },
+      { id: "bajaj", reasons: ["Active Cyber appetite for IT/ITES with US and EU exposure.", "Cyber limits above ₹25 Cr are referred to reinsurers - this ₹15 Cr request is within direct authority."] },
       { id: "hdfc", reasons: ["Active Cyber appetite in this sector.", "D&O capacity meets, but does not exceed, the requested limit."] },
       { id: "liberty", reasons: ["Writes both sections for export-facing services companies."] },
     ],
     notRecommended: [
-      { id: "digit", reasons: ["No D&O appetite — would only cover one of the two sections."] },
+      { id: "digit", reasons: ["No D&O appetite - would only cover one of the two sections."] },
       { id: "nia", reasons: ["No Cyber or D&O appetite in this segment."] },
       { id: "star", reasons: ["Health-only market. Neither product section is in appetite."] },
     ],
@@ -7636,7 +7636,7 @@ const PL_SEED = [
     tasks: [{ id: "t1", label: "Approve insurer panel and float RFQ", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
-      plAu("22 Aug, 11:18", "Ananya Rao", "PM", "Classification confirmed", "IT/ITES — Software services (unchanged)"),
+      plAu("22 Aug, 11:18", "Ananya Rao", "PM", "Classification confirmed", "IT/ITES - Software services (unchanged)"),
       plAu("22 Aug, 11:20", "Ananya Rao", "PM", "RFQ V1 validated", "No missing information recorded"),
       plAu("22 Aug, 11:22", "System", "System", "Insurer recommendations generated", "5 eligible · 3 outside appetite"),
     ],
@@ -7656,14 +7656,14 @@ const PL_SEED_B = [
         { product: "Marine", si: "₹6 Cr per sending", detail: [["Annual sendings", "₹740 Cr"], ["Commodity", "FMCG, electronics, packaged food"], ["Transit", "Domestic road and rail"], ["Cover basis sought", "ICC (A)"], ["Expiring premium", "₹1,18,00,000"]] },
         { product: "CGL", si: "₹5 Cr AOA / ₹10 Cr AOY", detail: [["Locations", "14 warehouses"], ["Prior claims", "2 claims, ₹34 L total, last 3 years"], ["Territory", "India"]] },
       ],
-      classification: { rmEntered: "Logistics — Warehousing & transport", suggested: "Logistics — Warehousing & transport", flagged: false, confirmed: "Logistics — Warehousing & transport", basis: ["RM entry matches GST filings."], impact: "" },
+      classification: { rmEntered: "Logistics - Warehousing & transport", suggested: "Logistics - Warehousing & transport", flagged: false, confirmed: "Logistics - Warehousing & transport", basis: ["RM entry matches GST filings."], impact: "" },
       missing: [], rmThread: [],
     }],
-    panel: { locked: true, selected: ["icici", "nia", "chola", "sbi", "oriental"], excluded: [{ id: "digit", reason: "No CGL appetite — would leave one section unquoted." }] },
+    panel: { locked: true, selected: ["icici", "nia", "chola", "sbi", "oriental"], excluded: [{ id: "digit", reason: "No CGL appetite - would leave one section unquoted." }] },
     recommend: [
       { id: "icici", reasons: ["Writes both Marine and CGL for logistics operators."] },
-      { id: "nia", reasons: ["Writes large property and marine risks.", "Current incumbent on the Marine section — invited to defend the account."] },
-      { id: "chola", reasons: ["Strong logistics appetite.", "Liability capacity is limited — may quote Marine only."] },
+      { id: "nia", reasons: ["Writes large property and marine risks.", "Current incumbent on the Marine section - invited to defend the account."] },
+      { id: "chola", reasons: ["Strong logistics appetite.", "Liability capacity is limited - may quote Marine only."] },
       { id: "sbi", reasons: ["Writes Marine open policies above ₹2 Cr annual sendings."] },
       { id: "oriental", reasons: ["Commercial lines specialist for heavy logistics."] },
     ],
@@ -7685,7 +7685,7 @@ const PL_SEED_B = [
         events: [
           plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
           plEv("18 Aug, 11:05", "Insurer", "Submission acknowledged"),
-          plEv("22 Aug, 15:30", "Insurer", "Clarification raised — fire-safety certificates for all 14 warehouses"),
+          plEv("22 Aug, 15:30", "Insurer", "Clarification raised - fire-safety certificates for all 14 warehouses"),
           plEv("22 Aug, 16:10", "Ananya Rao", "Information requested from RM · insurer clock held at 1d 7h"),
         ],
         clarifications: [{
@@ -7707,7 +7707,7 @@ const PL_SEED_B = [
         declineReason: "Annual sendings exceed the desk's automatic authority for a new open policy.",
         events: [
           plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
-          plEv("19 Aug, 10:48", "Insurer", "Declined — sendings above desk authority for a new open policy"),
+          plEv("19 Aug, 10:48", "Insurer", "Declined - sendings above desk authority for a new open policy"),
         ], clarifications: [],
       },
       {
@@ -7716,14 +7716,14 @@ const PL_SEED_B = [
           plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
           plEv("19 Aug, 09:00", "System", "Automated follow-up 1 sent"),
           plEv("22 Aug, 09:00", "System", "Automated follow-up 2 sent"),
-          plEv("25 Aug, 09:00", "System", "Automated follow-up 3 sent — final"),
+          plEv("25 Aug, 09:00", "System", "Automated follow-up 3 sent - final"),
           plEv("25 Aug, 18:00", "System", "SLA breached, escalated to Placement Manager"),
         ], clarifications: [],
       },
     ],
     quotes: [
       plMkQuote("icici", "Marine", 1, 1, "25 Aug, 17:44", {
-        premium: 10620000, si: 60000000, clause: "ICC (A) — all risks including SRCC",
+        premium: 10620000, si: 60000000, clause: "ICC (A) - all risks including SRCC",
         excess: "₹50,000 each and every claim", validity: "30 days from 25 Aug 2026",
       }),
     ],
@@ -7756,7 +7756,7 @@ const PL_SEED_B = [
         { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "2,300 employees + dependants (≈7,900 lives)"], ["Family definition", "1+1+2, parents optional"], ["Existing insurer", "Reliance General"], ["Expiring premium", "₹3,42,00,000"], ["Claims ratio (3 yr)", "94%"], ["Maternity", "₹75,000 normal / ₹1,00,000 C-section"]] },
         { product: "GPA", si: "36× monthly salary", detail: [["Lives to be covered", "2,300 employees"], ["Cover scope", "24 hours, worldwide"], ["Site risk", "18 active project sites"], ["Expiring premium", "₹18,60,000"]] },
       ],
-      classification: { rmEntered: "Construction — EPC contractor", suggested: "Construction — EPC contractor", flagged: false, confirmed: "Construction — EPC contractor", basis: ["RM entry matches GST filings and expiring policy schedule."], impact: "" },
+      classification: { rmEntered: "Construction - EPC contractor", suggested: "Construction - EPC contractor", flagged: false, confirmed: "Construction - EPC contractor", basis: ["RM entry matches GST filings and expiring policy schedule."], impact: "" },
       missing: [], rmThread: [
         { at: "05 Aug, 16:20", actor: "Ananya Rao", text: "Please confirm whether parents are to be quoted in-scope or as a buy-up." },
         { at: "06 Aug, 09:12", actor: "Sneha Iyer", text: "Client confirms parents as a voluntary buy-up, not in the base premium." },
@@ -7768,21 +7768,21 @@ const PL_SEED_B = [
       { id: "hdfc", reasons: ["GMC appetite covers this headcount range; referred and accepted."] },
       { id: "bajaj", reasons: ["Active appetite for infrastructure employee benefits.", "Willing to look at schemes with an adverse claims ratio."] },
       { id: "nia", reasons: ["Writes large employee-benefit schemes.", "Capacity covers the full headcount without referral."] },
-      { id: "reliance", reasons: ["Current incumbent — invited to defend the account."] },
+      { id: "reliance", reasons: ["Current incumbent - invited to defend the account."] },
     ],
     notRecommended: [{ id: "star", reasons: ["Health-only market. Cannot quote the GPA section."] }],
     threads: [
       { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
         events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC and GPA"), plEv("14 Aug, 11:05", "Ananya Rao", "Both sections marked usable")], clarifications: [] },
       { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false,
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Ananya Rao", "Clarification sent — room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Ananya Rao", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Ananya Rao", "Clarification sent - room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Ananya Rao", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
       { insurerId: "bajaj", status: "quote_received", slaH: 3, paused: false, followUps: 1, followUpsActive: true,
         events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("09 Aug, 11:22", "Insurer", "Submission acknowledged"), plEv("18 Aug, 09:00", "System", "Automated follow-up 1 sent"), plEv("25 Aug, 19:15", "Insurer", "Quote received for GMC")], clarifications: [] },
       { insurerId: "nia", status: "quote_received", slaH: 1, paused: false, followUps: 2, followUpsActive: true,
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("12 Aug, 16:40", "Insurer", "Submission acknowledged"), plEv("19 Aug, 09:00", "System", "Automated follow-up 2 sent"), plEv("24 Aug, 14:05", "Insurer", "Quote received for GMC — partial terms")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("12 Aug, 16:40", "Insurer", "Submission acknowledged"), plEv("19 Aug, 09:00", "System", "Automated follow-up 2 sent"), plEv("24 Aug, 14:05", "Insurer", "Quote received for GMC - partial terms")], clarifications: [] },
       { insurerId: "reliance", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
         declineReason: "Three-year claims ratio of 94% is outside renewal authority for the incumbent desk.",
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("11 Aug, 17:30", "Insurer", "Declined — claims ratio outside renewal authority")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("11 Aug, 17:30", "Insurer", "Declined - claims ratio outside renewal authority")], clarifications: [] },
     ],
     quotes: [
       plMkQuote("icici", "GMC", 1, 1, "13 Aug, 16:20", {
@@ -7796,7 +7796,7 @@ const PL_SEED_B = [
         ttd: "₹25,000 per week, 104 weeks", medEx: "10% of CSI, max ₹5,00,000", validity: "30 days from 13 Aug 2026",
       }, { decision: "usable", decisionAt: "14 Aug, 11:05" }),
       plMkQuote("hdfc", "GMC", 1, 1, "15 Aug, 12:40", {
-        premium: 35920000, si: 500000, family: "1+1+2", roomRent: "Capped — basis not stated",
+        premium: 35920000, si: 500000, family: "1+1+2", roomRent: "Capped - basis not stated",
         maternity: "₹75,000 / ₹1,00,000", ped: "Covered from day one", buffer: "₹40,00,000 floater",
         copay: "Nil", validity: "21 days from 15 Aug 2026", exclusions: "Cosmetic, dental, OPD",
       }, { decision: "superseded" }),
@@ -7817,7 +7817,7 @@ const PL_SEED_B = [
         maternity: "₹50,000 normal / ₹75,000 C-section", ped: "Covered from day one",
         buffer: "Not offered", copay: "20% on all claims", validity: "30 days from 24 Aug 2026",
         exclusions: "Cosmetic, dental, OPD, maternity for parents",
-      }, { openItems: ["Room rent limit is blank in the quote document — material for comparison."] }),
+      }, { openItems: ["Room rent limit is blank in the quote document - material for comparison."] }),
     ],
     qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [
@@ -7847,7 +7847,7 @@ const PL_SEED_C = [
     rfqs: [{
       v: 1, status: "floated", createdAt: "28 Jul, 09:00", validatedAt: "28 Jul, 15:10", floatedAt: "29 Jul, 10:00",
       sections: [{ product: "Fire", si: "₹186 Cr total sum insured", detail: [["Locations", "3 manufacturing units, 1 warehouse"], ["Construction", "RCC, sprinklered"], ["Prior claims", "1 claim, ₹12 L, 2023"], ["Add-ons sought", "Earthquake, STFI, terrorism"]] }],
-      classification: { rmEntered: "Renewable energy — Solar EPC", suggested: "Renewable energy — Solar EPC", flagged: false, confirmed: "Renewable energy — Solar EPC", basis: ["RM entry matches GST filings."], impact: "" },
+      classification: { rmEntered: "Renewable energy - Solar EPC", suggested: "Renewable energy - Solar EPC", flagged: false, confirmed: "Renewable energy - Solar EPC", basis: ["RM entry matches GST filings."], impact: "" },
       missing: [], rmThread: [],
     }],
     panel: { locked: true, selected: ["icici", "nia", "chola", "sompo"], excluded: [] },
@@ -7855,8 +7855,8 @@ const PL_SEED_C = [
     threads: [
       { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("06 Aug, 11:00", "Insurer", "Quote received"), plEv("08 Aug, 09:40", "Ananya Rao", "Marked usable")], clarifications: [] },
       { insurerId: "nia", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("12 Aug, 15:20", "Insurer", "Quote received"), plEv("14 Aug, 10:10", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "chola", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("18 Aug, 12:00", "Insurer", "Quote received"), plEv("21 Aug, 16:30", "Ananya Rao", "Marked usable — threshold reached, follow-ups stopped")], clarifications: [] },
-      { insurerId: "sompo", status: "quote_received", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("21 Aug, 16:30", "System", "Automated follow-ups stopped — usable-quote threshold reached"), plEv("25 Aug, 11:20", "Insurer", "Quote received after QCR V1 release")], clarifications: [] },
+      { insurerId: "chola", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("18 Aug, 12:00", "Insurer", "Quote received"), plEv("21 Aug, 16:30", "Ananya Rao", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "sompo", status: "quote_received", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("21 Aug, 16:30", "System", "Automated follow-ups stopped - usable-quote threshold reached"), plEv("25 Aug, 11:20", "Insurer", "Quote received after QCR V1 release")], clarifications: [] },
     ],
     quotes: [
       plMkQuote("icici", "Fire", 1, 1, "06 Aug, 11:00", { premium: 4820000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "45 days from 06 Aug 2026" }, { decision: "usable", decisionAt: "08 Aug, 09:40" }),
@@ -7886,15 +7886,15 @@ const PL_SEED_C = [
     rfqs: [{
       v: 1, status: "floated", createdAt: "18 Jul, 14:00", validatedAt: "19 Jul, 09:30", floatedAt: "19 Jul, 15:00",
       sections: [{ product: "GMC", si: "₹3,00,000 per family", detail: [["Lives to be covered", "780 employees + dependants (≈2,600 lives)"], ["Family definition", "1+1+2"], ["Claims ratio (3 yr)", "88%"], ["Expiring premium", "₹1,04,00,000"]] }],
-      classification: { rmEntered: "Hospitality — Hotels & resorts", suggested: "Hospitality — Hotels & resorts", flagged: false, confirmed: "Hospitality — Hotels & resorts", basis: ["RM entry matches GST filings."], impact: "" },
+      classification: { rmEntered: "Hospitality - Hotels & resorts", suggested: "Hospitality - Hotels & resorts", flagged: false, confirmed: "Hospitality - Hotels & resorts", basis: ["RM entry matches GST filings."], impact: "" },
       missing: [], rmThread: [],
     }],
     panel: { locked: true, selected: ["hdfc", "care", "icici", "star"], excluded: [] },
     recommend: [], notRecommended: [],
     threads: [
-      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("28 Jul, 10:20", "Insurer", "Quote received"), plEv("30 Jul, 11:00", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent — premium and co-pay"), plEv("22 Aug, 14:30", "Insurer", "Revised quote received (v2)")], clarifications: [] },
-      { insurerId: "care", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("30 Jul, 09:15", "Insurer", "Quote received"), plEv("01 Aug, 10:30", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent — maternity limit")], clarifications: [] },
-      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("05 Aug, 12:40", "Insurer", "Quote received"), plEv("07 Aug, 09:00", "Ananya Rao", "Marked usable — threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("28 Jul, 10:20", "Insurer", "Quote received"), plEv("30 Jul, 11:00", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent - premium and co-pay"), plEv("22 Aug, 14:30", "Insurer", "Revised quote received (v2)")], clarifications: [] },
+      { insurerId: "care", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("30 Jul, 09:15", "Insurer", "Quote received"), plEv("01 Aug, 10:30", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent - maternity limit")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("05 Aug, 12:40", "Insurer", "Quote received"), plEv("07 Aug, 09:00", "Ananya Rao", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
       { insurerId: "star", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "Hospitality occupancy with 88% claims ratio is outside current appetite.", events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("24 Jul, 16:00", "Insurer", "Declined")], clarifications: [] },
     ],
     quotes: [
@@ -7934,8 +7934,8 @@ const PL_SEED_C = [
     client: { name: "Ridgeline Pharma Ltd", industry: "Pharmaceutical contract manufacturing", city: "Hyderabad, TS", headcount: 890, turnover: "₹520 Cr", spoc: "Dr. Anil Varma, QA Head", rm: "Aman Kulkarni" },
     products: ["PL"], receivedAt: "02 Jul, 10:00", renewal: "31 Aug 2026", activeRfq: 2,
     rfqs: [
-      { v: 1, status: "superseded", createdAt: "02 Jul, 10:00", validatedAt: "03 Jul, 11:00", floatedAt: "03 Jul, 14:00", sections: [{ product: "PL", si: "USD 5 M limit", detail: [["Territory", "India, US, EU"], ["Jurisdiction", "Worldwide including US"], ["US turnover share", "38%"]] }], classification: { rmEntered: "Pharma — Contract manufacturing", suggested: "Pharma — Contract manufacturing", flagged: false, confirmed: "Pharma — Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
-      { v: 2, status: "floated", createdAt: "24 Jul, 09:00", validatedAt: "24 Jul, 12:00", floatedAt: "24 Jul, 15:00", sections: [{ product: "PL", si: "USD 3 M limit", detail: [["Territory", "India, EU"], ["Jurisdiction", "Excluding US"], ["Change from V1", "US jurisdiction removed to test appetite"]] }], classification: { rmEntered: "Pharma — Contract manufacturing", suggested: "Pharma — Contract manufacturing", flagged: false, confirmed: "Pharma — Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+      { v: 1, status: "superseded", createdAt: "02 Jul, 10:00", validatedAt: "03 Jul, 11:00", floatedAt: "03 Jul, 14:00", sections: [{ product: "PL", si: "USD 5 M limit", detail: [["Territory", "India, US, EU"], ["Jurisdiction", "Worldwide including US"], ["US turnover share", "38%"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+      { v: 2, status: "floated", createdAt: "24 Jul, 09:00", validatedAt: "24 Jul, 12:00", floatedAt: "24 Jul, 15:00", sections: [{ product: "PL", si: "USD 3 M limit", detail: [["Territory", "India, EU"], ["Jurisdiction", "Excluding US"], ["Change from V1", "US jurisdiction removed to test appetite"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
     ],
     panel: { locked: true, selected: ["icici", "bajaj", "tata", "nia", "oriental", "chola"], excluded: [] },
     recommend: [], notRecommended: [],
@@ -7953,7 +7953,7 @@ const PL_SEED_C = [
       plAu("23 Jul, 16:00", "Ananya Rao", "PM", "RFQ V2 created", "US jurisdiction removed to test appetite"),
       plAu("24 Jul, 15:00", "Ananya Rao", "PM", "RFQ V2 floated", "6 threads reset to RFQ V2"),
       plAu("10 Aug, 09:00", "System", "System", "All threads closed without quote", "5 declined · 1 no response"),
-      plAu("12 Aug, 17:20", "Ananya Rao", "PM", "Case closed — unable to place", "Reason recorded"),
+      plAu("12 Aug, 17:20", "Ananya Rao", "PM", "Case closed - unable to place", "Reason recorded"),
     ],
   },
 
@@ -7962,14 +7962,14 @@ const PL_SEED_C = [
     id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG on both sections. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Rohit Desai (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
     client: { name: "Orbit Semiconductors Pvt Ltd", industry: "Semiconductor design & test", city: "Noida, UP", headcount: 260, turnover: "₹184 Cr", spoc: "Sanjana Kapoor, COO", rm: "Rohit Desai" },
     products: ["Cyber", "D&O"], receivedAt: "12 Jul, 10:30", renewal: "01 Sep 2026", activeRfq: 1,
-    rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "Cyber", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "D&O", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics — Semiconductor services", suggested: "Electronics — Semiconductor services", flagged: false, confirmed: "Electronics — Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
+    rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "Cyber", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "D&O", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics - Semiconductor services", suggested: "Electronics - Semiconductor services", flagged: false, confirmed: "Electronics - Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
     panel: { locked: true, selected: ["tata", "icici", "bajaj", "hdfc"], excluded: [] },
     recommend: [], notRecommended: [],
     threads: [
       { insurerId: "tata", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("19 Jul, 14:00", "Insurer", "Quote received"), plEv("21 Jul, 10:00", "Ananya Rao", "Marked usable")], clarifications: [] },
       { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("22 Jul, 11:00", "Insurer", "Quote received"), plEv("24 Jul, 09:30", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "bajaj", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("26 Jul, 15:30", "Insurer", "Quote received"), plEv("28 Jul, 11:00", "Ananya Rao", "Marked usable — threshold reached")], clarifications: [] },
-      { insurerId: "hdfc", status: "no_response", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("28 Jul, 11:00", "System", "Automated follow-ups stopped — threshold reached")], clarifications: [] },
+      { insurerId: "bajaj", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("26 Jul, 15:30", "Insurer", "Quote received"), plEv("28 Jul, 11:00", "Ananya Rao", "Marked usable - threshold reached")], clarifications: [] },
+      { insurerId: "hdfc", status: "no_response", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("28 Jul, 11:00", "System", "Automated follow-ups stopped - threshold reached")], clarifications: [] },
     ],
     quotes: [
       plMkQuote("tata", "Cyber", 1, 1, "19 Jul, 14:00", { premium: 1840000, si: 80000000, retention: 2500000, extensions: "BI, ransomware, regulatory defence", territory: "India and US, Indian jurisdiction", validity: "30 days from 19 Jul 2026" }, { decision: "usable", decisionAt: "21 Jul, 10:00" }),
@@ -7982,7 +7982,7 @@ const PL_SEED_C = [
       plAu("13 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("28 Jul, 11:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
       plAu("28 Jul, 15:30", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Rohit Desai · version locked"),
-      plAu("04 Aug, 16:45", "Rohit Desai", "RM", "Client decision recorded", "Quote selected — Tata AIG, both sections"),
+      plAu("04 Aug, 16:45", "Rohit Desai", "RM", "Client decision recorded", "Quote selected - Tata AIG, both sections"),
       plAu("05 Aug, 09:10", "System", "System", "Handed off to RM / Policy Journey", "Reference ISS-8841"),
     ],
   },
@@ -7991,16 +7991,16 @@ const PL_SEED_C = [
      realistic differing quotes. Drive it end to end with the existing controls. */
   {
     id: "PC-1032", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
-    client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering — precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, HR Manager", rm: "Sneha Iyer" },
+    client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering - precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, HR Manager", rm: "Sneha Iyer" },
     products: ["GMC"], receivedAt: "31 Aug, 10:05", renewal: "15 Oct 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "31 Aug, 10:05",
       sections: [
-        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "310 employees + dependants (≈1,050 lives)"], ["Family definition sought", "1+1+2 (parents as voluntary buy-up)"], ["Existing insurer", "None — first group cover"], ["Maternity", "₹50,000 normal / ₹75,000 C-section"], ["Room rent", "Single private AC room preferred"], ["Claims history", "Not applicable — fresh"]] },
+        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "310 employees + dependants (≈1,050 lives)"], ["Family definition sought", "1+1+2 (parents as voluntary buy-up)"], ["Existing insurer", "None - first group cover"], ["Maternity", "₹50,000 normal / ₹75,000 C-section"], ["Room rent", "Single private AC room preferred"], ["Claims history", "Not applicable - fresh"]] },
       ],
       classification: {
-        rmEntered: "Engineering — precision components (NIC 2593)",
-        suggested: "Engineering — precision components (NIC 2593)",
+        rmEntered: "Engineering - precision components (NIC 2593)",
+        suggested: "Engineering - precision components (NIC 2593)",
         flagged: false, confirmed: null,
         basis: ["GST registration and the client form both describe CNC machining of precision components.", "Single owned unit at the Coimbatore SIPCOT estate."],
         impact: "Classification is consistent across sources. Confirming it lets the recommendation engine match appetite.",
@@ -8060,10 +8060,10 @@ const plSeedSla = (c) => {
 };
 
 /* ==================================================================== *
- *  DERIVED RULES  — the PRD's business logic lives here, in one place
+ *  DERIVED RULES  - the PRD's business logic lives here, in one place
  * ==================================================================== */
 
-/* status maps — data only. `tone` is a TONES palette key (string); the UI
+/* status maps - data only. `tone` is a TONES palette key (string); the UI
    layer resolves the colour and supplies any per-status icon. No JSX here. */
 const PL_STAGE = {
   rfq_review: { label: "RFQ Review", step: 0, tone: "orange" },
@@ -8080,9 +8080,20 @@ const PL_RAIL = ["RFQ", "Insurers", "Insurer Threads", "Quotes", "QCR", "RM Deci
 
 const PL_OUTCOME = {
   quote_selected: { label: "Quote Selected", tone: "green" },
-  lost: { label: "Lost — Client Not Proceeding", tone: "red" },
+  lost: { label: "Lost - Client Not Proceeding", tone: "red" },
   unable_to_place: { label: "Unable to Place", tone: "red" },
-  cancelled_inactivity: { label: "Cancelled — Inactivity", tone: "neutral" },
+  cancelled_inactivity: { label: "Cancelled - Inactivity", tone: "neutral" },
+};
+
+/* Map a Placement tone onto the shared Indicator palette, so the queue reads in
+   the same visual grammar as the sister My Tickets table. */
+const PL_IND = { orange: "caution", amber: "caution", purple: "brand", blue: "info", green: "success", red: "error", neutral: "neutral" };
+const plStageInd = (c) => c.outcome ? (PL_IND[PL_OUTCOME[c.outcome.type].tone] || "neutral") : (PL_IND[PL_STAGE[c.stage].tone] || "neutral");
+const plStageLabel = (c) => c.outcome ? PL_OUTCOME[c.outcome.type].label : PL_STAGE[c.stage].label;
+/* Flex column widths for the My-Cases table - same idiom as Endorse COLS. */
+const PCOLS = {
+  id: { w: 96 }, stage: { w: 150 }, type: { w: 92 }, urg: { w: 92 },
+  client: { w: 150, pl: 8 }, product: { w: 150 }, sla: { w: 130 }, usable: { w: 66 },
 };
 
 const PL_TSTAT = {
@@ -8098,7 +8109,7 @@ const PL_TSTAT = {
   no_response: { label: "Awaiting Insurer Response", tone: "red", sub: "SLA breached" },
 };
 
-/* Quote-decision chip map — data only (tone is a TONES key string, no JSX). */
+/* Quote-decision chip map - data only (tone is a TONES key string, no JSX). */
 const PL_DECISION_CHIP = {
   usable: { tone: "green", label: "Usable" },
   clarification: { tone: "orange", label: "Needs clarification" },
@@ -8157,16 +8168,16 @@ const plFmtVal = (f) => {
   return f.kind === "money" ? plInr(f.value) : String(f.value);
 };
 
-/* case-level "what needs you next" — drives the queue and the right rail */
+/* case-level "what needs you next" - drives the queue and the right rail */
 /* the one thing this thread is waiting for */
 function plThreadNext(c, t) {
-  if (t.status === "declined") return "None — declined";
+  if (t.status === "declined") return "None - declined";
   if (t.status === "no_response") return "Escalate to senior POC";
   if (t.status === "insurer_clarification") return "Answer or ask RM";
   if (t.status === "awaiting_rm") return "Waiting on RM";
   if (t.status === "quote_received" || t.status === "quote_clarification") return "Review the quote";
-  if (t.status === "quote_usable") return "None — usable quote held";
-  if (t.status === "quote_excluded") return "None — excluded";
+  if (t.status === "quote_usable") return "None - usable quote held";
+  if (t.status === "quote_excluded") return "None - excluded";
   if (!t.followUpsActive) return "Follow-ups stopped";
   return t.followUps >= 3 ? "Escalate to senior POC" : "Send follow-up";
 }
@@ -8192,10 +8203,10 @@ function plNextAction(c) {
   }
   if (c.stage === "qcr_draft") return { label: "Review draft QCR and send to RM", tab: "qcr", tone: "purple" };
   if (c.rmMoreQuotes && !c.rmMoreQuotes.handled)
-    return { label: "RM requested more quotes — decide which markets to approach", tab: "market", tone: "orange" };
+    return { label: "RM requested more quotes - decide which markets to approach", tab: "market", tone: "orange" };
   if (c.stage === "qcr_released") {
     const late = plLiveQuotes(c).some((q) => !q.decision);
-    if (late) return { label: "Late quote received — decide on QCR V2", tab: "qcr", tone: "orange" };
+    if (late) return { label: "Late quote received - decide on QCR V2", tab: "qcr", tone: "orange" };
     return { label: "Awaiting client decision via RM", tab: "qcr", tone: "neutral" };
   }
   if (c.stage === "negotiation") {
@@ -8210,7 +8221,7 @@ function plNextAction(c) {
   return null;
 }
 
-/* PRD §5.3 — layered status. The Placement Case carries one internal status and
+/* PRD §5.3 - layered status. The Placement Case carries one internal status and
    one RM-facing status; thread / quote / QCR artefacts carry their own. One
    insurer event never overwrites the parent case status. */
 function plCaseStatus(c) {
@@ -8218,9 +8229,9 @@ function plCaseStatus(c) {
   if (c.stage === "closed") {
     const o = c.outcome && c.outcome.type;
     if (o === "quote_selected") return P("Quote Selected", "Quote Selected");
-    if (o === "lost") return P("Lost — Client Not Proceeding", "Closed");
+    if (o === "lost") return P("Lost - Client Not Proceeding", "Closed");
     if (o === "unable_to_place") return P("Unable to Place", "Closed");
-    return P("Cancelled — Inactivity", "Closed");
+    return P("Cancelled - Inactivity", "Closed");
   }
   if (c.stage === "rfq_review") return P("Ready for Placement", "Placement In Progress");
   if (c.stage === "awaiting_rm") return P("RFQ Clarification Required", "Action Required");
@@ -8240,8 +8251,8 @@ function plCaseStatus(c) {
   return P("Placement In Progress", "Placement In Progress");
 }
 
-/* BR-068 / FR-108 — Target Premium is a decision-support flag. Never an auto-rejection. */
-/* Source of truth: Placement_SLA_master.xlsx. One clock is surfaced at a time —
+/* BR-068 / FR-108 - Target Premium is a decision-support flag. Never an auto-rejection. */
+/* Source of truth: Placement_SLA_master.xlsx. One clock is surfaced at a time -
    the one attached to whatever the case is actually waiting on. */
 const PL_SLA_MASTER = {
   "SLA-02": { short: "RFQ Review", touchpoint: "RFQ review + completeness check", owner: "Placement Manager", target: "1 business hour", mins: 60 },
@@ -8295,7 +8306,7 @@ function plSlaIdOf(c) {
 }
 
 /* Prototype SLA state: { id, remaining }. Run after every mutation. If the SLA type
-   changed, the countdown starts again at that SLA's target — the previous clock's
+   changed, the countdown starts again at that SLA's target - the previous clock's
    remaining time is never carried across. No calendar engine, by design. */
 function plReconcileSla(c) {
   const id = plSlaIdOf(c);
@@ -8320,7 +8331,7 @@ function plTargetFlag(c, premium) {
 }
 
 /* ==================================================================== *
- *  MUTATION API — factory. Created inside the React component with the
+ *  MUTATION API - factory. Created inside the React component with the
  *  component's own `setCases` (and optional `say` toast fn). Every write
  *  goes through `patch`, which runs plReconcileSla after the transform.
  *  Behaviour is identical to the reference `api` object.
@@ -8335,7 +8346,7 @@ const PL_TAXONOMY = [
     details: ["Client does not prefer this insurer", "Prior service concern", "Group-level insurer restriction"] },
   { broad: "Requirement Change", route: "Create RFQ Version 2, revalidate and requote.", kind: "rfq_v2",
     details: ["Sum insured changed", "Risk location changed", "Cover scope changed", "Material underwriting change"] },
-  { broad: "Client Not Proceeding", route: "Close as Lost — Client Not Proceeding.", kind: "lost",
+  { broad: "Client Not Proceeding", route: "Close as Lost - Client Not Proceeding.", kind: "lost",
     details: ["Purchase postponed", "No longer interested", "Bought elsewhere"] },
   { broad: "Other", route: "Placement review determines the route. Free text is mandatory.", kind: null, details: [] },
 ];
@@ -8394,7 +8405,7 @@ function makePlacementApi(setCases, say = () => {}) {
           ...out, stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
           threads: [...c.threads, {
             insurerId, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
-            events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk — market added after initial float`)], clarifications: [],
+            events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk - market added after initial float`)], clarifications: [],
           }],
           rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: "Approached another insurer" } : c.rmMoreQuotes,
         };
@@ -8420,7 +8431,7 @@ function makePlacementApi(setCases, say = () => {}) {
 
     logCall: (id, insurerId) => patch(id, (c) => {
       const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
-        : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Call logged — spoke to the insurer POC, quote expected shortly")] });
+        : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Call logged - spoke to the insurer POC, quote expected shortly")] });
       return withLog({ ...c, threads }, PL_ME.name, "PM", "Call logged", PL_INSURERS[insurerId].name);
     }),
 
@@ -8554,11 +8565,11 @@ function makePlacementApi(setCases, say = () => {}) {
 
     recordOutcome: (id, type, reason) => patch(id, (c) => withLog(
       { ...c, stage: "closed", outcome: { type, reason, at: plStamp(), by: PL_ME.name } },
-      PL_ME.name, "PM", `Case closed — ${PL_OUTCOME[type].label.toLowerCase()}`, reason)),
+      PL_ME.name, "PM", `Case closed - ${PL_OUTCOME[type].label.toLowerCase()}`, reason)),
 
     selectQuote: (id, insurerId, reason) => patch(id, (c) => {
       let out = withLog({ ...c, stage: "closed", outcome: { type: "quote_selected", insurerId, reason, at: plStamp(), by: `${c.client.rm} (RM)`, handoffRef: `ISS-${Math.floor(8000 + Math.random() * 900)}` } },
-        c.client.rm, "RM", "Client decision recorded", `Quote selected — ${PL_INSURERS[insurerId].name}`);
+        c.client.rm, "RM", "Client decision recorded", `Quote selected - ${PL_INSURERS[insurerId].name}`);
       return withLog(out, "System", "System", "Handed off to RM / Policy Journey", `Reference ${out.outcome.handoffRef}`);
     }),
 
@@ -8575,7 +8586,7 @@ function makePlacementApi(setCases, say = () => {}) {
         ...c,
         negotiations: c.negotiations.map((x) => x.round === round ? { ...x, status: "open", sentAt: plStamp() } : x),
         threads: c.threads.map((t) => !ids.includes(t.insurerId) ? t
-          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, `Negotiation request sent — round ${round}`)] }),
+          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, `Negotiation request sent - round ${round}`)] }),
       };
       return withLog(out, PL_ME.name, "PM", `Negotiation round ${round} sent`, ids.map((i) => PL_INSURERS[i].name).join(", "));
     }),
@@ -8586,7 +8597,7 @@ function makePlacementApi(setCases, say = () => {}) {
       const prev = c.negotiations[c.negotiations.length - 1];
       if (!prev) return c;
       const ids = prev.items.map((it) => it.insurerId);
-      const brief = comment ? `${reason} — ${comment}` : reason;
+      const brief = comment ? `${reason} - ${comment}` : reason;
       const round = {
         round: c.negotiations.length + 1, openedAt: plStamp(), sentAt: plStamp(), status: "open", final: true, brief,
         items: ids.map((i) => ({ insurerId: i, ask: `Final revision requested: ${brief}`, status: "awaiting" })),
@@ -8610,7 +8621,7 @@ function makePlacementApi(setCases, say = () => {}) {
       out = withLog(out, PL_INSURERS[insurerId].name, "Insurer",
         status === "improved" ? "Negotiation ask accepted" : "Negotiation ask declined", response);
 
-      /* Improved terms are a new quote version, reviewed in the Quotes workspace —
+      /* Improved terms are a new quote version, reviewed in the Quotes workspace -
          negotiation does not get a second quote-review system of its own. */
       if (status === "improved") {
         const prior = plQuotesOf(c, insurerId).filter((q) => q.decision !== "superseded").slice(-1)[0];
@@ -8624,9 +8635,9 @@ function makePlacementApi(setCases, say = () => {}) {
             quotes: [...out.quotes.map((q) => (q.id === prior.id ? { ...q, decision: "superseded" } : q)),
               { ...nq, supersedes: prior.version }],
             threads: out.threads.map((t) => t.insurerId !== insurerId ? t
-              : { ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Revised quote received — Quote V${prior.version + 1}`)] }),
+              : { ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Revised quote received - Quote V${prior.version + 1}`)] }),
           };
-          out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", `Revised quote received — Quote V${prior.version + 1}`,
+          out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", `Revised quote received - Quote V${prior.version + 1}`,
             `Quote V${prior.version} superseded · awaiting Placement Manager review`);
         }
       }
@@ -8647,7 +8658,7 @@ function makePlacementApi(setCases, say = () => {}) {
     rmRequestMoreQuotes: (id, reason) => patch(id, (c) => withLog(
       { ...c,
         rmMoreQuotes: { reason, at: plStamp(), by: c.client.rm, handled: false },
-        tasks: [...c.tasks, { id: `t${Date.now()}`, label: "RM requested more quotes — decide which markets to approach", due: "Today", owner: "You", done: false }] },
+        tasks: [...c.tasks, { id: `t${Date.now()}`, label: "RM requested more quotes - decide which markets to approach", due: "Today", owner: "You", done: false }] },
       c.client.rm, "RM", "RM requested more quotes", `${reason} · no insurer contacted until you decide`)),
 
     /* Only the selected threads restart. Each gets a fresh quote-collection clock (PRD 8.4);
@@ -8657,7 +8668,7 @@ function makePlacementApi(setCases, say = () => {}) {
       const threads = c.threads.map((t) => !insurerIds.includes(t.insurerId) ? t : {
         ...t, followUpsActive: true, followUps: 0, slaH: PL_THREAD_TARGET_H, paused: false,
         status: t.status === "acknowledged" ? "acknowledged" : "rfq_sent",
-        events: [...t.events, plEv(plStamp(), PL_ME.name, `Thread restarted — ${reason}`)],
+        events: [...t.events, plEv(plStamp(), PL_ME.name, `Thread restarted - ${reason}`)],
       });
       const out = { ...c, stage: "market", followUpsStopped: false, threads,
         rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: `Restarted ${names}` } : c.rmMoreQuotes };
@@ -8670,15 +8681,17 @@ function makePlacementApi(setCases, say = () => {}) {
 
 /* ---------- scratch_pl_ui.jsx ---------- */
 /* ================================================================== *
- *  BimaPlacement — Placement Manager Workbench, ported into the sister
+ *  BimaPlacement - Placement Manager Workbench, ported into the sister
  *  design system. Behaviour is frozen (FUNCTIONAL-CONTRACT.md); only the
  *  visual layer is remapped: the reference's warm-cream `T` palette →
- *  the shared violet `C` chrome, Outfit → the shared FONT (Anek), and a
- *  plain monospace stack for identifiers/money/SLA/timestamps.
+ *  the shared violet `C` chrome, Outfit → the shared FONT (Anek).
  *  Every symbol is PL_/Pl-namespaced to avoid collisions.
  * ================================================================== */
 
-const PL_MONO = 'ui-monospace, SFMono-Regular, Menlo, "Cascadia Code", "Segoe UI Mono", monospace';
+/* Identifiers, money, SLA and timestamps still read as one tabular voice, but in
+   Anek like the rest of the system - Anek is the only typeface, everywhere.
+   Kept as its own token so every numeric/mono spot can carry tabular figures. */
+const PL_MONO = FONT;
 
 /* Reference `T` remapped onto the shared C palette. Semantic colours keep
    their meaning (orange = SLA attention, green = success, red = breach,
@@ -8776,7 +8789,7 @@ function PlLabel({ children, className = "" }) {
 }
 
 function PlMono({ children, size = 12, color = PL_T.ink2, weight = 500 }) {
-  return <span style={{ fontFamily: PL_MONO, fontSize: size, color, fontWeight: weight }}>{children}</span>;
+  return <span className="bk-num" style={{ fontFamily: PL_MONO, fontSize: size, color, fontWeight: weight }}>{children}</span>;
 }
 
 function PlKV({ k, v, mono = false }) {
@@ -8879,9 +8892,9 @@ function PlEmpty({ icon: Icon = Inbox, title, body, action }) {
   );
 }
 
-/* plFmtH / plInr / plInrL live in the domain layer (single source) — not redefined here. */
+/* plFmtH / plInr / plInrL live in the domain layer (single source) - not redefined here. */
 
-/* SLA chip — the operational heartbeat. Pauses visibly, breaches loudly. */
+/* SLA chip - the operational heartbeat. Pauses visibly, breaches loudly. */
 function PlSlaChip({ hours, paused, pauseReason, stopped }) {
   if (stopped) return <PlChip tone="neutral" mono>Clock stopped</PlChip>;
   if (paused) {
@@ -8933,7 +8946,7 @@ function PlUsableMeter({ count, target = 3, compact = false }) {
 
 /* ---------- scratch_pl_screens.jsx ---------- */
 /* ================================================================== *
- *  BimaPlacement — Placement Manager Workbench screens, ported into the
+ *  BimaPlacement - Placement Manager Workbench screens, ported into the
  *  sister design system. Behaviour is frozen (FUNCTIONAL-CONTRACT.md);
  *  only symbol names and visual primitives change. Every domain master,
  *  domain function and shared primitive is defined elsewhere in the host
@@ -8950,6 +8963,7 @@ const PL_QTABS = [
 function PlQueueScreen({ cases, onOpen }) {
   const [tab, setTab] = useState("mine");
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState({ key: null, dir: "asc" });
 
   const active = cases.filter((c) => c.stage !== "closed");
   const needsYou = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external; });
@@ -8960,151 +8974,116 @@ function PlQueueScreen({ cases, onOpen }) {
   const rows = pool.filter((c) => !q || (c.id + c.client.name + c.products.join(" ")).toLowerCase().includes(q.toLowerCase()));
   const counts = { mine: active.length, action: needsYou.length, sla: atRisk.length, all: cases.length };
 
-  const stats = [
-    { k: "ACTIVE CASES", v: active.length, icon: Briefcase, tone: "purple" },
-    { k: "ACTION REQUIRED", v: needsYou.length, icon: AlertTriangle, tone: "orange" },
-    { k: "SLA RISK", v: atRisk.length, icon: Clock, tone: "red" },
-    { k: "QUOTES AWAITING REVIEW", v: awaitingReview, icon: FileText, tone: "blue" },
-  ];
+  const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
+  /* Row summary shows the primary product in full - never a code, never clubbed.
+     The full product mix stays visible on the case (header chips, RFQ sections). */
+  const productLabel = (c) => PL_PRODUCTS[c.products[0]] || c.products[0];
+  const clientShort = (c) => c.client.name.replace(/ (Pvt Ltd|Ltd|LLP)$/, "");
 
-  /* top three things that actually need the PM today */
-  const attention = active
-    .map((c) => ({ c, na: plNextAction(c), sla: plCurrentSla(c) }))
-    .filter((x) => x.na && x.sla && !x.sla.external)
-    .sort((a, b) => (a.sla.remaining ?? 9999) - (b.sla.remaining ?? 9999))
-    .slice(0, 3);
+  /* Sortable columns - same arrow-toggle idiom as the sister My Tickets / My
+     Claims tables. An externally-owned SLA sorts to the end (it isn't ours). */
+  const URG_RANK = { High: 0, Medium: 1, Low: 2 };
+  const slaVal = (c) => { const s = plCurrentSla(c); if (!s) return Infinity; if (s.external) return 1e9; return s.remaining ?? 1e8; };
+  const CMP = {
+    id: (a, b) => a.id.localeCompare(b.id),
+    stage: (a, b) => (PL_STAGE[a.stage]?.step ?? 9) - (PL_STAGE[b.stage]?.step ?? 9),
+    type: (a, b) => a.meta.caseType.localeCompare(b.meta.caseType),
+    urg: (a, b) => (URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9),
+    client: (a, b) => a.client.name.localeCompare(b.client.name),
+    product: (a, b) => productLabel(a).localeCompare(productLabel(b)),
+    sla: (a, b) => slaVal(a) - slaVal(b),
+    usable: (a, b) => plUsableCount(a) - plUsableCount(b),
+  };
+  const dir = sort.dir === "asc" ? 1 : -1;
+  const sortedRows = sort.key && CMP[sort.key] ? rows.slice().sort((a, b) => CMP[sort.key](a, b) * dir) : rows;
+  const sortBy = (k) => setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "asc" }));
+  const PlSortHead = ({ label, k, style, trunc }) => (
+    <button onClick={() => sortBy(k)} className="flex min-w-0 items-center gap-1 text-left" style={style} title={`Sort by ${label.toLowerCase()}`}>
+      <span className={trunc ? "truncate" : ""} style={{ fontSize: 14, fontWeight: 600, color: sort.key === k ? C.brand : "#1C1C1C" }}>{label}</span>
+      {sort.key === k && (sort.dir === "asc" ? <ChevronUp size={13} className="shrink-0" style={{ color: C.brand }} /> : <ChevronDown size={13} className="shrink-0" style={{ color: C.brand }} />)}
+    </button>
+  );
 
   return (
-    <div className="px-6 py-6">
-      <div className="flex items-start justify-between mb-5">
-        <div>
-          <h1 style={{ fontSize: 25, fontWeight: 650, color: PL_T.ink, letterSpacing: -0.5 }}>Placement Queue</h1>
-          <p style={{ fontSize: 13, color: PL_T.ink3, marginTop: 2 }}>
-            Cases assigned to you by the Assignment Engine. Cases are created when an RM submits an RFQ.
-          </p>
-        </div>
-        <PlBtn icon={Download}>Export CSV</PlBtn>
-      </div>
-
-      <div className="grid grid-cols-4 gap-3.5 mb-5">
-        {stats.map((s) => (
-          <div key={s.k} className="rounded-2xl px-4 py-3.5 flex items-start justify-between"
-            style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
-            <div>
-              <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>{s.k}</div>
-              <div style={{ fontSize: 26, fontWeight: 650, color: PL_T.ink, marginTop: 4, letterSpacing: -0.5, fontFamily: PL_MONO }}>
-                {String(s.v).padStart(2, "0")}
-              </div>
-            </div>
-            <div className="rounded-lg flex items-center justify-center" style={{ width: 26, height: 26, background: PL_TONES[s.tone].bg }}>
-              <s.icon size={14} color={PL_TONES[s.tone].fg} strokeWidth={2.1} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-2xl overflow-hidden mb-5" style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
-        <div className="flex items-center justify-between px-4 pt-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          <div className="flex items-end gap-1">
+    <div className="px-6 py-6 space-y-4">
+      <PageHead title="Placement Queue"
+        right={
+          <div className="flex flex-wrap items-center gap-2">
             {PL_QTABS.map((t) => {
               const on = tab === t.id;
               return (
-                <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2.5 pt-1 flex items-center gap-1.5"
-                  style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
-                  {t.label}
-                  <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, fontWeight: 600, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{counts[t.id]}</span>
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+                  style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+                    background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+                  <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+                  <span>{t.label}<span className="bk-num">({counts[t.id]})</span></span>
                 </button>
               );
             })}
           </div>
-          <div className="flex items-center gap-2 pb-2">
-            <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-              <Search size={12} color={PL_T.ink3} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search queue..."
-                className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 130 }} />
-            </div>
-            <SlidersHorizontal size={14} color={PL_T.ink3} />
-          </div>
-        </div>
+        } />
 
-        <table className="w-full" style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: PL_T.cardAlt }}>
-              {["CASE ID", "CLIENT", "PRODUCT", "RM", "TYPE", "URGENCY", "STAGE", "CURRENT SLA", "USABLE QUOTES", "PENDING ACTION"].map((h) => (
-                <th key={h} className="text-left px-3 py-2.5"
-                  style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650, borderBottom: `1px solid ${PL_T.border}` }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((c) => {
-              const st = PL_STAGE[c.stage];
-              const na = plNextAction(c);
-              const sla = plCurrentSla(c);
-              const uc = plUsableCount(c);
-              return (
-                <tr key={c.id} onClick={() => onOpen(c.id)} className="cursor-pointer hover:opacity-90"
-                  style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                  <td className="px-3 py-3" style={{ fontFamily: PL_MONO, fontSize: 11.5, color: PL_T.purple, fontWeight: 600 }}>
-                    {c.id}{c.demo && <div className="mt-1"><PlChip size="xs" tone="green">Happy Path Demo</PlChip></div>}
-                  </td>
-                  <td className="px-3 py-3" style={{ fontSize: 12.5, color: PL_T.ink, fontWeight: 600, maxWidth: 150 }}>{c.client.name.replace(/ (Pvt Ltd|Ltd|LLP)$/, "")}</td>
-                  <td className="px-3 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{c.products.length === 1 ? PL_PRODUCTS[c.products[0]] : c.products.join(" + ")}</td>
-                  <td className="px-3 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{c.client.rm}</td>
-                  <td className="px-3 py-3"><PlChip size="xs">{c.meta.caseType}</PlChip></td>
-                  <td className="px-3 py-3">
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: c.meta.urgency === "High" ? PL_T.orange : PL_T.ink3 }}>{c.meta.urgency}</span>
-                  </td>
-                  <td className="px-3 py-3"><PlChip tone={st.tone} size="xs">{st.label}</PlChip></td>
-                  <td className="px-3 py-3"><PlSlaCell sla={sla} /></td>
-                  <td className="px-3 py-3">
-                    <span className="rounded-full inline-flex items-center justify-center"
-                      style={{ width: 22, height: 22, background: uc >= PL_THRESHOLD ? PL_T.greenSoft : PL_T.purpleSoft,
-                        color: uc >= PL_THRESHOLD ? PL_T.green : PL_T.purple, fontFamily: PL_MONO, fontSize: 11, fontWeight: 650 }}>{uc}</span>
-                  </td>
-                  <td className="px-3 py-3" style={{ maxWidth: 190 }}>
-                    {na ? (
-                      <span className="inline-flex items-start gap-1.5">
-                        <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_TONES[na.tone].fg, marginTop: 5 }} />
-                        <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.3 }}>{na.label}</span>
-                      </span>
-                    ) : <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>{c.outcome ? PL_OUTCOME[c.outcome.type].label : "—"}</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="flex items-center justify-between px-4 py-3">
-          <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-            Showing <b style={{ color: PL_T.ink }}>{rows.length}</b> of <b style={{ color: PL_T.ink }}>{cases.length}</b> cases
-          </span>
-          <div className="flex gap-1.5">
-            <PlBtn size="sm" disabled>Previous</PlBtn>
-            <PlBtn size="sm" disabled>Next</PlBtn>
-          </div>
+      <div className="flex justify-end">
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ border: `0.5px solid ${C.line}`, background: C.white }}>
+          <Search size={14} style={{ color: C.figHint }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search cases…"
+            className="bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: C.figInk, width: 200 }} />
         </div>
       </div>
 
-      <PlCard pad={false}>
-        <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          <AlertTriangle size={13} color={PL_T.orange} />
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Needs attention</span>
-          <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>closest to SLA first</span>
+      <section className="flex flex-col gap-1">
+        <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
+          <PlSortHead label="Case ID" k="id" style={cell(PCOLS.id)} />
+          <PlSortHead label="Stage" k="stage" style={cell(PCOLS.stage)} />
+          <PlSortHead label="Type" k="type" style={cell(PCOLS.type)} />
+          <PlSortHead label="Urgency" k="urg" style={cell(PCOLS.urg)} />
+          <PlSortHead label="Client" k="client" style={cell(PCOLS.client)} trunc />
+          <PlSortHead label="Product" k="product" style={cell(PCOLS.product)} trunc />
+          <PlSortHead label="Current SLA" k="sla" style={cell(PCOLS.sla)} />
+          <PlSortHead label="Usable" k="usable" style={cell(PCOLS.usable)} />
+          <span style={dueCell}>Pending action</span>
         </div>
-        {attention.map(({ c, na, sla }) => (
-          <button key={c.id} onClick={() => onOpen(c.id)} className="w-full text-left px-4 py-2.5 flex items-center gap-3"
-            style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-            <PlMono size={11.5} color={PL_T.purple} weight={600}>{c.id}</PlMono>
-            <span style={{ fontSize: 12.5, color: PL_T.ink }}>{na.label}</span>
-            <span className="flex-1" />
-            <PlSlaCell sla={sla} />
-            <ChevronRight size={13} color={PL_T.ink3} />
-          </button>
-        ))}
-        {attention.length === 0 && <div className="px-4 py-4" style={{ fontSize: 12, color: PL_T.ink3 }}>Nothing is waiting on you right now.</div>}
-      </PlCard>
+        {sortedRows.length ? sortedRows.map((c, i) => {
+          const sla = plCurrentSla(c);
+          const na = plNextAction(c);
+          const uc = plUsableCount(c);
+          const last = i === rows.length - 1;
+          return (
+            <div key={c.id}>
+              <button onClick={() => onOpen(c.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50" style={stagger(i)}>
+                <span className="bk-num truncate" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
+                  {c.id}{c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
+                </span>
+                <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
+                <span className="flex" style={cell(PCOLS.type)}><Indicator label={c.meta.caseType} ind="neutral" /></span>
+                <span className="flex" style={cell(PCOLS.urg)}><Indicator label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} /></span>
+                <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{clientShort(c)}</span>
+                <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
+                <span style={cell(PCOLS.sla)}><PlSlaCell sla={sla} /></span>
+                <span className="flex" style={cell(PCOLS.usable)}>
+                  <span className="inline-flex items-center justify-center rounded-full"
+                    style={{ width: 22, height: 22, background: uc >= PL_THRESHOLD ? PL_T.greenSoft : PL_T.purpleSoft,
+                      color: uc >= PL_THRESHOLD ? PL_T.green : PL_T.purple, fontFamily: PL_MONO, fontSize: 11, fontWeight: 650 }}>{uc}</span>
+                </span>
+                <span style={dueCell}>
+                  {na ? (
+                    <span className="inline-flex items-start gap-1.5">
+                      <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_TONES[na.tone].fg, marginTop: 6 }} />
+                      <span style={{ fontSize: 14, fontWeight: 500, color: C.figInk, lineHeight: 1.3 }}>{na.label}</span>
+                    </span>
+                  ) : <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{c.outcome ? PL_OUTCOME[c.outcome.type].label : "-"}</span>}
+                </span>
+              </button>
+              {!last && <div style={{ height: 1, background: C.lineSoft }} />}
+            </div>
+          );
+        }) : <Empty>No cases match these filters.</Empty>}
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs" style={{ color: C.figTert }}>
+        <span><span className="bk-num">{rows.length}</span> of <span className="bk-num">{cases.length}</span> cases</span>
+      </div>
     </div>
   );
 }
@@ -9129,82 +9108,95 @@ function PlSlaCell({ sla, wide = false }) {
     <span className="inline-flex items-center gap-1.5">
       <Clock size={11} color={late ? PL_T.red : PL_T.orange} />
       <span style={{ fontFamily: PL_MONO, fontSize: 11, color: late ? PL_T.red : PL_T.ink2, fontWeight: 600 }}>
-        {sla.remaining == null ? "—" : late ? `${plFmtMins(sla.remaining)} over` : `${plFmtMins(sla.remaining)} left`}
+        {sla.remaining == null ? "-" : late ? `${plFmtMins(sla.remaining)} over` : `${plFmtMins(sla.remaining)} left`}
       </span>
     </span>
   );
 }
 
-function PlHomeScreen({ cases, onOpen, setNav }) {
+/* Home - mirrors the sister environments: a greeting, a desk of count-cards that
+   route into My Cases, and a progress dashboard. Every number is read live off
+   the case model (SLA state) - no invented placement intelligence. */
+function PlHomeScreen({ cases, onOpen, setNav, user }) {
   const active = cases.filter((c) => c.stage !== "closed");
+  const slaOf = (c) => plCurrentSla(c);
 
-  const buckets = [
-    { k: "Quotes awaiting review", tone: "purple", tab: "quotes",
-      rows: active.flatMap((c) => plLiveQuotes(c).filter((q) => !q.decision).map((q) => ({ c, note: `${PL_INSURERS[q.insurerId].name} · ${PL_PRODUCTS[q.product]}` }))) },
-    { k: "RFQs awaiting validation", tone: "orange", tab: "rfq",
-      rows: active.filter((c) => c.stage === "rfq_review").map((c) => ({ c, note: `${plActiveRfqOf(c).missing.filter((m) => !m.resolved).length} open item(s)` })) },
-    { k: "Cases near SLA breach", tone: "red", tab: null,
-      rows: active.filter((c) => { const s = plCurrentSla(c); return s && !s.external && (s.remaining ?? 999) < 60; })
-        .map((c) => ({ c, note: plCurrentSla(c).short })) },
-    { k: "RM clarification received", tone: "green", tab: "market",
-      rows: active.flatMap((c) => c.threads.filter((t) => t.clarifications.slice(-1)[0]?.rmResponse && !t.clarifications.slice(-1)[0]?.repliedAt)
-        .map((t) => ({ c, note: `${PL_INSURERS[t.insurerId].name} — reply and resume the clock` }))) },
-    { k: "QCRs awaiting release", tone: "blue", tab: "qcr",
-      rows: active.filter((c) => plDraftQcr(c)).map((c) => ({ c, note: `Draft QCR V${plDraftQcr(c).v} ready to send` })) },
+  /* Six desk buckets, all case counts, each routing into My Cases. */
+  const highPri = active.filter((c) => c.meta.urgency === "High");
+  const slaRisk = active.filter((c) => { const s = slaOf(c); return s && !s.external && (s.remaining ?? 9999) < 60; });
+  const needsYou = active.filter((c) => { const s = slaOf(c); return s && !s.external; });
+  const awaitInsurer = active.filter((c) => { const s = slaOf(c); return s && s.external && /insurer/i.test(s.owner || ""); });
+  const awaitRm = active.filter((c) => { const s = slaOf(c); return s && s.external && /(RM|Client)/i.test(s.owner || ""); });
+  const quotesReview = active.filter((c) => plLiveQuotes(c).some((q) => !q.decision));
+
+  const cards = [
+    { count: highPri.length, tint: "#FFECEC", pills: [{ label: "High priority", ind: "caution" }] },
+    { count: slaRisk.length, tint: "#FFECEC", pills: [{ label: "SLA risk", ind: "error" }] },
+    { count: needsYou.length, tint: "#EDE6FF", pills: [{ label: "Needs your action", ind: "brand" }] },
+    { count: awaitInsurer.length, tint: "#FFF6E0", pills: [{ label: "Insurer response", ind: "caution" }] },
+    { count: awaitRm.length, tint: "#E9F1FF", pills: [{ label: "RM / client response", ind: "info" }] },
+    { count: quotesReview.length, tint: "#E9FBF0", pills: [{ label: "Quotes to review", ind: "success" }] },
   ];
 
-  const total = buckets.reduce((n, b) => n + b.rows.length, 0);
+  /* Cases On Track - active cases not in a Placement-owned breach (external
+     waits are "awaiting", never a breach - SLA rule H4). */
+  const totalActive = active.length || 1;
+  const overdue = active.filter((c) => { const s = slaOf(c); return s && !s.external && s.breached; });
+  const onTrack = active.length - overdue.length;
+  const closureScore = onTrack / totalActive;
+  const closureStatus = scoreStatus(closureScore);
+
+  /* Median SLA used - median share of the current (Placement-owned) SLA target
+     already consumed; less consumed reads as a healthier turnaround. */
+  const usedArr = active.map(slaOf).filter((s) => s && !s.external && s.mins)
+    .map((s) => Math.min(1, Math.max(0, (s.mins - (s.remaining ?? s.mins)) / s.mins)))
+    .sort((a, b) => a - b);
+  const medUsed = usedArr.length ? usedArr[Math.floor((usedArr.length - 1) / 2)] : 0;
+  const turnScore = 1 - medUsed;
+  const turnStatus = scoreStatus(turnScore);
+  const green = "#007B00";
 
   return (
-    <div>
-      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Good morning, {PL_ME.name.split(" ")[0]}</h1>
-      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-5">
-        {total} item{total === 1 ? "" : "s"} across {active.length} active cases are waiting on you.
+    <div className="space-y-6">
+      <Greeting user={user} />
+
+      {/* Your Desk - count-cards that route into My Cases. */}
+      <div>
+        <div className="mb-4 flex items-center gap-3">
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
+        </div>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          {cards.map((c, i) => (
+            <DeskCard key={i} count={c.count} noun="Case" tint={c.tint} pills={c.pills} onOpen={() => setNav("cases")} />
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-3 mb-5">
-        {buckets.map((b) => (
-          <div key={b.k} className="rounded-2xl px-3.5 py-3" style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
-            <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.3, minHeight: 28 }}>{b.k}</div>
-            <div style={{ fontFamily: PL_MONO, fontSize: 24, fontWeight: 650, color: b.rows.length ? PL_TONES[b.tone].fg : PL_T.ink3, marginTop: 4 }}>
-              {b.rows.length}
-            </div>
-          </div>
-        ))}
-      </div>
+      <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
-      <div className="space-y-3">
-        {buckets.filter((b) => b.rows.length).map((b) => (
-          <PlCard key={b.k} pad={false}>
-            <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-              <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[b.tone].fg }} />
-              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{b.k}</span>
-              <PlChip size="xs" mono>{b.rows.length}</PlChip>
-            </div>
-            {b.rows.slice(0, 4).map((r, i) => (
-              <button key={i} onClick={() => onOpen(r.c.id, b.tab)} className="w-full text-left px-4 py-2.5 flex items-center gap-3"
-                style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                <PlMono size={11} color={PL_T.purple} weight={600}>{r.c.id}</PlMono>
-                <span style={{ fontSize: 12.5, fontWeight: 550, width: 180 }} className="truncate">{r.c.client.name}</span>
-                <span className="flex-1" style={{ fontSize: 12, color: PL_T.ink2 }}>{r.note}</span>
-                <ChevronRight size={13} color={PL_T.ink3} />
-              </button>
-            ))}
-            {b.rows.length > 4 && (
-              <button onClick={() => setNav("cases")} className="w-full px-4 py-2" style={{ fontSize: 11.5, color: PL_T.purple, fontWeight: 600 }}>
-                {b.rows.length - 4} more in the queue
-              </button>
-            )}
-          </PlCard>
-        ))}
-        {total === 0 && <PlEmpty icon={CheckCircle2} title="Nothing waiting" body="No quotes, clarifications or QCRs need you right now." />}
+      {/* Your Progress - two metric cards read live off the case SLA model. */}
+      <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Across {active.length} active cases</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <ProgressCard title="Cases On Track" value={`${onTrack}/${active.length}`} status={closureStatus} score={closureScore}
+            sub={overdue.length ? `${overdue.length} overdue right now` : "None overdue - on top of it"}
+            subTone={overdue.length ? C.semCaution : green}
+            tip="Active cases not in a Placement-owned SLA breach - external waits don't count against you." />
+          <ProgressCard title="Median SLA Used" value={`${Math.round(medUsed * 100)}%`} status={turnStatus} score={turnScore}
+            sub={`${Math.round(medUsed * 100)}% of the current SLA target used (median)`}
+            subTone={turnStatus === "Poor" ? C.semCaution : green}
+            tip="Median share of the live Placement-owned SLA clock already spent; lower is faster." />
+        </div>
       </div>
     </div>
   );
 }
 
 /* ================================================================== *
- *  CASE WORKSPACE — one shell, every stage
+ *  CASE WORKSPACE - one shell, every stage
  * ================================================================== */
 
 function PlCaseWorkspace({ c, api, onBack, initialTab }) {
@@ -9216,13 +9208,16 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   const uc = plUsableCount(c);
 
   const TABS = [
-    { id: "rfq", label: "RFQ", n: rfq.missing.filter((m) => !m.resolved).length || null },
-    { id: "insurers", label: "Insurers", n: c.panel.selected.length || null },
-    { id: "market", label: "Insurer Threads", n: c.threads.length || null },
-    { id: "quotes", label: "Quotes", n: plLiveQuotes(c).length || null },
-    { id: "qcr", label: "QCR", n: c.qcrs.length || null },
-    { id: "negotiation", label: "Negotiation", n: c.negotiations.length || null },
-    { id: "activity", label: "Activity", n: null },
+    { id: "rfq", label: "RFQ" },
+    { id: "summary", label: "RFQ Summary" },
+    { id: "strategy", label: "Case Strategy" },
+    { id: "docs", label: "Documents" },
+    { id: "insurers", label: "Insurers" },
+    { id: "market", label: "Insurer Threads" },
+    { id: "quotes", label: "Quotes" },
+    { id: "qcr", label: "QCR" },
+    { id: "negotiation", label: "Negotiation" },
+    { id: "activity", label: "Case History" },
   ];
 
   const statusTone = c.outcome ? PL_OUTCOME[c.outcome.type].tone
@@ -9232,11 +9227,10 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
 
   return (
     <div>
+      <div className="px-6 pt-4">
+        <Breadcrumb segments={[{ label: "My Cases", onClick: onBack }, { label: c.id }]} />
+      </div>
       <div className="px-6 pt-5">
-        <button onClick={onBack} className="flex items-center gap-1 mb-3" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-          <ArrowLeft size={12} /> My Placement Cases
-        </button>
-
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-2 flex-wrap">
@@ -9246,7 +9240,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-2">
               <PlChip>{c.meta.caseType}</PlChip>
-              <PlChip>{c.products.join(" + ")}</PlChip>
+              {c.products.map((p) => <PlChip key={p}>{PL_PRODUCTS[p] || p}</PlChip>)}
               <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
               {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
               {c.demo && <PlChip tone="green">Happy Path Demo</PlChip>}
@@ -9284,30 +9278,24 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           <div className="px-4 py-3 flex-1" style={{ borderLeft: `1px solid ${PL_T.stripLine}` }}>
             <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>CURRENT ACTION</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: PL_T.ink, marginTop: 3, lineHeight: 1.35 }}>
-              {na ? na.label : c.outcome ? PL_OUTCOME[c.outcome.type].label : "—"}
+              {na ? na.label : c.outcome ? PL_OUTCOME[c.outcome.type].label : "-"}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-0.5 flex-wrap">
-            {TABS.map((t) => {
-              const on = tab === t.id;
-              return (
-                <button key={t.id} onClick={() => setTab(t.id)} className="rounded-xl px-3 py-2 flex items-center gap-1.5"
-                  style={{ background: on ? PL_T.navActive : "transparent", color: on ? PL_T.purple : PL_T.ink2, fontSize: 12.5, fontWeight: on ? 600 : 450 }}>
-                  {t.label}{t.n ? <PlMono size={10.5} color={on ? PL_T.purple : PL_T.ink3}>{t.n}</PlMono> : null}
-                </button>
-              );
-            })}
-          </div>
-          <PlStageRail stage={c.stage} outcome={c.outcome} />
-        </div>
+        <div className="mb-2 flex justify-end"><PlStageRail stage={c.stage} outcome={c.outcome} /></div>
       </div>
+      <TabBar tabs={TABS.map((t) => [t.id, t.label])} tab={tab} setTab={setTab} />
+      <div className="mb-4" style={{ borderBottom: `1px solid ${C.subtle}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
+        {/* The action rail is constant across every tab, so it sits on the left. */}
+        <PlRightRail c={c} api={api} goTo={setTab} />
         <div className="flex-1 min-w-0">
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
+          {tab === "summary" && <div className="space-y-3"><PlRfqSummaryCard c={c} /></div>}
+          {tab === "strategy" && <div className="space-y-3"><PlCaseStrategyCard c={c} /></div>}
+          {tab === "docs" && <div className="space-y-3"><PlDocumentsCard c={c} /></div>}
           {tab === "insurers" && <PlInsurersTab c={c} api={api} />}
           {tab === "market" && <PlMarketTab c={c} api={api} goTo={setTab} />}
           {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
@@ -9315,7 +9303,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
-        <PlRightRail c={c} api={api} goTo={setTab} />
       </div>
     </div>
   );
@@ -9346,7 +9333,6 @@ function PlStageRail({ stage, outcome }) {
 
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
-  const recent = [...c.audit].slice(-6).reverse();
   return (
     <div className="shrink-0 space-y-3" style={{ width: 268 }}>
       {na && (
@@ -9380,39 +9366,6 @@ function PlRightRail({ c, api, goTo }) {
           )}
         </PlCard>
       )}
-
-      <PlCard pad={false}>
-        <div className="px-3.5 py-2.5 flex items-center justify-between" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>Tasks</span>
-          <PlMono size={10.5} color={PL_T.ink3}>{c.outcome ? 0 : c.tasks.filter((t) => !t.done).length} open</PlMono>
-        </div>
-        <div className="px-3.5 py-2">
-          {(c.outcome ? [] : c.tasks).map((t) => (
-            <div key={t.id} className="py-1">
-              <PlTick checked={t.done} onChange={() => api.toggleTask(c.id, t.id)}
-                label={<span style={{ textDecoration: t.done ? "line-through" : "none", color: t.done ? PL_T.ink3 : PL_T.ink }}>{t.label}</span>}
-                sub={`${t.owner} · ${t.due}`} />
-            </div>
-          ))}
-          {(c.outcome || c.tasks.length === 0) &&
-            <div className="py-3" style={{ fontSize: 11.5, color: PL_T.ink3 }}>{c.outcome ? "Case is closed — no open tasks." : "No open tasks."}</div>}
-        </div>
-      </PlCard>
-
-      <PlCard pad={false}>
-        <div className="px-3.5 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, fontSize: 12, fontWeight: 600 }}>Recent activity</div>
-        <div className="px-3.5 py-2.5 space-y-2.5">
-          {recent.map((a, i) => (
-            <div key={i} className="flex gap-2">
-              <span className="rounded-full shrink-0 mt-1.5" style={{ width: 5, height: 5, background: a.actorType === "PM" ? PL_T.purple : a.actorType === "Insurer" ? PL_T.blue : a.actorType === "RM" ? PL_T.orange : PL_T.borderStrong }} />
-              <div className="min-w-0">
-                <div style={{ fontSize: 11.5, color: PL_T.ink, fontWeight: 500, lineHeight: 1.35 }}>{a.event}</div>
-                <PlMono size={10} color={PL_T.ink3}>{a.at} · {a.actor}</PlMono>
-              </div>
-            </div>
-          ))}
-        </div>
-      </PlCard>
     </div>
   );
 }
@@ -9460,14 +9413,14 @@ function PlInboxScreen({ cases, onOpen }) {
   cases.filter((c) => c.stage !== "closed").forEach((c) => {
     if (c.stage === "awaiting_rm") {
       const last = plActiveRfqOf(c).rmThread.slice(-1)[0];
-      items.push({ c, group: "clarify", type: "RM clarification pending", source: c.client.rm, at: last?.at || "—", cta: "Review response", tab: "rfq" });
+      items.push({ c, group: "clarify", type: "RM clarification pending", source: c.client.rm, at: last?.at || "-", cta: "Review response", tab: "rfq" });
     }
     c.threads.forEach((t) => {
       const cl = t.clarifications[t.clarifications.length - 1];
       if (!cl || cl.repliedAt) return;
       items.push({
         c, group: "clarify",
-        type: cl.rmResponse ? "RM has answered — reply to insurer" : cl.rmRequested ? "Insurer clock held, waiting on RM" : "Insurer clarification received",
+        type: cl.rmResponse ? "RM has answered - reply to insurer" : cl.rmRequested ? "Insurer clock held, waiting on RM" : "Insurer clarification received",
         source: PL_INSURERS[t.insurerId].name, at: cl.rmRespondedAt || cl.rmRequestedAt || cl.askedAt, cta: "Open thread", tab: "market",
       });
     });
@@ -9476,7 +9429,7 @@ function PlInboxScreen({ cases, onOpen }) {
     plLiveQuotes(c).filter((q) => !q.decision).forEach((q) =>
       items.push({ c, group: "quote", type: "New quote received", source: PL_INSURERS[q.insurerId].name, at: q.receivedAt, cta: "Review quote", tab: "quotes" }));
     c.negotiations.forEach((n) => (n.asks || []).forEach((a) => {
-      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "—", cta: "Open negotiation", tab: "negotiation" });
+      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "-", cta: "Open negotiation", tab: "negotiation" });
     }));
   });
 
@@ -9536,11 +9489,11 @@ function PlInboxScreen({ cases, onOpen }) {
 
 const PL_MY_REVIEWS = [
   { id: "IN-4482", caseId: "PC-1026", insurer: "New India Assurance", at: "26 Aug, 09:02",
-    subject: "RE: [PC-1026 | TH-02] Meridian Logistics — Marine open policy",
+    subject: "RE: [PC-1026 | TH-02] Meridian Logistics - Marine open policy",
     body: "Thanks for the submission. We can look at the Marine section. Before we release terms we need the last three years of transit loss data and confirmation of the maximum single-sending value. Separately, our liability desk has passed on CGL for this occupancy.",
     why: "The message contains both a clarification and a decline for a different product section." },
   { id: "IN-4479", caseId: "PC-1027", insurer: "Reliance General", at: "25 Aug, 16:40",
-    subject: "RE: [PC-1027 | TH-05] Kalpataru Infra — GMC + GPA",
+    subject: "RE: [PC-1027 | TH-05] Kalpataru Infra - GMC + GPA",
     body: "Noted with thanks. Given the current claims ratio we are unable to support this scheme at the expiring structure. If the client considers a 20% co-pay we would be happy to revisit.",
     why: "Reads as a decline, but it also contains a conditional invitation to requote." },
 ];
@@ -9548,7 +9501,7 @@ const PL_MY_REVIEWS = [
 const PL_CLASSES_IN = ["Quote Received", "Clarification Required", "Declined", "Negotiation Response", "Not Applicable"];
 
 const PL_UNMATCHED = [
-  { id: "IN-4471", from: "underwriting.desk@icicilombard.com", subject: "Re: Quotation — corporate GMC (no case reference)", at: "26 Aug, 08:12",
+  { id: "IN-4471", from: "underwriting.desk@icicilombard.com", subject: "Re: Quotation - corporate GMC (no case reference)", at: "26 Aug, 08:12",
     body: "Please find attached our terms for the group medical scheme discussed. Kindly confirm acceptance by end of week.",
     attachment: "ICICI_GMC_terms.pdf · 412 KB",
     why: "Reply chain is broken and there is no Case or Thread reference in the subject. Two open GMC threads match this sender.", tone: "orange" },
@@ -9609,7 +9562,7 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
                 {done[r.id] ? (
                   <div className="mt-3 flex items-center gap-2">
                     <Check size={13} color={PL_T.green} />
-                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Confirmed as {done[r.id]} — applied to the thread</span>
+                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Confirmed as {done[r.id]} - applied to the thread</span>
                   </div>
                 ) : (
                   <>
@@ -9660,7 +9613,7 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
                 {done[u.id] ? (
                   <div className="mt-3 flex items-center gap-2">
                     <Check size={13} color={PL_T.green} />
-                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Mapped to {done[u.id]} — routed to that thread</span>
+                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Mapped to {done[u.id]} - routed to that thread</span>
                   </div>
                 ) : (
                   <div className="mt-3 flex items-end gap-2">
@@ -9830,7 +9783,7 @@ function PlReportsScreen({ cases }) {
             </div>
             <div className="mt-3 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
               <span style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }}>
-                Time spent waiting on RM, client or insurer is excluded — those clocks have their own owners.
+                Time spent waiting on RM, client or insurer is excluded - those clocks have their own owners.
               </span>
             </div>
           </div>
@@ -9867,126 +9820,134 @@ function PlReportsScreen({ cases }) {
 
 /* ---------- scratch_pl_tabs1.jsx ---------- */
 /* ================================================================== *
- *  BimaPlacement — Placement Manager Workbench, ported into the sister
+ *  BimaPlacement - Placement Manager Workbench, ported into the sister
  *  design system. Behaviour is frozen; only the visual layer is remapped.
- *  Components: PL_CLASSES, PlStrategyPanel, PlRfqTab, PlAskRmModal,
+ *  Components: PL_CLASSES, PlRfqSummaryCard, PlCaseStrategyCard, PlDocumentsCard, PlRfqTab, PlAskRmModal,
  *  PlSimRmModal, PlInsurersTab, PlAddInsurerModal, PlSimBlock, PlSimBtn,
  *  PlMarketTab, PlThreadPicker, PlRestartThreadsModal, PlHoldForRmModal,
  *  PlSimThreadRmModal, PlReplyInsurerModal.
- *  PlFold / PlSlot are defined elsewhere — referenced by name only.
+ *  PlFold / PlSlot are defined elsewhere - referenced by name only.
  * ================================================================== */
 
 /* ------------------------------- RFQ tab ---------------------------------- */
 
 const PL_CLASSES = [
-  "Food processing — packaged foods (NIC 1079)", "FMCG — Retail & Distribution",
-  "IT/ITES — Software services", "Logistics — Warehousing & transport",
-  "Construction — EPC contractor", "Hospitality — Hotels & resorts",
-  "Pharma — Contract manufacturing", "Renewable energy — Solar EPC",
-  "Electronics — Semiconductor services", "Textiles — Apparel manufacturing",
+  "Food processing - packaged foods (NIC 1079)", "FMCG - Retail & Distribution",
+  "IT/ITES - Software services", "Logistics - Warehousing & transport",
+  "Construction - EPC contractor", "Hospitality - Hotels & resorts",
+  "Pharma - Contract manufacturing", "Renewable energy - Solar EPC",
+  "Electronics - Semiconductor services", "Textiles - Apparel manufacturing",
 ];
 
-/* PRD M3 + M4 — the strategy the whole case is placed against.
+/* PRD M3 + M4 - the strategy the whole case is placed against.
    Recommendation and thresholds are advisory (BR-028/BR-096); the PM decides. */
-function PlStrategyPanel({ c, api }) {
-  const rfq = plActiveRfqOf(c);
-  const m = c.meta;
-
+/* RFQ Summary, Case strategy and Documents were the RFQ tab's left rail; they are
+   now their own case tabs (constant across stages), so each is a standalone card.
+   As full tabs they are plain sections - a heading over its content, never a
+   collapsible fold. The old Audit-trail fold is dropped - it is the Case History tab. */
+function PlSection({ icon: Icon, title, badge, children }) {
   return (
-    <>
-      <PlFold icon={FileText} title="RFQ Summary" open>
-        <div className="space-y-2">
-          <PlKV k="Source" v="RM Portal — web form" />
-          <PlKV k="Submitted by" v={c.client.rm} />
-          <PlKV k="Received" v={c.receivedAt} mono />
-          <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} mono />
-          <PlKV k="Client SPOC" v={c.client.spoc} />
+    <PlCard pad={false}>
+      <div className="flex items-center gap-2 px-3.5 py-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+        <Icon size={14} color={PL_T.purpleDeep} strokeWidth={2} />
+        <span className="flex-1" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{title}</span>
+        {badge}
+      </div>
+      <div className="px-3.5 py-3.5">{children}</div>
+    </PlCard>
+  );
+}
+
+function PlRfqSummaryCard({ c }) {
+  const rfq = plActiveRfqOf(c);
+  return (
+    <PlSection icon={FileText} title="RFQ Summary">
+      <div className="space-y-2">
+        <PlKV k="Source" v="RM Portal - web form" />
+        <PlKV k="Submitted by" v={c.client.rm} />
+        <PlKV k="Received" v={c.receivedAt} mono />
+        <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} mono />
+        <PlKV k="Client SPOC" v={c.client.spoc} />
+      </div>
+      {rfq.rmNote && (
+        <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+          <span style={{ fontSize: 11.5, color: PL_T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>“{rfq.rmNote}”</span>
         </div>
-        {rfq.rmNote && (
-          <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
-            <span style={{ fontSize: 11.5, color: PL_T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>“{rfq.rmNote}”</span>
+      )}
+    </PlSection>
+  );
+}
+
+function PlCaseStrategyCard({ c }) {
+  const m = c.meta;
+  return (
+    <PlSection icon={Layers} title="Case strategy"
+      badge={m.mandate ? <PlChip size="xs" tone="green">Mandate</PlChip> : null}>
+      <div className="grid grid-cols-2 gap-2.5">
+        <PlSlot k="Case type" v={m.caseType} />
+        <PlSlot k="Urgency" v={m.urgency} tone={m.urgency === "High" ? "orange" : undefined} />
+      </div>
+
+      <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+        <PlKV k="Incumbent" v={m.incumbent || "None on record"} />
+        <PlKV k="Target premium" v={m.targetPremium ? plInr(m.targetPremium) : "Not provided"} mono />
+      </div>
+      <div className="mt-1.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.blueSoft, border: `1px solid ${PL_T.blueLine}` }}>
+        <span style={{ fontSize: 10.5, color: PL_T.blue, lineHeight: 1.45 }}>
+          Target premium is decision support only. No quote is rejected automatically for sitting above it.
+        </span>
+      </div>
+
+      {m.mandate && (
+        <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck size={12} color={PL_T.green} />
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.green }}>{m.mandate.type}</span>
+            <PlMono size={10} color={PL_T.green}>{m.mandate.ref}</PlMono>
           </div>
-        )}
-      </PlFold>
-
-      <PlFold icon={Layers} title="Case strategy" open
-        badge={m.mandate ? <PlChip size="xs" tone="green">Mandate</PlChip> : null}>
-        <div className="grid grid-cols-2 gap-2.5">
-          <PlSlot k="Case type" v={m.caseType} />
-          <PlSlot k="Urgency" v={m.urgency} tone={m.urgency === "High" ? "orange" : undefined} />
+          {m.mandate.type === "Exclusive Placement Mandate" ? (
+            <div className="mt-1.5 space-y-0.5">
+              {["RM Approval", "Placement Approval"].map((a) => (
+                <div key={a} className="flex items-center gap-1.5">
+                  <Check size={11} color={PL_T.green} strokeWidth={3} />
+                  <span style={{ fontSize: 11, color: PL_T.green }}>{a}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 10.5, color: PL_T.green, marginTop: 3, lineHeight: 1.4 }}>{m.mandate.note}</div>
+          )}
         </div>
-
-        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${PL_T.border}` }}>
-          <PlKV k="Incumbent" v={m.incumbent || "None on record"} />
-          <PlKV k="Target premium" v={m.targetPremium ? plInr(m.targetPremium) : "Not provided"} mono />
-        </div>
-        <div className="mt-1.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.blueSoft, border: `1px solid ${PL_T.blueLine}` }}>
-          <span style={{ fontSize: 10.5, color: PL_T.blue, lineHeight: 1.45 }}>
-            Target premium is decision support only. No quote is rejected automatically for sitting above it.
+      )}
+      {!m.mandate && m.caseType === "Rollover" && (
+        <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
+          <span style={{ fontSize: 11, color: PL_T.red }}>
+            Rollover without an Incumbent Approach Mandate - the incumbent is blocked at insurer selection.
           </span>
         </div>
+      )}
+    </PlSection>
+  );
+}
 
-        {m.mandate && (
-          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck size={12} color={PL_T.green} />
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.green }}>{m.mandate.type}</span>
-              <PlMono size={10} color={PL_T.green}>{m.mandate.ref}</PlMono>
+function PlDocumentsCard({ c }) {
+  return (
+    <PlSection icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{2 + c.products.length}</PlChip>}>
+      <div className="space-y-2">
+        {[`RFQ_${c.id}_V${c.activeRfq}.pdf`, "Client_form_submission.pdf", ...c.products.map((p) => `${p}_expiring_schedule.pdf`)].map((d) => (
+          <div key={d} className="flex items-center gap-2">
+            <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: PL_T.purpleSoft }}>
+              <FileText size={12} color={PL_T.purple} />
             </div>
-            {m.mandate.type === "Exclusive Placement Mandate" ? (
-              <div className="mt-1.5 space-y-0.5">
-                {["RM Approval", "Placement Approval"].map((a) => (
-                  <div key={a} className="flex items-center gap-1.5">
-                    <Check size={11} color={PL_T.green} strokeWidth={3} />
-                    <span style={{ fontSize: 11, color: PL_T.green }}>{a}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 10.5, color: PL_T.green, marginTop: 3, lineHeight: 1.4 }}>{m.mandate.note}</div>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate" style={{ fontSize: 11.5, color: PL_T.blue, fontWeight: 550 }}>{d}</div>
+              <div style={{ fontSize: 10, color: PL_T.ink3 }}>Uploaded {c.receivedAt}</div>
+            </div>
+            <PlChip size="xs">Internal</PlChip>
           </div>
-        )}
-        {!m.mandate && m.caseType === "Rollover" && (
-          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
-            <span style={{ fontSize: 11, color: PL_T.red }}>
-              Rollover without an Incumbent Approach Mandate — the incumbent is blocked at insurer selection.
-            </span>
-          </div>
-        )}
-      </PlFold>
-
-      <PlFold icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{2 + c.products.length}</PlChip>}>
-        <div className="space-y-2">
-          {[`RFQ_${c.id}_V${c.activeRfq}.pdf`, "Client_form_submission.pdf", ...c.products.map((p) => `${p}_expiring_schedule.pdf`)].map((d) => (
-            <div key={d} className="flex items-center gap-2">
-              <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: PL_T.purpleSoft }}>
-                <FileText size={12} color={PL_T.purple} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate" style={{ fontSize: 11.5, color: PL_T.blue, fontWeight: 550 }}>{d}</div>
-                <div style={{ fontSize: 10, color: PL_T.ink3 }}>Uploaded {c.receivedAt}</div>
-              </div>
-              <PlChip size="xs">Internal</PlChip>
-            </div>
-          ))}
-        </div>
-      </PlFold>
-
-      <PlFold icon={Clock} title="Audit trail" badge={<PlChip size="xs" mono>{c.audit.length}</PlChip>}>
-        <div className="space-y-2.5">
-          {c.audit.slice(-6).reverse().map((a, i) => (
-            <div key={i} className="flex gap-2">
-              <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_T.purpleLine, marginTop: 5 }} />
-              <div className="min-w-0">
-                <div style={{ fontSize: 11.5, color: PL_T.ink, fontWeight: 550, lineHeight: 1.35 }}>{a.event}</div>
-                <div style={{ fontSize: 10.5, color: PL_T.ink3 }}><span style={{ fontFamily: PL_MONO }}>{a.at}</span> · {a.actor}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </PlFold>
-    </>
+        ))}
+      </div>
+    </PlSection>
   );
 }
 
@@ -10001,9 +9962,6 @@ function PlRfqTab({ c, api }) {
 
   return (
     <div className="flex gap-3 items-start">
-      <div className="shrink-0 space-y-2.5" style={{ width: 272 }}>
-        <PlStrategyPanel c={c} api={api} />
-      </div>
       <div className="flex-1 min-w-0 space-y-3">
       {c.rfqs.length > 1 && (
         <PlCard alt>
@@ -10052,7 +10010,7 @@ function PlRfqTab({ c, api }) {
             <ul className="mt-1.5 space-y-1">
               {rfq.classification.basis.map((b, i) => (
                 <li key={i} className="flex gap-2" style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45 }}>
-                  <span style={{ color: PL_T.ink3 }}>—</span>{b}
+                  <span style={{ color: PL_T.ink3 }}>-</span>{b}
                 </li>
               ))}
             </ul>
@@ -10188,7 +10146,7 @@ function PlRfqTab({ c, api }) {
               </div>
             </div>
             <PlBtn variant="primary" disabled={!canValidate} icon={ArrowRight}
-              onClick={() => { api.validateRfq(c.id); api.say("RFQ validated — insurer recommendations ready"); }}>
+              onClick={() => { api.validateRfq(c.id); api.say("RFQ validated - insurer recommendations ready"); }}>
               Validate and continue
             </PlBtn>
           </div>
@@ -10239,9 +10197,9 @@ function PlSimRmModal({ c, api, onClose }) {
   const [text, setText] = useState(
     `Spoke to ${c.client.spoc.split(",")[0]}. Census with age bands and the three-year claims history are attached. Family definition to be quoted is 1+1+2 with parents as a voluntary buy-up. GPA multiple stays at 24×.`);
   return (
-    <PlModal title="Simulate RM reply" subtitle="Prototype control — stands in for the RM portal" onClose={onClose}
+    <PlModal title="Simulate RM reply" subtitle="Prototype control - stands in for the RM portal" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM responded — requested items resolved"); onClose(); }}>
+        <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM responded - requested items resolved"); onClose(); }}>
           Post reply
         </PlBtn></>}>
       <PlLabel>Reply from {c.client.rm}</PlLabel>
@@ -10292,7 +10250,7 @@ function PlInsurersTab({ c, api }) {
               {c.panel.excluded.map((x) => (
                 <div key={x.id} className="flex gap-2" style={{ fontSize: 12, color: PL_T.ink2 }}>
                   <Ban size={13} color={PL_T.ink3} className="mt-0.5 shrink-0" />
-                  <span><b style={{ fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[x.id].name}</b> — {x.reason}</span>
+                  <span><b style={{ fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[x.id].name}</b> - {x.reason}</span>
                 </div>
               ))}
             </div>
@@ -10338,7 +10296,7 @@ function PlInsurersTab({ c, api }) {
                 <ul className="mt-1.5 space-y-0.5">
                   {r.reasons.map((x, i) => (
                     <li key={i} className="flex gap-2" style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
-                      <span style={{ color: PL_T.ink3 }}>—</span>{x}
+                      <span style={{ color: PL_T.ink3 }}>-</span>{x}
                     </li>
                   ))}
                 </ul>
@@ -10389,7 +10347,7 @@ function PlInsurersTab({ c, api }) {
                 <PlBtn variant="ghost" size="sm" onClick={() => api.togglePanel(c.id, r.id)}>Add anyway</PlBtn>
               </div>
               <ul className="mt-0.5">
-                {r.reasons.map((x, i) => <li key={i} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>— {x}</li>)}
+                {r.reasons.map((x, i) => <li key={i} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>- {x}</li>)}
               </ul>
             </div>
           ))}
@@ -10487,7 +10445,6 @@ function PlSimBlock({ title, children }) {
       <div className="flex items-center gap-1.5 mb-1.5">
         <Zap size={12} color={PL_T.amber} />
         <span style={{ fontSize: 11, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.2 }}>{title}</span>
-        <span className="rounded-full px-1.5" style={{ fontSize: 9.5, background: PL_T.card, color: PL_T.amber, border: `1px solid ${PL_T.amberLine}` }}>Prototype only</span>
       </div>
       <div className="flex flex-wrap gap-1.5">{children}</div>
     </div>
@@ -10522,7 +10479,7 @@ function PlMarketTab({ c, api, goTo }) {
               <div>
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>RM requested more quotes</div>
                 <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
-                  “{c.rmMoreQuotes.reason}” — {c.rmMoreQuotes.by}, {c.rmMoreQuotes.at}. No insurer has been contacted. You decide the market activity.
+                  “{c.rmMoreQuotes.reason}” - {c.rmMoreQuotes.by}, {c.rmMoreQuotes.at}. No insurer has been contacted. You decide the market activity.
                 </div>
               </div>
             </div>
@@ -10538,7 +10495,7 @@ function PlMarketTab({ c, api, goTo }) {
       )}
       {c.rmMoreQuotes && c.rmMoreQuotes.handled && (
         <div className="flex items-center gap-1.5 px-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-          <Check size={12} color={PL_T.green} /> RM request for more quotes handled — {c.rmMoreQuotes.handledBy}.
+          <Check size={12} color={PL_T.green} /> RM request for more quotes handled - {c.rmMoreQuotes.handledBy}.
         </div>
       )}
       {c.followUpsStopped && (
@@ -10548,7 +10505,7 @@ function PlMarketTab({ c, api, goTo }) {
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.green }}>Automated follow-ups stopped</div>
               <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
-                The usable-quote threshold was reached. {plOpenThreads(c).length} thread(s) remain open — they can still send a
+                The usable-quote threshold was reached. {plOpenThreads(c).length} thread(s) remain open - they can still send a
                 quote, and you can still chase them manually.
               </div>
             </div>
@@ -10593,7 +10550,7 @@ function PlMarketTab({ c, api, goTo }) {
                 <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: PL_TONES[PL_TSTAT[t.status].tone].fg }} />
                 <span className="min-w-0" style={{ width: 190 }}>
                   <span className="block" style={{ fontSize: 12.5, fontWeight: 600 }}>{I.name}</span>
-                  <span className="block truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>{last ? `${last.at} — ${last.text}` : "—"}</span>
+                  <span className="block truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>{last ? `${last.at} - ${last.text}` : "-"}</span>
                 </span>
                 <span className="flex-1" />
                 <span style={{ width: 150 }}><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
@@ -10716,7 +10673,7 @@ function PlMarketTab({ c, api, goTo }) {
 function PlThreadPicker({ c, picked, setPicked }) {
   const rows = plRestartableThreads(c);
   if (rows.length === 0)
-    return <div style={{ fontSize: 12, color: PL_T.ink3 }}>No thread is eligible to restart — every remaining thread is declined, usable or excluded. Approach another insurer instead.</div>;
+    return <div style={{ fontSize: 12, color: PL_T.ink3 }}>No thread is eligible to restart - every remaining thread is declined, usable or excluded. Approach another insurer instead.</div>;
   return (
     <div className="space-y-1">
       {rows.map((t) => (
@@ -10778,7 +10735,7 @@ function PlHoldForRmModal({ c, t, api, onClose }) {
 function PlSimThreadRmModal({ c, t, api, onClose }) {
   const [text, setText] = useState(`Certificates and the risk-control report are attached. ${c.client.spoc.split(",")[0]} has confirmed all locations are current.`);
   return (
-    <PlModal title="Simulate RM response" subtitle="Prototype control — stands in for the RM portal" onClose={onClose}
+    <PlModal title="Simulate RM response" subtitle="Prototype control - stands in for the RM portal" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
         <PlBtn variant="primary" onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
       <PlLabel>Response from {c.client.rm}</PlLabel>
@@ -10793,7 +10750,7 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
   return (
     <PlModal title={`Reply to ${PL_INSURERS[t.insurerId].name}`} subtitle={`${c.id} · resumes the insurer SLA`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Play} onClick={() => { api.replyToInsurer(c.id, t.insurerId, text); api.say(`Reply sent — clock resumed at ${plFmtH(t.slaH)}`); onClose(); }}>
+        <PlBtn variant="primary" icon={Play} onClick={() => { api.replyToInsurer(c.id, t.insurerId, text); api.say(`Reply sent - clock resumed at ${plFmtH(t.slaH)}`); onClose(); }}>
           Send reply and resume clock
         </PlBtn></>}>
       <PlLabel>Reply</PlLabel>
@@ -10801,7 +10758,7 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
       <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
         <Play size={13} color={PL_T.green} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.green, lineHeight: 1.45 }}>
-          The clock resumes with <b>{plFmtH(t.slaH)}</b> remaining — the time it was held for is not counted against the insurer.
+          The clock resumes with <b>{plFmtH(t.slaH)}</b> remaining - the time it was held for is not counted against the insurer.
         </span>
       </div>
     </PlModal>
@@ -10810,7 +10767,7 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
 
 /* ---------- scratch_pl_tabs2.jsx ---------- */
 /* ================================================================== *
- *  BimaPlacement — Quotes / QCR / Negotiation / Activity tabs, ported
+ *  BimaPlacement - Quotes / QCR / Negotiation / Activity tabs, ported
  *  into the sister design system. Behaviour is FROZEN (see
  *  FUNCTIONAL-CONTRACT.md); only symbol names and visual primitives are
  *  remapped. Pl-/PL_-namespaced. Domain data, pure functions, api,
@@ -10819,7 +10776,7 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
  * ================================================================== */
 
 /* ------------------------------ Quotes tab -------------------------------- */
-/* PL_DECISION_CHIP is defined in the domain layer — referenced only. */
+/* PL_DECISION_CHIP is defined in the domain layer - referenced only. */
 
 function PlQuotesTab({ c, api }) {
   const all = c.quotes.filter((q) => q.rfqV === c.activeRfq);
@@ -10834,7 +10791,7 @@ function PlQuotesTab({ c, api }) {
 
   return (
     <div className="flex gap-3 items-start">
-      {/* quotes received, grouped by insurer — one insurer counts once */}
+      {/* quotes received, grouped by insurer - one insurer counts once */}
       <div className="shrink-0 space-y-3" style={{ width: 244 }}>
         <PlCard alt>
           <PlUsableMeter count={plUsableCount(c)} />
@@ -10884,7 +10841,7 @@ function PlQuotesTab({ c, api }) {
   );
 }
 
-/* §12 — verification workspace. Document on the left, extracted values on the
+/* §12 - verification workspace. Document on the left, extracted values on the
    right, and the decision at the bottom. Received is not the same as usable. */
 function PlQuoteWorkspace({ c, q, api }) {
   const [edit, setEdit] = useState(null);
@@ -10912,7 +10869,7 @@ function PlQuoteWorkspace({ c, q, api }) {
             <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{PL_PRODUCTS[q.product]} · received {q.receivedAt}</div>
           </div>
           <span className="flex-1" />
-          {premium && <PlMono size={14} color={PL_T.ink} weight={650}>{plFmtVal(premium) || "—"}</PlMono>}
+          {premium && <PlMono size={14} color={PL_T.ink} weight={650}>{plFmtVal(premium) || "-"}</PlMono>}
           {premium && Number(premium.value) > 0 && (() => {
             const tf = plTargetFlag(c, Number(premium.value));
             return <PlChip size="xs" tone={tf.tone}>{tf.label}</PlChip>;
@@ -10923,7 +10880,7 @@ function PlQuoteWorkspace({ c, q, api }) {
         </div>
 
         <div className="flex items-start" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          {/* left — the original document */}
+          {/* left - the original document */}
           <div style={{ width: 340, borderRight: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
             <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
               <FileText size={12} color={PL_T.ink3} />
@@ -10938,7 +10895,7 @@ function PlQuoteWorkspace({ c, q, api }) {
               <div className="rounded-lg mx-auto px-4 py-5"
                 style={{ background: PL_T.card, border: `1px solid ${PL_T.border}`, width: `${zoom}%`, maxWidth: "100%", minHeight: 300 }}>
                 <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>{PL_INSURERS[q.insurerId].name.toUpperCase()}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>Quotation — {PL_PRODUCTS[q.product]}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>Quotation - {PL_PRODUCTS[q.product]}</div>
                 <div style={{ fontSize: 10.5, color: PL_T.ink3 }}>{c.client.name} · page {page} of {pages}</div>
                 <div className="mt-3 space-y-1.5">
                   {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).length === 0 && (
@@ -10954,7 +10911,7 @@ function PlQuoteWorkspace({ c, q, api }) {
                           border: `1px solid ${blank ? PL_T.redLine : f.confidence === "low" ? PL_T.orangeLine : "transparent"}` }}>
                         <div style={{ fontSize: 9.5, color: PL_T.ink3 }}>{f.label}</div>
                         <div style={{ fontSize: 11, color: blank ? PL_T.red : PL_T.ink, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
-                          {blank ? "— left blank in the document —" : plFmtVal({ ...f, value: f.extracted !== undefined ? f.extracted : f.value })}
+                          {blank ? "- left blank in the document -" : plFmtVal({ ...f, value: f.extracted !== undefined ? f.extracted : f.value })}
                         </div>
                       </div>
                     );
@@ -10973,7 +10930,7 @@ function PlQuoteWorkspace({ c, q, api }) {
             </div>
           </div>
 
-          {/* right — what was extracted, and what you changed */}
+          {/* right - what was extracted, and what you changed */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 px-4 py-2" style={{ background: PL_T.cardAlt, borderBottom: `1px solid ${PL_T.border}` }}>
               <PlLabel>Extracted quote information</PlLabel>
@@ -11001,7 +10958,7 @@ function PlQuoteWorkspace({ c, q, api }) {
                             <PlInput value={draft} onChange={setDraft} mono={f.kind === "money"} />
                             <PlBtn size="sm" variant="primary" onClick={() => {
                               api.editField(c.id, q.id, f.key, f.kind === "money" ? Number(draft.replace(/[^\d]/g, "")) || draft : draft);
-                              api.say("Correction saved — the extracted value is kept"); setEdit(null);
+                              api.say("Correction saved - the extracted value is kept"); setEdit(null);
                             }}>Save</PlBtn>
                             <PlBtn size="sm" variant="ghost" onClick={() => setEdit(null)}>Cancel</PlBtn>
                           </div>
@@ -11015,7 +10972,7 @@ function PlQuoteWorkspace({ c, q, api }) {
                                   {blank ? "Missing from document" : plFmtVal(f)}
                                 </span>
                               </span>
-                              {suspect && <span className="block" style={{ fontSize: 10.5, color: PL_T.orange }}>Potential extraction issue — check the document</span>}
+                              {suspect && <span className="block" style={{ fontSize: 10.5, color: PL_T.orange }}>Potential extraction issue - check the document</span>}
                               {f.correctedBy && (
                                 <span className="block" style={{ fontSize: 10.5, color: PL_T.ink3 }}>
                                   Extracted: {f.kind === "money" ? plInr(f.extracted) : (String(f.extracted).trim() || "blank")} · corrected by {f.correctedBy}
@@ -11047,7 +11004,7 @@ function PlQuoteWorkspace({ c, q, api }) {
                   <AlertTriangle size={12} color={PL_T.red} />
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.red }}>Unresolved material information</span>
                 </div>
-                {gaps.map((g, i) => <div key={i} style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>— {g}</div>)}
+                {gaps.map((g, i) => <div key={i} style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>- {g}</div>)}
                 <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-1">This quote cannot be marked usable until these are closed.</div>
               </div>
             )}
@@ -11089,7 +11046,7 @@ function PlQuoteClarifyModal({ c, q, api, onClose }) {
   return (
     <PlModal title="Send clarification to insurer" subtitle={`${PL_INSURERS[q.insurerId].name} · ${q.doc}`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Send} onClick={() => { api.decideQuote(c.id, q.id, "clarification", "Clarification sent to insurer"); api.say("Clarification sent — quote does not count until resolved"); onClose(); }}>
+        <PlBtn variant="primary" icon={Send} onClick={() => { api.decideQuote(c.id, q.id, "clarification", "Clarification sent to insurer"); api.say("Clarification sent - quote does not count until resolved"); onClose(); }}>
           Send clarification
         </PlBtn></>}>
       <PlLabel>Message to the underwriting desk</PlLabel>
@@ -11114,7 +11071,7 @@ function PlQuoteExcludeModal({ c, q, api, onClose }) {
           onClick={() => { api.decideQuote(c.id, q.id, "excluded", reason); api.say("Quote excluded from the QCR"); onClose(); }}>
           Exclude quote
         </PlBtn></>}>
-      <PlLabel>Reason — recorded on the case audit trail</PlLabel>
+      <PlLabel>Reason - recorded on the case audit trail</PlLabel>
       <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
         {presets.map((p) => <PlBtn key={p} size="sm" variant={reason === p ? "primary" : "default"} onClick={() => setReason(p)}>{p}</PlBtn>)}
       </div>
@@ -11230,7 +11187,7 @@ function PlQcrTab({ c, api, goTo }) {
 
       {released && !c.outcome && !(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
         <PlSimBlock title="Simulate RM request for more quotes">
-          <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received — your decision is needed on Insurer Threads"); }}>
+          <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
             RM asks for more options
           </PlSimBtn>
         </PlSimBlock>
@@ -11240,7 +11197,7 @@ function PlQcrTab({ c, api, goTo }) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>RM requested more quotes</div>
-              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>“{c.rmMoreQuotes.reason}” — decide on Insurer Threads whether to restart or approach a market.</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>“{c.rmMoreQuotes.reason}” - decide on Insurer Threads whether to restart or approach a market.</div>
             </div>
             <PlBtn size="sm" variant="primary" icon={ArrowRight} onClick={() => goTo && goTo("market")}>Go to Insurer Threads</PlBtn>
           </div>
@@ -11255,13 +11212,13 @@ function PlQcrTab({ c, api, goTo }) {
           </div>
           <div className="grid grid-cols-2 gap-2 mt-3">
             {[
-              { k: "quote_selected", label: "Quote selected", sub: "Client picked a market — hand off to issuance", tone: "green" },
+              { k: "quote_selected", label: "Quote selected", sub: "Client picked a market - hand off to issuance", tone: "green" },
               { k: "negotiation", label: "Negotiation", sub: "Client wants improved terms before deciding", tone: "orange" },
               { k: "more_quotes", label: "Request more quotes", sub: "Reopen the market and restart follow-ups", tone: "purple" },
               { k: "rfq_v2", label: "Requirement change", sub: `Create RFQ V${c.activeRfq + 1} and re-approach the market`, tone: "purple" },
               { k: "lost", label: "Lost", sub: "Client placed elsewhere or withdrew", tone: "red" },
               { k: "unable_to_place", label: "Unable to place", sub: "No market available on this structure", tone: "red" },
-              { k: "cancelled_inactivity", label: "Cancelled — inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
+              { k: "cancelled_inactivity", label: "Cancelled - inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
             ].map((o) => (
               <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg border px-3 py-2.5"
                 style={{ borderColor: PL_T.border, background: PL_T.card }}>
@@ -11295,7 +11252,7 @@ function PlQcrDocument({ c, qcr, locked }) {
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
         <div>
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report — V{qcr.v}</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report - V{qcr.v}</span>
             {locked ? <PlChip tone="green" dot><Lock size={9} /> Released and locked</PlChip> : <PlChip tone="purple" dot>Draft</PlChip>}
           </div>
           <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-0.5">
@@ -11345,7 +11302,7 @@ function PlQcrDocument({ c, qcr, locked }) {
                   const f = q.fields.find((x) => x.key === L.key);
                   return (
                     <td key={q.id} className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, fontFamily: f?.kind === "money" ? PL_MONO : FONT, verticalAlign: "top" }}>
-                      {f ? (plFmtVal(f) || "—") : "—"}
+                      {f ? (plFmtVal(f) || "-") : "-"}
                     </td>
                   );
                 })}
@@ -11358,7 +11315,7 @@ function PlQcrDocument({ c, qcr, locked }) {
       <div className="px-4 py-2.5 flex gap-2" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
         <Info size={12.5} color={PL_T.ink3} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }}>
-          Terms are shown as quoted. This report does not rank the quotes or identify a preferred market — the choice sits
+          Terms are shown as quoted. This report does not rank the quotes or identify a preferred market - the choice sits
           with the client, advised by the RM.
         </span>
       </div>
@@ -11381,7 +11338,7 @@ function PlEarlyReleaseModal({ c, api, onClose }) {
           <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{c.urgentReason}</div>
         </div>
       )}
-      <PlLabel>Reason for releasing early — mandatory</PlLabel>
+      <PlLabel>Reason for releasing early - mandatory</PlLabel>
       <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3}
         placeholder="Explain why the client is better served by seeing fewer quotes now than by waiting" /></div>
       <div className="mt-2" style={{ fontSize: 11, color: PL_T.ink3 }}>
@@ -11393,7 +11350,7 @@ function PlEarlyReleaseModal({ c, api, onClose }) {
 
 function PlSendQcrModal({ c, qcr, api, onClose }) {
   const [note, setNote] = useState(
-    `Hi ${c.client.rm.split(" ")[0]}, comparison for ${c.client.name} is attached. All terms are as quoted and none of the markets have been ranked — happy to walk ${c.client.spoc.split(",")[0]} through the differences if useful.`);
+    `Hi ${c.client.rm.split(" ")[0]}, comparison for ${c.client.name} is attached. All terms are as quoted and none of the markets have been ranked - happy to walk ${c.client.spoc.split(",")[0]} through the differences if useful.`);
   const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
   return (
     <PlModal title={`Send QCR V${qcr.v} to RM`} subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose} wide
@@ -11405,8 +11362,8 @@ function PlSendQcrModal({ c, qcr, api, onClose }) {
       <div className="mt-1.5 mb-4 space-y-1">
         {usable.map((q) => (
           <div key={q.id} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
-            <span style={{ fontSize: 12.5 }}>{PL_INSURERS[q.insurerId].name} — {PL_PRODUCTS[q.product]} v{q.version}</span>
-            <PlMono size={11.5}>{plFmtVal(q.fields.find((f) => f.key === "premium")) || "—"}</PlMono>
+            <span style={{ fontSize: 12.5 }}>{PL_INSURERS[q.insurerId].name} - {PL_PRODUCTS[q.product]} v{q.version}</span>
+            <PlMono size={11.5}>{plFmtVal(q.fields.find((f) => f.key === "premium")) || "-"}</PlMono>
           </div>
         ))}
       </div>
@@ -11415,7 +11372,7 @@ function PlSendQcrModal({ c, qcr, api, onClose }) {
       <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.purpleSoft, border: `1px solid ${PL_T.purpleLine}` }}>
         <Lock size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>
-          QCR V{qcr.v} locks on send. Later quotes cannot be added to it — they would need QCR V{qcr.v + 1}, which only you can create.
+          QCR V{qcr.v} locks on send. Later quotes cannot be added to it - they would need QCR V{qcr.v + 1}, which only you can create.
         </span>
       </div>
     </PlModal>
@@ -11465,7 +11422,7 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
   const [detail, setDetail] = useState("");
   const [picked2, setPicked2] = useState([]);
   const taxed = ["negotiation", "rfq_v2", "lost"].includes(kind);
-  const fullReason = () => [broad, detail].filter(Boolean).join(" — ") + (reason.trim() ? ` · ${reason.trim()}` : "");
+  const fullReason = () => [broad, detail].filter(Boolean).join(" - ") + (reason.trim() ? ` · ${reason.trim()}` : "");
   const [asks, setAsks] = useState(usable.map((id) => ({ insurerId: id, ask: "", status: "awaiting", response: null })));
 
   const meta = {
@@ -11475,11 +11432,11 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
     rfq_v2: { title: `Create RFQ V${c.activeRfq + 1}`, cta: "Create new version", tone: "primary" },
     lost: { title: "Close as lost", cta: "Close case", tone: "danger" },
     unable_to_place: { title: "Close as unable to place", cta: "Close case", tone: "danger" },
-    cancelled_inactivity: { title: "Close as cancelled — inactivity", cta: "Close case", tone: "danger" },
+    cancelled_inactivity: { title: "Close as cancelled - inactivity", cta: "Close case", tone: "danger" },
   }[kind];
 
   const run = () => {
-    if (kind === "quote_selected") { api.selectQuote(c.id, pick, reason || "Client selected these terms."); api.say("Selection recorded — handed off to RM / Policy Journey"); }
+    if (kind === "quote_selected") { api.selectQuote(c.id, pick, reason || "Client selected these terms."); api.say("Selection recorded - handed off to RM / Policy Journey"); }
     else if (kind === "negotiation") { api.openNegotiation(c.id, asks.filter((a) => a.ask.trim()), fullReason()); api.say("Negotiation round opened"); }
     else if (kind === "more_quotes") { api.restartThreads(c.id, picked2, reason.trim()); api.say(`${picked2.length} thread${picked2.length === 1 ? "" : "s"} restarted`); }
     else if (kind === "rfq_v2") { api.newRfqVersion(c.id, fullReason()); api.say(`RFQ V${c.activeRfq + 1} created`); }
@@ -11563,7 +11520,7 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
 
       {["lost", "unable_to_place", "cancelled_inactivity"].includes(kind) && (
         <>
-          <PlLabel>Reason — mandatory, kept on the record</PlLabel>
+          <PlLabel>Reason - mandatory, kept on the record</PlLabel>
           <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={4} /></div>
         </>
       )}
@@ -11593,8 +11550,8 @@ function PlNegotiationTab({ c, api }) {
   const latest = c.negotiations[c.negotiations.length - 1];
   const responded = latest.items.some((it) => it.status !== "awaiting");
   const canFinal = !c.outcome && !latest.final && latest.status !== "draft" && (latest.status === "closed" || responded);
-  const statusText = latest.status === "draft" ? "Draft — not sent"
-    : latest.final ? (latest.status === "open" ? "Final Revision Requested" : "Final revision — closed")
+  const statusText = latest.status === "draft" ? "Draft - not sent"
+    : latest.final ? (latest.status === "open" ? "Final Revision Requested" : "Final revision - closed")
     : latest.status === "open" ? "Awaiting insurer response" : "Closed";
   const shown = history ? [...c.negotiations].reverse() : [latest];
 
@@ -11610,9 +11567,9 @@ function PlNegotiationTab({ c, api }) {
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mt-2.5" style={{ maxWidth: 560 }}>
               <PlKV k="Latest request" v={latest.brief} />
-              <PlKV k="Expected response" v={latest.status === "draft" ? "— not sent yet" : latest.status === "open" ? `${PL_SLA_MASTER["SLA-16"].target} from ${latest.sentAt || latest.openedAt}` : latest.closedAt ? `Closed ${latest.closedAt}` : "—"} />
+              <PlKV k="Expected response" v={latest.status === "draft" ? "- not sent yet" : latest.status === "open" ? `${PL_SLA_MASTER["SLA-16"].target} from ${latest.sentAt || latest.openedAt}` : latest.closedAt ? `Closed ${latest.closedAt}` : "-"} />
               <PlKV k="Insurers" v={latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")} />
-              <PlKV k="SLA owner" v={latest.status === "draft" ? PL_SLA_MASTER["SLA-15"].owner : latest.status === "open" ? PL_SLA_MASTER["SLA-16"].owner : "—"} />
+              <PlKV k="SLA owner" v={latest.status === "draft" ? PL_SLA_MASTER["SLA-15"].owner : latest.status === "open" ? PL_SLA_MASTER["SLA-16"].owner : "-"} />
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -11634,8 +11591,8 @@ function PlNegotiationTab({ c, api }) {
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: 12.5, fontWeight: 600 }}>Round {n.round}</span>
                 <PlChip tone={n.status === "open" ? "orange" : n.status === "draft" ? "purple" : "neutral"} dot>
-                  {n.final ? (n.status === "open" ? "Final Revision Requested" : "Final revision — closed")
-                    : n.status === "open" ? "Sent — awaiting insurer" : n.status === "draft" ? "Draft — not sent" : "Closed"}
+                  {n.final ? (n.status === "open" ? "Final Revision Requested" : "Final revision - closed")
+                    : n.status === "open" ? "Sent - awaiting insurer" : n.status === "draft" ? "Draft - not sent" : "Closed"}
                 </PlChip>
               </div>
               <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">{n.brief}</div>
@@ -11668,7 +11625,7 @@ function PlNegotiationTab({ c, api }) {
                     return cur ? (
                       <div className="mt-1 flex items-center gap-3">
                         <span style={{ fontSize: 11, color: PL_T.ink3 }}>Current</span>
-                        <PlMono size={12} color={PL_T.ink} weight={600}>{prem ? plFmtVal(prem) : "—"}</PlMono>
+                        <PlMono size={12} color={PL_T.ink} weight={600}>{prem ? plFmtVal(prem) : "-"}</PlMono>
                         <PlChip size="xs" mono>Quote V{cur.version}</PlChip>
                       </div>
                     ) : null;
@@ -11690,7 +11647,7 @@ function PlNegotiationTab({ c, api }) {
                 {n.status === "open" && it.status === "awaiting" && (
                   <div className="shrink-0" style={{ width: 236 }}>
                     <PlSimBlock title="Simulate negotiation response">
-                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "improved", "Terms improved as requested. Revised quote attached."); api.say("Revised terms received — Quote V2 created"); }}>
+                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "improved", "Terms improved as requested. Revised quote attached."); api.say("Revised terms received - Quote V2 created"); }}>
                         Improved terms
                       </PlSimBtn>
                       <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "declined", "Cannot improve at this risk profile. Terms stand."); api.say("Insurer held terms"); }}>
@@ -11710,14 +11667,14 @@ function PlNegotiationTab({ c, api }) {
       {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
       {finalOpen && <PlFinalRevisionModal c={c} api={api} onClose={() => setFinalOpen(false)} />}
       {draft && (
-        <PlModal title={`Draft — round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
+        <PlModal title={`Draft - round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
           footer={<><PlBtn onClick={() => setDraft(null)}>Close</PlBtn>
             <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
           <div className="space-y-3">
             {draft.items.map((it) => (
               <div key={it.insurerId} className="rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
                 <PlMono size={10.5} color={PL_T.ink3}>To: {plPocOf(c, it.insurerId)} · {PL_INSURERS[it.insurerId].name}</PlMono>
-                <div style={{ fontSize: 12, fontWeight: 600 }} className="mt-1">Reconsideration request: [{c.id}] {c.client.name} — {c.products.map((p) => PL_PRODUCTS[p]).join(", ")}</div>
+                <div style={{ fontSize: 12, fontWeight: 600 }} className="mt-1">Reconsideration request: [{c.id}] {c.client.name} - {c.products.map((p) => PL_PRODUCTS[p]).join(", ")}</div>
                 <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6 }} className="mt-1.5">
                   Dear {plPocOf(c, it.insurerId).split(" ")[0]}, the client has requested improved commercial terms. Please reconsider and share your best revised quotation.
                   Current feedback: {it.ask} Any revised quote will be stored as a new quote version. Regards, {PL_ME.name}.
@@ -11747,7 +11704,7 @@ function PlFinalRevisionModal({ c, api, onClose }) {
         </PlBtn></>}>
       <PlLabel>Reason</PlLabel>
       <div className="mt-1.5 mb-3"><PlSelect value={reason} onChange={setReason} options={PL_FINAL_REASONS} /></div>
-      <PlLabel>Comment (optional{reason === "Other" ? " — required for Other" : ""})</PlLabel>
+      <PlLabel>Comment (optional{reason === "Other" ? " - required for Other" : ""})</PlLabel>
       <div className="mt-1.5"><PlTextArea value={comment} onChange={setComment} rows={3} placeholder="Anything the insurer needs to know for this last pass." /></div>
       <div className="mt-3" style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.5 }}>
         One final ask to the same insurers on this round. Their reply arrives as the next Quote Version, reviewed on the Quotes tab.
@@ -11793,13 +11750,108 @@ function PlActivityTab({ c }) {
    The reference App's state + routing, rehosted in the sister shell (shared
    Sidebar + rounded white panel). The api factory (makePlacementApi) and the
    domain selectors/data come from the ported domain layer. */
-const PL_NAV = [
-  ["home", "Home", HomeIcon],
-  ["cases", "My Cases", Briefcase],
-  ["inbox", "My Inbox", Inbox],
-  ["manual", "Manual Review", ClipboardCheck],
-  ["master", "Insurer Master", Building2],
-  ["reports", "Reports", BarChart3],
+/* Nav is built per-user: the same sidebar icons as the sister environments,
+   My Inbox is hidden for now, and Insurer Master is the Placement Head's
+   (Himani) - the executive (Salvi) never sees it. */
+/* Power search - the sister-environment search lightbox, adapted to cases. Empty
+   it shows recent cases; typed, it filters across the active scopes and
+   highlights the match. No index - it reads the live case list. */
+function PlSearchCard({ c, q, onOpen }) {
+  const sla = plCurrentSla(c);
+  const product = PL_PRODUCTS[c.products[0]] || c.products[0];
+  return (
+    <div className="flex flex-col border p-4" style={{ borderColor: C.subtle, borderRadius: 16, background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 55%)` }}>
+      <div className="mb-4 flex justify-end"><Indicator status big label={plStageLabel(c)} ind={plStageInd(c)} /></div>
+      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}><Highlight text={c.id} q={q} /></div>
+      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
+        <span className="truncate"><Highlight text={c.client.name} q={q} /></span>
+      </div>
+      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}><Highlight text={product} q={q} /></div>
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <Indicator thick label={c.meta.caseType} ind="neutral" />
+        <Indicator thick label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} />
+      </div>
+      <div className="mt-4 flex items-center gap-1">
+        <Clock size={14} className="shrink-0" style={{ color: C.figHint }} />
+        <PlSlaCell sla={sla} />
+      </div>
+      <button onClick={onOpen} className="bk-btn bk-btn-secondary mt-4 flex items-center justify-between rounded-xl border px-4 py-3"
+        style={{ borderColor: C.subtle, background: C.white, fontSize: 14, fontWeight: 600, color: C.figInk }}>
+        <span>Take Action</span><ArrowRight size={14} style={{ color: C.figInk }} />
+      </button>
+    </div>
+  );
+}
+
+const PL_SEARCH_SCOPES = ["Cases", "Clients", "Insurers"];
+function PlSearchModal({ open, onClose, cases, onOpen }) {
+  const [q, setQ] = useState("");
+  const [scopes, setScopes] = useState(PL_SEARCH_SCOPES);
+  useEffect(() => { if (open) { setQ(""); setScopes(PL_SEARCH_SCOPES); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [open, onClose]);
+  if (!open) return null;
+
+  const active = new Set(scopes);
+  const ql = q.trim().toLowerCase();
+  const matches = (c) => {
+    const fields = [];
+    if (active.has("Cases")) fields.push(c.id, plStageLabel(c), c.meta.caseType, ...c.products.map((p) => PL_PRODUCTS[p] || p));
+    if (active.has("Clients")) fields.push(c.client.name, c.client.rm, c.client.spoc);
+    if (active.has("Insurers")) fields.push(...c.threads.map((t) => PL_INSURERS[t.insurerId]?.name), ...((c.panel && c.panel.selected) || []).map((id) => PL_INSURERS[id]?.name));
+    return fields.some((v) => String(v || "").toLowerCase().includes(ql));
+  };
+  const list = ql ? cases.filter(matches)
+    : [...cases].sort((a, b) => (a.stage === "closed" ? 1 : 0) - (b.stage === "closed" ? 1 : 0)).slice(0, 3);
+
+  return createPortal(
+    <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center p-6"
+      style={{ background: "rgba(28,27,31,0.32)", backdropFilter: "blur(2px)", fontFamily: FONT, color: C.ink }} onClick={onClose}>
+      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl"
+        style={{ background: C.white, boxShadow: "0 24px 60px rgba(28,27,31,0.24)", maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
+        <div className="p-6">
+          <div className="flex items-center gap-2 rounded-xl border px-4 py-3" style={{ borderColor: C.subtle }}>
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="Search Cases, Clients, And Insurers"
+              className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 16, fontWeight: 500, color: q ? C.brand : C.figInk }} />
+            <button onClick={q ? () => setQ("") : onClose} className="bk-dim" title={q ? "Clear" : "Close"} style={{ color: C.figHint }}><X size={18} /></button>
+          </div>
+
+          <div className="mt-4" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Searching For</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {scopes.map((s) => (
+              <span key={s} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: C.subtle, fontSize: 13, fontWeight: 500, color: C.figInk }}>
+                {s}<button onClick={() => setScopes(scopes.filter((x) => x !== s))} className="bk-dim" style={{ color: C.figHint }}><X size={12} /></button>
+              </span>
+            ))}
+          </div>
+
+          <div className="my-4" style={{ height: 1, background: C.subtle }} aria-hidden />
+          <div style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{ql ? "Results" : "Recent Cases"}</div>
+          <div className="mt-3 grid gap-4 md:grid-cols-3">
+            {list.length
+              ? list.map((c) => <PlSearchCard key={c.id} c={c} q={q} onOpen={() => { onClose(); onOpen(c.id); }} />)
+              : <div className="md:col-span-3"><Empty>No cases match “{q.trim()}”.</Empty></div>}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+const plIsAdmin = (u) => u?.role === "Placement Head" || u?.first === "Himani";
+const plNavFor = (u) => [
+  ["home", "Home", HeartHandshake],
+  ["cases", "My Cases", ListChecks],
+  ["manual", "Manual Review", SquareDashedMousePointer],
+  ...(plIsAdmin(u) ? [["master", "Insurer Master", Building2]] : []),
+  ["reports", "Reports", TextSearch],
 ];
 
 function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
@@ -11810,6 +11862,10 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [reviewDone, setReviewDone] = useState({});
   const [role, setRole] = useState("Placement Manager");
   const [toast, setToast] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const navItems = useMemo(() => plNavFor(user), [user]);
+  /* Executive never lands on an admin-only screen even via a stale nav key. */
+  const navAllowed = (n) => navItems.some((x) => x[0] === n);
 
   const say = (msg, tone = "green") => { setToast({ msg, tone }); setTimeout(() => setToast(null), 3400); };
   const api = useMemo(() => makePlacementApi(setCases, say), []);   // stable across renders
@@ -11826,9 +11882,9 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
       <style>{GLOBAL_CSS}</style>
       <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
         style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
-        <Sidebar view={openCase ? "cases" : nav} go={go} mails={[]} openId={openId} openTicket={() => {}}
-          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut}
-          nav={PL_NAV} tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
+        <Sidebar view={openCase ? "cases" : navAllowed(nav) ? nav : "cases"} go={go} mails={[]} openId={openId} openTicket={() => {}}
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
+          nav={navItems} tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
             {openCase
@@ -11837,9 +11893,9 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
               : nav === "manual" ? <PlManualScreen cases={cases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
               : (
                 <div className="px-6 py-6">
-                  {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} />
+                  {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} user={user} />
                     : nav === "inbox" ? <PlInboxScreen cases={cases} onOpen={openCaseAt} />
-                      : nav === "master" ? <PlMasterScreen role={role} />
+                      : (nav === "master" && navAllowed("master")) ? <PlMasterScreen role={role} />
                         : <PlReportsScreen cases={cases} />}
                 </div>
               )}
@@ -11856,6 +11912,9 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
           </div>
         )}
       </div>
+
+      <PlSearchModal open={searchOpen} onClose={() => setSearchOpen(false)}
+        cases={cases} onOpen={(id) => { setSearchOpen(false); openCaseAt(id); }} />
     </div>
   );
 }
@@ -11865,7 +11924,7 @@ export default function App() {
   const [authed, setAuthed] = useState(!!bootSess);
   const [user, setUser] = useState(bootSess?.user || null);
   const [env, setEnv] = useState(bootSess?.env || null);   /* the tool the current session entered (a TOOLS key) */
-  const [collapsed, setCollapsed] = useState(true);        /* Collapsed by default; React state — no browser storage */
+  const [collapsed, setCollapsed] = useState(true);        /* Collapsed by default; React state - no browser storage */
 
   useAnek();
   useSquircle();
@@ -11887,12 +11946,12 @@ export default function App() {
     );
   }
 
-  /* Claims — the second built environment. */
+  /* Claims - the second built environment. */
   if (env === "BimaClaim") {
     return <ClaimsApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
   }
 
-  /* Placement — the third built environment (Placement Manager Workbench). */
+  /* Placement - the third built environment (Placement Manager Workbench). */
   if (env === "BimaPlacement") {
     return <PlacementApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
   }
@@ -11932,7 +11991,7 @@ export default function App() {
                   style={{ padding: "16px 28px", borderRadius: 16, border: `0.5px solid ${C.subtle}`, background: C.white, fontSize: 16, fontWeight: 600, color: C.figInk }}>
                   Back to Login
                 </button>
-                {/* Offer a built environment only if this user actually holds one —
+                {/* Offer a built environment only if this user actually holds one -
                     a Placement-only executive (Salvi/Himani) has nowhere else to go. */}
                 {(user?.envs || []).filter((e) => e !== env && TOOLS[e]?.built).slice(0, 1).map((e) => (
                   <button key={e} onClick={() => setEnv(e)} className="bk-uc-btn bk-uc-primary leading-none"
