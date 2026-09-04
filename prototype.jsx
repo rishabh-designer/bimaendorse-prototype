@@ -9609,6 +9609,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
       <div className="mb-4" style={{ borderBottom: `1px solid ${C.subtle}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
+        {/* The action rail sits on the LEFT of every tab, matching the sister
+            envs' SlaCard placement. Constant across tabs. */}
+        <PlRightRail c={c} api={api} goTo={setTab} />
         <div className="flex-1 min-w-0">
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
           {tab === "summary" && <div className="space-y-3"><PlRfqSummaryCard c={c} /></div>}
@@ -9621,9 +9624,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
-        {/* The action rail sits on the RIGHT of every tab so multi-column tabs
-            (Quotes, QCR) get the full leftward width. Constant across tabs. */}
-        <PlRightRail c={c} api={api} goTo={setTab} />
       </div>
     </div>
   );
