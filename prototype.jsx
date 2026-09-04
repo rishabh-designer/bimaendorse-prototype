@@ -7517,6 +7517,16 @@ const PL_FIELDSETS = {
     plQf("addons", "Add-on covers", p.addons, { page: "p.3" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
+  "D&O": (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.2" }),
+    plQf("si", "Limit of indemnity (AOY)", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("retention", "Retention / deductible", p.retention, { required: true, material: true, kind: "money", page: "p.2" }),
+    plQf("basis", "Cover basis", p.basis, { required: true, page: "p.2" }),
+    plQf("extensions", "Key extensions", p.extensions, { page: "p.3" }),
+    plQf("territory", "Territory & jurisdiction", p.territory, { required: true, page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+    plQf("exclusions", "Key exclusions", p.exclusions, { page: "p.4" }),
+  ],
 };
 
 let PL_QID = 100;
@@ -8035,6 +8045,61 @@ const PL_SEED_C = [
       plAu("31 Aug, 10:06", "System", "System", "RFQ extraction complete", "All mandatory GMC fields present · classification consistent"),
     ],
   },
+  /* 10 ── Happy Path Demo: a clean Fresh D&O case with nothing to trip over.
+     First-time D&O buyer (Series C SaaS), complete RFQ, confirmed classification,
+     four D&O markets that all write the risk, realistic differing quotes. */
+  {
+    id: "PC-1033", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
+    client: { name: "Neurastack Technologies Pvt Ltd", industry: "IT/ITES - enterprise SaaS", city: "Bengaluru, KA", headcount: 420, turnover: "₹185 Cr", spoc: "Meera Iyer, CFO", rm: "Aditya Menon" },
+    products: ["D&O"], receivedAt: "01 Sep, 11:20", renewal: "05 Nov 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "in_review", createdAt: "01 Sep, 11:20",
+      sections: [
+        { product: "D&O", si: "₹5 Cr aggregate (AOY)", detail: [
+          ["Company type", "Unlisted Pvt Ltd - Series C funded"],
+          ["Board composition", "7 directors (2 founder, 3 investor nominee, 2 independent)"],
+          ["Foreign exposure", "US subsidiary (Delaware) - excluded from cover"],
+          ["Retention sought", "₹5,00,000 per claim"],
+          ["Cover basis sought", "Claims-made with 30-day discovery"],
+          ["Prior policy", "None - first-time D&O buyer"],
+          ["Claims history", "Nil - no notified circumstances"],
+        ] },
+      ],
+      classification: {
+        rmEntered: "Computer programming, consultancy and related activities (NIC 6201)",
+        suggested: "Computer programming, consultancy and related activities (NIC 6201)",
+        flagged: false, confirmed: null,
+        basis: ["Enterprise SaaS platform for supply-chain analytics.", "Revenue from software subscriptions, no hardware or consulting resale."],
+        impact: "Classification is consistent across sources. Confirming it lets the D&O appetite match on the specialty desks.",
+      },
+      missing: [],
+      rmThread: [],
+    }],
+    panel: { locked: false, selected: [], excluded: [] },
+    recommend: [
+      { id: "tata",    reasons: ["Preferred market for D&O on unlisted companies.", "Specialty desk writes VC-backed tech on standard wordings."] },
+      { id: "hdfc",    reasons: ["Active appetite for first-time D&O buyers with clean claims history.", "Accepts Delaware-subsidiary exclusion without referral."] },
+      { id: "icici",   reasons: ["Writes D&O for IT/ITES in the ₹100-500 Cr turnover band.", "Bengaluru corporate desk owns the relationship."] },
+      { id: "bajaj",   reasons: ["Writes D&O on tech risks up to ₹10 Cr limit without reinsurer referral.", "Standard 30-day discovery on the primary form."] },
+    ],
+    notRecommended: [
+      { id: "liberty",  reasons: ["Requires 2-year audited financials with foreign-subsidiary carve-out; not on file yet."] },
+      { id: "care",     reasons: ["Health-only market; no D&O appetite."] },
+    ],
+    demoQuotes: {
+      tata:  { premium: 380000, si: 50000000, retention: 500000, basis: "Claims-made, 30-day discovery",  extensions: "Side A/B/C, entity cover, investigations, outside directorships", territory: "Worldwide excl. USA / Canada", validity: "30 days", exclusions: "Bodily injury, property damage, prior/pending litigation, US securities claims" },
+      hdfc:  { premium: 410000, si: 50000000, retention: 500000, basis: "Claims-made, 60-day discovery",  extensions: "Side A/B/C, entity cover, employment practices, investigations, extradition costs", territory: "Worldwide excl. USA / Canada", validity: "30 days", exclusions: "Bodily injury, property damage, prior/pending litigation, insured-vs-insured" },
+      icici: { premium: 440000, si: 50000000, retention: 750000, basis: "Claims-made, 30-day discovery",  extensions: "Side A/B/C, entity cover, investigations", territory: "Worldwide excl. USA / Canada", validity: "30 days", exclusions: "Bodily injury, property damage, prior/pending litigation, pollution" },
+      bajaj: { premium: 490000, si: 50000000, retention: 500000, basis: "Claims-made, 90-day discovery",  extensions: "Side A/B/C, entity cover, cyber D&O overlap, investigations, outside directorships", territory: "Worldwide excl. USA / Canada", validity: "45 days", exclusions: "Bodily injury, property damage, prior/pending litigation" },
+    },
+    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("01 Sep, 11:20", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section · web form"),
+      plAu("01 Sep, 11:21", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("01 Sep, 11:21", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
+    ],
+  },
 ];
 
 /* Case type, mandates and Target Premium (decision support only).
@@ -8048,6 +8113,7 @@ const PL_CASE_META = {
   "PC-1029": { slaLeftMins: 74, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
   "PC-1030": { slaLeftMins: null, caseType: "Fresh", urgency: "High", targetPremium: 1800000, mandate: null, incumbent: null },
   "PC-1032": { slaLeftMins: 55, caseType: "Fresh", urgency: "Medium", targetPremium: 2900000, mandate: null, incumbent: null },
+  "PC-1033": { slaLeftMins: 48, caseType: "Fresh", urgency: "Medium", targetPremium: 450000, mandate: null, incumbent: null },
   "PC-1031": { slaLeftMins: null, caseType: "Fresh", urgency: "Medium", targetPremium: 3600000, mandate: { type: "Exclusive Placement Mandate", ref: "MND-1031-E", note: "RM + Placement jointly approved the selected option." }, incumbent: null },
 };
 
@@ -9400,10 +9466,114 @@ function PlStageRail({ stage, outcome }) {
   );
 }
 
+/* Ticket Stage Timeline card - the case's current SLA at a glance.
+   Mirrors the sister-env SlaCard visually (white to state-tinted gradient,
+   3px remaining/red-track bar, big head text, owner pill on the right).
+   Placement is a minute-counter world so the due line reads relative time,
+   not wall time. Owner monogram uses Anek italic - Placement is
+   Anek-only, no Instrument Serif in this env. */
+function PlTicketStageTimeline({ c }) {
+  const sla = plCurrentSla(c);
+  const noClock = !sla;
+  const breached = !!sla && !!sla.breached;
+  const totalMins = sla ? sla.mins : 0;
+  const remaining = sla ? sla.remaining : 0;
+  const usedMins = Math.max(0, totalMins - remaining);
+  const atRisk = !!sla && !breached && remaining > 0 && remaining <= totalMins * 0.2;
+
+  const sk = noClock
+    ? { grad: PL_T.card,  border: PL_T.border,   head: PL_T.ink3, remain: PL_T.border, meta: PL_T.ink3, track: PL_T.border }
+    : breached
+      ? { grad: "#FFECEC", border: "#FFABAB", head: "#CF0000", remain: "#F10000", meta: "#CF0000", track: "#F10000" }
+      : atRisk
+        ? { grad: "#FFF9E6", border: "#FFE890", head: "#B38F0A", remain: "#FFCF0E", meta: "#B38F0A", track: "#F10000" }
+        : { grad: "#ECFBEA", border: "#A9EAA2", head: "#007B00", remain: "#00B200", meta: "#007B00", track: "#F10000" };
+
+  const remH = remaining / 60;
+  const head = noClock
+    ? (c.stage === "closed" ? "Clock stopped" : "No clock on this stage")
+    : breached
+      ? `${plFmtH(Math.abs(remH))} over`
+      : `${plFmtH(remH)} left`;
+
+  const owner = sla ? sla.owner : "";
+  const ownerShort = (
+    { "Placement Manager": "You",
+      "System / PM": "System",
+      "Insurers / Placement": "Insurers",
+      "RM / Client": "Client",
+      "Insurer": "Insurer",
+      "RM + Placement": "RM" }[owner] || owner
+  );
+  const ownerInitials = owner
+    .split(/[\s/+&]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const usedPct = breached ? 100 : Math.max(0, Math.min(100, (usedMins / Math.max(1, totalMins)) * 100));
+  const leftPct = Math.max(0, 100 - usedPct);
+
+  return (
+    <div style={{
+      background: `linear-gradient(180deg, #FFFFFF 50%, ${sk.grad} 100%)`,
+      border: `0.5px solid ${sk.border}`,
+      borderRadius: 12,
+      padding: "14px 16px 18px",
+    }}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1.2 }}>
+          Ticket Stage Timeline
+        </span>
+        {sla && (
+          <span className="flex items-center gap-1.5" title={`${sla.id} - ${sla.target}`}>
+            <span className="flex shrink-0 items-center justify-center rounded-full"
+              style={{ width: 20, height: 20, background: PL_T.purple, color: "#fff",
+                fontFamily: PL_MONO, fontStyle: "italic", fontSize: 11, fontWeight: 600, lineHeight: 1 }}>
+              {ownerInitials || "•"}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>{ownerShort}</span>
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: sk.head, marginTop: 4 }}>
+        {head}
+      </div>
+      {!noClock && (
+        <>
+          <div className="mt-2 overflow-hidden"
+            style={{ height: 3, borderRadius: 999, background: sk.track,
+              boxShadow: "0px 2px 8px 0px rgba(169,172,177,0.24)" }}>
+            <div style={{ height: "100%", background: sk.remain, width: `${leftPct}%`,
+              transition: "width .3s ease-out" }} />
+          </div>
+          <p className="mt-2" style={{ fontSize: 13.5, fontWeight: 500, color: PL_T.ink3 }}>
+            <span style={{ color: sk.meta }}>{sla.target}</span>
+            {` • ${plFmtH(Math.max(0, usedMins / 60))} elapsed`}
+          </p>
+          <div className="mt-1 flex items-start gap-1.5"
+            style={{ fontSize: 13.5, fontWeight: 500, color: PL_T.ink2 }}>
+            <Clock size={13} color={PL_T.ink} className="mt-0.5 shrink-0" strokeWidth={1.8} />
+            <span>
+              {breached
+                ? `Was due ${plFmtH(Math.abs(remH))} ago`
+                : `Due in ${plFmtH(remH)}`}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
   return (
     <div className="shrink-0 space-y-3" style={{ width: 268 }}>
+      <PlTicketStageTimeline c={c} />
+
       {na && (
         <PlCard style={{ borderColor: PL_TONES[na.tone].line, background: na.tone === "neutral" ? PL_T.card : PL_TONES[na.tone].bg }}>
           <PlLabel>Next action</PlLabel>
@@ -10858,54 +11028,58 @@ function PlQuotesTab({ c, api }) {
   const q = all.find((x) => x.id === sel) || all[0];
   const byInsurer = c.panel.selected.filter((id) => all.some((x) => x.insurerId === id));
 
+  /* Flatten insurers × their quotes into a single tab row. Revisions supersede,
+     so in the common case there is one live quote per insurer; when a
+     superseded quote survives, it sits alongside its replacement, muted. */
+  const tabs = byInsurer.flatMap((id) => {
+    const qs = all.filter((x) => x.insurerId === id);
+    const counted = qs.some((x) => x.decision === "usable");
+    return qs.map((x) => ({ id: x.id, insurerId: id, quote: x, counted }));
+  });
+
   return (
-    <div className="flex gap-3 items-start">
-      {/* quotes received, grouped by insurer - one insurer counts once */}
-      <div className="shrink-0 space-y-3" style={{ width: 244 }}>
-        <PlCard alt>
+    <div className="space-y-3">
+      {/* case-level usable meter + one-liner - kept out of the tab row so the
+          rule is visible even when the active quote's card is scrolled */}
+      <PlCard alt>
+        <div className="flex items-center gap-3">
           <PlUsableMeter count={plUsableCount(c)} />
-          <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }} className="mt-1.5">
+          <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }} className="flex-1 min-w-0">
             A quote counts only once you mark it usable, and only one quote per insurer counts. Revisions replace, they do not add.
           </div>
-        </PlCard>
+        </div>
+      </PlCard>
 
-        {byInsurer.map((id) => {
-          const qs = all.filter((x) => x.insurerId === id);
-          const counted = qs.some((x) => x.decision === "usable");
+      {/* insurer-quote tabs - one pill per quote, segmented and scrollable */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tabs.map((t) => {
+          const on = t.id === q.id;
+          const dead = t.quote.decision === "superseded";
+          const showVer = tabs.filter((x) => x.insurerId === t.insurerId).length > 1;
+          const statusTone = dead ? null
+            : t.quote.decision ? PL_DECISION_CHIP[t.quote.decision].tone
+              : "purple";
+          const dotColor = t.counted ? PL_T.green : statusTone ? PL_TONES[statusTone].fg : PL_T.ink3;
           return (
-            <PlCard key={id} pad={false}>
-              <div className="px-3 py-2 flex items-center gap-1.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{PL_INSURERS[id].name}</span>
-                <span className="flex-1" />
-                {counted ? <PlChip tone="green" size="xs" dot>Counts</PlChip> : <PlChip size="xs">Not counted</PlChip>}
-              </div>
-              {qs.map((x) => {
-                const on = x.id === q.id;
-                const dead = x.decision === "superseded";
-                return (
-                  <button key={x.id} onClick={() => setSel(x.id)} className="w-full text-left px-3 py-2"
-                    style={{ borderBottom: `1px solid ${PL_T.border}`, background: on ? PL_T.navActive : "transparent", opacity: dead ? 0.6 : 1 }}>
-                    <div className="flex items-center gap-1.5">
-                      <span style={{ fontSize: 11.5, fontWeight: 600, color: on ? PL_T.purple : PL_T.ink }}>
-                        {PL_PRODUCTS[x.product]} · Quote V{x.version}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                      {dead ? <PlChip size="xs">V{x.version} superseded</PlChip>
-                        : x.decision ? <PlChip size="xs" tone={PL_DECISION_CHIP[x.decision].tone} dot>{PL_DECISION_CHIP[x.decision].label}</PlChip>
-                          : <PlChip size="xs" tone="purple" dot>Awaiting decision</PlChip>}
-                    </div>
-                  </button>
-                );
-              })}
-            </PlCard>
+            <button key={t.id} onClick={() => setSel(t.id)} disabled={dead}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors"
+              style={{
+                background: on ? PL_T.purple : PL_T.card,
+                color: on ? "#fff" : PL_T.ink,
+                border: `1px solid ${on ? PL_T.purple : PL_T.border}`,
+                fontSize: 12, fontWeight: 600,
+                opacity: dead ? 0.55 : 1,
+                cursor: dead ? "not-allowed" : "pointer",
+              }}>
+              <span className="rounded-full" style={{ width: 6, height: 6, background: on ? "#fff" : dotColor }} />
+              <span>{PL_INSURERS[t.insurerId].name}</span>
+              {showVer && <span style={{ opacity: on ? 0.8 : 0.55, fontWeight: 500 }}>V{t.quote.version}</span>}
+            </button>
           );
         })}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <PlQuoteWorkspace c={c} q={q} api={api} />
-      </div>
+      <PlQuoteWorkspace c={c} q={q} api={api} />
     </div>
   );
 }
@@ -11254,13 +11428,6 @@ function PlQcrTab({ c, api, goTo }) {
         </PlCard>
       )}
 
-      {released && !c.outcome && !(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
-        <PlSimBlock title="Simulate RM request for more quotes">
-          <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
-            RM asks for more options
-          </PlSimBtn>
-        </PlSimBlock>
-      )}
       {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
         <PlCard style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
           <div className="flex items-center justify-between gap-4">
@@ -11274,12 +11441,22 @@ function PlQcrTab({ c, api, goTo }) {
       )}
 
       {released && !c.outcome && (
-        <PlCard>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Record the client decision</div>
-          <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
-            QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. Log what came back.
+        <div className="rounded-xl px-3.5 py-3"
+          style={{ background: PL_T.amberSoft, border: `1px dashed ${PL_T.amberLine}` }}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Zap size={12} color={PL_T.amber} />
+            <span style={{ fontSize: 11, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.2 }}>
+              Simulate what the RM heard back
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-3">
+          <div style={{ fontSize: 11.5, color: PL_T.amber, lineHeight: 1.45 }} className="mb-3">
+            QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. In production the RM would relay the client's response - stand in for it here.
+          </div>
+
+          <div style={{ fontSize: 10, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.5 }} className="uppercase mb-1.5">
+            Client decision
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             {[
               { k: "quote_selected", label: "Quote selected", sub: "Client picked a market - hand off to issuance", tone: "green" },
               { k: "negotiation", label: "Negotiation", sub: "Client wants improved terms before deciding", tone: "orange" },
@@ -11289,8 +11466,8 @@ function PlQcrTab({ c, api, goTo }) {
               { k: "unable_to_place", label: "Unable to place", sub: "No market available on this structure", tone: "red" },
               { k: "cancelled_inactivity", label: "Cancelled - inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
             ].map((o) => (
-              <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg border px-3 py-2.5"
-                style={{ borderColor: PL_T.border, background: PL_T.card }}>
+              <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg px-3 py-2.5"
+                style={{ background: PL_T.card, border: `1px dashed ${PL_T.amberLine}` }}>
                 <div className="flex items-center gap-1.5">
                   <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[o.tone].fg }} />
                   <span style={{ fontSize: 12.5, fontWeight: 550 }}>{o.label}</span>
@@ -11299,7 +11476,18 @@ function PlQcrTab({ c, api, goTo }) {
               </button>
             ))}
           </div>
-        </PlCard>
+
+          {!(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.5 }} className="uppercase mb-1.5 mt-3">
+                Or the RM comes back asking
+              </div>
+              <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
+                RM asks for more options
+              </PlSimBtn>
+            </>
+          )}
+        </div>
       )}
 
       {early && <PlEarlyReleaseModal c={c} api={api} onClose={() => setEarly(false)} />}
