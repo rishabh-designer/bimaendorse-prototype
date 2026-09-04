@@ -7422,6 +7422,17 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
 
 const PL_ME = { name: "Ananya Rao", role: "Placement Manager", initials: "AR" };
 
+/* nav-key → breadcrumb label. Kept alongside PL_ME so the shell has a single
+   source for the top-strip label per screen. */
+const PL_NAV_LABEL = {
+  home: "Home",
+  cases: "My Cases",
+  manual: "Manual Review Queue",
+  inbox: "My Inbox",
+  master: "Insurer Master",
+  reports: "Reports",
+};
+
 const PL_INSURERS = {
   icici: { name: "ICICI Lombard", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL"], sectors: "Manufacturing, IT/ITES, Logistics", note: "Requires 3-year claims history above ₹5 Cr SI." },
   hdfc: { name: "HDFC ERGO", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL", "PI"], sectors: "Services, Healthcare, Hospitality", note: "Strong on GMC for headcount 200–2000." },
@@ -8925,6 +8936,47 @@ function PlSelect({ value, onChange, options }) {
   );
 }
 
+/* Menu-card picker. Same open-and-tick pattern as the sister-env HeaderFilter,
+   but single-select: use it where the value is a distinct choice from a small
+   list and the native <select> chrome reads as out-of-language. Options accept
+   plain strings or { value, label } objects; the empty string is treated as
+   the placeholder and omitted from the menu. */
+function PlMenuPicker({ value, options, placeholder = "Select", onChange, width = 200, disabled = false }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (!e.target.closest("[data-plmenu]")) setOpen(false); };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+  const norm = options
+    .map((o) => (typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value }))
+    .filter((o) => o.value !== "" && o.value != null);
+  const selectedLabel = norm.find((o) => o.value === value)?.label;
+  return (
+    <div className="relative" data-plmenu style={{ width }}>
+      <button type="button" onClick={() => !disabled && setOpen((v) => !v)} disabled={disabled}
+        className="flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 transition-colors"
+        style={{ borderColor: open ? PL_T.purple : PL_T.borderStrong,
+          background: disabled ? PL_T.cardSunk : PL_T.card,
+          fontSize: 12.5, color: selectedLabel ? PL_T.ink : PL_T.ink3, fontWeight: selectedLabel ? 550 : 500,
+          cursor: disabled ? "not-allowed" : "pointer" }}>
+        <span className="truncate text-left">{selectedLabel || placeholder}</span>
+        <ChevronDown size={13} color={PL_T.ink3}
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", flexShrink: 0 }} />
+      </button>
+      {open && (
+        <MenuCard>
+          {norm.map((o) => (
+            <MenuOpt key={o.value} label={o.label} on={value === o.value}
+              onClick={() => { onChange(o.value); setOpen(false); }} />
+          ))}
+        </MenuCard>
+      )}
+    </div>
+  );
+}
+
 function PlTick({ checked, onChange, label, sub }) {
   return (
     <label className="flex items-start gap-2.5 cursor-pointer py-1">
@@ -9362,9 +9414,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
 
   return (
     <div>
-      <div className="px-6 pt-4">
-        <Breadcrumb segments={[{ label: "My Cases", onClick: onBack }, { label: c.id }]} />
-      </div>
       <div className="px-6 pt-5">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="min-w-0">
@@ -9678,23 +9727,26 @@ function PlInboxScreen({ cases, onOpen }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>My Inbox</h1>
-      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">
-        An entry queue, not a mailbox. Every row hands you off to the right tab on the right case.
-      </div>
-
-      <div className="flex items-end gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-        {PL_IN_TABS.map((t) => {
-          const on = tab === t.id;
-          return (
-            <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2 flex items-center gap-1.5"
-              style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
-              {t.label}
-              <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{counts[t.id]}</span>
-            </button>
-          );
-        })}
-      </div>
+      <PageHead
+        title="My Inbox"
+        hint="An entry queue, not a mailbox. Every row hands you off to the right tab on the right case."
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            {PL_IN_TABS.map((t) => {
+              const on = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+                  style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+                    background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+                  <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+                  <span>{t.label}<span className="bk-num">({counts[t.id]})</span></span>
+                </button>
+              );
+            })}
+          </div>
+        }
+      />
 
       <PlCard pad={false}>
         <div className="flex items-center gap-3 px-4 py-2" style={{ background: PL_T.cardAlt, borderBottom: `1px solid ${PL_T.border}`, fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>
@@ -9757,26 +9809,32 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
 
   const openCases = cases.filter((c) => c.stage !== "closed");
 
+  const pillTabs = [
+    { id: "mine", label: "My reviews", n: PL_MY_REVIEWS.filter((r) => !done[r.id]).length },
+    { id: "unmatched", label: "Unmatched", n: PL_UNMATCHED.filter((r) => !done[r.id]).length },
+  ];
   return (
-    <div>
-      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Manual Review</h1>
-      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">
-        Inbound email the bot would not act on alone. Nothing here has updated a case automatically.
-      </div>
-
-      <div className="flex items-end gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-        {[{ id: "mine", label: "My reviews", n: PL_MY_REVIEWS.filter((r) => !done[r.id]).length },
-          { id: "unmatched", label: "Unmatched", n: PL_UNMATCHED.filter((r) => !done[r.id]).length }].map((t) => {
-          const on = tab === t.id;
-          return (
-            <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2 flex items-center gap-1.5"
-              style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
-              {t.label}
-              <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{t.n}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="px-6 py-6">
+      <PageHead
+        title="Manual Review Queue"
+        hint="Inbound email the bot would not act on alone. Nothing here has updated a case automatically."
+        right={
+          <div className="flex flex-wrap items-center gap-2">
+            {pillTabs.map((t) => {
+              const on = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+                  style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+                    background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+                  <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+                  <span>{t.label}<span className="bk-num">({t.n})</span></span>
+                </button>
+              );
+            })}
+          </div>
+        }
+      />
 
       {tab === "mine" && (
         <div className="space-y-3">
@@ -9856,18 +9914,22 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
                   </div>
                 ) : (
                   <div className="mt-3 flex items-end gap-2">
-                    <div style={{ width: 200 }}>
+                    <div style={{ width: 240 }}>
                       <PlLabel>Placement Case</PlLabel>
                       <div className="mt-1">
-                        <PlSelect value={map[u.id]?.case || ""} options={["", ...openCases.map((c) => c.id)]}
+                        <PlMenuPicker width={240} placeholder="Pick a case"
+                          value={map[u.id]?.case || ""}
+                          options={openCases.map((c) => ({ value: c.id, label: `${c.id} · ${c.client.name}` }))}
                           onChange={(v) => setMap((s) => ({ ...s, [u.id]: { case: v, thread: "" } }))} />
                       </div>
                     </div>
-                    <div style={{ width: 200 }}>
+                    <div style={{ width: 220 }}>
                       <PlLabel>Insurer thread</PlLabel>
                       <div className="mt-1">
-                        <PlSelect value={map[u.id]?.thread || ""}
-                          options={["", ...(openCases.find((c) => c.id === map[u.id]?.case)?.threads || []).map((t) => PL_INSURERS[t.insurerId].name)]}
+                        <PlMenuPicker width={220} placeholder="Pick a thread"
+                          disabled={!map[u.id]?.case}
+                          value={map[u.id]?.thread || ""}
+                          options={(openCases.find((c) => c.id === map[u.id]?.case)?.threads || []).map((t) => PL_INSURERS[t.insurerId].name)}
                           onChange={(v) => setMap((s) => ({ ...s, [u.id]: { ...s[u.id], thread: v } }))} />
                       </div>
                     </div>
@@ -9893,25 +9955,23 @@ function PlMasterScreen({ role = "Placement Manager" }) {
   const tone = { Active: "green", Inactive: "neutral", "Do Not Float": "red" };
   return (
     <div>
-      <div className="flex items-start justify-between mb-4">
-        <div>
+      <PageHead
+        title="Insurer Master"
+        hint="Routing key is Insurer + Product + Geography/Branch. Illustrative prototype contacts."
+        right={
           <div className="flex items-center gap-2">
-            <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Insurer Master</h1>
-            {canEdit ? <PlChip size="xs" tone="purple">Placement Head · can edit</PlChip> : <PlChip size="xs">Read-only · Placement Head maintains the master</PlChip>}
+            {canEdit
+              ? <PlChip size="xs" tone="purple">Placement Head · can edit</PlChip>
+              : <PlChip size="xs">Read-only · Placement Head maintains the master</PlChip>}
+            <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+              <Search size={12} color={PL_T.ink3} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search insurers..."
+                className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 140 }} />
+            </div>
+            {canEdit && <PlBtn variant="primary" icon={Plus}>Add contact</PlBtn>}
           </div>
-          <div style={{ fontSize: 13, color: PL_T.ink3 }}>
-            Routing key is Insurer + Product + Geography/Branch. Illustrative prototype contacts.
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-            <Search size={12} color={PL_T.ink3} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search insurers..."
-              className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 140 }} />
-          </div>
-          {canEdit && <PlBtn variant="primary" icon={Plus}>Add contact</PlBtn>}
-        </div>
-      </div>
+        }
+      />
 
       <PlCard pad={false}>
         <table className="w-full" style={{ borderCollapse: "collapse" }}>
@@ -9990,8 +10050,7 @@ function PlReportsScreen({ cases }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Reports</h1>
-      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">Derived from the cases in this prototype.</div>
+      <PageHead title="Reports" hint="Derived from the cases in this prototype." />
 
       <div className="grid grid-cols-2 gap-3.5 mb-3.5">
         <PlCard pad={false}>
@@ -12144,6 +12203,14 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
           nav={navItems} listKey="cases" tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
+            <div className="px-6 pt-4">
+              <Breadcrumb
+                segments={openCase
+                  ? [{ label: "My Cases", onClick: () => { setOpenId(null); setOpenTab(null); } }, { label: openCase.id }]
+                  : [{ label: PL_NAV_LABEL[nav] || "Home" }]}
+                right={openCase && <TicketPager id={openCase.id} list={cases} onOpen={setOpenId} />}
+              />
+            </div>
             {openCase
               ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
               : nav === "cases" ? <PlQueueScreen cases={cases} onOpen={setOpenId} />
