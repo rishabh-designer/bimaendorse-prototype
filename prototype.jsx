@@ -9757,7 +9757,7 @@ function PlTicketStageTimeline({ c }) {
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
   return (
-    <div className="shrink-0 space-y-3" style={{ width: 268 }}>
+    <div className="shrink-0 space-y-3 sticky self-start" style={{ width: 268, top: 12 }}>
       <PlTicketStageTimeline c={c} />
 
       {na && (
