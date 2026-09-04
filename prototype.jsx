@@ -8,7 +8,8 @@ import {
   MailOpen, Globe, Phone, MessageSquare, Hourglass, HelpCircle, MessageCircleQuestion, Cpu, Sparkles, UserMinus, RefreshCw, SlidersHorizontal, IndianRupee, Link as LinkIcon, Landmark, RotateCcw,
   HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
   Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
-  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Tags
+  Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Tags,
+  Home as HomeIcon, Briefcase, ClipboardCheck, BarChart3, Lock, Users, Pencil, Pause, Play, Ban, Circle, Zap, Bell, Settings
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -4168,7 +4169,7 @@ const AVATAR_SALVI = "data:image/webp;base64,UklGRtITAQBXRUJQVlA4WAoAAAAQAAAA5wM
 const TOOLS = {
   BimaEndorse:   { split: ["Bima", "Endorse"],   color: C.accent, built: true },
   BimaClaim:     { split: ["Bima", "Claim"],     color: C.brand,  built: true },   /* Claim = Primary 500 (#4100CF), not Info */
-  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: false },  /* Placement = Info (#1458D2); template shell only, still under construction */
+  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true },   /* Placement = Info (#1458D2) — Placement Manager Workbench */
 };
 
 /* Presence shown as a 6px dot beside the name on the sidebar profile card
@@ -7346,6 +7347,4519 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
    environments in one app; the login tool-selector switches between them and
    the session hash restores the choice on refresh.
    ========================================================================= */
+
+/* ================================================================== *
+ *  BIMAPLACEMENT — Placement Manager Workbench (ported env)
+ * ================================================================== */
+
+/* ---------- scratch_pl_domain.jsx ---------- */
+/* ==================================================================== *
+ *  PLACEMENT MANAGER — DATA + LOGIC LAYER  (ported, behaviour-preserved)
+ *
+ *  Faithful extraction of the data + pure-logic layer from
+ *  BimaPlacement/placement-manager-workbench.jsx. No business logic,
+ *  values, thresholds, seed data, or function behaviour was changed.
+ *  The only transforms are (1) PL_/pl namespacing and (2) removal of
+ *  UI/primitive dependencies.
+ *
+ *  --------------------------------------------------------------------
+ *  (a) SYMBOLS DEFINED HERE
+ *
+ *  Constants / data (PL_):
+ *    PL_ME  PL_INSURERS  PL_CONTACTS  PL_PRODUCTS  PL_FIELDSETS  PL_QID
+ *    PL_SEED  PL_SEED_B  PL_SEED_C  PL_CASE_META  PL_ALL_CASES
+ *    PL_STAGE  PL_RAIL  PL_OUTCOME  PL_TSTAT  PL_DECISION_CHIP
+ *    PL_THRESHOLD  PL_SLA_MASTER  PL_THREAD_TARGET_H  PL_FOLLOWUP_LADDER
+ *    PL_TAXONOMY
+ *
+ *  Functions (pl):
+ *    plPocOf  plQf  plMkQuote  plEv  plAu  plSeedSla  plStamp
+ *    plInr  plInrL  plFmtH  plFmtMins  plFmtVal
+ *    plLiveQuotes  plUsableInsurers  plUsableCount  plThresholdMet
+ *    plProductCoverage  plGapsOf  plCanMarkUsable  plLowConfidence
+ *    plCorrected  plThreadOf  plQuotesOf  plActiveRfqOf  plReleasedQcr
+ *    plDraftQcr  plRestartableThreads  plOpenThreads
+ *    plThreadNext  plNextAction  plCaseStatus
+ *    plSlaIdOf  plReconcileSla  plCurrentSla  plTargetFlag
+ *    makePlacementApi(setCases, say?)  -> the `api` object factory
+ *
+ *  The api object returned by makePlacementApi keeps its ORIGINAL method
+ *  names (they are object keys, not colliding top-level symbols):
+ *    say confirmClassification requestRmInfo simulateRmReply validateRfq
+ *    togglePanel floatRfq setPoc logCall followUp holdForRm rmAnswered
+ *    replyToInsurer simulateInsurer editField decideQuote startDraftQcr
+ *    releaseQcr newQcrVersion recordOutcome selectQuote openNegotiation
+ *    sendNegotiation requestFinalRevision closeRound negotiationResponse
+ *    newRfqVersion rmRequestMoreQuotes restartThreads toggleTask
+ *  Internally it uses the ported `patch` + `withLog` (created per-factory).
+ *
+ *  --------------------------------------------------------------------
+ *  (b) DELIBERATELY LEFT OUT (visual — belong to the UI layer, original
+ *      names):
+ *    T (colour object), FONT, MONO, TONES  — styling tokens
+ *    Chip Btn Card Label Mono KV Divider Modal TextArea Input Select
+ *    Tick Empty SlaChip UsableMeter  — primitives
+ *    (and every screen / tab / modal / rail component)
+ *
+ *  Note on status maps: PL_STAGE / PL_OUTCOME / PL_TSTAT / PL_DECISION_CHIP
+ *  in the source already store `tone` as a plain STRING (a TONES key) and
+ *  carry NO JSX or icon components, so nothing had to be stripped. The UI
+ *  layer resolves each `tone` string through its own TONES palette, and
+ *  supplies any icon per status itself.
+ *
+ *  --------------------------------------------------------------------
+ *  (c) EXTERNAL DEPENDENCIES THE UI LAYER MUST PROVIDE
+ *      This file is self-contained for logic: it needs NO imports and
+ *      references NO visual token or primitive. The formatting helpers
+ *      plInr / plInrL / plFmtH / plFmtMins / plFmtVal are included here
+ *      (they are pure) so nothing external is required.
+ *      The only injected dependency is React's `setCases` (and an
+ *      optional `say` toast fn) passed into makePlacementApi — created
+ *      inside the React component, exactly as the reference does.
+ *      The UI still owns: the TONES palette used to render every `tone`
+ *      string above, and PL_RAIL is the label list for the lifecycle rail.
+ * ==================================================================== */
+
+const PL_ME = { name: "Ananya Rao", role: "Placement Manager", initials: "AR" };
+
+const PL_INSURERS = {
+  icici: { name: "ICICI Lombard", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL"], sectors: "Manufacturing, IT/ITES, Logistics", note: "Requires 3-year claims history above ₹5 Cr SI." },
+  hdfc: { name: "HDFC ERGO", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL", "PI"], sectors: "Services, Healthcare, Hospitality", note: "Strong on GMC for headcount 200–2000." },
+  bajaj: { name: "Bajaj Allianz", appetite: ["GMC", "GPA", "Cyber", "D&O", "Fire", "Marine", "PL"], sectors: "IT/ITES, Pharma, Infrastructure", note: "Cyber referred to reinsurer above ₹25 Cr limit." },
+  tata: { name: "Tata AIG", appetite: ["GMC", "GPA", "Cyber", "D&O", "PI", "Marine", "CGL"], sectors: "IT/ITES, Financial services, Exports", note: "Preferred market for D&O on unlisted companies." },
+  nia: { name: "New India Assurance", appetite: ["GMC", "GPA", "Fire", "Marine", "CGL", "PL", "WC"], sectors: "Infrastructure, Manufacturing, PSU", note: "Writes large property and marine risks." },
+  digit: { name: "Go Digit", appetite: ["GMC", "GPA", "GTL", "Marine", "Fire"], sectors: "Startups, Retail, Logistics", note: "Accepts a census without age bands at proposal stage." },
+  sbi: { name: "SBI General", appetite: ["GMC", "GPA", "Fire", "Marine", "CGL"], sectors: "Manufacturing, BFSI, Retail", note: "Declines standalone Marine below ₹2 Cr annual sendings." },
+  chola: { name: "Cholamandalam MS", appetite: ["GMC", "GPA", "Fire", "Marine", "WC", "PL"], sectors: "Auto components, Logistics, SME", note: "Good SME appetite; limited liability capacity." },
+  reliance: { name: "Reliance General", appetite: ["GMC", "GPA", "GTL", "Fire", "Marine", "CGL"], sectors: "Manufacturing, Textiles, Retail", note: "" },
+  liberty: { name: "Liberty General", appetite: ["GMC", "GPA", "Cyber", "D&O", "Fire", "Marine", "CGL", "PI"], sectors: "Exports, Engineering, Services", note: "" },
+  care: { name: "Care Health", appetite: ["GMC", "GPA"], sectors: "Services, IT/ITES, Retail", note: "Health-only market. No maternity below 50 lives." },
+  star: { name: "Star Health", appetite: ["GMC", "GPA"], sectors: "SME, Retail, Healthcare", note: "Health-only market." },
+  sompo: { name: "Universal Sompo", appetite: ["GMC", "GPA", "Fire", "Marine", "WC"], sectors: "Manufacturing, Logistics", note: "" },
+  oriental: { name: "Oriental Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC"], sectors: "PSU, Heavy engineering", note: "Commercial lines only for this segment." },
+};
+
+/* Insurer Contact Master — routing key is Insurer + Product + Geography/Branch.
+   Illustrative prototype contacts, not real BimaKavach data. */
+const PL_CONTACTS = {
+  icici: { branch: "Mumbai — Corporate", status: "Active", primary: "Rahul Sharma", alternates: ["Rahul Sharma", "Neha Kulkarni"], senior: "Anand Iyer" },
+  hdfc: { branch: "Pune — Commercial Lines", status: "Active", primary: "Ankit Sabharwal", alternates: ["Ankit Sabharwal", "Divya Rane"], senior: "Vivek Nair" },
+  bajaj: { branch: "Pune — EB Desk", status: "Active", primary: "Kartik Bhamre", alternates: ["Kartik Bhamre", "Sana Qureshi"], senior: "Amit Deshpande" },
+  tata: { branch: "Mumbai — Specialty", status: "Active", primary: "Gautam Vyas", alternates: ["Gautam Vyas", "Reema Fernandes"], senior: "Sonal Batra" },
+  nia: { branch: "Mumbai — DO 1", status: "Active", primary: "Sridhar Rao", alternates: ["Sridhar Rao", "P. Lakshmi"], senior: "M. Venkatesh" },
+  digit: { branch: "Bengaluru — SME", status: "Active", primary: "Aisha Khan", alternates: ["Aisha Khan", "Rohan Pai"], senior: "Naveen Shetty" },
+  sbi: { branch: "Mumbai — Corporate", status: "Active", primary: "Deepak Mishra", alternates: ["Deepak Mishra"], senior: "R. Krishnan" },
+  chola: { branch: "Chennai — Commercial", status: "Active", primary: "Vignesh Kumar", alternates: ["Vignesh Kumar"], senior: "S. Prabhu" },
+  reliance: { branch: "Mumbai — Corporate", status: "Active", primary: "Farhan Merchant", alternates: ["Farhan Merchant"], senior: "Ketan Joshi" },
+  liberty: { branch: "Mumbai — Liability", status: "Active", primary: "Nikhil Advani", alternates: ["Nikhil Advani"], senior: "Preeti Malhotra" },
+  care: { branch: "Delhi — Group Health", status: "Active", primary: "Ritu Bansal", alternates: ["Ritu Bansal"], senior: "Harsh Vardhan" },
+  star: { branch: "Chennai — Group Health", status: "Active", primary: "Lakshmi Narayanan", alternates: ["Lakshmi Narayanan"], senior: "K. Sundaram" },
+  sompo: { branch: "Mumbai — Property", status: "Active", primary: "Manish Tandon", alternates: ["Manish Tandon"], senior: "Alok Ranjan" },
+  oriental: { branch: "Delhi — RO 2", status: "Do Not Float", primary: "B. K. Saxena", alternates: ["B. K. Saxena"], senior: "R. P. Gupta" },
+};
+const plPocOf = (c, id) => (c.pocs && c.pocs[id]) || PL_CONTACTS[id].primary;
+
+const PL_PRODUCTS = {
+  GMC: "Group Medical Cover", GPA: "Group Personal Accident", GTL: "Group Term Life",
+  Cyber: "Cyber Liability", "D&O": "Directors & Officers Liability", Fire: "Property — Fire & Special Perils",
+  Marine: "Marine Cargo (Open Policy)", CGL: "Commercial General Liability", PI: "Professional Indemnity",
+  PL: "Product Liability", WC: "Workmen's Compensation",
+};
+
+/* quote field helper: extracted value is preserved forever, PM value can diverge */
+const plQf = (key, label, extracted, o = {}) => ({
+  key, label, extracted, value: o.value !== undefined ? o.value : extracted,
+  confidence: o.confidence || "high", required: !!o.required, material: !!o.material,
+  correctedBy: o.correctedBy || null, page: o.page || null, kind: o.kind || "text",
+});
+
+const PL_FIELDSETS = {
+  GMC: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.2" }),
+    plQf("si", "Sum insured per family", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("family", "Family definition", p.family, { required: true, page: "p.1" }),
+    plQf("roomRent", "Room rent limit", p.roomRent, { required: true, material: true, page: "p.3" }),
+    plQf("maternity", "Maternity limit (normal / C-section)", p.maternity, { required: true, page: "p.3", confidence: p.matConf || "high" }),
+    plQf("ped", "Pre-existing conditions", p.ped, { required: true, page: "p.3" }),
+    plQf("buffer", "Corporate buffer", p.buffer, { page: "p.4" }),
+    plQf("copay", "Co-pay", p.copay, { required: true, page: "p.4" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+    plQf("exclusions", "Key exclusions", p.exclusions, { page: "p.5" }),
+  ],
+  GPA: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("si", "Capital sum insured basis", p.si, { required: true, material: true, page: "p.1" }),
+    plQf("scope", "Cover scope", p.scope, { required: true, page: "p.2" }),
+    plQf("ttd", "Temporary total disablement", p.ttd, { page: "p.2" }),
+    plQf("medEx", "Medical extension", p.medEx, { page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+  ],
+  Cyber: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.2" }),
+    plQf("si", "Limit of indemnity (AOY)", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("retention", "Retention / deductible", p.retention, { required: true, material: true, kind: "money", page: "p.2" }),
+    plQf("extensions", "Key extensions", p.extensions, { page: "p.3" }),
+    plQf("territory", "Territory & jurisdiction", p.territory, { required: true, page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+  ],
+  Marine: (p) => [
+    plQf("premium", "Estimated annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("si", "Per-sending limit", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("clause", "Cover basis", p.clause, { required: true, page: "p.2" }),
+    plQf("excess", "Excess", p.excess, { required: true, page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+  ],
+  Fire: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("si", "Total sum insured", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("basis", "Valuation basis", p.basis, { required: true, page: "p.2" }),
+    plQf("excess", "Excess", p.excess, { required: true, page: "p.2" }),
+    plQf("addons", "Add-on covers", p.addons, { page: "p.3" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+  ],
+};
+
+let PL_QID = 100;
+const plMkQuote = (insurerId, product, rfqV, version, receivedAt, payload, o = {}) => ({
+  id: `Q-${++PL_QID}`, insurerId, product, rfqV, version, receivedAt,
+  doc: o.doc || `${PL_INSURERS[insurerId].name.split(" ")[0]}_${product}_Quote_v${version}.pdf`,
+  decision: o.decision || null, decisionAt: o.decisionAt || null, decisionNote: o.decisionNote || "",
+  openItems: o.openItems || [],
+  fields: PL_FIELDSETS[product](payload),
+});
+
+const plEv = (at, actor, text) => ({ at, actor, text });
+const plAu = (at, actor, actorType, event, detail = "") => ({ at, actor, actorType, event, detail });
+
+/* -------------------------------- formatting (pure) ------------------------ */
+
+const plInr = (n) =>
+  n == null ? "—" : "₹" + n.toLocaleString("en-IN");
+
+const plInrL = (n) => {
+  if (n == null) return "—";
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`;
+  if (n >= 100000) return `₹${(n / 100000).toFixed(2).replace(/\.00$/, "")} L`;
+  return plInr(n);
+};
+
+function plFmtH(h) {
+  const a = Math.abs(Math.round(h));
+  if (a >= 24) { const d = Math.floor(a / 24), r = a % 24; return r ? `${d}d ${r}h` : `${d}d`; }
+  return `${a}h`;
+}
+
+/* ------------------------------- seed cases -------------------------------- */
+
+const PL_SEED = [
+  /* 1 ── RFQ review: classification conflict + missing information */
+  {
+    id: "PC-1024", priority: "Standard", stage: "rfq_review", outcome: null,
+    client: { name: "Nutrigrain Foods Pvt Ltd", industry: "Food processing — packaged snacks", city: "Indore, MP", headcount: 640, turnover: "₹212 Cr", spoc: "Meenal Trivedi, Head HR", rm: "Rohit Desai" },
+    products: ["GMC", "GPA"], receivedAt: "25 Aug, 09:40", renewal: "01 Oct 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "in_review", createdAt: "25 Aug, 09:40",
+      sections: [
+        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "640 employees + dependants (≈2,180 lives)"], ["Family definition sought", "Not stated — RM to confirm"], ["Existing insurer", "Star Health"], ["Expiring premium", "₹78,40,000"], ["Maternity", "Required, limit to be confirmed"]] },
+        { product: "GPA", si: "24× monthly salary", detail: [["Lives to be covered", "640 employees"], ["Cover scope", "24 hours, worldwide"], ["Expiring premium", "₹4,10,000"], ["Medical extension", "Required"]] },
+      ],
+      classification: {
+        rmEntered: "FMCG — Retail & Distribution",
+        suggested: "Food processing — packaged foods (NIC 1079)",
+        flagged: true, confirmed: null,
+        basis: [
+          "GST filings attached to the RFQ describe manufacture of ready-to-eat snack products, not distribution.",
+          "Two owned production units are declared in the risk details.",
+          "The expiring policy schedule rates the risk as a manufacturing occupancy.",
+        ],
+        impact: "Classification drives insurer appetite matching and GPA risk grouping. A retail classification would exclude three insurers that write this occupancy.",
+      },
+      missing: [
+        { id: "m1", label: "Employee census with age bands", note: "Needed for GMC rating. Current file has headcount only.", resolved: false, material: true },
+        { id: "m2", label: "Three-year claims history", note: "Insurers will not quote 2,180 lives without prior claims data.", resolved: false, material: true },
+        { id: "m3", label: "Family definition to be quoted", note: "1+1+2 or 1+1+3, and whether parents are included.", resolved: false, material: true },
+        { id: "m4", label: "GPA salary multiple confirmation", note: "RFQ says 24×; expiring schedule shows 36×.", resolved: false, material: false },
+        { id: "m5", label: "CD account handling preference", note: "Optional. Affects endorsement handling later.", resolved: false, material: false },
+      ],
+      rmThread: [],
+    }],
+    panel: { locked: false, selected: [], excluded: [] },
+    recommend: [
+      { id: "icici", reasons: ["Writes packaged-food manufacturing occupancies at this sum insured.", "Suitable for the product and risk profile."] },
+      { id: "hdfc", reasons: ["GMC appetite covers this headcount range.", "Writes both product sections, so one thread covers the submission."] },
+      { id: "digit", reasons: ["Accepts a census without age bands at proposal stage.", "Suitable for the product and risk profile."] },
+      { id: "care", reasons: ["Health-only market; writes maternity for schemes of this size.", "Cannot quote the GPA section."] },
+      { id: "bajaj", reasons: ["Active appetite for GMC and GPA in manufacturing.", "Requires the three-year claims history before quoting."] },
+    ],
+    notRecommended: [
+      { id: "star", reasons: ["Currently the expiring insurer — RM has asked to test the market first.", "Health-only, cannot quote the GPA section."] },
+      { id: "oriental", reasons: ["No stated appetite for employee benefits in this segment."] },
+      { id: "nia", reasons: ["Health and employee-benefit sections are written from a different branch — routing would split the submission."] },
+    ],
+    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [{ id: "t1", label: "Confirm risk classification before floating", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("25 Aug, 09:41", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("25 Aug, 09:41", "System", "System", "Classification flagged for review", "RM entry differs from suggested classification"),
+    ],
+  },
+
+  /* 2 ── Insurer selection */
+  {
+    id: "PC-1025", priority: "Standard", stage: "insurer_selection", outcome: null,
+    client: { name: "Vertex Analytics Pvt Ltd", industry: "IT/ITES — data analytics SaaS", city: "Bengaluru, KA", headcount: 310, turnover: "₹96 Cr", spoc: "Karthik Menon, CFO", rm: "Priya Nair" },
+    products: ["Cyber", "D&O"], receivedAt: "21 Aug, 15:02", renewal: "20 Sep 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "validated", createdAt: "21 Aug, 15:02", validatedAt: "22 Aug, 11:20",
+      sections: [
+        { product: "Cyber", si: "₹15 Cr limit of indemnity", detail: [["Records held", "1.9 million customer records"], ["Territory", "India, US, EU"], ["Prior incidents", "Nil in last 5 years"], ["Retention sought", "₹25,00,000"], ["Key extensions", "Business interruption, ransomware, regulatory defence"]] },
+        { product: "D&O", si: "₹10 Cr limit of indemnity", detail: [["Entity", "Unlisted, Series C funded"], ["Board size", "7 (incl. 2 investor nominees)"], ["Retroactive date sought", "Inception 2018"], ["Prior claims", "Nil"]] },
+      ],
+      classification: { rmEntered: "IT/ITES — Software services", suggested: "IT/ITES — Software services", flagged: false, confirmed: "IT/ITES — Software services", basis: ["RM entry matches GST filings and prior policy schedule."], impact: "" },
+      missing: [], rmThread: [],
+    }],
+    panel: { locked: false, selected: ["tata", "icici", "bajaj"], excluded: [] },
+    recommend: [
+      { id: "tata", reasons: ["Preferred market for D&O on unlisted, VC-funded companies.", "Writes both product sections."] },
+      { id: "icici", reasons: ["Writes both product sections, so a single thread covers the submission.", "Accepts the requested 2018 retroactive date on D&O without referral."] },
+      { id: "bajaj", reasons: ["Active Cyber appetite for IT/ITES with US and EU exposure.", "Cyber limits above ₹25 Cr are referred to reinsurers — this ₹15 Cr request is within direct authority."] },
+      { id: "hdfc", reasons: ["Active Cyber appetite in this sector.", "D&O capacity meets, but does not exceed, the requested limit."] },
+      { id: "liberty", reasons: ["Writes both sections for export-facing services companies."] },
+    ],
+    notRecommended: [
+      { id: "digit", reasons: ["No D&O appetite — would only cover one of the two sections."] },
+      { id: "nia", reasons: ["No Cyber or D&O appetite in this segment."] },
+      { id: "star", reasons: ["Health-only market. Neither product section is in appetite."] },
+    ],
+    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [{ id: "t1", label: "Approve insurer panel and float RFQ", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("22 Aug, 11:18", "Ananya Rao", "PM", "Classification confirmed", "IT/ITES — Software services (unchanged)"),
+      plAu("22 Aug, 11:20", "Ananya Rao", "PM", "RFQ V1 validated", "No missing information recorded"),
+      plAu("22 Aug, 11:22", "System", "System", "Insurer recommendations generated", "5 eligible · 3 outside appetite"),
+    ],
+  },
+];
+
+const PL_SEED_B = [
+  /* 3 ── Market engagement: live insurer threads, one paused, one breached */
+  {
+    id: "PC-1026", priority: "Urgent", stage: "market", outcome: null,
+    client: { name: "Meridian Logistics Ltd", industry: "Third-party logistics & warehousing", city: "Navi Mumbai, MH", headcount: 1150, turnover: "₹480 Cr", spoc: "Devika Shetty, VP Risk", rm: "Aman Kulkarni" },
+    products: ["Marine", "CGL"], receivedAt: "14 Aug, 10:15", renewal: "05 Sep 2026", activeRfq: 1,
+    urgentReason: "Expiring cover lapses 05 Sep. Client has a contractual obligation to evidence cover to three shippers by 02 Sep.",
+    rfqs: [{
+      v: 1, status: "floated", createdAt: "14 Aug, 10:15", validatedAt: "14 Aug, 16:40", floatedAt: "15 Aug, 09:30",
+      sections: [
+        { product: "Marine", si: "₹6 Cr per sending", detail: [["Annual sendings", "₹740 Cr"], ["Commodity", "FMCG, electronics, packaged food"], ["Transit", "Domestic road and rail"], ["Cover basis sought", "ICC (A)"], ["Expiring premium", "₹1,18,00,000"]] },
+        { product: "CGL", si: "₹5 Cr AOA / ₹10 Cr AOY", detail: [["Locations", "14 warehouses"], ["Prior claims", "2 claims, ₹34 L total, last 3 years"], ["Territory", "India"]] },
+      ],
+      classification: { rmEntered: "Logistics — Warehousing & transport", suggested: "Logistics — Warehousing & transport", flagged: false, confirmed: "Logistics — Warehousing & transport", basis: ["RM entry matches GST filings."], impact: "" },
+      missing: [], rmThread: [],
+    }],
+    panel: { locked: true, selected: ["icici", "nia", "chola", "sbi", "oriental"], excluded: [{ id: "digit", reason: "No CGL appetite — would leave one section unquoted." }] },
+    recommend: [
+      { id: "icici", reasons: ["Writes both Marine and CGL for logistics operators."] },
+      { id: "nia", reasons: ["Writes large property and marine risks.", "Current incumbent on the Marine section — invited to defend the account."] },
+      { id: "chola", reasons: ["Strong logistics appetite.", "Liability capacity is limited — may quote Marine only."] },
+      { id: "sbi", reasons: ["Writes Marine open policies above ₹2 Cr annual sendings."] },
+      { id: "oriental", reasons: ["Commercial lines specialist for heavy logistics."] },
+    ],
+    notRecommended: [{ id: "digit", reasons: ["No CGL appetite in this segment."] }],
+    threads: [
+      {
+        insurerId: "icici", status: "quote_received", slaH: 5, paused: false, followUps: 1, followUpsActive: true,
+        events: [
+          plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
+          plEv("16 Aug, 08:12", "Insurer", "Submission acknowledged, allocated to Marine desk"),
+          plEv("21 Aug, 09:00", "System", "Automated follow-up 1 sent"),
+          plEv("25 Aug, 17:44", "Insurer", "Quote received for Marine section"),
+        ], clarifications: [],
+      },
+      {
+        insurerId: "nia", status: "awaiting_rm", slaH: 8, paused: true,
+        pauseReason: "Awaiting warehouse fire-safety certificates from the client via RM.",
+        followUps: 1, followUpsActive: true,
+        events: [
+          plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
+          plEv("18 Aug, 11:05", "Insurer", "Submission acknowledged"),
+          plEv("22 Aug, 15:30", "Insurer", "Clarification raised — fire-safety certificates for all 14 warehouses"),
+          plEv("22 Aug, 16:10", "Ananya Rao", "Information requested from RM · insurer clock held at 1d 7h"),
+        ],
+        clarifications: [{
+          id: "c1", question: "Please provide current fire-safety certificates and NOC for all 14 warehouse locations before we can rate the CGL section.",
+          askedAt: "22 Aug, 15:30", rmRequested: true, rmRequestedAt: "22 Aug, 16:10", rmResponse: null, repliedAt: null,
+        }],
+      },
+      {
+        insurerId: "chola", status: "acknowledged", slaH: 2, paused: false, followUps: 2, followUpsActive: true,
+        events: [
+          plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
+          plEv("17 Aug, 14:20", "Insurer", "Submission acknowledged, Marine section under review"),
+          plEv("21 Aug, 09:00", "System", "Automated follow-up 1 sent"),
+          plEv("25 Aug, 09:00", "System", "Automated follow-up 2 sent"),
+        ], clarifications: [],
+      },
+      {
+        insurerId: "sbi", status: "declined", slaH: 0, paused: false, followUps: 0, followUpsActive: false,
+        declineReason: "Annual sendings exceed the desk's automatic authority for a new open policy.",
+        events: [
+          plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
+          plEv("19 Aug, 10:48", "Insurer", "Declined — sendings above desk authority for a new open policy"),
+        ], clarifications: [],
+      },
+      {
+        insurerId: "oriental", status: "no_response", slaH: -6, paused: false, followUps: 3, followUpsActive: true,
+        events: [
+          plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
+          plEv("19 Aug, 09:00", "System", "Automated follow-up 1 sent"),
+          plEv("22 Aug, 09:00", "System", "Automated follow-up 2 sent"),
+          plEv("25 Aug, 09:00", "System", "Automated follow-up 3 sent — final"),
+          plEv("25 Aug, 18:00", "System", "SLA breached, escalated to Placement Manager"),
+        ], clarifications: [],
+      },
+    ],
+    quotes: [
+      plMkQuote("icici", "Marine", 1, 1, "25 Aug, 17:44", {
+        premium: 10620000, si: 60000000, clause: "ICC (A) — all risks including SRCC",
+        excess: "₹50,000 each and every claim", validity: "30 days from 25 Aug 2026",
+      }),
+    ],
+    qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [
+      { id: "t1", label: "Review ICICI Lombard Marine quote", due: "Today", owner: "You", done: false },
+      { id: "t2", label: "Chase RM for warehouse fire-safety certificates", due: "Today", owner: "You", done: false },
+      { id: "t3", label: "Decide whether to replace Oriental after SLA breach", due: "Tomorrow", owner: "You", done: false },
+    ],
+    audit: [
+      plAu("14 Aug, 10:15", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("14 Aug, 16:40", "Ananya Rao", "PM", "RFQ V1 validated", ""),
+      plAu("15 Aug, 09:28", "Ananya Rao", "PM", "Insurer panel approved", "5 insurers · Go Digit removed (no CGL appetite)"),
+      plAu("15 Aug, 09:30", "Ananya Rao", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
+      plAu("19 Aug, 10:48", "New India Assurance", "Insurer", "Clarification raised", "Fire-safety certificates for 14 locations"),
+      plAu("22 Aug, 16:10", "Ananya Rao", "PM", "Information requested from RM", "New India Assurance SLA held at 1d 7h remaining"),
+      plAu("25 Aug, 17:44", "ICICI Lombard", "Insurer", "Quote received", "Marine · awaiting Placement Manager review"),
+      plAu("25 Aug, 18:00", "System", "System", "SLA breached", "Oriental Insurance · 3 follow-ups sent, no response"),
+    ],
+  },
+
+  /* 4 ── Quote review: one decision away from the QCR threshold */
+  {
+    id: "PC-1027", priority: "Standard", stage: "quote_review", outcome: null,
+    client: { name: "Kalpataru Infra Projects Ltd", industry: "EPC & infrastructure construction", city: "Pune, MH", headcount: 2300, turnover: "₹1,240 Cr", spoc: "Nikhil Bhandari, CHRO", rm: "Sneha Iyer" },
+    products: ["GMC", "GPA"], receivedAt: "05 Aug, 11:30", renewal: "15 Sep 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "floated", createdAt: "05 Aug, 11:30", validatedAt: "06 Aug, 10:05", floatedAt: "06 Aug, 14:00",
+      sections: [
+        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "2,300 employees + dependants (≈7,900 lives)"], ["Family definition", "1+1+2, parents optional"], ["Existing insurer", "Reliance General"], ["Expiring premium", "₹3,42,00,000"], ["Claims ratio (3 yr)", "94%"], ["Maternity", "₹75,000 normal / ₹1,00,000 C-section"]] },
+        { product: "GPA", si: "36× monthly salary", detail: [["Lives to be covered", "2,300 employees"], ["Cover scope", "24 hours, worldwide"], ["Site risk", "18 active project sites"], ["Expiring premium", "₹18,60,000"]] },
+      ],
+      classification: { rmEntered: "Construction — EPC contractor", suggested: "Construction — EPC contractor", flagged: false, confirmed: "Construction — EPC contractor", basis: ["RM entry matches GST filings and expiring policy schedule."], impact: "" },
+      missing: [], rmThread: [
+        { at: "05 Aug, 16:20", actor: "Ananya Rao", text: "Please confirm whether parents are to be quoted in-scope or as a buy-up." },
+        { at: "06 Aug, 09:12", actor: "Sneha Iyer", text: "Client confirms parents as a voluntary buy-up, not in the base premium." },
+      ],
+    }],
+    panel: { locked: true, selected: ["icici", "hdfc", "bajaj", "nia", "reliance"], excluded: [{ id: "star", reason: "Health-only market, cannot quote the GPA section." }] },
+    recommend: [
+      { id: "icici", reasons: ["Writes both sections for EPC contractors at this headcount.", "Accepts 18 project-site GPA exposure without loading."] },
+      { id: "hdfc", reasons: ["GMC appetite covers this headcount range; referred and accepted."] },
+      { id: "bajaj", reasons: ["Active appetite for infrastructure employee benefits.", "Willing to look at schemes with an adverse claims ratio."] },
+      { id: "nia", reasons: ["Writes large employee-benefit schemes.", "Capacity covers the full headcount without referral."] },
+      { id: "reliance", reasons: ["Current incumbent — invited to defend the account."] },
+    ],
+    notRecommended: [{ id: "star", reasons: ["Health-only market. Cannot quote the GPA section."] }],
+    threads: [
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC and GPA"), plEv("14 Aug, 11:05", "Ananya Rao", "Both sections marked usable")], clarifications: [] },
+      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false,
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Ananya Rao", "Clarification sent — room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Ananya Rao", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
+      { insurerId: "bajaj", status: "quote_received", slaH: 3, paused: false, followUps: 1, followUpsActive: true,
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("09 Aug, 11:22", "Insurer", "Submission acknowledged"), plEv("18 Aug, 09:00", "System", "Automated follow-up 1 sent"), plEv("25 Aug, 19:15", "Insurer", "Quote received for GMC")], clarifications: [] },
+      { insurerId: "nia", status: "quote_received", slaH: 1, paused: false, followUps: 2, followUpsActive: true,
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("12 Aug, 16:40", "Insurer", "Submission acknowledged"), plEv("19 Aug, 09:00", "System", "Automated follow-up 2 sent"), plEv("24 Aug, 14:05", "Insurer", "Quote received for GMC — partial terms")], clarifications: [] },
+      { insurerId: "reliance", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
+        declineReason: "Three-year claims ratio of 94% is outside renewal authority for the incumbent desk.",
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("11 Aug, 17:30", "Insurer", "Declined — claims ratio outside renewal authority")], clarifications: [] },
+    ],
+    quotes: [
+      plMkQuote("icici", "GMC", 1, 1, "13 Aug, 16:20", {
+        premium: 36840000, si: 500000, family: "1+1+2 (parents as voluntary buy-up)",
+        roomRent: "1% of SI per day, ICU at actuals", maternity: "₹75,000 normal / ₹1,00,000 C-section",
+        ped: "Covered from day one", buffer: "₹50,00,000 floater", copay: "Nil",
+        validity: "30 days from 13 Aug 2026", exclusions: "Cosmetic treatment, dental unless accidental, OPD",
+      }, { decision: "usable", decisionAt: "14 Aug, 11:05" }),
+      plMkQuote("icici", "GPA", 1, 1, "13 Aug, 16:20", {
+        premium: 1985000, si: "36× monthly salary", scope: "24 hours, worldwide, including project sites",
+        ttd: "₹25,000 per week, 104 weeks", medEx: "10% of CSI, max ₹5,00,000", validity: "30 days from 13 Aug 2026",
+      }, { decision: "usable", decisionAt: "14 Aug, 11:05" }),
+      plMkQuote("hdfc", "GMC", 1, 1, "15 Aug, 12:40", {
+        premium: 35920000, si: 500000, family: "1+1+2", roomRent: "Capped — basis not stated",
+        maternity: "₹75,000 / ₹1,00,000", ped: "Covered from day one", buffer: "₹40,00,000 floater",
+        copay: "Nil", validity: "21 days from 15 Aug 2026", exclusions: "Cosmetic, dental, OPD",
+      }, { decision: "superseded" }),
+      plMkQuote("hdfc", "GMC", 1, 2, "21 Aug, 15:10", {
+        premium: 35920000, si: 500000, family: "1+1+2", roomRent: "Single private AC room, ICU at actuals",
+        maternity: "₹75,000 normal / ₹1,00,000 C-section", ped: "Covered from day one",
+        buffer: "₹40,00,000 floater", copay: "Nil", validity: "21 days from 21 Aug 2026",
+        exclusions: "Cosmetic treatment, dental unless accidental, OPD",
+      }, { decision: "usable", decisionAt: "22 Aug, 10:00" }),
+      plMkQuote("bajaj", "GMC", 1, 1, "25 Aug, 19:15", {
+        premium: 34150000, si: 500000, family: "1+1+2", roomRent: "1% of SI per day, ICU 2%",
+        maternity: "₹7,50,00", matConf: "low", ped: "Covered from day one",
+        buffer: "₹35,00,000 floater", copay: "10% on parents only", validity: "15 days from 25 Aug 2026",
+        exclusions: "Cosmetic, dental unless accidental, OPD, day-care beyond listed procedures",
+      }),
+      plMkQuote("nia", "GMC", 1, 1, "24 Aug, 14:05", {
+        premium: 33480000, si: 500000, family: "1+1+2", roomRent: "",
+        maternity: "₹50,000 normal / ₹75,000 C-section", ped: "Covered from day one",
+        buffer: "Not offered", copay: "20% on all claims", validity: "30 days from 24 Aug 2026",
+        exclusions: "Cosmetic, dental, OPD, maternity for parents",
+      }, { openItems: ["Room rent limit is blank in the quote document — material for comparison."] }),
+    ],
+    qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [
+      { id: "t1", label: "Review Bajaj Allianz GMC quote", due: "Today", owner: "You", done: false },
+      { id: "t2", label: "Chase New India Assurance for room rent basis", due: "Today", owner: "You", done: false },
+    ],
+    audit: [
+      plAu("05 Aug, 11:30", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("05 Aug, 16:20", "Ananya Rao", "PM", "Clarification requested from RM", "Parents in-scope or buy-up"),
+      plAu("06 Aug, 09:12", "Sneha Iyer", "RM", "Clarification answered", "Parents confirmed as voluntary buy-up"),
+      plAu("06 Aug, 10:05", "Ananya Rao", "PM", "RFQ V1 validated", ""),
+      plAu("06 Aug, 14:00", "Ananya Rao", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
+      plAu("14 Aug, 11:05", "Ananya Rao", "PM", "Quote marked usable", "ICICI Lombard · GMC and GPA · counts as 1 insurer"),
+      plAu("22 Aug, 10:00", "Ananya Rao", "PM", "Quote revision marked usable", "HDFC ERGO · v2 supersedes v1 · counts as 1 insurer"),
+      plAu("24 Aug, 14:05", "New India Assurance", "Insurer", "Quote received", "GMC · room rent limit missing"),
+      plAu("25 Aug, 19:15", "Bajaj Allianz", "Insurer", "Quote received", "GMC · awaiting Placement Manager review"),
+    ],
+  },
+];
+
+const PL_SEED_C = [
+  /* 5 ── QCR released, client deciding, late quote has landed */
+  {
+    id: "PC-1028", priority: "Standard", stage: "qcr_released", outcome: null,
+    client: { name: "Suryodaya Renewables Ltd", industry: "Solar EPC & O&M", city: "Ahmedabad, GJ", headcount: 420, turnover: "₹310 Cr", spoc: "Ritu Pandya, Finance Controller", rm: "Priya Nair" },
+    products: ["Fire"], receivedAt: "28 Jul, 09:00", renewal: "12 Sep 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "floated", createdAt: "28 Jul, 09:00", validatedAt: "28 Jul, 15:10", floatedAt: "29 Jul, 10:00",
+      sections: [{ product: "Fire", si: "₹186 Cr total sum insured", detail: [["Locations", "3 manufacturing units, 1 warehouse"], ["Construction", "RCC, sprinklered"], ["Prior claims", "1 claim, ₹12 L, 2023"], ["Add-ons sought", "Earthquake, STFI, terrorism"]] }],
+      classification: { rmEntered: "Renewable energy — Solar EPC", suggested: "Renewable energy — Solar EPC", flagged: false, confirmed: "Renewable energy — Solar EPC", basis: ["RM entry matches GST filings."], impact: "" },
+      missing: [], rmThread: [],
+    }],
+    panel: { locked: true, selected: ["icici", "nia", "chola", "sompo"], excluded: [] },
+    recommend: [], notRecommended: [],
+    threads: [
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("06 Aug, 11:00", "Insurer", "Quote received"), plEv("08 Aug, 09:40", "Ananya Rao", "Marked usable")], clarifications: [] },
+      { insurerId: "nia", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("12 Aug, 15:20", "Insurer", "Quote received"), plEv("14 Aug, 10:10", "Ananya Rao", "Marked usable")], clarifications: [] },
+      { insurerId: "chola", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("18 Aug, 12:00", "Insurer", "Quote received"), plEv("21 Aug, 16:30", "Ananya Rao", "Marked usable — threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "sompo", status: "quote_received", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("21 Aug, 16:30", "System", "Automated follow-ups stopped — usable-quote threshold reached"), plEv("25 Aug, 11:20", "Insurer", "Quote received after QCR V1 release")], clarifications: [] },
+    ],
+    quotes: [
+      plMkQuote("icici", "Fire", 1, 1, "06 Aug, 11:00", { premium: 4820000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "45 days from 06 Aug 2026" }, { decision: "usable", decisionAt: "08 Aug, 09:40" }),
+      plMkQuote("nia", "Fire", 1, 1, "12 Aug, 15:20", { premium: 4415000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI. Terrorism quoted separately at ₹6,20,000", validity: "30 days from 12 Aug 2026" }, { decision: "usable", decisionAt: "14 Aug, 10:10" }),
+      plMkQuote("chola", "Fire", 1, 1, "18 Aug, 12:00", { premium: 5140000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹5 L", addons: "Earthquake, STFI, terrorism, spontaneous combustion", validity: "30 days from 18 Aug 2026" }, { decision: "usable", decisionAt: "21 Aug, 16:30" }),
+      plMkQuote("sompo", "Fire", 1, 1, "25 Aug, 11:20", { premium: 4290000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "30 days from 25 Aug 2026" }),
+    ],
+    qcrs: [{ v: 1, status: "released", createdAt: "21 Aug, 16:31", releasedAt: "22 Aug, 10:15", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Priya Nair (RM)" }],
+    negotiations: [], followUpsStopped: true,
+    tasks: [{ id: "t1", label: "Decide whether Universal Sompo quote warrants QCR V2", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("28 Jul, 09:00", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section"),
+      plAu("29 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("21 Aug, 16:30", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
+      plAu("21 Aug, 16:30", "System", "System", "Automated follow-ups stopped", "Remaining open thread: Universal Sompo"),
+      plAu("21 Aug, 16:31", "System", "System", "Draft QCR V1 generated", "3 quotes included"),
+      plAu("22 Aug, 10:15", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Priya Nair · version locked"),
+      plAu("25 Aug, 11:20", "Universal Sompo", "Insurer", "Quote received after QCR release", "Not included in QCR V1"),
+    ],
+  },
+
+  /* 6 ── Negotiation */
+  {
+    id: "PC-1029", priority: "Standard", stage: "negotiation", outcome: null,
+    client: { name: "Halcyon Hospitality Group", industry: "Hotels & resorts", city: "Panaji, GA", headcount: 780, turnover: "₹265 Cr", spoc: "Farhan Qureshi, Director HR", rm: "Rohit Desai" },
+    products: ["GMC"], receivedAt: "18 Jul, 14:00", renewal: "20 Sep 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "floated", createdAt: "18 Jul, 14:00", validatedAt: "19 Jul, 09:30", floatedAt: "19 Jul, 15:00",
+      sections: [{ product: "GMC", si: "₹3,00,000 per family", detail: [["Lives to be covered", "780 employees + dependants (≈2,600 lives)"], ["Family definition", "1+1+2"], ["Claims ratio (3 yr)", "88%"], ["Expiring premium", "₹1,04,00,000"]] }],
+      classification: { rmEntered: "Hospitality — Hotels & resorts", suggested: "Hospitality — Hotels & resorts", flagged: false, confirmed: "Hospitality — Hotels & resorts", basis: ["RM entry matches GST filings."], impact: "" },
+      missing: [], rmThread: [],
+    }],
+    panel: { locked: true, selected: ["hdfc", "care", "icici", "star"], excluded: [] },
+    recommend: [], notRecommended: [],
+    threads: [
+      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("28 Jul, 10:20", "Insurer", "Quote received"), plEv("30 Jul, 11:00", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent — premium and co-pay"), plEv("22 Aug, 14:30", "Insurer", "Revised quote received (v2)")], clarifications: [] },
+      { insurerId: "care", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("30 Jul, 09:15", "Insurer", "Quote received"), plEv("01 Aug, 10:30", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent — maternity limit")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("05 Aug, 12:40", "Insurer", "Quote received"), plEv("07 Aug, 09:00", "Ananya Rao", "Marked usable — threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "star", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "Hospitality occupancy with 88% claims ratio is outside current appetite.", events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("24 Jul, 16:00", "Insurer", "Declined")], clarifications: [] },
+    ],
+    quotes: [
+      plMkQuote("hdfc", "GMC", 1, 1, "28 Jul, 10:20", { premium: 11240000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "10% on all claims", validity: "30 days from 28 Jul 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "superseded" }),
+      plMkQuote("hdfc", "GMC", 1, 2, "22 Aug, 14:30", { premium: 10680000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "Nil", validity: "21 days from 22 Aug 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "usable", decisionAt: "23 Aug, 09:40" }),
+      plMkQuote("care", "GMC", 1, 1, "30 Jul, 09:15", { premium: 10910000, si: 300000, family: "1+1+2", roomRent: "Single private AC room", maternity: "₹40,000 / ₹60,000", ped: "Covered from day one", buffer: "Not offered", copay: "Nil", validity: "30 days from 30 Jul 2026", exclusions: "Cosmetic, dental, OPD, day-care beyond listed" }, { decision: "usable", decisionAt: "01 Aug, 10:30" }),
+      plMkQuote("icici", "GMC", 1, 1, "05 Aug, 12:40", { premium: 11890000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day, ICU at actuals", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "30 days from 05 Aug 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "usable", decisionAt: "07 Aug, 09:00" }),
+    ],
+    qcrs: [{ v: 1, status: "released", createdAt: "07 Aug, 09:02", releasedAt: "07 Aug, 15:00", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Rohit Desai (RM)" }],
+    negotiations: [
+      { round: 1, openedAt: "18 Aug, 16:00", status: "closed", closedAt: "23 Aug, 09:40", brief: "Client asked for a single-digit increase over expiring and removal of co-pay.", items: [
+        { insurerId: "hdfc", ask: "Remove the 10% co-pay and hold premium within 3% of expiring.", status: "improved", response: "Co-pay removed. Premium reduced to ₹1,06,80,000 (revision v2)." },
+        { insurerId: "care", ask: "Increase maternity limit to ₹50,000 / ₹75,000 to match the panel.", status: "declined", response: "Cannot improve maternity at this claims ratio. Terms stand." },
+      ] },
+      { round: 2, openedAt: "25 Aug, 11:00", status: "open", brief: "Client wants the corporate buffer restored on the leading terms before deciding.", items: [
+        { insurerId: "hdfc", ask: "Increase corporate buffer from ₹20 L to ₹35 L at the revised premium.", status: "awaiting", response: null },
+        { insurerId: "icici", ask: "Match ₹1,06,80,000 premium at the current ₹25 L buffer.", status: "awaiting", response: null },
+      ] },
+    ],
+    followUpsStopped: true,
+    tasks: [{ id: "t1", label: "Chase round 2 negotiation responses", due: "Tomorrow", owner: "You", done: false }],
+    audit: [
+      plAu("19 Jul, 15:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("07 Aug, 09:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
+      plAu("07 Aug, 15:00", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Rohit Desai · version locked"),
+      plAu("18 Aug, 15:40", "Rohit Desai", "RM", "Client decision recorded", "Negotiation requested"),
+      plAu("18 Aug, 16:00", "Ananya Rao", "PM", "Negotiation round 1 opened", "2 insurer asks"),
+      plAu("22 Aug, 14:30", "HDFC ERGO", "Insurer", "Revised quote received", "v2 · co-pay removed, premium reduced"),
+      plAu("23 Aug, 09:40", "Ananya Rao", "PM", "Negotiation round 1 closed", "1 improved · 1 declined"),
+      plAu("25 Aug, 11:00", "Ananya Rao", "PM", "Negotiation round 2 opened", "2 insurer asks"),
+    ],
+  },
+
+  /* 7 ── Terminal: unable to place */
+  {
+    id: "PC-1030", priority: "Standard", stage: "closed", outcome: { type: "unable_to_place", reason: "Six markets approached across two RFQ versions. All declined US product-liability exposure for a contract manufacturer without a US-domiciled parent. No market available on the requested structure.", at: "12 Aug, 17:20", by: "Ananya Rao" },
+    client: { name: "Ridgeline Pharma Ltd", industry: "Pharmaceutical contract manufacturing", city: "Hyderabad, TS", headcount: 890, turnover: "₹520 Cr", spoc: "Dr. Anil Varma, QA Head", rm: "Aman Kulkarni" },
+    products: ["PL"], receivedAt: "02 Jul, 10:00", renewal: "31 Aug 2026", activeRfq: 2,
+    rfqs: [
+      { v: 1, status: "superseded", createdAt: "02 Jul, 10:00", validatedAt: "03 Jul, 11:00", floatedAt: "03 Jul, 14:00", sections: [{ product: "PL", si: "USD 5 M limit", detail: [["Territory", "India, US, EU"], ["Jurisdiction", "Worldwide including US"], ["US turnover share", "38%"]] }], classification: { rmEntered: "Pharma — Contract manufacturing", suggested: "Pharma — Contract manufacturing", flagged: false, confirmed: "Pharma — Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+      { v: 2, status: "floated", createdAt: "24 Jul, 09:00", validatedAt: "24 Jul, 12:00", floatedAt: "24 Jul, 15:00", sections: [{ product: "PL", si: "USD 3 M limit", detail: [["Territory", "India, EU"], ["Jurisdiction", "Excluding US"], ["Change from V1", "US jurisdiction removed to test appetite"]] }], classification: { rmEntered: "Pharma — Contract manufacturing", suggested: "Pharma — Contract manufacturing", flagged: false, confirmed: "Pharma — Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+    ],
+    panel: { locked: true, selected: ["icici", "bajaj", "tata", "nia", "oriental", "chola"], excluded: [] },
+    recommend: [], notRecommended: [],
+    threads: [
+      { insurerId: "icici", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "US jurisdiction product liability for contract manufacturers is outside appetite.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("29 Jul, 10:00", "Insurer", "Declined")], clarifications: [] },
+      { insurerId: "bajaj", status: "declined", slaH: 0, paused: false, followUps: 2, followUpsActive: false, declineReason: "Requires a US-domiciled parent for this structure.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("02 Aug, 11:30", "Insurer", "Declined")], clarifications: [] },
+      { insurerId: "tata", status: "declined", slaH: 0, paused: false, followUps: 2, followUpsActive: false, declineReason: "Capacity withdrawn for pharma PL in this segment.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("05 Aug, 16:00", "Insurer", "Declined")], clarifications: [] },
+      { insurerId: "nia", status: "no_response", slaH: -24, paused: false, followUps: 3, followUpsActive: false, events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("10 Aug, 09:00", "System", "Final follow-up sent, no response")], clarifications: [] },
+      { insurerId: "oriental", status: "declined", slaH: 0, paused: false, followUps: 2, followUpsActive: false, declineReason: "Export pharma PL not written on this desk.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("07 Aug, 14:00", "Insurer", "Declined")], clarifications: [] },
+      { insurerId: "chola", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "Liability capacity insufficient for a USD 3 M limit.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("31 Jul, 12:00", "Insurer", "Declined")], clarifications: [] },
+    ],
+    quotes: [], qcrs: [], negotiations: [], followUpsStopped: true, tasks: [],
+    audit: [
+      plAu("03 Jul, 14:00", "Ananya Rao", "PM", "RFQ V1 floated", "6 insurer threads created"),
+      plAu("23 Jul, 16:00", "Ananya Rao", "PM", "RFQ V2 created", "US jurisdiction removed to test appetite"),
+      plAu("24 Jul, 15:00", "Ananya Rao", "PM", "RFQ V2 floated", "6 threads reset to RFQ V2"),
+      plAu("10 Aug, 09:00", "System", "System", "All threads closed without quote", "5 declined · 1 no response"),
+      plAu("12 Aug, 17:20", "Ananya Rao", "PM", "Case closed — unable to place", "Reason recorded"),
+    ],
+  },
+
+  /* 8 ── Terminal: quote selected, handed off */
+  {
+    id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG on both sections. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Rohit Desai (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
+    client: { name: "Orbit Semiconductors Pvt Ltd", industry: "Semiconductor design & test", city: "Noida, UP", headcount: 260, turnover: "₹184 Cr", spoc: "Sanjana Kapoor, COO", rm: "Rohit Desai" },
+    products: ["Cyber", "D&O"], receivedAt: "12 Jul, 10:30", renewal: "01 Sep 2026", activeRfq: 1,
+    rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "Cyber", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "D&O", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics — Semiconductor services", suggested: "Electronics — Semiconductor services", flagged: false, confirmed: "Electronics — Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
+    panel: { locked: true, selected: ["tata", "icici", "bajaj", "hdfc"], excluded: [] },
+    recommend: [], notRecommended: [],
+    threads: [
+      { insurerId: "tata", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("19 Jul, 14:00", "Insurer", "Quote received"), plEv("21 Jul, 10:00", "Ananya Rao", "Marked usable")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("22 Jul, 11:00", "Insurer", "Quote received"), plEv("24 Jul, 09:30", "Ananya Rao", "Marked usable")], clarifications: [] },
+      { insurerId: "bajaj", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("26 Jul, 15:30", "Insurer", "Quote received"), plEv("28 Jul, 11:00", "Ananya Rao", "Marked usable — threshold reached")], clarifications: [] },
+      { insurerId: "hdfc", status: "no_response", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("28 Jul, 11:00", "System", "Automated follow-ups stopped — threshold reached")], clarifications: [] },
+    ],
+    quotes: [
+      plMkQuote("tata", "Cyber", 1, 1, "19 Jul, 14:00", { premium: 1840000, si: 80000000, retention: 2500000, extensions: "BI, ransomware, regulatory defence", territory: "India and US, Indian jurisdiction", validity: "30 days from 19 Jul 2026" }, { decision: "usable", decisionAt: "21 Jul, 10:00" }),
+      plMkQuote("icici", "Cyber", 1, 1, "22 Jul, 11:00", { premium: 1965000, si: 80000000, retention: 2500000, extensions: "BI, ransomware", territory: "India and US, Indian jurisdiction", validity: "30 days from 22 Jul 2026" }, { decision: "usable", decisionAt: "24 Jul, 09:30" }),
+      plMkQuote("bajaj", "Cyber", 1, 1, "26 Jul, 15:30", { premium: 1790000, si: 80000000, retention: 5000000, extensions: "BI, ransomware, regulatory defence", territory: "India only", validity: "21 days from 26 Jul 2026" }, { decision: "usable", decisionAt: "28 Jul, 11:00" }),
+    ],
+    qcrs: [{ v: 1, status: "released", createdAt: "28 Jul, 11:02", releasedAt: "28 Jul, 15:30", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Rohit Desai (RM)" }],
+    negotiations: [], followUpsStopped: true, tasks: [],
+    audit: [
+      plAu("13 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("28 Jul, 11:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
+      plAu("28 Jul, 15:30", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Rohit Desai · version locked"),
+      plAu("04 Aug, 16:45", "Rohit Desai", "RM", "Client decision recorded", "Quote selected — Tata AIG, both sections"),
+      plAu("05 Aug, 09:10", "System", "System", "Handed off to RM / Policy Journey", "Reference ISS-8841"),
+    ],
+  },
+  /* 9 ── Happy Path Demo: a clean Fresh GMC case with nothing to trip over.
+     Complete RFQ, confirmed classification, four markets that all write the risk,
+     realistic differing quotes. Drive it end to end with the existing controls. */
+  {
+    id: "PC-1032", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
+    client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering — precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, HR Manager", rm: "Sneha Iyer" },
+    products: ["GMC"], receivedAt: "31 Aug, 10:05", renewal: "15 Oct 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "in_review", createdAt: "31 Aug, 10:05",
+      sections: [
+        { product: "GMC", si: "₹5,00,000 per family", detail: [["Lives to be covered", "310 employees + dependants (≈1,050 lives)"], ["Family definition sought", "1+1+2 (parents as voluntary buy-up)"], ["Existing insurer", "None — first group cover"], ["Maternity", "₹50,000 normal / ₹75,000 C-section"], ["Room rent", "Single private AC room preferred"], ["Claims history", "Not applicable — fresh"]] },
+      ],
+      classification: {
+        rmEntered: "Engineering — precision components (NIC 2593)",
+        suggested: "Engineering — precision components (NIC 2593)",
+        flagged: false, confirmed: null,
+        basis: ["GST registration and the client form both describe CNC machining of precision components.", "Single owned unit at the Coimbatore SIPCOT estate."],
+        impact: "Classification is consistent across sources. Confirming it lets the recommendation engine match appetite.",
+      },
+      missing: [
+        { id: "m1", label: "Preferred TPA", note: "Optional. Insurers will default to their empanelled TPA if not stated.", resolved: false, material: false },
+      ],
+      rmThread: [],
+    }],
+    panel: { locked: false, selected: [], excluded: [] },
+    recommend: [
+      { id: "icici", reasons: ["Writes fresh GMC schemes in the 250–500 headcount band.", "Coimbatore risks are routed through the Chennai corporate desk."] },
+      { id: "hdfc", reasons: ["Active appetite for first-time group health in manufacturing.", "Accepts the requested single-private-room basis without referral."] },
+      { id: "bajaj", reasons: ["Writes GMC with parental buy-up at this scheme size.", "EB desk covers Tamil Nadu directly."] },
+      { id: "tata", reasons: ["Writes engineering-sector group health.", "Capacity covers the full headcount without referral."] },
+    ],
+    notRecommended: [
+      { id: "oriental", reasons: ["Marked Do Not Float on the Insurer Master."] },
+      { id: "star", reasons: ["Health-only market; prefers schemes above 500 lives."] },
+    ],
+    demoQuotes: {
+      icici: { premium: 2840000, si: 500000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "Nil", validity: "30 days", exclusions: "Cosmetic, dental, OPD" },
+      hdfc: { premium: 2790000, si: 500000, family: "1+1+2", roomRent: "2% of SI per day", maternity: "₹60,000 / ₹80,000", ped: "Covered from day one", buffer: "₹15,00,000", copay: "10% on parents", validity: "30 days", exclusions: "Cosmetic, dental, OPD, infertility" },
+      bajaj: { premium: 2960000, si: 500000, family: "1+1+2", roomRent: "Single private AC room", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "45 days", exclusions: "Cosmetic, dental" },
+      tata: { premium: 3020000, si: 500000, family: "1+1+2", roomRent: "Single private AC room", maternity: "₹75,000 / ₹1,00,000", ped: "Covered from day one", buffer: "₹30,00,000", copay: "Nil", validity: "30 days", exclusions: "Cosmetic, dental, OPD" },
+    },
+    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("31 Aug, 10:05", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section · web form"),
+      plAu("31 Aug, 10:06", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("31 Aug, 10:06", "System", "System", "RFQ extraction complete", "All mandatory GMC fields present · classification consistent"),
+    ],
+  },
+];
+
+/* Case type, mandates and Target Premium (decision support only).
+   Small/Big renewal banding is deliberately out of scope for this prototype. */
+const PL_CASE_META = {
+  "PC-1024": { slaLeftMins: 47, caseType: "Renewal", urgency: "Medium", targetPremium: 7800000, mandate: null, incumbent: "Star Health" },
+  "PC-1025": { slaLeftMins: 96, caseType: "Fresh", urgency: "Medium", targetPremium: 4200000, mandate: null, incumbent: null },
+  "PC-1026": { slaLeftMins: -38, caseType: "Renewal", urgency: "High", targetPremium: 3100000, mandate: null, incumbent: "New India" },
+  "PC-1027": { slaLeftMins: 92, caseType: "Renewal", urgency: "Medium", targetPremium: 11500000, mandate: null, incumbent: "HDFC Ergo" },
+  "PC-1028": { slaLeftMins: 1240, caseType: "Rollover", urgency: "Medium", targetPremium: 2400000, mandate: { type: "Incumbent Approach Mandate", ref: "MND-1028-A", note: "Client authority on file to approach the incumbent." }, incumbent: "Universal Sompo" },
+  "PC-1029": { slaLeftMins: 74, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
+  "PC-1030": { slaLeftMins: null, caseType: "Fresh", urgency: "High", targetPremium: 1800000, mandate: null, incumbent: null },
+  "PC-1032": { slaLeftMins: 55, caseType: "Fresh", urgency: "Medium", targetPremium: 2900000, mandate: null, incumbent: null },
+  "PC-1031": { slaLeftMins: null, caseType: "Fresh", urgency: "Medium", targetPremium: 3600000, mandate: { type: "Exclusive Placement Mandate", ref: "MND-1031-E", note: "RM + Placement jointly approved the selected option." }, incumbent: null },
+};
+
+const PL_ALL_CASES = PL_SEED.concat(PL_SEED_B, PL_SEED_C).map((c) => ({ ...c, meta: { ...PL_CASE_META[c.id] } }));
+
+/* seeded cases join mid-SLA: the seeded minutes are what is left on the clock they are on today */
+const plSeedSla = (c) => {
+  const id = plSlaIdOf(c);
+  return { ...c, sla: { id, remaining: id ? c.meta.slaLeftMins : null, since: c.receivedAt } };
+};
+
+/* ==================================================================== *
+ *  DERIVED RULES  — the PRD's business logic lives here, in one place
+ * ==================================================================== */
+
+/* status maps — data only. `tone` is a TONES palette key (string); the UI
+   layer resolves the colour and supplies any per-status icon. No JSX here. */
+const PL_STAGE = {
+  rfq_review: { label: "RFQ Review", step: 0, tone: "orange" },
+  awaiting_rm: { label: "RFQ Clarification", step: 0, tone: "orange" },
+  insurer_selection: { label: "Insurer Selection", step: 1, tone: "purple" },
+  market: { label: "Quote Collection", step: 2, tone: "blue" },
+  quote_review: { label: "Quote Review", step: 3, tone: "amber" },
+  qcr_draft: { label: "QCR Ready", step: 4, tone: "purple" },
+  qcr_released: { label: "Pending RM Review", step: 5, tone: "green" },
+  negotiation: { label: "Negotiation", step: 5, tone: "orange" },
+  closed: { label: "Closed", step: 6, tone: "neutral" },
+};
+const PL_RAIL = ["RFQ", "Insurers", "Insurer Threads", "Quotes", "QCR", "RM Decision"];
+
+const PL_OUTCOME = {
+  quote_selected: { label: "Quote Selected", tone: "green" },
+  lost: { label: "Lost — Client Not Proceeding", tone: "red" },
+  unable_to_place: { label: "Unable to Place", tone: "red" },
+  cancelled_inactivity: { label: "Cancelled — Inactivity", tone: "neutral" },
+};
+
+const PL_TSTAT = {
+  rfq_sent: { label: "Awaiting Insurer Response", tone: "neutral" },
+  acknowledged: { label: "Awaiting Insurer Response", tone: "blue", sub: "acknowledged" },
+  insurer_clarification: { label: "Clarification Required", tone: "orange" },
+  awaiting_rm: { label: "Awaiting RM Information", tone: "orange" },
+  quote_received: { label: "Quote Received", tone: "purple" },
+  quote_usable: { label: "Quote Usable", tone: "green" },
+  quote_clarification: { label: "Quote Received", tone: "orange", sub: "needs clarification" },
+  quote_excluded: { label: "Quote Received", tone: "neutral", sub: "excluded" },
+  declined: { label: "Declined", tone: "red" },
+  no_response: { label: "Awaiting Insurer Response", tone: "red", sub: "SLA breached" },
+};
+
+/* Quote-decision chip map — data only (tone is a TONES key string, no JSX). */
+const PL_DECISION_CHIP = {
+  usable: { tone: "green", label: "Usable" },
+  clarification: { tone: "orange", label: "Needs clarification" },
+  excluded: { tone: "neutral", label: "Excluded from QCR" },
+  superseded: { tone: "neutral", label: "Superseded" },
+};
+
+const plStamp = () => {
+  const d = new Date();
+  const m = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()];
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getDate())} ${m}, ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+const plLiveQuotes = (c) => c.quotes.filter((q) => q.rfqV === c.activeRfq && q.decision !== "superseded");
+
+/* THE threshold rule: distinct insurers with at least one PM-validated usable
+   quote on the current RFQ version. Revisions from one insurer count once. */
+const plUsableInsurers = (c) => {
+  const s = new Set();
+  plLiveQuotes(c).forEach((q) => { if (q.decision === "usable") s.add(q.insurerId); });
+  return [...s];
+};
+const plUsableCount = (c) => plUsableInsurers(c).length;
+const PL_THRESHOLD = 3;
+const plThresholdMet = (c) => plUsableCount(c) >= PL_THRESHOLD;
+
+/* per-product readout, secondary to the case-level threshold */
+const plProductCoverage = (c) => c.products.map((p) => {
+  const s = new Set();
+  plLiveQuotes(c).forEach((q) => { if (q.product === p && q.decision === "usable") s.add(q.insurerId); });
+  return { product: p, n: s.size };
+});
+
+/* a quote cannot be marked usable while material information is unresolved */
+const plGapsOf = (q) => {
+  const blanks = q.fields.filter((f) => f.required && String(f.value ?? "").trim() === "")
+    .map((f) => `${f.label} is missing from the quote document.`);
+  return [...blanks, ...(q.openItems || [])];
+};
+const plCanMarkUsable = (q) => plGapsOf(q).length === 0;
+
+const plLowConfidence = (q) => q.fields.filter((f) => f.confidence === "low");
+const plCorrected = (q) => q.fields.filter((f) => f.correctedBy);
+
+const plThreadOf = (c, id) => c.threads.find((t) => t.insurerId === id);
+const plQuotesOf = (c, id) => c.quotes.filter((q) => q.insurerId === id && q.rfqV === c.activeRfq);
+const plActiveRfqOf = (c) => c.rfqs.find((r) => r.v === c.activeRfq) || c.rfqs[c.rfqs.length - 1];
+const plReleasedQcr = (c) => c.qcrs.filter((q) => q.status === "released").slice(-1)[0] || null;
+const plDraftQcr = (c) => c.qcrs.find((q) => q.status === "draft") || null;
+const plRestartableThreads = (c) => plOpenThreads(c).filter((t) => t.status !== "awaiting_rm");
+const plOpenThreads = (c) => c.threads.filter((t) => !["declined", "no_response", "quote_usable", "quote_excluded"].includes(t.status));
+
+const plFmtVal = (f) => {
+  if (String(f.value ?? "").trim() === "") return null;
+  return f.kind === "money" ? plInr(f.value) : String(f.value);
+};
+
+/* case-level "what needs you next" — drives the queue and the right rail */
+/* the one thing this thread is waiting for */
+function plThreadNext(c, t) {
+  if (t.status === "declined") return "None — declined";
+  if (t.status === "no_response") return "Escalate to senior POC";
+  if (t.status === "insurer_clarification") return "Answer or ask RM";
+  if (t.status === "awaiting_rm") return "Waiting on RM";
+  if (t.status === "quote_received" || t.status === "quote_clarification") return "Review the quote";
+  if (t.status === "quote_usable") return "None — usable quote held";
+  if (t.status === "quote_excluded") return "None — excluded";
+  if (!t.followUpsActive) return "Follow-ups stopped";
+  return t.followUps >= 3 ? "Escalate to senior POC" : "Send follow-up";
+}
+
+function plNextAction(c) {
+  if (c.stage === "closed") return null;
+  const r = plActiveRfqOf(c);
+  if (c.stage === "rfq_review") {
+    if (r.classification.flagged && !r.classification.confirmed) return { label: "Confirm risk classification", tab: "rfq", tone: "orange" };
+    if (r.missing.some((m) => !m.resolved)) return { label: "Request missing information from RM", tab: "rfq", tone: "orange" };
+    return { label: "Validate RFQ and move to insurer selection", tab: "rfq", tone: "purple" };
+  }
+  if (c.stage === "awaiting_rm") return { label: "Waiting on RM response", tab: "rfq", tone: "orange" };
+  if (c.stage === "insurer_selection") return { label: "Approve insurer panel and float RFQ", tab: "insurers", tone: "purple" };
+  if (c.stage === "market" || c.stage === "quote_review") {
+    const paused = c.threads.filter((t) => t.paused);
+    if (paused.length) return { label: `Reply to ${PL_INSURERS[paused[0].insurerId].name} clarification`, tab: "market", tone: "orange" };
+    const pending = plLiveQuotes(c).filter((q) => !q.decision);
+    if (pending.length) return { label: `Review ${pending.length} quote${pending.length > 1 ? "s" : ""} awaiting your decision`, tab: "quotes", tone: "purple" };
+    const breach = c.threads.filter((t) => t.slaH < 0 && !t.paused && t.status !== "declined");
+    if (breach.length) return { label: `${PL_INSURERS[breach[0].insurerId].name} has breached SLA`, tab: "market", tone: "red" };
+    return { label: "Monitor insurer responses", tab: "market", tone: "neutral" };
+  }
+  if (c.stage === "qcr_draft") return { label: "Review draft QCR and send to RM", tab: "qcr", tone: "purple" };
+  if (c.rmMoreQuotes && !c.rmMoreQuotes.handled)
+    return { label: "RM requested more quotes — decide which markets to approach", tab: "market", tone: "orange" };
+  if (c.stage === "qcr_released") {
+    const late = plLiveQuotes(c).some((q) => !q.decision);
+    if (late) return { label: "Late quote received — decide on QCR V2", tab: "qcr", tone: "orange" };
+    return { label: "Awaiting client decision via RM", tab: "qcr", tone: "neutral" };
+  }
+  if (c.stage === "negotiation") {
+    const latest = c.negotiations[c.negotiations.length - 1];
+    const pending = plLiveQuotes(c).filter((q) => !q.decision);
+    if (latest && latest.status === "draft") return { label: "Send the negotiation request", tab: "negotiation", tone: "purple" };
+    if (pending.length) return { label: `Review revised quote from ${PL_INSURERS[pending[0].insurerId].name}`, tab: "quotes", tone: "purple" };
+    if (latest && latest.status === "open" && latest.items.every((it) => it.status === "awaiting"))
+      return { label: latest.final ? "Awaiting final revision from insurer" : "Awaiting revised quote from insurer", tab: "negotiation", tone: "neutral" };
+    return { label: latest && latest.final ? "Record the client decision" : "Request final revision or record the client decision", tab: latest && latest.final ? "qcr" : "negotiation", tone: "purple" };
+  }
+  return null;
+}
+
+/* PRD §5.3 — layered status. The Placement Case carries one internal status and
+   one RM-facing status; thread / quote / QCR artefacts carry their own. One
+   insurer event never overwrites the parent case status. */
+function plCaseStatus(c) {
+  const P = (internal, portal) => ({ internal, portal });
+  if (c.stage === "closed") {
+    const o = c.outcome && c.outcome.type;
+    if (o === "quote_selected") return P("Quote Selected", "Quote Selected");
+    if (o === "lost") return P("Lost — Client Not Proceeding", "Closed");
+    if (o === "unable_to_place") return P("Unable to Place", "Closed");
+    return P("Cancelled — Inactivity", "Closed");
+  }
+  if (c.stage === "rfq_review") return P("Ready for Placement", "Placement In Progress");
+  if (c.stage === "awaiting_rm") return P("RFQ Clarification Required", "Action Required");
+  if (c.stage === "insurer_selection")
+    return c.panel.locked ? P("Insurers Approved", "Placement In Progress")
+                          : P("Insurer Selection Pending", "Placement In Progress");
+  if (c.stage === "market" || c.stage === "quote_review") {
+    if (c.threads.some((t) => t.status === "awaiting_rm")) return P("Awaiting RM Information", "Action Required");
+    if (plLiveQuotes(c).some((q) => !q.decision)) return P("Quote Review Required", "Placement In Progress");
+    return P("Quote Collection In Progress", "Placement In Progress");
+  }
+  if (c.stage === "qcr_draft")
+    return plDraftQcr(c) ? P("Pending Placement Release", "Placement In Progress")
+                       : P("QCR Ready", "Placement In Progress");
+  if (c.stage === "qcr_released") return P("Pending RM Review", "QCR Ready");
+  if (c.stage === "negotiation") return P("Negotiation In Progress", "Requote / Negotiation In Progress");
+  return P("Placement In Progress", "Placement In Progress");
+}
+
+/* BR-068 / FR-108 — Target Premium is a decision-support flag. Never an auto-rejection. */
+/* Source of truth: Placement_SLA_master.xlsx. One clock is surfaced at a time —
+   the one attached to whatever the case is actually waiting on. */
+const PL_SLA_MASTER = {
+  "SLA-02": { short: "RFQ Review", touchpoint: "RFQ review + completeness check", owner: "Placement Manager", target: "1 business hour", mins: 60 },
+  "SLA-03": { short: "RM Clarification", touchpoint: "RM / customer clarification", owner: "RM", target: "1 business day", mins: 540, external: true },
+  "SLA-04": { short: "Insurer Selection", touchpoint: "Insurer recommendation + final selection", owner: "Placement Manager", target: "2 business hours", mins: 120 },
+  "SLA-05": { short: "RFQ Float", touchpoint: "RFQ float to selected insurers", owner: "System / PM", target: "Within 30 minutes", mins: 30 },
+  "SLA-06": { short: "Quote Collection", touchpoint: "Insurer quote collection", owner: "Insurers / Placement", target: "2 business days", mins: 1080, external: true },
+  "SLA-09": { short: "Insurer Escalation", touchpoint: "Insurer escalation", owner: "System / PM", target: "After 3 business days", mins: 1620, external: true },
+  "SLA-10": { short: "Quote Review", touchpoint: "Quote extraction + PM validation", owner: "System + PM", target: "2 business hours per quote", mins: 120 },
+  "SLA-11": { short: "QCR Generation", touchpoint: "QCR generation", owner: "System", target: "Within 15 minutes", mins: 15 },
+  "SLA-12": { short: "QCR Release", touchpoint: "PM QCR review and release", owner: "Placement Manager", target: "2 business hours", mins: 120 },
+  "SLA-13": { short: "RM sends to Client", touchpoint: "RM sends QCR to client", owner: "RM", target: "4 business hours", mins: 240, external: true },
+  "SLA-14": { short: "Client Decision", touchpoint: "Client decision", owner: "RM / Client", target: "3 business days target", mins: 1620, external: true },
+  "SLA-15": { short: "Negotiation", touchpoint: "Negotiation after rejection", owner: "Placement Manager", target: "2 business hours to initiate", mins: 120 },
+  "SLA-16": { short: "Revised Quote", touchpoint: "Revised insurer quote", owner: "Insurer", target: "1 business day target", mins: 540, external: true },
+  "SLA-17": { short: "RFQ V2 Re-float", touchpoint: "Requirement change / RFQ V2 re-float", owner: "RM + Placement", target: "4 business hours", mins: 240 },
+  "SLA-18": { short: "Inactivity Closure", touchpoint: "RM / client inactivity closure", owner: "RM / Client", target: "30 calendar days", mins: 43200, external: true },
+};
+
+/* Follow-up ladder, SLA-07 / 08 / 09. */
+/* SLA-06: quote collection target is 2 business days. On the 10:00–19:00 calendar that is 18 business hours.
+   Every floated thread starts here regardless of urgency; urgency changes visibility, not the clock. */
+const PL_THREAD_TARGET_H = 18;
+
+const PL_FOLLOWUP_LADDER = [
+  { n: 1, after: "1 business day", label: "Follow-up 1" },
+  { n: 2, after: "2 business days", label: "Follow-up 2" },
+  { n: 3, after: "3 business days", label: "Escalation to senior POC" },
+];
+
+const plFmtMins = (m) => {
+  const a = Math.abs(Math.round(m));
+  if (a >= 540) { const d = Math.round((a / 540) * 10) / 10; return `${d}d`; }
+  if (a >= 60) { const h = Math.floor(a / 60), r = a % 60; return r ? `${h}h ${r}m` : `${h}h`; }
+  return `${a}m`;
+};
+
+/* Which SLA the case is on right now, chosen from what it is waiting for. */
+function plSlaIdOf(c) {
+  return c.stage === "closed" ? null
+    : c.stage === "rfq_review" ? "SLA-02"
+    : c.stage === "awaiting_rm" ? "SLA-03"
+    : c.stage === "insurer_selection" ? (c.panel.locked ? "SLA-05" : "SLA-04")
+    : c.stage === "negotiation" ? (c.negotiations.some((n) => n.status === "draft") ? "SLA-15"
+                                   : c.negotiations.some((n) => n.status === "open") ? "SLA-16" : "SLA-15")
+    : c.stage === "qcr_released" ? "SLA-14"
+    : c.stage === "qcr_draft" ? (plDraftQcr(c) ? "SLA-12" : "SLA-11")
+    : c.threads.some((t) => t.status === "awaiting_rm") ? "SLA-03"
+    : plLiveQuotes(c).some((q) => !q.decision) ? "SLA-10"
+    : "SLA-06";
+}
+
+/* Prototype SLA state: { id, remaining }. Run after every mutation. If the SLA type
+   changed, the countdown starts again at that SLA's target — the previous clock's
+   remaining time is never carried across. No calendar engine, by design. */
+function plReconcileSla(c) {
+  const id = plSlaIdOf(c);
+  if (!id) return c.sla && c.sla.id === null ? c : { ...c, sla: { id: null, remaining: null } };
+  if (c.sla && c.sla.id === id) return c;
+  return { ...c, sla: { id, remaining: PL_SLA_MASTER[id].mins, since: plStamp() } };
+}
+
+/* The one SLA that matters right now. */
+function plCurrentSla(c) {
+  const sla = c.sla || plReconcileSla(c).sla;
+  if (!sla.id) return null;
+  const m = PL_SLA_MASTER[sla.id];
+  return { id: sla.id, ...m, remaining: sla.remaining, breached: (sla.remaining ?? 1) < 0 };
+}
+
+function plTargetFlag(c, premium) {
+  const t = c.meta && c.meta.targetPremium;
+  if (!t) return { label: "Target Not Available", tone: "neutral" };
+  if (premium == null) return { label: "Target Not Available", tone: "neutral" };
+  return premium <= t ? { label: "Target Met", tone: "green" } : { label: "Above Target", tone: "orange" };
+}
+
+/* ==================================================================== *
+ *  MUTATION API — factory. Created inside the React component with the
+ *  component's own `setCases` (and optional `say` toast fn). Every write
+ *  goes through `patch`, which runs plReconcileSla after the transform.
+ *  Behaviour is identical to the reference `api` object.
+ * ==================================================================== */
+
+const PL_TAXONOMY = [
+  { broad: "Commercial / Premium", route: "Negotiation with shortlisted insurers; optionally add new eligible markets.", kind: "negotiation",
+    details: ["Premium above client budget", "Competing broker quote is cheaper", "Loading on claims history disputed"] },
+  { broad: "Coverage / Terms", route: "Negotiation and/or additional insurer outreach.", kind: "negotiation",
+    details: ["Required cover missing", "Deductible too high", "Exclusion unacceptable", "Warranty or condition unacceptable"] },
+  { broad: "Insurer Preference", route: "Request additional insurers / alternate QCR.", kind: "more_quotes",
+    details: ["Client does not prefer this insurer", "Prior service concern", "Group-level insurer restriction"] },
+  { broad: "Requirement Change", route: "Create RFQ Version 2, revalidate and requote.", kind: "rfq_v2",
+    details: ["Sum insured changed", "Risk location changed", "Cover scope changed", "Material underwriting change"] },
+  { broad: "Client Not Proceeding", route: "Close as Lost — Client Not Proceeding.", kind: "lost",
+    details: ["Purchase postponed", "No longer interested", "Bought elsewhere"] },
+  { broad: "Other", route: "Placement review determines the route. Free text is mandatory.", kind: null, details: [] },
+];
+
+function makePlacementApi(setCases, say = () => {}) {
+  const patch = (id, fn) => setCases((cs) => cs.map((c) => (c.id === id ? plReconcileSla(fn(c)) : c)));
+  const withLog = (c, actor, type, event, detail = "") =>
+    ({ ...c, audit: [...c.audit, plAu(plStamp(), actor, type, event, detail)] });
+
+  return {
+    say,
+
+    confirmClassification: (id, value, changed) => patch(id, (c) => {
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r
+        : { ...r, classification: { ...r.classification, confirmed: value, flagged: false } });
+      return withLog({ ...c, rfqs }, PL_ME.name, "PM",
+        changed ? "Classification corrected" : "Classification confirmed",
+        changed ? `${plActiveRfqOf(c).classification.rmEntered} → ${value}` : value);
+    }),
+
+    requestRmInfo: (id, itemIds, note) => patch(id, (c) => {
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : {
+        ...r,
+        rmThread: [...r.rmThread, { at: plStamp(), actor: PL_ME.name, text: note, items: itemIds }],
+      });
+      return withLog({ ...c, rfqs, stage: "awaiting_rm", pendingRm: itemIds },
+        PL_ME.name, "PM", "Clarification requested from RM", `${itemIds.length} item(s) · sent to ${c.client.rm}`);
+    }),
+
+    simulateRmReply: (id, text) => patch(id, (c) => {
+      const pending = c.pendingRm || [];
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : {
+        ...r,
+        missing: r.missing.map((m) => (pending.includes(m.id) ? { ...m, resolved: true, resolvedAt: plStamp() } : m)),
+        rmThread: [...r.rmThread, { at: plStamp(), actor: c.client.rm, text }],
+      });
+      return withLog({ ...c, rfqs, stage: "rfq_review", pendingRm: [] },
+        c.client.rm, "RM", "Clarification answered", `${pending.length} item(s) resolved`);
+    }),
+
+    validateRfq: (id) => patch(id, (c) => {
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : { ...r, status: "validated", validatedAt: plStamp() });
+      return withLog({ ...c, rfqs, stage: "insurer_selection" }, PL_ME.name, "PM",
+        `RFQ V${c.activeRfq} validated`, "Moved to insurer selection");
+    }),
+
+    togglePanel: (id, insurerId) => patch(id, (c) => {
+      const has = c.panel.selected.includes(insurerId);
+      if (has && !c.panel.locked)
+        return { ...c, panel: { ...c.panel, selected: c.panel.selected.filter((x) => x !== insurerId) } };
+      if (has) return c;
+      let out = { ...c, panel: { ...c.panel, selected: [...c.panel.selected, insurerId] } };
+      /* after float, adding a market is a PM decision that opens one more independent thread */
+      if (c.panel.locked) {
+        out = {
+          ...out, stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
+          threads: [...c.threads, {
+            insurerId, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
+            events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk — market added after initial float`)], clarifications: [],
+          }],
+          rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: "Approached another insurer" } : c.rmMoreQuotes,
+        };
+        out = withLog(out, PL_ME.name, "PM", "Additional insurer approached", `${PL_INSURERS[insurerId].name} · new independent thread on RFQ V${c.activeRfq}`);
+      }
+      return out;
+    }),
+
+    floatRfq: (id) => patch(id, (c) => {
+      const threads = c.panel.selected.map((insurerId) => ({
+        insurerId, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false,
+        followUps: 0, followUpsActive: true,
+        events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk`)], clarifications: [],
+      }));
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : { ...r, status: "floated", floatedAt: plStamp() });
+      return withLog({ ...c, threads, rfqs, panel: { ...c.panel, locked: true }, stage: "market" },
+        PL_ME.name, "PM", `RFQ V${c.activeRfq} floated`, `${threads.length} independent insurer threads created`);
+    }),
+
+    setPoc: (id, insurerId, poc) => patch(id, (c) => withLog(
+      { ...c, pocs: { ...(c.pocs || {}), [insurerId]: poc } },
+      PL_ME.name, "PM", "Insurer contact changed", `${PL_INSURERS[insurerId].name} → ${poc}`)),
+
+    logCall: (id, insurerId) => patch(id, (c) => {
+      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
+        : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Call logged — spoke to the insurer POC, quote expected shortly")] });
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Call logged", PL_INSURERS[insurerId].name);
+    }),
+
+    followUp: (id, insurerId) => patch(id, (c) => {
+      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
+        : { ...t, followUps: t.followUps + 1, events: [...t.events, plEv(plStamp(), PL_ME.name, `Manual follow-up sent (follow-up ${t.followUps + 1})`)] });
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Follow-up sent", PL_INSURERS[insurerId].name);
+    }),
+
+    holdForRm: (id, insurerId, note) => patch(id, (c) => {
+      const t0 = plThreadOf(c, insurerId);
+      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+        ...t, status: "awaiting_rm", paused: true, pauseReason: note,
+        clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, rmRequested: true, rmRequestedAt: plStamp() } : cl),
+        events: [...t.events, plEv(plStamp(), PL_ME.name, `Information requested from RM · insurer clock held at ${plFmtH(t.slaH)}`)],
+      });
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Information requested from RM",
+        `${PL_INSURERS[insurerId].name} SLA held at ${plFmtH(t0.slaH)} remaining`);
+    }),
+
+    rmAnswered: (id, insurerId, text) => patch(id, (c) => {
+      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+        ...t,
+        clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, rmResponse: text, rmRespondedAt: plStamp() } : cl),
+        events: [...t.events, plEv(plStamp(), c.client.rm, "RM provided the requested information")],
+      });
+      return withLog({ ...c, threads }, c.client.rm, "RM", "Information provided", PL_INSURERS[insurerId].name);
+    }),
+
+    replyToInsurer: (id, insurerId, text) => patch(id, (c) => {
+      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+        ...t, status: "acknowledged", paused: false, pauseReason: null,
+        clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, repliedAt: plStamp() } : cl),
+        events: [...t.events, plEv(plStamp(), PL_ME.name, `Reply sent to insurer · clock resumed with ${plFmtH(t.slaH)} remaining`)],
+      });
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Replied to insurer clarification",
+        `${PL_INSURERS[insurerId].name} SLA resumed`);
+    }),
+
+    simulateInsurer: (id, insurerId, kind) => patch(id, (c) => {
+      let out = { ...c };
+      const map = (fn) => { out = { ...out, threads: out.threads.map((t) => (t.insurerId === insurerId ? fn(t) : t)) }; };
+      if (kind === "ack") {
+        map((t) => ({ ...t, status: "acknowledged", events: [...t.events, plEv(plStamp(), "Insurer", "Submission acknowledged, allocated to underwriting desk")] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Submission acknowledged", "");
+      }
+      if (kind === "clarify") {
+        const q = "Please share the client's loss run and the current risk-control report before we can rate this submission.";
+        map((t) => ({
+          ...t, status: "insurer_clarification",
+          clarifications: [...t.clarifications, { id: `c${Date.now()}`, question: q, askedAt: plStamp(), rmRequested: false, rmResponse: null, repliedAt: null }],
+          events: [...t.events, plEv(plStamp(), "Insurer", "Clarification raised")],
+        }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Clarification raised", q.slice(0, 60) + "…");
+      }
+      if (kind === "decline") {
+        map((t) => ({ ...t, status: "declined", followUpsActive: false, declineReason: "Risk falls outside current underwriting appetite.", events: [...t.events, plEv(plStamp(), "Insurer", "Declined to quote")] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Declined to quote", "Outside underwriting appetite");
+      }
+      if (kind === "quote") {
+        const product = c.products[0];
+        const base = { GMC: { premium: 30500000, si: 500000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "30 days", exclusions: "Cosmetic, dental, OPD" },
+          GPA: { premium: 1750000, si: "24× monthly salary", scope: "24 hours, worldwide", ttd: "₹20,000 per week", medEx: "10% of CSI", validity: "30 days" },
+          Cyber: { premium: 1880000, si: 100000000, retention: 2500000, extensions: "BI, ransomware", territory: "India, Indian jurisdiction", validity: "30 days" },
+          Marine: { premium: 9800000, si: 50000000, clause: "ICC (A)", excess: "₹50,000 each claim", validity: "30 days" },
+          Fire: { premium: 4600000, si: 1000000000, basis: "Reinstatement value", excess: "5% of claim", addons: "Earthquake, STFI", validity: "30 days" } }[product] || {};
+        const existing = plQuotesOf(c, insurerId).filter((q) => q.product === product).length;
+        const payload = { ...base, ...((c.demoQuotes && c.demoQuotes[insurerId]) || {}) };
+        const nq = plMkQuote(insurerId, product, c.activeRfq, existing + 1, plStamp(), payload);
+        out = { ...out, quotes: [...out.quotes, nq] };
+        map((t) => ({ ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Quote received for ${product}`)] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Quote received", `${product} · awaiting Placement Manager review`);
+      }
+      return out;
+    }),
+
+    editField: (id, quoteId, key, value) => patch(id, (c) => {
+      let label = "", from = "";
+      const quotes = c.quotes.map((q) => q.id !== quoteId ? q : {
+        ...q,
+        fields: q.fields.map((f) => {
+          if (f.key !== key) return f;
+          label = f.label; from = f.value;
+          return { ...f, value, correctedBy: value === f.extracted ? null : PL_ME.name, correctedAt: plStamp() };
+        }),
+      });
+      return withLog({ ...c, quotes }, PL_ME.name, "PM", "Extracted value corrected",
+        `${quoteId} · ${label}: "${from || "(blank)"}" → "${value || "(blank)"}"`);
+    }),
+
+    decideQuote: (id, quoteId, decision, note) => patch(id, (c) => {
+      const q0 = c.quotes.find((q) => q.id === quoteId);
+      let out = { ...c, quotes: c.quotes.map((q) => q.id !== quoteId ? q : { ...q, decision, decisionAt: plStamp(), decisionNote: note || "" }) };
+      const tstat = { usable: "quote_usable", clarification: "quote_clarification", excluded: "quote_excluded" }[decision];
+      out = { ...out, threads: out.threads.map((t) => t.insurerId !== q0.insurerId ? t : {
+        ...t, status: tstat, events: [...t.events, plEv(plStamp(), PL_ME.name, `${q0.product} quote marked ${decision === "usable" ? "usable" : decision === "clarification" ? "needs clarification" : "excluded from QCR"}`)],
+      }) };
+      const dLabel = { usable: "Quote marked usable", clarification: "Quote marked needs clarification", excluded: "Quote excluded from QCR" }[decision];
+      out = withLog(out, PL_ME.name, "PM", dLabel, `${PL_INSURERS[q0.insurerId].name} · ${q0.product}${note ? " · " + note : ""}`);
+
+      if (plThresholdMet(out) && !out.followUpsStopped && !plReleasedQcr(out) && !plDraftQcr(out)) {
+        out = { ...out, followUpsStopped: true, threads: out.threads.map((t) => ({ ...t, followUpsActive: false })) };
+        out = withLog(out, "System", "System", "Usable-quote threshold reached", `${plUsableCount(out)} usable quotes from ${plUsableCount(out)} distinct insurers`);
+        out = withLog(out, "System", "System", "Automated follow-ups stopped", `${plOpenThreads(out).length} thread(s) still open`);
+        out = { ...out, stage: "qcr_draft", qcrs: [...out.qcrs, { v: (out.qcrs.length + 1), status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: null }] };
+        out = withLog(out, "System", "System", `Draft QCR V${out.qcrs.length} generated`, "Awaiting Placement Manager review");
+      } else if (out.stage === "market") {
+        out = { ...out, stage: "quote_review" };
+      }
+      return out;
+    }),
+
+    startDraftQcr: (id, earlyReason) => patch(id, (c) => {
+      let out = { ...c, stage: "qcr_draft", followUpsStopped: true, threads: c.threads.map((t) => ({ ...t, followUpsActive: false })),
+        qcrs: [...c.qcrs, { v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: earlyReason ? { reason: earlyReason, count: plUsableCount(c) } : null }] };
+      return withLog(out, PL_ME.name, "PM", `Draft QCR V${out.qcrs.length} created`,
+        earlyReason ? `Early release · ${plUsableCount(c)} usable quote(s) · reason recorded` : "");
+    }),
+
+    releaseQcr: (id, note) => patch(id, (c) => {
+      const qcrs = c.qcrs.map((q) => q.status !== "draft" ? q
+        : { ...q, status: "released", releasedAt: plStamp(), releasedBy: PL_ME.name, sentTo: `${c.client.rm} (RM)`, coverNote: note });
+      const v = qcrs.filter((q) => q.status === "released").slice(-1)[0].v;
+      return withLog({ ...c, qcrs, stage: "qcr_released" }, PL_ME.name, "PM",
+        `QCR V${v} released to RM`, `Sent to ${c.client.rm} · version locked`);
+    }),
+
+    newQcrVersion: (id) => patch(id, (c) => withLog(
+      { ...c, stage: "qcr_draft", qcrs: [...c.qcrs, { v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: null }] },
+      PL_ME.name, "PM", `Draft QCR V${c.qcrs.length + 1} created`, "Includes quotes received after the previous release")),
+
+    recordOutcome: (id, type, reason) => patch(id, (c) => withLog(
+      { ...c, stage: "closed", outcome: { type, reason, at: plStamp(), by: PL_ME.name } },
+      PL_ME.name, "PM", `Case closed — ${PL_OUTCOME[type].label.toLowerCase()}`, reason)),
+
+    selectQuote: (id, insurerId, reason) => patch(id, (c) => {
+      let out = withLog({ ...c, stage: "closed", outcome: { type: "quote_selected", insurerId, reason, at: plStamp(), by: `${c.client.rm} (RM)`, handoffRef: `ISS-${Math.floor(8000 + Math.random() * 900)}` } },
+        c.client.rm, "RM", "Client decision recorded", `Quote selected — ${PL_INSURERS[insurerId].name}`);
+      return withLog(out, "System", "System", "Handed off to RM / Policy Journey", `Reference ${out.outcome.handoffRef}`);
+    }),
+
+    openNegotiation: (id, items, brief) => patch(id, (c) => withLog(
+      { ...c, stage: "negotiation", negotiations: [...c.negotiations, { round: c.negotiations.length + 1, openedAt: plStamp(), status: "draft", brief, items }] },
+      PL_ME.name, "PM", `Negotiation round ${c.negotiations.length + 1} drafted`, `${items.length} insurer ask(s) · not yet sent`)),
+
+    /* Sending moves the round from PM-owned initiation (SLA-15) to insurer-owned revised quote (SLA-16). */
+    sendNegotiation: (id, round) => patch(id, (c) => {
+      const n = c.negotiations.find((x) => x.round === round);
+      if (!n || n.status !== "draft") return c;
+      const ids = n.items.map((it) => it.insurerId);
+      const out = {
+        ...c,
+        negotiations: c.negotiations.map((x) => x.round === round ? { ...x, status: "open", sentAt: plStamp() } : x),
+        threads: c.threads.map((t) => !ids.includes(t.insurerId) ? t
+          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, `Negotiation request sent — round ${round}`)] }),
+      };
+      return withLog(out, PL_ME.name, "PM", `Negotiation round ${round} sent`, ids.map((i) => PL_INSURERS[i].name).join(", "));
+    }),
+
+    /* Round 2 is one bounded ask, sent immediately: no new thread, no email composer.
+       The insurer's reply still lands as the next Quote Version through the existing path. */
+    requestFinalRevision: (id, reason, comment) => patch(id, (c) => {
+      const prev = c.negotiations[c.negotiations.length - 1];
+      if (!prev) return c;
+      const ids = prev.items.map((it) => it.insurerId);
+      const brief = comment ? `${reason} — ${comment}` : reason;
+      const round = {
+        round: c.negotiations.length + 1, openedAt: plStamp(), sentAt: plStamp(), status: "open", final: true, brief,
+        items: ids.map((i) => ({ insurerId: i, ask: `Final revision requested: ${brief}`, status: "awaiting" })),
+      };
+      const out = {
+        ...c, stage: "negotiation",
+        negotiations: [...c.negotiations.map((n) => n.round === prev.round && n.status === "open" ? { ...n, status: "closed", closedAt: plStamp() } : n), round],
+        threads: c.threads.map((t) => !ids.includes(t.insurerId) ? t
+          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Final revision requested by Placement Manager")] }),
+      };
+      return withLog(out, PL_ME.name, "PM", "Final revision requested by Placement Manager", `Round ${round.round} · ${brief}`);
+    }),
+
+    closeRound: (id, round) => patch(id, (c) => withLog(
+      { ...c, negotiations: c.negotiations.map((n) => n.round === round ? { ...n, status: "closed", closedAt: plStamp() } : n) },
+      PL_ME.name, "PM", `Negotiation round ${round} closed`, "")),
+
+    negotiationResponse: (id, round, insurerId, status, response) => patch(id, (c) => {
+      let out = { ...c, negotiations: c.negotiations.map((n) => n.round !== round ? n
+        : { ...n, items: n.items.map((it) => it.insurerId === insurerId ? { ...it, status, response, respondedAt: plStamp() } : it) }) };
+      out = withLog(out, PL_INSURERS[insurerId].name, "Insurer",
+        status === "improved" ? "Negotiation ask accepted" : "Negotiation ask declined", response);
+
+      /* Improved terms are a new quote version, reviewed in the Quotes workspace —
+         negotiation does not get a second quote-review system of its own. */
+      if (status === "improved") {
+        const prior = plQuotesOf(c, insurerId).filter((q) => q.decision !== "superseded").slice(-1)[0];
+        if (prior) {
+          const cut = (v) => (typeof v === "number" ? Math.round(v * 0.93) : v);
+          const base = {};
+          prior.fields.forEach((f) => { base[f.key] = f.key === "premium" ? cut(f.value) : f.key === "copay" ? "Nil" : f.value; });
+          const nq = plMkQuote(insurerId, prior.product, c.activeRfq, prior.version + 1, plStamp(), base);
+          out = {
+            ...out,
+            quotes: [...out.quotes.map((q) => (q.id === prior.id ? { ...q, decision: "superseded" } : q)),
+              { ...nq, supersedes: prior.version }],
+            threads: out.threads.map((t) => t.insurerId !== insurerId ? t
+              : { ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Revised quote received — Quote V${prior.version + 1}`)] }),
+          };
+          out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", `Revised quote received — Quote V${prior.version + 1}`,
+            `Quote V${prior.version} superseded · awaiting Placement Manager review`);
+        }
+      }
+      return out;
+    }),
+
+    newRfqVersion: (id, changeNote) => patch(id, (c) => {
+      const v = c.activeRfq + 1;
+      const prev = plActiveRfqOf(c);
+      const rfqs = [...c.rfqs.map((r) => r.v === c.activeRfq ? { ...r, status: "superseded" } : r),
+        { ...prev, v, status: "in_review", createdAt: plStamp(), validatedAt: null, floatedAt: null, changeNote, rmThread: [] }];
+      let out = { ...c, rfqs, activeRfq: v, stage: "rfq_review", threads: [], followUpsStopped: false,
+        panel: { ...c.panel, locked: false } };
+      out = withLog(out, PL_ME.name, "PM", `RFQ V${v} created`, changeNote);
+      return withLog(out, "System", "System", "Insurer threads reset", `Quotes against RFQ V${c.activeRfq} retained for audit but no longer count toward the threshold`);
+    }),
+
+    rmRequestMoreQuotes: (id, reason) => patch(id, (c) => withLog(
+      { ...c,
+        rmMoreQuotes: { reason, at: plStamp(), by: c.client.rm, handled: false },
+        tasks: [...c.tasks, { id: `t${Date.now()}`, label: "RM requested more quotes — decide which markets to approach", due: "Today", owner: "You", done: false }] },
+      c.client.rm, "RM", "RM requested more quotes", `${reason} · no insurer contacted until you decide`)),
+
+    /* Only the selected threads restart. Each gets a fresh quote-collection clock (PRD 8.4);
+       everything else is untouched. The reason and the insurer list go to the audit trail. */
+    restartThreads: (id, insurerIds, reason) => patch(id, (c) => {
+      const names = insurerIds.map((i) => PL_INSURERS[i].name).join(", ");
+      const threads = c.threads.map((t) => !insurerIds.includes(t.insurerId) ? t : {
+        ...t, followUpsActive: true, followUps: 0, slaH: PL_THREAD_TARGET_H, paused: false,
+        status: t.status === "acknowledged" ? "acknowledged" : "rfq_sent",
+        events: [...t.events, plEv(plStamp(), PL_ME.name, `Thread restarted — ${reason}`)],
+      });
+      const out = { ...c, stage: "market", followUpsStopped: false, threads,
+        rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: `Restarted ${names}` } : c.rmMoreQuotes };
+      return withLog(out, PL_ME.name, "PM", "Threads restarted", `${names} · ${reason}`);
+    }),
+
+    toggleTask: (id, taskId) => patch(id, (c) => ({ ...c, tasks: c.tasks.map((t) => t.id === taskId ? { ...t, done: !t.done } : t) })),
+  };
+}
+
+/* ---------- scratch_pl_ui.jsx ---------- */
+/* ================================================================== *
+ *  BimaPlacement — Placement Manager Workbench, ported into the sister
+ *  design system. Behaviour is frozen (FUNCTIONAL-CONTRACT.md); only the
+ *  visual layer is remapped: the reference's warm-cream `T` palette →
+ *  the shared violet `C` chrome, Outfit → the shared FONT (Anek), and a
+ *  plain monospace stack for identifiers/money/SLA/timestamps.
+ *  Every symbol is PL_/Pl-namespaced to avoid collisions.
+ * ================================================================== */
+
+const PL_MONO = 'ui-monospace, SFMono-Regular, Menlo, "Cascadia Code", "Segoe UI Mono", monospace';
+
+/* Reference `T` remapped onto the shared C palette. Semantic colours keep
+   their meaning (orange = SLA attention, green = success, red = breach,
+   amber = simulation); purple is the shared brand; the ground is the sister
+   off-white, not warm cream. */
+const PL_T = {
+  bg: C.canvas, bgDeep: C.canvas,
+  card: C.white, cardAlt: "#FAFAFB", cardSunk: C.canvas,
+  strip: C.brandBg, stripLine: C.brand200,
+  border: C.subtle, borderStrong: C.line,
+  ink: C.figInk, ink2: C.figHint, ink3: C.figTert,
+  purple: C.brand, purpleDeep: C.brand600, purpleSoft: C.brandBg, purpleLine: C.brand200,
+  orange: C.warn, orangeSoft: C.warnSoft, orangeLine: "#F2DBBE",
+  green: "#0F7A4C", greenSoft: "#E4F5EC", greenLine: "#B6E2CB",
+  red: C.breach, redSoft: C.breachSoft, redLine: "#F1CCC8",
+  blue: C.link, blueSoft: "#E8F1FA", blueLine: "#C3DAF0",
+  amber: "#8A6D1F", amberSoft: "#FDF6DC", amberLine: "#EFE0A8",
+  navActive: C.brandBg, navSelected: C.brandBg, navHover: C.canvas, navLine: C.lineSoft,
+};
+
+const PL_TONES = {
+  neutral: { fg: PL_T.ink2, bg: PL_T.cardSunk, line: PL_T.border },
+  purple: { fg: PL_T.purpleDeep, bg: PL_T.purpleSoft, line: PL_T.purpleLine },
+  orange: { fg: PL_T.orange, bg: PL_T.orangeSoft, line: PL_T.orangeLine },
+  green: { fg: PL_T.green, bg: PL_T.greenSoft, line: PL_T.greenLine },
+  red: { fg: PL_T.red, bg: PL_T.redSoft, line: PL_T.redLine },
+  blue: { fg: PL_T.blue, bg: PL_T.blueSoft, line: PL_T.blueLine },
+  amber: { fg: PL_T.amber, bg: PL_T.amberSoft, line: PL_T.amberLine },
+};
+
+/* ---------------------------------- primitives --------------------------------- */
+
+function PlChip({ tone = "neutral", children, dot = false, mono = false, size = "sm" }) {
+  const c = PL_TONES[tone] || PL_TONES.neutral;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap ${size === "xs" ? "px-1.5 py-0.5" : "px-2 py-0.5"}`}
+      style={{
+        color: c.fg, background: c.bg, borderColor: c.line,
+        fontSize: size === "xs" ? 10.5 : 11.5, fontWeight: 500,
+        fontFamily: mono ? PL_MONO : FONT, letterSpacing: mono ? 0.2 : 0,
+      }}
+    >
+      {dot && <span className="rounded-full" style={{ width: 5, height: 5, background: c.fg }} />}
+      {children}
+    </span>
+  );
+}
+
+function PlBtn({ variant = "default", size = "md", onClick, disabled, children, icon: Icon, full, title }) {
+  const base = {
+    primary: { bg: PL_T.purple, fg: "#fff", bd: PL_T.purple },
+    default: { bg: PL_T.card, fg: PL_T.ink, bd: PL_T.borderStrong },
+    ghost: { bg: "transparent", fg: PL_T.ink2, bd: "transparent" },
+    danger: { bg: PL_T.card, fg: PL_T.red, bd: PL_T.redLine },
+    success: { bg: PL_T.green, fg: "#fff", bd: PL_T.green },
+  }[variant];
+  const pad = size === "sm" ? "px-2.5 py-1" : size === "lg" ? "px-4 py-2" : "px-3 py-1.5";
+  return (
+    <button
+      onClick={onClick} disabled={disabled} title={title}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border transition-colors ${pad} ${full ? "w-full" : ""}`}
+      style={{
+        background: disabled ? PL_T.cardSunk : base.bg,
+        color: disabled ? PL_T.ink3 : base.fg,
+        borderColor: disabled ? PL_T.border : base.bd,
+        fontSize: size === "sm" ? 12 : 12.5, fontWeight: 600,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      {Icon && <Icon size={size === "sm" ? 12 : 13.5} strokeWidth={2.1} />}
+      {children}
+    </button>
+  );
+}
+
+function PlCard({ children, pad = true, className = "", style = {}, alt = false }) {
+  return (
+    <div
+      className={`rounded-xl border ${pad ? "p-4" : ""} ${className}`}
+      style={{ background: alt ? PL_T.cardAlt : PL_T.card, borderColor: PL_T.border, ...style }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PlLabel({ children, className = "" }) {
+  return (
+    <div className={`uppercase ${className}`}
+      style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: PL_T.ink3 }}>
+      {children}
+    </div>
+  );
+}
+
+function PlMono({ children, size = 12, color = PL_T.ink2, weight = 500 }) {
+  return <span style={{ fontFamily: PL_MONO, fontSize: size, color, fontWeight: weight }}>{children}</span>;
+}
+
+function PlKV({ k, v, mono = false }) {
+  return (
+    <div>
+      <PlLabel>{k}</PlLabel>
+      <div className="mt-0.5" style={{ fontSize: 13, color: PL_T.ink, fontWeight: 500, fontFamily: mono ? PL_MONO : FONT }}>{v}</div>
+    </div>
+  );
+}
+
+function PlDivider({ vertical = false }) {
+  return vertical
+    ? <span style={{ width: 1, height: 16, background: PL_T.border, display: "inline-block" }} />
+    : <div style={{ height: 1, background: PL_T.border }} />;
+}
+
+function PlModal({ title, subtitle, children, onClose, footer, wide = false, tone = "purple" }) {
+  return (
+    <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
+      style={{ background: "rgba(28,27,31,0.42)" }} onClick={onClose}>
+      <div className="bk-modal rounded-2xl border shadow-2xl my-8"
+        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, width: wide ? 860 : 560, maxWidth: "100%" }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: PL_T.ink }}>{title}</div>
+            {subtitle && <div className="mt-0.5" style={{ fontSize: 12, color: PL_T.ink3 }}>{subtitle}</div>}
+          </div>
+          <button onClick={onClose} className="rounded-md p-1" style={{ color: PL_T.ink3 }}><X size={16} /></button>
+        </div>
+        <div className="px-5 py-4">{children}</div>
+        {footer && (
+          <div className="flex items-center justify-end gap-2 px-5 py-3.5 rounded-b-2xl"
+            style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlTextArea({ value, onChange, placeholder, rows = 3 }) {
+  return (
+    <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows}
+      className="w-full rounded-lg border px-3 py-2 outline-none resize-none"
+      style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: FONT }} />
+  );
+}
+
+function PlInput({ value, onChange, placeholder, mono = false }) {
+  return (
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      className="w-full rounded-lg border px-3 py-1.5 outline-none"
+      style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: mono ? PL_MONO : FONT }} />
+  );
+}
+
+function PlSelect({ value, onChange, options }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}
+      className="rounded-lg border px-2.5 py-1.5 outline-none"
+      style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: FONT }}>
+      {options.map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
+    </select>
+  );
+}
+
+function PlTick({ checked, onChange, label, sub }) {
+  return (
+    <label className="flex items-start gap-2.5 cursor-pointer py-1">
+      <span className="flex items-center justify-center rounded shrink-0 mt-0.5 border"
+        style={{
+          width: 15, height: 15,
+          background: checked ? PL_T.purple : PL_T.card,
+          borderColor: checked ? PL_T.purple : PL_T.borderStrong,
+        }}>
+        {checked && <Check size={10} color="#fff" strokeWidth={3.2} />}
+      </span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="hidden" />
+      <span>
+        <span style={{ fontSize: 12.5, color: PL_T.ink, fontWeight: 500 }}>{label}</span>
+        {sub && <span className="block" style={{ fontSize: 11.5, color: PL_T.ink3 }}>{sub}</span>}
+      </span>
+    </label>
+  );
+}
+
+function PlEmpty({ icon: Icon = Inbox, title, body, action }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="rounded-xl border p-3 mb-3" style={{ borderColor: PL_T.border, background: PL_T.cardAlt }}>
+        <Icon size={18} color={PL_T.ink3} />
+      </div>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: PL_T.ink }}>{title}</div>
+      {body && <div className="mt-1 max-w-sm" style={{ fontSize: 12.5, color: PL_T.ink3 }}>{body}</div>}
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+/* plFmtH / plInr / plInrL live in the domain layer (single source) — not redefined here. */
+
+/* SLA chip — the operational heartbeat. Pauses visibly, breaches loudly. */
+function PlSlaChip({ hours, paused, pauseReason, stopped }) {
+  if (stopped) return <PlChip tone="neutral" mono>Clock stopped</PlChip>;
+  if (paused) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5"
+        style={{
+          color: PL_T.orange, background: PL_T.orangeSoft, fontSize: 11.5, fontWeight: 500,
+          border: `1px dashed ${PL_T.orangeLine}`, fontFamily: PL_MONO,
+        }}
+        title={pauseReason}>
+        <Pause size={10} strokeWidth={2.6} />
+        {plFmtH(hours)} held
+      </span>
+    );
+  }
+  const breached = hours <= 0;
+  const risk = hours > 0 && hours <= 12;
+  const tone = breached ? "red" : risk ? "orange" : "neutral";
+  return (
+    <PlChip tone={tone} mono>
+      {breached ? <AlertTriangle size={10} strokeWidth={2.6} /> : <Clock size={10} strokeWidth={2.4} />}
+      {breached ? `${plFmtH(Math.abs(hours))} over` : `${plFmtH(hours)} left`}
+    </PlChip>
+  );
+}
+
+/* Usable-quote meter. Encodes the rule directly: distinct insurers, not quote count. */
+function PlUsableMeter({ count, target = 3, compact = false }) {
+  const pips = Array.from({ length: Math.max(target, count) });
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span className="flex items-center gap-1">
+        {pips.map((_, i) => (
+          <span key={i} className="rounded-full"
+            style={{
+              width: compact ? 6 : 7, height: compact ? 6 : 7,
+              background: i < count ? PL_T.green : "transparent",
+              border: `1.5px solid ${i < count ? PL_T.green : PL_T.borderStrong}`,
+            }} />
+        ))}
+      </span>
+      <span style={{ fontFamily: PL_MONO, fontSize: compact ? 11 : 11.5, color: count >= target ? PL_T.green : PL_T.ink2, fontWeight: 600 }}>
+        {count}/{target}
+      </span>
+      {!compact && <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>usable · distinct insurers</span>}
+    </div>
+  );
+}
+
+/* ---------- scratch_pl_screens.jsx ---------- */
+/* ================================================================== *
+ *  BimaPlacement — Placement Manager Workbench screens, ported into the
+ *  sister design system. Behaviour is frozen (FUNCTIONAL-CONTRACT.md);
+ *  only symbol names and visual primitives change. Every domain master,
+ *  domain function and shared primitive is defined elsewhere in the host
+ *  under its Pl-/PL_/pl- namespaced name.
+ * ================================================================== */
+
+const PL_QTABS = [
+  { id: "mine", label: "My Cases" },
+  { id: "action", label: "Action Required" },
+  { id: "sla", label: "SLA Risk" },
+  { id: "all", label: "All Cases" },
+];
+
+function PlQueueScreen({ cases, onOpen }) {
+  const [tab, setTab] = useState("mine");
+  const [q, setQ] = useState("");
+
+  const active = cases.filter((c) => c.stage !== "closed");
+  const needsYou = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external; });
+  const atRisk = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external && (s.remaining ?? 9999) < 60; });
+  const awaitingReview = active.reduce((n, c) => n + plLiveQuotes(c).filter((x) => !x.decision).length, 0);
+
+  const pool = tab === "mine" ? active : tab === "action" ? needsYou : tab === "sla" ? atRisk : cases;
+  const rows = pool.filter((c) => !q || (c.id + c.client.name + c.products.join(" ")).toLowerCase().includes(q.toLowerCase()));
+  const counts = { mine: active.length, action: needsYou.length, sla: atRisk.length, all: cases.length };
+
+  const stats = [
+    { k: "ACTIVE CASES", v: active.length, icon: Briefcase, tone: "purple" },
+    { k: "ACTION REQUIRED", v: needsYou.length, icon: AlertTriangle, tone: "orange" },
+    { k: "SLA RISK", v: atRisk.length, icon: Clock, tone: "red" },
+    { k: "QUOTES AWAITING REVIEW", v: awaitingReview, icon: FileText, tone: "blue" },
+  ];
+
+  /* top three things that actually need the PM today */
+  const attention = active
+    .map((c) => ({ c, na: plNextAction(c), sla: plCurrentSla(c) }))
+    .filter((x) => x.na && x.sla && !x.sla.external)
+    .sort((a, b) => (a.sla.remaining ?? 9999) - (b.sla.remaining ?? 9999))
+    .slice(0, 3);
+
+  return (
+    <div className="px-6 py-6">
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h1 style={{ fontSize: 25, fontWeight: 650, color: PL_T.ink, letterSpacing: -0.5 }}>Placement Queue</h1>
+          <p style={{ fontSize: 13, color: PL_T.ink3, marginTop: 2 }}>
+            Cases assigned to you by the Assignment Engine. Cases are created when an RM submits an RFQ.
+          </p>
+        </div>
+        <PlBtn icon={Download}>Export CSV</PlBtn>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3.5 mb-5">
+        {stats.map((s) => (
+          <div key={s.k} className="rounded-2xl px-4 py-3.5 flex items-start justify-between"
+            style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>{s.k}</div>
+              <div style={{ fontSize: 26, fontWeight: 650, color: PL_T.ink, marginTop: 4, letterSpacing: -0.5, fontFamily: PL_MONO }}>
+                {String(s.v).padStart(2, "0")}
+              </div>
+            </div>
+            <div className="rounded-lg flex items-center justify-center" style={{ width: 26, height: 26, background: PL_TONES[s.tone].bg }}>
+              <s.icon size={14} color={PL_TONES[s.tone].fg} strokeWidth={2.1} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl overflow-hidden mb-5" style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
+        <div className="flex items-center justify-between px-4 pt-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <div className="flex items-end gap-1">
+            {PL_QTABS.map((t) => {
+              const on = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2.5 pt-1 flex items-center gap-1.5"
+                  style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
+                  {t.label}
+                  <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, fontWeight: 600, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{counts[t.id]}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2 pb-2">
+            <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+              <Search size={12} color={PL_T.ink3} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search queue..."
+                className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 130 }} />
+            </div>
+            <SlidersHorizontal size={14} color={PL_T.ink3} />
+          </div>
+        </div>
+
+        <table className="w-full" style={{ borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: PL_T.cardAlt }}>
+              {["CASE ID", "CLIENT", "PRODUCT", "RM", "TYPE", "URGENCY", "STAGE", "CURRENT SLA", "USABLE QUOTES", "PENDING ACTION"].map((h) => (
+                <th key={h} className="text-left px-3 py-2.5"
+                  style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650, borderBottom: `1px solid ${PL_T.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const st = PL_STAGE[c.stage];
+              const na = plNextAction(c);
+              const sla = plCurrentSla(c);
+              const uc = plUsableCount(c);
+              return (
+                <tr key={c.id} onClick={() => onOpen(c.id)} className="cursor-pointer hover:opacity-90"
+                  style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                  <td className="px-3 py-3" style={{ fontFamily: PL_MONO, fontSize: 11.5, color: PL_T.purple, fontWeight: 600 }}>
+                    {c.id}{c.demo && <div className="mt-1"><PlChip size="xs" tone="green">Happy Path Demo</PlChip></div>}
+                  </td>
+                  <td className="px-3 py-3" style={{ fontSize: 12.5, color: PL_T.ink, fontWeight: 600, maxWidth: 150 }}>{c.client.name.replace(/ (Pvt Ltd|Ltd|LLP)$/, "")}</td>
+                  <td className="px-3 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{c.products.length === 1 ? PL_PRODUCTS[c.products[0]] : c.products.join(" + ")}</td>
+                  <td className="px-3 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{c.client.rm}</td>
+                  <td className="px-3 py-3"><PlChip size="xs">{c.meta.caseType}</PlChip></td>
+                  <td className="px-3 py-3">
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: c.meta.urgency === "High" ? PL_T.orange : PL_T.ink3 }}>{c.meta.urgency}</span>
+                  </td>
+                  <td className="px-3 py-3"><PlChip tone={st.tone} size="xs">{st.label}</PlChip></td>
+                  <td className="px-3 py-3"><PlSlaCell sla={sla} /></td>
+                  <td className="px-3 py-3">
+                    <span className="rounded-full inline-flex items-center justify-center"
+                      style={{ width: 22, height: 22, background: uc >= PL_THRESHOLD ? PL_T.greenSoft : PL_T.purpleSoft,
+                        color: uc >= PL_THRESHOLD ? PL_T.green : PL_T.purple, fontFamily: PL_MONO, fontSize: 11, fontWeight: 650 }}>{uc}</span>
+                  </td>
+                  <td className="px-3 py-3" style={{ maxWidth: 190 }}>
+                    {na ? (
+                      <span className="inline-flex items-start gap-1.5">
+                        <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_TONES[na.tone].fg, marginTop: 5 }} />
+                        <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.3 }}>{na.label}</span>
+                      </span>
+                    ) : <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>{c.outcome ? PL_OUTCOME[c.outcome.type].label : "—"}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <div className="flex items-center justify-between px-4 py-3">
+          <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+            Showing <b style={{ color: PL_T.ink }}>{rows.length}</b> of <b style={{ color: PL_T.ink }}>{cases.length}</b> cases
+          </span>
+          <div className="flex gap-1.5">
+            <PlBtn size="sm" disabled>Previous</PlBtn>
+            <PlBtn size="sm" disabled>Next</PlBtn>
+          </div>
+        </div>
+      </div>
+
+      <PlCard pad={false}>
+        <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <AlertTriangle size={13} color={PL_T.orange} />
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Needs attention</span>
+          <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>closest to SLA first</span>
+        </div>
+        {attention.map(({ c, na, sla }) => (
+          <button key={c.id} onClick={() => onOpen(c.id)} className="w-full text-left px-4 py-2.5 flex items-center gap-3"
+            style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+            <PlMono size={11.5} color={PL_T.purple} weight={600}>{c.id}</PlMono>
+            <span style={{ fontSize: 12.5, color: PL_T.ink }}>{na.label}</span>
+            <span className="flex-1" />
+            <PlSlaCell sla={sla} />
+            <ChevronRight size={13} color={PL_T.ink3} />
+          </button>
+        ))}
+        {attention.length === 0 && <div className="px-4 py-4" style={{ fontSize: 12, color: PL_T.ink3 }}>Nothing is waiting on you right now.</div>}
+      </PlCard>
+    </div>
+  );
+}
+
+/* One SLA, the one attached to what the case is waiting on. External owners are
+   shown as "awaiting", never as a Placement breach. */
+function PlSlaCell({ sla, wide = false }) {
+  if (!sla) return <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>Stopped</span>;
+  if (sla.external) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <Pause size={11} color={PL_T.ink3} />
+        <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+          Awaiting {sla.owner.split(" / ")[0].replace("Insurers", "insurer").replace("Insurer", "insurer")}
+        </span>
+        {wide && <PlMono size={10.5} color={PL_T.ink3}>{sla.target}</PlMono>}
+      </span>
+    );
+  }
+  const late = sla.breached;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Clock size={11} color={late ? PL_T.red : PL_T.orange} />
+      <span style={{ fontFamily: PL_MONO, fontSize: 11, color: late ? PL_T.red : PL_T.ink2, fontWeight: 600 }}>
+        {sla.remaining == null ? "—" : late ? `${plFmtMins(sla.remaining)} over` : `${plFmtMins(sla.remaining)} left`}
+      </span>
+    </span>
+  );
+}
+
+function PlHomeScreen({ cases, onOpen, setNav }) {
+  const active = cases.filter((c) => c.stage !== "closed");
+
+  const buckets = [
+    { k: "Quotes awaiting review", tone: "purple", tab: "quotes",
+      rows: active.flatMap((c) => plLiveQuotes(c).filter((q) => !q.decision).map((q) => ({ c, note: `${PL_INSURERS[q.insurerId].name} · ${PL_PRODUCTS[q.product]}` }))) },
+    { k: "RFQs awaiting validation", tone: "orange", tab: "rfq",
+      rows: active.filter((c) => c.stage === "rfq_review").map((c) => ({ c, note: `${plActiveRfqOf(c).missing.filter((m) => !m.resolved).length} open item(s)` })) },
+    { k: "Cases near SLA breach", tone: "red", tab: null,
+      rows: active.filter((c) => { const s = plCurrentSla(c); return s && !s.external && (s.remaining ?? 999) < 60; })
+        .map((c) => ({ c, note: plCurrentSla(c).short })) },
+    { k: "RM clarification received", tone: "green", tab: "market",
+      rows: active.flatMap((c) => c.threads.filter((t) => t.clarifications.slice(-1)[0]?.rmResponse && !t.clarifications.slice(-1)[0]?.repliedAt)
+        .map((t) => ({ c, note: `${PL_INSURERS[t.insurerId].name} — reply and resume the clock` }))) },
+    { k: "QCRs awaiting release", tone: "blue", tab: "qcr",
+      rows: active.filter((c) => plDraftQcr(c)).map((c) => ({ c, note: `Draft QCR V${plDraftQcr(c).v} ready to send` })) },
+  ];
+
+  const total = buckets.reduce((n, b) => n + b.rows.length, 0);
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Good morning, {PL_ME.name.split(" ")[0]}</h1>
+      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-5">
+        {total} item{total === 1 ? "" : "s"} across {active.length} active cases are waiting on you.
+      </div>
+
+      <div className="grid grid-cols-5 gap-3 mb-5">
+        {buckets.map((b) => (
+          <div key={b.k} className="rounded-2xl px-3.5 py-3" style={{ background: PL_T.card, border: `1px solid ${PL_T.border}` }}>
+            <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.3, minHeight: 28 }}>{b.k}</div>
+            <div style={{ fontFamily: PL_MONO, fontSize: 24, fontWeight: 650, color: b.rows.length ? PL_TONES[b.tone].fg : PL_T.ink3, marginTop: 4 }}>
+              {b.rows.length}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {buckets.filter((b) => b.rows.length).map((b) => (
+          <PlCard key={b.k} pad={false}>
+            <div className="px-4 py-2.5 flex items-center gap-2" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+              <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[b.tone].fg }} />
+              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{b.k}</span>
+              <PlChip size="xs" mono>{b.rows.length}</PlChip>
+            </div>
+            {b.rows.slice(0, 4).map((r, i) => (
+              <button key={i} onClick={() => onOpen(r.c.id, b.tab)} className="w-full text-left px-4 py-2.5 flex items-center gap-3"
+                style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <PlMono size={11} color={PL_T.purple} weight={600}>{r.c.id}</PlMono>
+                <span style={{ fontSize: 12.5, fontWeight: 550, width: 180 }} className="truncate">{r.c.client.name}</span>
+                <span className="flex-1" style={{ fontSize: 12, color: PL_T.ink2 }}>{r.note}</span>
+                <ChevronRight size={13} color={PL_T.ink3} />
+              </button>
+            ))}
+            {b.rows.length > 4 && (
+              <button onClick={() => setNav("cases")} className="w-full px-4 py-2" style={{ fontSize: 11.5, color: PL_T.purple, fontWeight: 600 }}>
+                {b.rows.length - 4} more in the queue
+              </button>
+            )}
+          </PlCard>
+        ))}
+        {total === 0 && <PlEmpty icon={CheckCircle2} title="Nothing waiting" body="No quotes, clarifications or QCRs need you right now." />}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== *
+ *  CASE WORKSPACE — one shell, every stage
+ * ================================================================== */
+
+function PlCaseWorkspace({ c, api, onBack, initialTab }) {
+  const na = plNextAction(c);
+  const [tab, setTab] = useState(initialTab || (na ? na.tab : "rfq"));
+  const rfq = plActiveRfqOf(c);
+  const st = plCaseStatus(c);
+  const sla = plCurrentSla(c);
+  const uc = plUsableCount(c);
+
+  const TABS = [
+    { id: "rfq", label: "RFQ", n: rfq.missing.filter((m) => !m.resolved).length || null },
+    { id: "insurers", label: "Insurers", n: c.panel.selected.length || null },
+    { id: "market", label: "Insurer Threads", n: c.threads.length || null },
+    { id: "quotes", label: "Quotes", n: plLiveQuotes(c).length || null },
+    { id: "qcr", label: "QCR", n: c.qcrs.length || null },
+    { id: "negotiation", label: "Negotiation", n: c.negotiations.length || null },
+    { id: "activity", label: "Activity", n: null },
+  ];
+
+  const statusTone = c.outcome ? PL_OUTCOME[c.outcome.type].tone
+    : /Clarification|Awaiting RM/.test(st.internal) ? "orange"
+    : /Release|QCR/.test(st.internal) ? "purple"
+    : /Review/.test(st.internal) ? "amber" : "blue";
+
+  return (
+    <div>
+      <div className="px-6 pt-5">
+        <button onClick={onBack} className="flex items-center gap-1 mb-3" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+          <ArrowLeft size={12} /> My Placement Cases
+        </button>
+
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span style={{ fontSize: 24, fontWeight: 650, letterSpacing: -0.5, color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
+              <span style={{ fontSize: 20, color: PL_T.ink3, fontWeight: 300 }}>·</span>
+              <h1 style={{ fontSize: 20, fontWeight: 650, letterSpacing: -0.3, color: PL_T.ink }}>{c.client.name}</h1>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mt-2">
+              <PlChip>{c.meta.caseType}</PlChip>
+              <PlChip>{c.products.join(" + ")}</PlChip>
+              <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
+              {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
+              {c.demo && <PlChip tone="green">Happy Path Demo</PlChip>}
+            </div>
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap" style={{ fontSize: 12, color: PL_T.ink3 }}>
+              <span>RM <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{c.client.rm}</b></span><PlDivider vertical />
+              <span>Placement Manager <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{PL_ME.name}</b></span><PlDivider vertical />
+              <span>Renewal <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{c.renewal}</b></span><PlDivider vertical />
+              <span>RFQ <b style={{ color: PL_T.ink2, fontWeight: 600, fontFamily: PL_MONO }}>V{c.activeRfq}</b></span>
+            </div>
+          </div>
+          <PlBtn icon={MessageSquare}>Contact RM</PlBtn>
+        </div>
+
+        <div className="rounded-2xl mb-4 flex items-stretch"
+          style={{ background: PL_T.strip, border: `1px solid ${PL_T.stripLine}` }}>
+          <div className="px-4 py-3" style={{ width: 210 }}>
+            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>CURRENT SLA</div>
+            {sla ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink, marginTop: 2 }}>{sla.short}</div>
+                <div className="mt-0.5"><PlSlaCell sla={sla} wide /></div>
+                <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 2 }}>Owner: {sla.owner} · {sla.target}</div>
+              </>
+            ) : <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink3, marginTop: 2 }}>Stopped</div>}
+          </div>
+          <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 160 }}>
+            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>USABLE QUOTES</div>
+            <div className="mt-1.5"><PlUsableMeter count={uc} /></div>
+          </div>
+          <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 150 }}>
+            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>INSURERS APPROACHED</div>
+            <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>{c.threads.length}</div>
+          </div>
+          <div className="px-4 py-3 flex-1" style={{ borderLeft: `1px solid ${PL_T.stripLine}` }}>
+            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>CURRENT ACTION</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: PL_T.ink, marginTop: 3, lineHeight: 1.35 }}>
+              {na ? na.label : c.outcome ? PL_OUTCOME[c.outcome.type].label : "—"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-0.5 flex-wrap">
+            {TABS.map((t) => {
+              const on = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)} className="rounded-xl px-3 py-2 flex items-center gap-1.5"
+                  style={{ background: on ? PL_T.navActive : "transparent", color: on ? PL_T.purple : PL_T.ink2, fontSize: 12.5, fontWeight: on ? 600 : 450 }}>
+                  {t.label}{t.n ? <PlMono size={10.5} color={on ? PL_T.purple : PL_T.ink3}>{t.n}</PlMono> : null}
+                </button>
+              );
+            })}
+          </div>
+          <PlStageRail stage={c.stage} outcome={c.outcome} />
+        </div>
+      </div>
+
+      <div className="flex gap-4 items-start px-6 pb-8">
+        <div className="flex-1 min-w-0">
+          {tab === "rfq" && <PlRfqTab c={c} api={api} />}
+          {tab === "insurers" && <PlInsurersTab c={c} api={api} />}
+          {tab === "market" && <PlMarketTab c={c} api={api} goTo={setTab} />}
+          {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
+          {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTab} />}
+          {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
+          {tab === "activity" && <PlActivityTab c={c} />}
+        </div>
+        <PlRightRail c={c} api={api} goTo={setTab} />
+      </div>
+    </div>
+  );
+}
+
+/* Six broad steps. The exact status chip says what is happening; this says where. */
+function PlStageRail({ stage, outcome }) {
+  const at = outcome ? 6 : PL_STAGE[stage].step;
+  return (
+    <div className="flex items-center gap-1">
+      {PL_RAIL.map((r, i) => {
+        const done = i < at, now = i === at;
+        return (
+          <span key={r} className="flex items-center gap-1">
+            {i > 0 && <span style={{ width: 10, height: 1, background: done || now ? PL_T.purpleLine : PL_T.border }} />}
+            <span className="rounded-full px-2 py-0.5" style={{
+              background: now ? PL_T.purple : done ? PL_T.purpleSoft : "transparent",
+              color: now ? "#fff" : done ? PL_T.purple : PL_T.ink3,
+              border: `1px solid ${now ? PL_T.purple : done ? PL_T.purpleLine : PL_T.border}`,
+              fontSize: 10.5, fontWeight: now ? 600 : 500, whiteSpace: "nowrap",
+            }}>{r}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlRightRail({ c, api, goTo }) {
+  const na = plNextAction(c);
+  const recent = [...c.audit].slice(-6).reverse();
+  return (
+    <div className="shrink-0 space-y-3" style={{ width: 268 }}>
+      {na && (
+        <PlCard style={{ borderColor: PL_TONES[na.tone].line, background: na.tone === "neutral" ? PL_T.card : PL_TONES[na.tone].bg }}>
+          <PlLabel>Next action</PlLabel>
+          <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 550, color: PL_T.ink, lineHeight: 1.35 }}>{na.label}</div>
+          <div className="mt-2.5"><PlBtn variant="primary" size="sm" full onClick={() => goTo(na.tab)} icon={ArrowRight}>Go there</PlBtn></div>
+        </PlCard>
+      )}
+
+      {c.outcome && (
+        <PlCard style={{ borderColor: PL_TONES[PL_OUTCOME[c.outcome.type].tone].line }}>
+          <PlChip tone={PL_OUTCOME[c.outcome.type].tone} dot>{PL_OUTCOME[c.outcome.type].label}</PlChip>
+          <div className="mt-2.5 space-y-1.5">
+            {c.outcome.insurerId && <PlKV k="Selected insurer" v={PL_INSURERS[c.outcome.insurerId].name} />}
+            {c.outcome.insurerId && (() => {
+              const q = c.quotes.filter((x) => x.insurerId === c.outcome.insurerId && x.decision === "usable").slice(-1)[0];
+              return q ? <PlKV k="Selected quote" v={`Quote V${q.version}`} mono /> : null;
+            })()}
+            {plReleasedQcr(c) && <PlKV k="QCR version" v={`QCR V${plReleasedQcr(c).v}`} mono />}
+            <PlKV k="Recorded by" v={c.outcome.by} />
+            <PlKV k="Decision date" v={c.outcome.at} mono />
+          </div>
+          <div className="mt-2" style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>{c.outcome.reason}</div>
+          {c.outcome.handoffRef && (
+            <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+              <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.green, fontWeight: 650 }}>HANDOFF COMPLETED</div>
+              <div style={{ fontSize: 11.5, color: PL_T.green, fontWeight: 550, marginTop: 2 }}>Handed off to RM / Policy Journey</div>
+              <PlMono size={10.5} color={PL_T.green}>{c.outcome.handoffRef}</PlMono>
+            </div>
+          )}
+        </PlCard>
+      )}
+
+      <PlCard pad={false}>
+        <div className="px-3.5 py-2.5 flex items-center justify-between" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>Tasks</span>
+          <PlMono size={10.5} color={PL_T.ink3}>{c.outcome ? 0 : c.tasks.filter((t) => !t.done).length} open</PlMono>
+        </div>
+        <div className="px-3.5 py-2">
+          {(c.outcome ? [] : c.tasks).map((t) => (
+            <div key={t.id} className="py-1">
+              <PlTick checked={t.done} onChange={() => api.toggleTask(c.id, t.id)}
+                label={<span style={{ textDecoration: t.done ? "line-through" : "none", color: t.done ? PL_T.ink3 : PL_T.ink }}>{t.label}</span>}
+                sub={`${t.owner} · ${t.due}`} />
+            </div>
+          ))}
+          {(c.outcome || c.tasks.length === 0) &&
+            <div className="py-3" style={{ fontSize: 11.5, color: PL_T.ink3 }}>{c.outcome ? "Case is closed — no open tasks." : "No open tasks."}</div>}
+        </div>
+      </PlCard>
+
+      <PlCard pad={false}>
+        <div className="px-3.5 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, fontSize: 12, fontWeight: 600 }}>Recent activity</div>
+        <div className="px-3.5 py-2.5 space-y-2.5">
+          {recent.map((a, i) => (
+            <div key={i} className="flex gap-2">
+              <span className="rounded-full shrink-0 mt-1.5" style={{ width: 5, height: 5, background: a.actorType === "PM" ? PL_T.purple : a.actorType === "Insurer" ? PL_T.blue : a.actorType === "RM" ? PL_T.orange : PL_T.borderStrong }} />
+              <div className="min-w-0">
+                <div style={{ fontSize: 11.5, color: PL_T.ink, fontWeight: 500, lineHeight: 1.35 }}>{a.event}</div>
+                <PlMono size={10} color={PL_T.ink3}>{a.at} · {a.actor}</PlMono>
+              </div>
+            </div>
+          ))}
+        </div>
+      </PlCard>
+    </div>
+  );
+}
+
+/* ------------------------------- RFQ tab ---------------------------------- */
+
+function PlFold({ icon: Icon, title, children, open: initial = false, tone = "purple", badge }) {
+  const [open, setOpen] = useState(initial);
+  return (
+    <PlCard pad={false}>
+      <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center gap-2 px-3.5 py-3">
+        <Icon size={14} color={PL_TONES[tone].fg} strokeWidth={2} />
+        <span className="flex-1 text-left" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{title}</span>
+        {badge}
+        <ChevronDown size={14} color={PL_T.ink3} style={{ transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      {open && <div className="px-3.5 pb-3.5" style={{ borderTop: `1px solid ${PL_T.border}`, paddingTop: 12 }}>{children}</div>}
+    </PlCard>
+  );
+}
+
+function PlSlot({ k, v, tone }) {
+  return (
+    <div>
+      <PlLabel>{k}</PlLabel>
+      <div className="mt-1 rounded-lg px-2.5 py-1.5"
+        style={{ border: `1px solid ${tone ? PL_TONES[tone].line : PL_T.border}`, background: tone ? PL_TONES[tone].bg : PL_T.cardAlt,
+          fontSize: 12, fontWeight: 550, color: tone ? PL_TONES[tone].fg : PL_T.ink }}>{v}</div>
+    </div>
+  );
+}
+
+/* ------------------------------- My Inbox --------------------------------- */
+
+const PL_IN_TABS = [
+  { id: "all", label: "All" },
+  { id: "quote", label: "Quotes" },
+  { id: "clarify", label: "Clarifications" },
+  { id: "negotiation", label: "Negotiation" },
+];
+
+function PlInboxScreen({ cases, onOpen }) {
+  const [tab, setTab] = useState("all");
+  const items = [];
+  cases.filter((c) => c.stage !== "closed").forEach((c) => {
+    if (c.stage === "awaiting_rm") {
+      const last = plActiveRfqOf(c).rmThread.slice(-1)[0];
+      items.push({ c, group: "clarify", type: "RM clarification pending", source: c.client.rm, at: last?.at || "—", cta: "Review response", tab: "rfq" });
+    }
+    c.threads.forEach((t) => {
+      const cl = t.clarifications[t.clarifications.length - 1];
+      if (!cl || cl.repliedAt) return;
+      items.push({
+        c, group: "clarify",
+        type: cl.rmResponse ? "RM has answered — reply to insurer" : cl.rmRequested ? "Insurer clock held, waiting on RM" : "Insurer clarification received",
+        source: PL_INSURERS[t.insurerId].name, at: cl.rmRespondedAt || cl.rmRequestedAt || cl.askedAt, cta: "Open thread", tab: "market",
+      });
+    });
+    if (c.rmMoreQuotes && !c.rmMoreQuotes.handled)
+      items.push({ c, group: "clarify", type: "RM requested more quotes", source: c.client.rm, at: c.rmMoreQuotes.at, cta: "Open threads", tab: "market" });
+    plLiveQuotes(c).filter((q) => !q.decision).forEach((q) =>
+      items.push({ c, group: "quote", type: "New quote received", source: PL_INSURERS[q.insurerId].name, at: q.receivedAt, cta: "Review quote", tab: "quotes" }));
+    c.negotiations.forEach((n) => (n.asks || []).forEach((a) => {
+      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "—", cta: "Open negotiation", tab: "negotiation" });
+    }));
+  });
+
+  const rows = tab === "all" ? items : items.filter((i) => i.group === tab);
+  const counts = { all: items.length, quote: items.filter((i) => i.group === "quote").length,
+    clarify: items.filter((i) => i.group === "clarify").length, negotiation: items.filter((i) => i.group === "negotiation").length };
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>My Inbox</h1>
+      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">
+        An entry queue, not a mailbox. Every row hands you off to the right tab on the right case.
+      </div>
+
+      <div className="flex items-end gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+        {PL_IN_TABS.map((t) => {
+          const on = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2 flex items-center gap-1.5"
+              style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
+              {t.label}
+              <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{counts[t.id]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <PlCard pad={false}>
+        <div className="flex items-center gap-3 px-4 py-2" style={{ background: PL_T.cardAlt, borderBottom: `1px solid ${PL_T.border}`, fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>
+          <span style={{ width: 72 }}>CASE</span>
+          <span style={{ width: 170 }}>CLIENT</span>
+          <span style={{ width: 150 }}>SOURCE</span>
+          <span className="flex-1">TYPE</span>
+          <span style={{ width: 96 }}>RECEIVED</span>
+          <span style={{ width: 128 }}>ACTION</span>
+        </div>
+        {rows.map((it, i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+            <span style={{ width: 72 }}><PlMono size={11} color={PL_T.purple} weight={600}>{it.c.id}</PlMono></span>
+            <span className="truncate" style={{ width: 170, fontSize: 12, color: PL_T.ink, fontWeight: 550 }}>{it.c.client.name}</span>
+            <span className="truncate" style={{ width: 150, fontSize: 11.5, color: PL_T.ink2 }}>{it.source}</span>
+            <span className="flex-1" style={{ fontSize: 12, color: PL_T.ink }}>{it.type}</span>
+            <span style={{ width: 96 }}><PlMono size={10.5} color={PL_T.ink3}>{it.at}</PlMono></span>
+            <span style={{ width: 128 }}>
+              <PlBtn size="sm" onClick={() => onOpen(it.c.id, it.tab)}>{it.cta}</PlBtn>
+            </span>
+          </div>
+        ))}
+        {rows.length === 0 && <PlEmpty icon={Inbox} title="Nothing waiting" body="No open clarifications, unreviewed quotes or negotiation responses." />}
+      </PlCard>
+    </div>
+  );
+}
+
+/* ----------------------------- Manual Review ------------------------------ */
+/* Inbound email exceptions only. Quote extraction correction lives in Quotes. */
+
+const PL_MY_REVIEWS = [
+  { id: "IN-4482", caseId: "PC-1026", insurer: "New India Assurance", at: "26 Aug, 09:02",
+    subject: "RE: [PC-1026 | TH-02] Meridian Logistics — Marine open policy",
+    body: "Thanks for the submission. We can look at the Marine section. Before we release terms we need the last three years of transit loss data and confirmation of the maximum single-sending value. Separately, our liability desk has passed on CGL for this occupancy.",
+    why: "The message contains both a clarification and a decline for a different product section." },
+  { id: "IN-4479", caseId: "PC-1027", insurer: "Reliance General", at: "25 Aug, 16:40",
+    subject: "RE: [PC-1027 | TH-05] Kalpataru Infra — GMC + GPA",
+    body: "Noted with thanks. Given the current claims ratio we are unable to support this scheme at the expiring structure. If the client considers a 20% co-pay we would be happy to revisit.",
+    why: "Reads as a decline, but it also contains a conditional invitation to requote." },
+];
+
+const PL_CLASSES_IN = ["Quote Received", "Clarification Required", "Declined", "Negotiation Response", "Not Applicable"];
+
+const PL_UNMATCHED = [
+  { id: "IN-4471", from: "underwriting.desk@icicilombard.com", subject: "Re: Quotation — corporate GMC (no case reference)", at: "26 Aug, 08:12",
+    body: "Please find attached our terms for the group medical scheme discussed. Kindly confirm acceptance by end of week.",
+    attachment: "ICICI_GMC_terms.pdf · 412 KB",
+    why: "Reply chain is broken and there is no Case or Thread reference in the subject. Two open GMC threads match this sender.", tone: "orange" },
+  { id: "IN-4468", from: "s.raghavan@gmail.com", subject: "Fwd: [PC-1026 | TH-02] Marine quote attached", at: "25 Aug, 19:47",
+    body: "Forwarding from my personal address as our mail server is down. Quote attached for the Marine open policy.",
+    attachment: "NIA_Marine_quote_v1.pdf · 288 KB",
+    why: "Case and thread reference are strong, but the sender is not a contact on the Insurer Master. Held here rather than applied.", tone: "amber" },
+];
+
+function PlManualScreen({ cases, onOpen, done, setDone }) {
+  const [tab, setTab] = useState("mine");
+  const [pick, setPick] = useState({});
+  const [map, setMap] = useState({});
+
+  const openCases = cases.filter((c) => c.stage !== "closed");
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Manual Review</h1>
+      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">
+        Inbound email the bot would not act on alone. Nothing here has updated a case automatically.
+      </div>
+
+      <div className="flex items-end gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+        {[{ id: "mine", label: "My reviews", n: PL_MY_REVIEWS.filter((r) => !done[r.id]).length },
+          { id: "unmatched", label: "Unmatched", n: PL_UNMATCHED.filter((r) => !done[r.id]).length }].map((t) => {
+          const on = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2 flex items-center gap-1.5"
+              style={{ fontSize: 12.5, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3, borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
+              {t.label}
+              <span className="rounded-full px-1.5" style={{ fontSize: 10, fontFamily: PL_MONO, background: on ? PL_T.purpleSoft : PL_T.cardSunk, color: on ? PL_T.purple : PL_T.ink3 }}>{t.n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "mine" && (
+        <div className="space-y-3">
+          {PL_MY_REVIEWS.map((r) => (
+            <PlCard key={r.id} pad={false}>
+              <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+                <PlMono size={11} color={PL_T.purple} weight={600}>{r.caseId}</PlMono>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{r.insurer}</span>
+                <PlChip size="xs" tone="amber">Mapped, interpretation unclear</PlChip>
+                <span className="flex-1" />
+                <PlMono size={10.5} color={PL_T.ink3}>{r.at}</PlMono>
+              </div>
+              <div className="px-4 py-3">
+                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{r.subject}</div>
+                <div className="mt-2 rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+                  <span style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6 }}>{r.body}</span>
+                </div>
+                <div className="mt-2 flex gap-1.5" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                  <Info size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span>{r.why}</span>
+                </div>
+
+                {done[r.id] ? (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Check size={13} color={PL_T.green} />
+                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Confirmed as {done[r.id]} — applied to the thread</span>
+                  </div>
+                ) : (
+                  <>
+                    <PlLabel className="mt-3">Classify this message</PlLabel>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {PL_CLASSES_IN.map((k) => (
+                        <button key={k} onClick={() => setPick((s) => ({ ...s, [r.id]: k }))} className="rounded-full border px-2.5 py-1"
+                          style={{ borderColor: pick[r.id] === k ? PL_T.purple : PL_T.border, background: pick[r.id] === k ? PL_T.purpleSoft : PL_T.card,
+                            color: pick[r.id] === k ? PL_T.purpleDeep : PL_T.ink2, fontSize: 11.5, fontWeight: 500 }}>{k}</button>
+                      ))}
+                    </div>
+                    <div className="mt-2.5 flex gap-1.5">
+                      <PlBtn size="sm" variant="primary" disabled={!pick[r.id]}
+                        onClick={() => setDone((s) => ({ ...s, [r.id]: pick[r.id] }))}>Confirm classification</PlBtn>
+                      <PlBtn size="sm" onClick={() => onOpen(r.caseId, "market")}>Open thread</PlBtn>
+                    </div>
+                  </>
+                )}
+              </div>
+            </PlCard>
+          ))}
+        </div>
+      )}
+
+      {tab === "unmatched" && (
+        <div className="space-y-3">
+          {PL_UNMATCHED.map((u) => (
+            <PlCard key={u.id} pad={false}>
+              <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+                <PlChip size="xs" tone={u.tone} dot>{u.tone === "amber" ? "Unrecognised sender" : "Ambiguous mapping"}</PlChip>
+                <PlMono size={10.5} color={PL_T.ink3}>{u.id}</PlMono>
+                <span className="flex-1" />
+                <PlMono size={10.5} color={PL_T.ink3}>{u.at}</PlMono>
+              </div>
+              <div className="px-4 py-3">
+                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{u.subject}</div>
+                <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{u.from}</div>
+                <div className="mt-2 rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+                  <span style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6 }}>{u.body}</span>
+                </div>
+                <div className="mt-2 flex items-center gap-2" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                  <FileText size={12} /><span>{u.attachment}</span>
+                </div>
+                <div className="mt-2 flex gap-1.5" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                  <Info size={12} style={{ marginTop: 2, flexShrink: 0 }} /><span>{u.why}</span>
+                </div>
+
+                {done[u.id] ? (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Check size={13} color={PL_T.green} />
+                    <span style={{ fontSize: 12, color: PL_T.green, fontWeight: 550 }}>Mapped to {done[u.id]} — routed to that thread</span>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-end gap-2">
+                    <div style={{ width: 200 }}>
+                      <PlLabel>Placement Case</PlLabel>
+                      <div className="mt-1">
+                        <PlSelect value={map[u.id]?.case || ""} options={["", ...openCases.map((c) => c.id)]}
+                          onChange={(v) => setMap((s) => ({ ...s, [u.id]: { case: v, thread: "" } }))} />
+                      </div>
+                    </div>
+                    <div style={{ width: 200 }}>
+                      <PlLabel>Insurer thread</PlLabel>
+                      <div className="mt-1">
+                        <PlSelect value={map[u.id]?.thread || ""}
+                          options={["", ...(openCases.find((c) => c.id === map[u.id]?.case)?.threads || []).map((t) => PL_INSURERS[t.insurerId].name)]}
+                          onChange={(v) => setMap((s) => ({ ...s, [u.id]: { ...s[u.id], thread: v } }))} />
+                      </div>
+                    </div>
+                    <PlBtn size="sm" variant="primary" disabled={!map[u.id]?.case || !map[u.id]?.thread}
+                      onClick={() => setDone((s) => ({ ...s, [u.id]: `${map[u.id].case} · ${map[u.id].thread}` }))}>Confirm mapping</PlBtn>
+                  </div>
+                )}
+              </div>
+            </PlCard>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------- Insurer Master ------------------------------ */
+
+function PlMasterScreen({ role = "Placement Manager" }) {
+  const [q, setQ] = useState("");
+  const canEdit = role === "Placement Head";
+  const rows = Object.entries(PL_INSURERS).filter(([k, v]) => !q || v.name.toLowerCase().includes(q.toLowerCase()));
+  const tone = { Active: "green", Inactive: "neutral", "Do Not Float": "red" };
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Insurer Master</h1>
+            {canEdit ? <PlChip size="xs" tone="purple">Placement Head · can edit</PlChip> : <PlChip size="xs">Read-only · Placement Head maintains the master</PlChip>}
+          </div>
+          <div style={{ fontSize: 13, color: PL_T.ink3 }}>
+            Routing key is Insurer + Product + Geography/Branch. Illustrative prototype contacts.
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <Search size={12} color={PL_T.ink3} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search insurers..."
+              className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 140 }} />
+          </div>
+          {canEdit && <PlBtn variant="primary" icon={Plus}>Add contact</PlBtn>}
+        </div>
+      </div>
+
+      <PlCard pad={false}>
+        <table className="w-full" style={{ borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: PL_T.cardAlt }}>
+              {["INSURER", "PRODUCTS", "GEOGRAPHY / BRANCH", "PRIMARY POC", "SENIOR / ESCALATION POC", "STATUS", ...(canEdit ? [""] : [])].map((h) => (
+                <th key={h} className="text-left px-3.5 py-2.5"
+                  style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650, borderBottom: `1px solid ${PL_T.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([k, v]) => {
+              const ct = PL_CONTACTS[k];
+              return (
+                <tr key={k} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                  <td className="px-3.5 py-3">
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>{v.name}</div>
+                    <div style={{ fontSize: 11, color: PL_T.ink3 }}>{v.note}</div>
+                  </td>
+                  <td className="px-3.5 py-3" style={{ maxWidth: 190 }}>
+                    <div className="flex flex-wrap gap-1">{v.appetite.map((p) => <PlChip key={p} size="xs">{p}</PlChip>)}</div>
+                  </td>
+                  <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.branch}</td>
+                  <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.primary}</td>
+                  <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.senior}</td>
+                  <td className="px-3.5 py-3"><PlChip size="xs" tone={tone[ct.status]} dot>{ct.status}</PlChip></td>
+                  {canEdit && <td className="px-3.5 py-3"><PlBtn size="sm" variant="ghost" icon={Pencil}>Edit</PlBtn></td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </PlCard>
+    </div>
+  );
+}
+
+/* -------------------------------- Reports --------------------------------- */
+
+function PlBar({ label, n, max, tone = "purple" }) {
+  return (
+    <div className="flex items-center gap-2.5 py-1">
+      <span style={{ width: 148, fontSize: 11.5, color: PL_T.ink2 }}>{label}</span>
+      <span className="flex-1 rounded-full" style={{ background: PL_T.cardSunk, height: 8 }}>
+        <span className="block rounded-full" style={{ height: 8, width: `${max ? (n / max) * 100 : 0}%`, background: PL_TONES[tone].fg }} />
+      </span>
+      <PlMono size={11} color={PL_T.ink2} weight={600}>{n}</PlMono>
+    </div>
+  );
+}
+
+function PlReportsScreen({ cases }) {
+  const active = cases.filter((c) => c.stage !== "closed");
+  const closed = cases.filter((c) => c.stage === "closed");
+  const byStage = Object.keys(PL_STAGE).filter((k) => k !== "closed")
+    .map((k) => ({ k, label: PL_STAGE[k].label, n: cases.filter((c) => c.stage === k).length }));
+  const maxStage = Math.max(1, ...byStage.map((s) => s.n));
+
+  const breached = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external && s.breached; });
+  const atRisk = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external && !s.breached && (s.remaining ?? 999) < 60; });
+  const breachStages = {};
+  breached.forEach((c) => { const l = PL_STAGE[c.stage].label; breachStages[l] = (breachStages[l] || 0) + 1; });
+
+  const outcomes = Object.keys(PL_INSURERS).map((id) => {
+    let approached = 0, responded = 0, quoted = 0, declined = 0;
+    cases.forEach((c) => c.threads.forEach((t) => {
+      if (t.insurerId !== id) return;
+      approached++;
+      if (t.status !== "rfq_sent") responded++;
+      if (["quote_received", "quote_usable", "quote_clarification", "quote_excluded"].includes(t.status)) quoted++;
+      if (t.status === "declined") declined++;
+    }));
+    return { id, name: PL_INSURERS[id].name, approached, responded, quoted, declined };
+  }).filter((r) => r.approached > 0).sort((a, b) => b.approached - a.approached);
+
+  return (
+    <div>
+      <h1 style={{ fontSize: 25, fontWeight: 650, letterSpacing: -0.5 }}>Reports</h1>
+      <div style={{ fontSize: 13, color: PL_T.ink3 }} className="mb-4">Derived from the cases in this prototype.</div>
+
+      <div className="grid grid-cols-2 gap-3.5 mb-3.5">
+        <PlCard pad={false}>
+          <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, fontSize: 12.5, fontWeight: 600 }}>Placement pipeline</div>
+          <div className="px-4 py-3">
+            <div className="flex gap-4 mb-3">
+              <div><PlLabel>Active</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO }}>{active.length}</div></div>
+              <div><PlLabel>Closed</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO }}>{closed.length}</div></div>
+              <div><PlLabel>Quote selected</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO, color: PL_T.green }}>
+                {closed.filter((c) => c.outcome?.type === "quote_selected").length}</div></div>
+            </div>
+            {byStage.map((s) => <PlBar key={s.k} label={s.label} n={s.n} max={maxStage} />)}
+          </div>
+        </PlCard>
+
+        <PlCard pad={false}>
+          <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, fontSize: 12.5, fontWeight: 600 }}>SLA</div>
+          <div className="px-4 py-3">
+            <div className="flex gap-4 mb-3">
+              <div><PlLabel>Within SLA</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO, color: PL_T.green }}>{active.length - breached.length}</div></div>
+              <div><PlLabel>Breached</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO, color: PL_T.red }}>{breached.length}</div></div>
+              <div><PlLabel>Under an hour left</PlLabel><div style={{ fontSize: 20, fontWeight: 650, fontFamily: PL_MONO, color: PL_T.orange }}>{atRisk.length}</div></div>
+            </div>
+            <PlLabel>Breaches by stage</PlLabel>
+            <div className="mt-1.5">
+              {Object.entries(breachStages).map(([l, n]) => <PlBar key={l} label={l} n={n} max={Math.max(1, ...Object.values(breachStages))} tone="red" />)}
+              {Object.keys(breachStages).length === 0 && <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>No Placement-owned breaches right now.</div>}
+            </div>
+            <div className="mt-3 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+              <span style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }}>
+                Time spent waiting on RM, client or insurer is excluded — those clocks have their own owners.
+              </span>
+            </div>
+          </div>
+        </PlCard>
+      </div>
+
+      <PlCard pad={false}>
+        <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, fontSize: 12.5, fontWeight: 600 }}>Insurer outcomes</div>
+        <table className="w-full" style={{ borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: PL_T.cardAlt }}>
+              {["INSURER", "APPROACHED", "RESPONDED", "QUOTED", "DECLINED"].map((h) => (
+                <th key={h} className="text-left px-3.5 py-2"
+                  style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650, borderBottom: `1px solid ${PL_T.border}` }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {outcomes.map((r) => (
+              <tr key={r.id} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <td className="px-3.5 py-2.5" style={{ fontSize: 12.5, fontWeight: 550 }}>{r.name}</td>
+                <td className="px-3.5 py-2.5"><PlMono size={11.5}>{r.approached}</PlMono></td>
+                <td className="px-3.5 py-2.5"><PlMono size={11.5}>{r.responded}</PlMono></td>
+                <td className="px-3.5 py-2.5"><PlMono size={11.5} color={PL_T.green}>{r.quoted}</PlMono></td>
+                <td className="px-3.5 py-2.5"><PlMono size={11.5} color={r.declined ? PL_T.red : PL_T.ink3}>{r.declined}</PlMono></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </PlCard>
+    </div>
+  );
+}
+
+/* ---------- scratch_pl_tabs1.jsx ---------- */
+/* ================================================================== *
+ *  BimaPlacement — Placement Manager Workbench, ported into the sister
+ *  design system. Behaviour is frozen; only the visual layer is remapped.
+ *  Components: PL_CLASSES, PlStrategyPanel, PlRfqTab, PlAskRmModal,
+ *  PlSimRmModal, PlInsurersTab, PlAddInsurerModal, PlSimBlock, PlSimBtn,
+ *  PlMarketTab, PlThreadPicker, PlRestartThreadsModal, PlHoldForRmModal,
+ *  PlSimThreadRmModal, PlReplyInsurerModal.
+ *  PlFold / PlSlot are defined elsewhere — referenced by name only.
+ * ================================================================== */
+
+/* ------------------------------- RFQ tab ---------------------------------- */
+
+const PL_CLASSES = [
+  "Food processing — packaged foods (NIC 1079)", "FMCG — Retail & Distribution",
+  "IT/ITES — Software services", "Logistics — Warehousing & transport",
+  "Construction — EPC contractor", "Hospitality — Hotels & resorts",
+  "Pharma — Contract manufacturing", "Renewable energy — Solar EPC",
+  "Electronics — Semiconductor services", "Textiles — Apparel manufacturing",
+];
+
+/* PRD M3 + M4 — the strategy the whole case is placed against.
+   Recommendation and thresholds are advisory (BR-028/BR-096); the PM decides. */
+function PlStrategyPanel({ c, api }) {
+  const rfq = plActiveRfqOf(c);
+  const m = c.meta;
+
+  return (
+    <>
+      <PlFold icon={FileText} title="RFQ Summary" open>
+        <div className="space-y-2">
+          <PlKV k="Source" v="RM Portal — web form" />
+          <PlKV k="Submitted by" v={c.client.rm} />
+          <PlKV k="Received" v={c.receivedAt} mono />
+          <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} mono />
+          <PlKV k="Client SPOC" v={c.client.spoc} />
+        </div>
+        {rfq.rmNote && (
+          <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+            <span style={{ fontSize: 11.5, color: PL_T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>“{rfq.rmNote}”</span>
+          </div>
+        )}
+      </PlFold>
+
+      <PlFold icon={Layers} title="Case strategy" open
+        badge={m.mandate ? <PlChip size="xs" tone="green">Mandate</PlChip> : null}>
+        <div className="grid grid-cols-2 gap-2.5">
+          <PlSlot k="Case type" v={m.caseType} />
+          <PlSlot k="Urgency" v={m.urgency} tone={m.urgency === "High" ? "orange" : undefined} />
+        </div>
+
+        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+          <PlKV k="Incumbent" v={m.incumbent || "None on record"} />
+          <PlKV k="Target premium" v={m.targetPremium ? plInr(m.targetPremium) : "Not provided"} mono />
+        </div>
+        <div className="mt-1.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.blueSoft, border: `1px solid ${PL_T.blueLine}` }}>
+          <span style={{ fontSize: 10.5, color: PL_T.blue, lineHeight: 1.45 }}>
+            Target premium is decision support only. No quote is rejected automatically for sitting above it.
+          </span>
+        </div>
+
+        {m.mandate && (
+          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck size={12} color={PL_T.green} />
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.green }}>{m.mandate.type}</span>
+              <PlMono size={10} color={PL_T.green}>{m.mandate.ref}</PlMono>
+            </div>
+            {m.mandate.type === "Exclusive Placement Mandate" ? (
+              <div className="mt-1.5 space-y-0.5">
+                {["RM Approval", "Placement Approval"].map((a) => (
+                  <div key={a} className="flex items-center gap-1.5">
+                    <Check size={11} color={PL_T.green} strokeWidth={3} />
+                    <span style={{ fontSize: 11, color: PL_T.green }}>{a}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 10.5, color: PL_T.green, marginTop: 3, lineHeight: 1.4 }}>{m.mandate.note}</div>
+            )}
+          </div>
+        )}
+        {!m.mandate && m.caseType === "Rollover" && (
+          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
+            <span style={{ fontSize: 11, color: PL_T.red }}>
+              Rollover without an Incumbent Approach Mandate — the incumbent is blocked at insurer selection.
+            </span>
+          </div>
+        )}
+      </PlFold>
+
+      <PlFold icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{2 + c.products.length}</PlChip>}>
+        <div className="space-y-2">
+          {[`RFQ_${c.id}_V${c.activeRfq}.pdf`, "Client_form_submission.pdf", ...c.products.map((p) => `${p}_expiring_schedule.pdf`)].map((d) => (
+            <div key={d} className="flex items-center gap-2">
+              <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: PL_T.purpleSoft }}>
+                <FileText size={12} color={PL_T.purple} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate" style={{ fontSize: 11.5, color: PL_T.blue, fontWeight: 550 }}>{d}</div>
+                <div style={{ fontSize: 10, color: PL_T.ink3 }}>Uploaded {c.receivedAt}</div>
+              </div>
+              <PlChip size="xs">Internal</PlChip>
+            </div>
+          ))}
+        </div>
+      </PlFold>
+
+      <PlFold icon={Clock} title="Audit trail" badge={<PlChip size="xs" mono>{c.audit.length}</PlChip>}>
+        <div className="space-y-2.5">
+          {c.audit.slice(-6).reverse().map((a, i) => (
+            <div key={i} className="flex gap-2">
+              <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_T.purpleLine, marginTop: 5 }} />
+              <div className="min-w-0">
+                <div style={{ fontSize: 11.5, color: PL_T.ink, fontWeight: 550, lineHeight: 1.35 }}>{a.event}</div>
+                <div style={{ fontSize: 10.5, color: PL_T.ink3 }}><span style={{ fontFamily: PL_MONO }}>{a.at}</span> · {a.actor}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </PlFold>
+    </>
+  );
+}
+
+function PlRfqTab({ c, api }) {
+  const rfq = plActiveRfqOf(c);
+  const [cls, setCls] = useState(rfq.classification.confirmed || rfq.classification.suggested);
+  const [askOpen, setAskOpen] = useState(false);
+  const [rmOpen, setRmOpen] = useState(false);
+  const editable = c.stage === "rfq_review";
+  const unresolvedMaterial = rfq.missing.filter((m) => !m.resolved && m.material);
+  const canValidate = !!rfq.classification.confirmed && unresolvedMaterial.length === 0 && c.stage === "rfq_review";
+
+  return (
+    <div className="flex gap-3 items-start">
+      <div className="shrink-0 space-y-2.5" style={{ width: 272 }}>
+        <PlStrategyPanel c={c} api={api} />
+      </div>
+      <div className="flex-1 min-w-0 space-y-3">
+      {c.rfqs.length > 1 && (
+        <PlCard alt>
+          <div className="flex items-center gap-3">
+            <PlLabel>RFQ versions</PlLabel>
+            {c.rfqs.map((r) => (
+              <PlChip key={r.v} tone={r.v === c.activeRfq ? "purple" : "neutral"} mono>
+                V{r.v} · {r.status === "superseded" ? "superseded" : r.status.replace("_", " ")}
+              </PlChip>
+            ))}
+            {rfq.changeNote && <span style={{ fontSize: 11.5, color: PL_T.ink2 }}>Change: {rfq.changeNote}</span>}
+          </div>
+        </PlCard>
+      )}
+
+      {/* classification */}
+      <PlCard style={rfq.classification.flagged && !rfq.classification.confirmed ? { borderColor: PL_T.orangeLine } : {}}>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Risk classification</span>
+              {rfq.classification.flagged && !rfq.classification.confirmed
+                ? <PlChip tone="orange" dot>Needs your confirmation</PlChip>
+                : <PlChip tone="green" dot>Confirmed</PlChip>}
+            </div>
+            <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
+              Classification decides which insurers are eligible. The system suggests; you decide.
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className="rounded-lg border p-3" style={{ borderColor: PL_T.border, background: PL_T.cardSunk }}>
+            <PlLabel>Entered by RM</PlLabel>
+            <div className="mt-1" style={{ fontSize: 12.5, fontWeight: 500 }}>{rfq.classification.rmEntered}</div>
+          </div>
+          <div className="rounded-lg border p-3" style={{ borderColor: rfq.classification.flagged ? PL_T.orangeLine : PL_T.border, background: rfq.classification.flagged ? PL_T.orangeSoft : PL_T.cardSunk }}>
+            <PlLabel>System suggests</PlLabel>
+            <div className="mt-1" style={{ fontSize: 12.5, fontWeight: 500 }}>{rfq.classification.suggested}</div>
+          </div>
+        </div>
+
+        {rfq.classification.basis.length > 0 && (
+          <div className="mt-3">
+            <PlLabel>Why the system suggests this</PlLabel>
+            <ul className="mt-1.5 space-y-1">
+              {rfq.classification.basis.map((b, i) => (
+                <li key={i} className="flex gap-2" style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45 }}>
+                  <span style={{ color: PL_T.ink3 }}>—</span>{b}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {rfq.classification.impact && (
+          <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.purpleSoft, border: `1px solid ${PL_T.purpleLine}` }}>
+            <Info size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>{rfq.classification.impact}</span>
+          </div>
+        )}
+
+        {editable && !rfq.classification.confirmed ? (
+          <div className="mt-3 flex items-end gap-2" style={{ paddingTop: 12, borderTop: `1px solid ${PL_T.border}` }}>
+            <div className="flex-1">
+              <PlLabel>Confirm classification for this case</PlLabel>
+              <div className="mt-1"><PlSelect value={cls} onChange={setCls} options={PL_CLASSES} /></div>
+            </div>
+            <PlBtn variant="primary" icon={Check}
+              onClick={() => { api.confirmClassification(c.id, cls, cls !== rfq.classification.rmEntered); api.say("Classification confirmed and logged"); }}>
+              Confirm classification
+            </PlBtn>
+          </div>
+        ) : rfq.classification.confirmed ? (
+          <div className="mt-3 flex items-center gap-2" style={{ paddingTop: 12, borderTop: `1px solid ${PL_T.border}` }}>
+            <Check size={13} color={PL_T.green} />
+            <span style={{ fontSize: 12.5, color: PL_T.ink }}>Confirmed as <b style={{ fontWeight: 600 }}>{rfq.classification.confirmed}</b></span>
+            {rfq.classification.confirmed !== rfq.classification.rmEntered &&
+              <PlChip tone="orange" size="xs">Corrected from RM entry</PlChip>}
+          </div>
+        ) : null}
+      </PlCard>
+
+      {/* product sections */}
+      {rfq.sections.map((s) => (
+        <PlCard key={s.product} pad={false}>
+          <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <div className="flex items-center gap-2">
+              <FileText size={13} color={PL_T.purple} />
+              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_PRODUCTS[s.product]}</span>
+              <PlChip size="xs" mono>{s.product}</PlChip>
+            </div>
+            <PlMono size={11.5} color={PL_T.ink2}>{s.si}</PlMono>
+          </div>
+          <div className="grid grid-cols-2 gap-x-6 px-4 py-3">
+            {s.detail.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 py-1.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <span style={{ fontSize: 12, color: PL_T.ink3 }}>{k}</span>
+                <span style={{ fontSize: 12, color: PL_T.ink, fontWeight: 480, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </PlCard>
+      ))}
+
+      {/* missing information */}
+      {rfq.missing.length > 0 && (
+        <PlCard style={unresolvedMaterial.length ? { borderColor: PL_T.orangeLine } : {}}>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Information gaps</span>
+                {unresolvedMaterial.length > 0
+                  ? <PlChip tone="orange" dot>{unresolvedMaterial.length} material</PlChip>
+                  : <PlChip tone="green" dot>All material gaps closed</PlChip>}
+              </div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
+                Material gaps block the RFQ from being floated. Optional gaps do not.
+              </div>
+            </div>
+            {editable && rfq.missing.some((m) => !m.resolved) && (
+              <PlBtn variant="primary" size="sm" icon={Send} onClick={() => setAskOpen(true)}>Request from RM</PlBtn>
+            )}
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {rfq.missing.map((m) => (
+              <div key={m.id} className="flex items-start gap-2.5 rounded-lg border px-3 py-2"
+                style={{ borderColor: m.resolved ? PL_T.greenLine : m.material ? PL_T.orangeLine : PL_T.border, background: m.resolved ? PL_T.greenSoft : PL_T.card }}>
+                {m.resolved ? <CheckCircle2 size={14} color={PL_T.green} className="mt-0.5 shrink-0" />
+                  : <Circle size={14} color={m.material ? PL_T.orange : PL_T.ink3} className="mt-0.5 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ fontSize: 12.5, fontWeight: 500, color: m.resolved ? PL_T.green : PL_T.ink }}>{m.label}</span>
+                    {!m.resolved && <PlChip size="xs" tone={m.material ? "orange" : "neutral"}>{m.material ? "Material" : "Optional"}</PlChip>}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{m.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </PlCard>
+      )}
+
+      {/* RM thread */}
+      {(rfq.rmThread.length > 0 || c.stage === "awaiting_rm") && (
+        <PlCard>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={13} color={PL_T.orange} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>RM clarification thread</span>
+              {c.stage === "awaiting_rm" && <PlChip tone="orange" dot>Waiting on {c.client.rm}</PlChip>}
+            </div>
+            {c.stage === "awaiting_rm" && (
+              <PlSimBtn onClick={() => setRmOpen(true)}>⚡ Simulate RM response</PlSimBtn>
+            )}
+          </div>
+          <div className="mt-3 space-y-2.5">
+            {rfq.rmThread.map((m, i) => (
+              <div key={i} className="rounded-lg border px-3 py-2"
+                style={{ borderColor: PL_T.border, background: m.actor === PL_ME.name ? PL_T.purpleSoft : PL_T.cardAlt }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: m.actor === PL_ME.name ? PL_T.purpleDeep : PL_T.ink }}>{m.actor}</span>
+                  <PlMono size={10.5} color={PL_T.ink3}>{m.at}</PlMono>
+                </div>
+                <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>{m.text}</div>
+              </div>
+            ))}
+          </div>
+        </PlCard>
+      )}
+
+      {/* validate */}
+      {c.stage === "rfq_review" && (
+        <PlCard alt>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>Validate RFQ V{c.activeRfq}</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                {canValidate ? "Classification confirmed and no material gaps remain."
+                  : !rfq.classification.confirmed ? "Confirm the risk classification first."
+                    : `${unresolvedMaterial.length} material gap(s) still open.`}
+              </div>
+            </div>
+            <PlBtn variant="primary" disabled={!canValidate} icon={ArrowRight}
+              onClick={() => { api.validateRfq(c.id); api.say("RFQ validated — insurer recommendations ready"); }}>
+              Validate and continue
+            </PlBtn>
+          </div>
+        </PlCard>
+      )}
+
+      {askOpen && <PlAskRmModal c={c} rfq={rfq} api={api} onClose={() => setAskOpen(false)} />}
+      {rmOpen && <PlSimRmModal c={c} api={api} onClose={() => setRmOpen(false)} />}
+      </div>
+    </div>
+  );
+}
+
+function PlAskRmModal({ c, rfq, api, onClose }) {
+  const open = rfq.missing.filter((m) => !m.resolved);
+  const [picked, setPicked] = useState(open.filter((m) => m.material).map((m) => m.id));
+  const [note, setNote] = useState(
+    `Hi ${c.client.rm.split(" ")[0]}, before I can float this RFQ to the market I need a few things from ${c.client.name}. Could you pick these up with ${c.client.spoc.split(",")[0]}?`);
+  return (
+    <PlModal title="Request clarification from RM" subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose}
+      footer={<>
+        <PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Send} disabled={picked.length === 0}
+          onClick={() => { api.requestRmInfo(c.id, picked, note); api.say(`Clarification sent to ${c.client.rm}`); onClose(); }}>
+          Send request
+        </PlBtn>
+      </>}>
+      <PlLabel>Items to request</PlLabel>
+      <div className="mt-1.5 mb-4">
+        {open.map((m) => (
+          <PlTick key={m.id} checked={picked.includes(m.id)} label={m.label} sub={m.note}
+            onChange={(v) => setPicked((p) => (v ? [...p, m.id] : p.filter((x) => x !== m.id)))} />
+        ))}
+      </div>
+      <PlLabel>Message</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+        <Info size={13} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
+          The case moves to <b>Awaiting RM clarification</b>. The RFQ cannot be floated until the material gaps are closed.
+        </span>
+      </div>
+    </PlModal>
+  );
+}
+
+function PlSimRmModal({ c, api, onClose }) {
+  const [text, setText] = useState(
+    `Spoke to ${c.client.spoc.split(",")[0]}. Census with age bands and the three-year claims history are attached. Family definition to be quoted is 1+1+2 with parents as a voluntary buy-up. GPA multiple stays at 24×.`);
+  return (
+    <PlModal title="Simulate RM reply" subtitle="Prototype control — stands in for the RM portal" onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM responded — requested items resolved"); onClose(); }}>
+          Post reply
+        </PlBtn></>}>
+      <PlLabel>Reply from {c.client.rm}</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={4} /></div>
+    </PlModal>
+  );
+}
+
+/* ---------------------------- Insurers tab -------------------------------- */
+
+function PlInsurersTab({ c, api }) {
+  const [floatOpen, setFloatOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const locked = c.panel.locked;
+  const recIds = c.recommend.map((r) => r.id);
+  const extra = c.panel.selected.filter((id) => !recIds.includes(id));
+
+  if (locked) {
+    return (
+      <div className="space-y-3">
+        <PlCard>
+          <div className="flex items-center justify-between">
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Approved insurer panel</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>Locked when RFQ V{c.activeRfq} was floated. Each insurer runs an independent thread.</div>
+            </div>
+            <PlChip tone="green" dot><Lock size={9} /> Locked</PlChip>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {c.panel.selected.map((id) => {
+              const t = plThreadOf(c, id);
+              return (
+                <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
+                  <div>
+                    <div style={{ fontSize: 12.5, fontWeight: 550 }}>{PL_INSURERS[id].name}</div>
+                    <div style={{ fontSize: 11, color: PL_T.ink3 }}>{plPocOf(c, id)} · {PL_CONTACTS[id].branch}</div>
+                  </div>
+                  {t && <PlChip tone={PL_TSTAT[t.status].tone} dot>{PL_TSTAT[t.status].label}</PlChip>}
+                </div>
+              );
+            })}
+          </div>
+        </PlCard>
+        {c.panel.excluded.length > 0 && (
+          <PlCard alt>
+            <PlLabel>Removed from the recommended list</PlLabel>
+            <div className="mt-2 space-y-1.5">
+              {c.panel.excluded.map((x) => (
+                <div key={x.id} className="flex gap-2" style={{ fontSize: 12, color: PL_T.ink2 }}>
+                  <Ban size={13} color={PL_T.ink3} className="mt-0.5 shrink-0" />
+                  <span><b style={{ fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[x.id].name}</b> — {x.reason}</span>
+                </div>
+              ))}
+            </div>
+          </PlCard>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <PlCard alt>
+        <div className="flex gap-2">
+          <Info size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
+          <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.5 }}>
+            Recommendations explain why a market fits this risk. They do not rank or score insurers, and nothing is
+            approached until you approve the panel.
+          </div>
+        </div>
+      </PlCard>
+
+      <PlCard pad={false}>
+        <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Eligible markets</span>
+          <PlMono size={11} color={PL_T.ink3}>{c.recommend.length} in appetite</PlMono>
+        </div>
+        {c.recommend.map((r) => {
+          const on = c.panel.selected.includes(r.id);
+          return (
+            <div key={r.id} className="px-4 py-3 flex gap-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: on ? PL_T.purpleSoft : "transparent" }}>
+              <div className="pt-0.5">
+                <PlTick checked={on} onChange={() => api.togglePanel(c.id, r.id)} label="" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[r.id].name}</span>
+                  {c.products.map((p) => (
+                    <PlChip key={p} size="xs" tone={PL_INSURERS[r.id].appetite.includes(p) ? "green" : "red"}>
+                      {p} {PL_INSURERS[r.id].appetite.includes(p) ? "in appetite" : "not in appetite"}
+                    </PlChip>
+                  ))}
+                </div>
+                <ul className="mt-1.5 space-y-0.5">
+                  {r.reasons.map((x, i) => (
+                    <li key={i} className="flex gap-2" style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+                      <span style={{ color: PL_T.ink3 }}>—</span>{x}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="shrink-0" style={{ width: 168 }}>
+                <PlLabel>Primary POC</PlLabel>
+                <div className="mt-1">
+                  <PlSelect value={plPocOf(c, r.id)} onChange={(v) => api.setPoc(c.id, r.id, v)} options={PL_CONTACTS[r.id].alternates} />
+                </div>
+                <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{PL_CONTACTS[r.id].branch}</div>
+              </div>
+            </div>
+          );
+        })}
+        {extra.map((id) => (
+          <div key={id} className="px-4 py-3 flex gap-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.purpleSoft }}>
+            <div className="pt-0.5"><PlTick checked onChange={() => api.togglePanel(c.id, id)} label="" /></div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[id].name}</span>
+                <PlChip size="xs" tone="purple">Added by you</PlChip>
+              </div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>{PL_INSURERS[id].sectors}</div>
+            </div>
+            <div className="shrink-0" style={{ width: 168 }}>
+              <PlLabel>Primary POC</PlLabel>
+              <div className="mt-1">
+                <PlSelect value={plPocOf(c, id)} onChange={(v) => api.setPoc(c.id, id, v)} options={PL_CONTACTS[id].alternates} />
+              </div>
+              <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{PL_CONTACTS[id].branch}</div>
+            </div>
+          </div>
+        ))}
+        <div className="px-4 py-2.5">
+          <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Add an insurer outside the recommendations</PlBtn>
+        </div>
+      </PlCard>
+
+      {c.notRecommended.length > 0 && (
+        <PlCard pad={false}>
+          <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt, fontSize: 12.5, fontWeight: 600 }}>
+            Not recommended
+          </div>
+          {c.notRecommended.map((r) => (
+            <div key={r.id} className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.ink2 }}>{PL_INSURERS[r.id].name}</span>
+                <PlBtn variant="ghost" size="sm" onClick={() => api.togglePanel(c.id, r.id)}>Add anyway</PlBtn>
+              </div>
+              <ul className="mt-0.5">
+                {r.reasons.map((x, i) => <li key={i} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>— {x}</li>)}
+              </ul>
+            </div>
+          ))}
+        </PlCard>
+      )}
+
+      <PlCard style={{ borderColor: PL_T.purpleLine, background: PL_T.purpleSoft }}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+              {c.panel.selected.length} insurer{c.panel.selected.length === 1 ? "" : "s"} selected
+            </div>
+            <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>
+              {c.panel.selected.length < 3
+                ? "Fewer than 3 markets makes the usable-quote threshold hard to reach."
+                : "Floating creates one independent thread per insurer, each with its own SLA."}
+            </div>
+          </div>
+          <PlBtn variant="primary" disabled={c.panel.selected.length === 0} icon={Send} onClick={() => setFloatOpen(true)}>
+            Approve and float RFQ
+          </PlBtn>
+        </div>
+      </PlCard>
+
+      {floatOpen && (
+        <PlModal title={`Float RFQ V${c.activeRfq}`} subtitle={`${c.id} · ${c.client.name}`} onClose={() => setFloatOpen(false)}
+          footer={<><PlBtn onClick={() => setFloatOpen(false)}>Cancel</PlBtn>
+            <PlBtn variant="primary" icon={Send} onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${c.panel.selected.length} insurers`); setFloatOpen(false); }}>
+              Float to {c.panel.selected.length} insurers
+            </PlBtn></>}>
+          <PlLabel>Product sections being floated</PlLabel>
+          <div className="mt-1.5 mb-4 flex gap-1.5">{c.products.map((p) => <PlChip key={p} tone="purple">{PL_PRODUCTS[p]}</PlChip>)}</div>
+          <PlLabel>Insurers</PlLabel>
+          <div className="mt-1.5 mb-4 space-y-1">
+            {c.panel.selected.map((id) => (
+              <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+                <span style={{ fontSize: 12.5 }}>{PL_INSURERS[id].name}</span>
+                <span style={{ fontSize: 11, color: PL_T.ink3 }}>{plPocOf(c, id)} · target 2 business days</span>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+            <Info size={13} color={PL_T.ink2} style={{ marginTop: 1, flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+              The panel locks on float. Adding a market later is possible but is recorded as a separate action against RFQ V{c.activeRfq}.
+            </span>
+          </div>
+        </PlModal>
+      )}
+
+      {addOpen && <PlAddInsurerModal c={c} api={api} onClose={() => setAddOpen(false)} />}
+    </div>
+  );
+}
+
+function PlAddInsurerModal({ c, api, onClose }) {
+  const [q, setQ] = useState("");
+  const already = new Set(c.panel.selected);
+  const list = Object.entries(PL_INSURERS)
+    .filter(([id, v]) => !already.has(id) && v.name.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <PlModal title="Add an insurer" subtitle="From the insurer master" onClose={onClose}
+      footer={<PlBtn onClick={onClose}>Done</PlBtn>}>
+      <PlInput value={q} onChange={setQ} placeholder="Search the insurer master" />
+      <div className="mt-3 space-y-1 max-h-80 overflow-y-auto">
+        {list.map(([id, v]) => {
+          const fit = c.products.filter((p) => v.appetite.includes(p));
+          return (
+            <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 550 }}>{v.name}</div>
+                <div style={{ fontSize: 11, color: PL_T.ink3 }}>
+                  {fit.length ? `In appetite for ${fit.join(", ")}` : "None of this case's products are in appetite"} · {PL_CONTACTS[id].branch}
+                </div>
+              </div>
+              {PL_CONTACTS[id].status === "Do Not Float"
+                ? <PlChip size="xs" tone="red">Do Not Float</PlChip>
+                : <PlBtn size="sm" onClick={() => { api.togglePanel(c.id, id); api.say(`${v.name} added to the panel`); onClose(); }}>Add</PlBtn>}
+            </div>
+          );
+        })}
+      </div>
+    </PlModal>
+  );
+}
+
+/* ------------------------------ Market tab -------------------------------- */
+
+/* Prototype-only affordances. Deliberately styled apart from real PM actions so
+   nobody mistakes a simulated insurer for a real one. */
+function PlSimBlock({ title, children }) {
+  return (
+    <div className="mt-3 rounded-xl px-3 py-2.5"
+      style={{ background: PL_T.amberSoft, border: `1px dashed ${PL_T.amberLine}` }}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Zap size={12} color={PL_T.amber} />
+        <span style={{ fontSize: 11, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.2 }}>{title}</span>
+        <span className="rounded-full px-1.5" style={{ fontSize: 9.5, background: PL_T.card, color: PL_T.amber, border: `1px solid ${PL_T.amberLine}` }}>Prototype only</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function PlSimBtn({ onClick, children }) {
+  return (
+    <button onClick={onClick} className="rounded-lg px-2.5 py-1"
+      style={{ background: PL_T.card, border: `1px dashed ${PL_T.amberLine}`, color: PL_T.amber, fontSize: 11.5, fontWeight: 550 }}>
+      {children}
+    </button>
+  );
+}
+
+function PlMarketTab({ c, api, goTo }) {
+  const [open, setOpen] = useState(c.threads.find((t) => t.paused)?.insurerId || c.threads[0]?.insurerId || null);
+  const [modal, setModal] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  if (c.threads.length === 0)
+    return <PlEmpty icon={Users} title="RFQ has not been floated yet"
+      body="Approve the insurer panel on the Insurers tab. Each approved insurer then gets its own thread, SLA and history." />;
+
+  return (
+    <div className="space-y-3">
+      {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
+        <PlCard style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-2">
+              <MessageSquare size={14} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>RM requested more quotes</div>
+                <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+                  “{c.rmMoreQuotes.reason}” — {c.rmMoreQuotes.by}, {c.rmMoreQuotes.at}. No insurer has been contacted. You decide the market activity.
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 shrink-0">
+              <PlBtn size="sm" variant="primary" icon={RefreshCw} disabled={plRestartableThreads(c).length === 0}
+                onClick={() => setModal({ kind: "restart" })}>
+                Restart selected threads
+              </PlBtn>
+              <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
+            </div>
+          </div>
+        </PlCard>
+      )}
+      {c.rmMoreQuotes && c.rmMoreQuotes.handled && (
+        <div className="flex items-center gap-1.5 px-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+          <Check size={12} color={PL_T.green} /> RM request for more quotes handled — {c.rmMoreQuotes.handledBy}.
+        </div>
+      )}
+      {c.followUpsStopped && (
+        <PlCard style={{ borderColor: PL_T.greenLine, background: PL_T.greenSoft }}>
+          <div className="flex gap-2">
+            <CheckCircle2 size={14} color={PL_T.green} style={{ marginTop: 1, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.green }}>Automated follow-ups stopped</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+                The usable-quote threshold was reached. {plOpenThreads(c).length} thread(s) remain open — they can still send a
+                quote, and you can still chase them manually.
+              </div>
+            </div>
+          </div>
+        </PlCard>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Insurer threads</div>
+          <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+            Independent per insurer. A clarification, decline or held clock on one thread changes nothing on the others.
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another market</PlBtn>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-4 pb-1" style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>
+        <span style={{ width: 7 }} />
+        <span style={{ width: 190 }}>INSURER / LAST ACTIVITY</span>
+        <span className="flex-1" />
+        <span style={{ width: 150 }}>STATUS</span>
+        <span style={{ width: 96 }}>FOLLOW-UP</span>
+        <span style={{ width: 96 }}>SLA / DUE</span>
+        <span style={{ width: 150 }}>NEXT ACTION</span>
+        <span style={{ width: 14 }} />
+      </div>
+
+      <div className="space-y-2">
+        {c.threads.map((t) => {
+          const I = PL_INSURERS[t.insurerId];
+          const on = open === t.insurerId;
+          const last = t.events[t.events.length - 1];
+          const qs = plLiveQuotes(c, t.insurerId);
+          const cl = t.clarifications[t.clarifications.length - 1];
+          return (
+            <div key={t.insurerId} className="rounded-xl border overflow-hidden"
+              style={{ borderColor: t.paused ? PL_T.orangeLine : on ? PL_T.borderStrong : PL_T.border, background: PL_T.card }}>
+              <button onClick={() => setOpen(on ? null : t.insurerId)} className="w-full text-left px-4 py-3 flex items-center gap-3">
+                <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: PL_TONES[PL_TSTAT[t.status].tone].fg }} />
+                <span className="min-w-0" style={{ width: 190 }}>
+                  <span className="block" style={{ fontSize: 12.5, fontWeight: 600 }}>{I.name}</span>
+                  <span className="block truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>{last ? `${last.at} — ${last.text}` : "—"}</span>
+                </span>
+                <span className="flex-1" />
+                <span style={{ width: 150 }}><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
+                <span style={{ width: 96, fontSize: 11, color: PL_T.ink3 }}>
+                  {["declined", "quote_usable", "quote_excluded"].includes(t.status) || !t.followUpsActive
+                    ? "stopped"
+                    : t.followUps >= 3 ? PL_FOLLOWUP_LADDER[2].label
+                      : t.followUps > 0 ? PL_FOLLOWUP_LADDER[t.followUps - 1].label
+                        : "none sent"}
+                </span>
+                <span style={{ width: 96 }}>
+                  <PlSlaChip hours={t.slaH} paused={t.paused} pauseReason={t.pauseReason}
+                    stopped={!t.paused && ["declined", "quote_usable", "quote_excluded"].includes(t.status)} />
+                </span>
+                <span style={{ width: 150, fontSize: 11, color: PL_T.ink2, lineHeight: 1.3 }}>{plThreadNext(c, t)}</span>
+                {on ? <ChevronDown size={14} color={PL_T.ink3} /> : <ChevronRight size={14} color={PL_T.ink3} />}
+              </button>
+
+              {on && (
+                <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+                  <div>
+                    <PlLabel className="mb-2">Thread history</PlLabel>
+                    <div className="space-y-2 mt-2">
+                      {t.events.map((e, i) => (
+                        <div key={i} className="flex gap-2.5">
+                          <span className="rounded-full shrink-0 mt-1.5"
+                            style={{ width: 5, height: 5, background: e.actor === "Insurer" ? PL_T.blue : e.actor === "System" ? PL_T.borderStrong : PL_T.purple }} />
+                          <div className="min-w-0">
+                            <div style={{ fontSize: 11.5, color: PL_T.ink, lineHeight: 1.4 }}>{e.text}</div>
+                            <PlMono size={10} color={PL_T.ink3}>{e.at} · {e.actor}</PlMono>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    {t.paused && (
+                      <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft, borderStyle: "dashed" }}>
+                        <div className="flex items-center gap-1.5">
+                          <Pause size={12} color={PL_T.orange} />
+                          <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.orange }}>Insurer clock held at {plFmtH(t.slaH)}</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-1">{t.pauseReason}</div>
+                      </div>
+                    )}
+
+                    {t.declineReason && (
+                      <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.redLine, background: PL_T.redSoft }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.red }}>Declined</div>
+                        <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>{t.declineReason}</div>
+                      </div>
+                    )}
+
+                    {cl && !cl.repliedAt && (
+                      <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.border, background: PL_T.cardAlt }}>
+                        <PlLabel>Insurer asked</PlLabel>
+                        <div style={{ fontSize: 12, color: PL_T.ink, lineHeight: 1.5 }} className="mt-1">{cl.question}</div>
+                        {cl.rmResponse && (
+                          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+                            <PlLabel>{c.client.rm} replied</PlLabel>
+                            <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{cl.rmResponse}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <PlLabel className="mb-2">Actions</PlLabel>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {t.status === "insurer_clarification" && (
+                        <PlBtn size="sm" variant="primary" icon={MessageSquare} onClick={() => setModal({ kind: "askRm", t })}>
+                          Request information from RM
+                        </PlBtn>
+                      )}
+                      {t.status === "awaiting_rm" && !cl?.rmResponse && (
+                        <PlSimBtn onClick={() => setModal({ kind: "simRm", t })}>⚡ Simulate RM response</PlSimBtn>
+                      )}
+                      {t.status === "awaiting_rm" && cl?.rmResponse && (
+                        <PlBtn size="sm" variant="primary" icon={Send} onClick={() => setModal({ kind: "reply", t })}>
+                          Reply to insurer and resume clock
+                        </PlBtn>
+                      )}
+                      {["rfq_sent", "acknowledged", "no_response"].includes(t.status) && (
+                        <PlBtn size="sm" icon={RefreshCw} onClick={() => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); }}>
+                          Send follow-up
+                        </PlBtn>
+                      )}
+                      {qs.some((q) => !q.decision) && (
+                        <PlBtn size="sm" variant="primary" icon={Eye} onClick={() => goTo("quotes")}>Open quote</PlBtn>
+                      )}
+                      <PlBtn size="sm" icon={Users} onClick={() => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
+                      <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
+                    </div>
+
+                    <PlSimBlock title="Simulate insurer response">
+                      {["ack", "clarify", "quote", "decline"].map((k) => (
+                        <PlSimBtn key={k}
+                          onClick={() => { api.simulateInsurer(c.id, t.insurerId, k); api.say(`${I.name}: ${{ ack: "acknowledged", clarify: "raised a clarification", quote: "sent a quote", decline: "declined" }[k]}`); }}>
+                          {{ ack: "Acknowledged", clarify: "Clarification raised", quote: "Quote received", decline: "Declined" }[k]}
+                        </PlSimBtn>
+                      ))}
+                    </PlSimBlock>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {modal?.kind === "restart" && <PlRestartThreadsModal c={c} api={api} onClose={() => setModal(null)} />}
+      {modal?.kind === "askRm" && <PlHoldForRmModal c={c} t={modal.t} api={api} onClose={() => setModal(null)} />}
+      {modal?.kind === "simRm" && <PlSimThreadRmModal c={c} t={modal.t} api={api} onClose={() => setModal(null)} />}
+      {modal?.kind === "reply" && <PlReplyInsurerModal c={c} t={modal.t} api={api} onClose={() => setModal(null)} />}
+      {addOpen && <PlAddInsurerModal c={c} api={api} onClose={() => setAddOpen(false)} />}
+    </div>
+  );
+}
+
+function PlThreadPicker({ c, picked, setPicked }) {
+  const rows = plRestartableThreads(c);
+  if (rows.length === 0)
+    return <div style={{ fontSize: 12, color: PL_T.ink3 }}>No thread is eligible to restart — every remaining thread is declined, usable or excluded. Approach another insurer instead.</div>;
+  return (
+    <div className="space-y-1">
+      {rows.map((t) => (
+        <PlTick key={t.insurerId} checked={picked.includes(t.insurerId)}
+          onChange={(v) => setPicked(v ? [...picked, t.insurerId] : picked.filter((x) => x !== t.insurerId))}
+          label={PL_INSURERS[t.insurerId].name}
+          sub={`${PL_TSTAT[t.status].label}${PL_TSTAT[t.status].sub ? ` · ${PL_TSTAT[t.status].sub}` : ""} · ${t.followUps} follow-up${t.followUps === 1 ? "" : "s"} sent`} />
+      ))}
+    </div>
+  );
+}
+
+function PlRestartThreadsModal({ c, api, onClose }) {
+  const [picked, setPicked] = useState([]);
+  const [reason, setReason] = useState(c.rmMoreQuotes ? "Client requested additional market options" : "");
+  return (
+    <PlModal title="Restart insurer threads" subtitle="Only the threads you select restart. Nothing else changes." onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={RefreshCw} disabled={picked.length === 0 || !reason.trim()}
+          onClick={() => { api.restartThreads(c.id, picked, reason.trim()); api.say(`${picked.length} thread${picked.length === 1 ? "" : "s"} restarted`); onClose(); }}>
+          Restart selected threads
+        </PlBtn></>}>
+      {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
+        <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+          <PlLabel>RM request</PlLabel>
+          <div style={{ fontSize: 12, color: PL_T.ink2 }} className="mt-0.5">“{c.rmMoreQuotes.reason}”</div>
+        </div>
+      )}
+      <PlLabel>Select threads to restart</PlLabel>
+      <div className="mt-1.5 mb-3"><PlThreadPicker c={c} picked={picked} setPicked={setPicked} /></div>
+      <PlLabel>Reason (required)</PlLabel>
+      <div className="mt-1.5"><PlInput value={reason} onChange={setReason} placeholder="Why these markets are being re-approached" /></div>
+    </PlModal>
+  );
+}
+
+function PlHoldForRmModal({ c, t, api, onClose }) {
+  const cl = t.clarifications[t.clarifications.length - 1];
+  const [note, setNote] = useState(cl ? cl.question : "");
+  return (
+    <PlModal title="Request information from RM" subtitle={`${PL_INSURERS[t.insurerId].name} · ${c.id}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Pause} onClick={() => { api.holdForRm(c.id, t.insurerId, note); api.say(`Clock held for ${PL_INSURERS[t.insurerId].name}`); onClose(); }}>
+          Send and hold the clock
+        </PlBtn></>}>
+      <PlLabel>What to ask {c.client.rm}</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+        <Pause size={13} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
+          This insurer's SLA holds at <b>{plFmtH(t.slaH)}</b> remaining and resumes from there once you reply.
+          Every other thread on this case keeps running.
+        </span>
+      </div>
+    </PlModal>
+  );
+}
+
+function PlSimThreadRmModal({ c, t, api, onClose }) {
+  const [text, setText] = useState(`Certificates and the risk-control report are attached. ${c.client.spoc.split(",")[0]} has confirmed all locations are current.`);
+  return (
+    <PlModal title="Simulate RM response" subtitle="Prototype control — stands in for the RM portal" onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
+      <PlLabel>Response from {c.client.rm}</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={3} /></div>
+    </PlModal>
+  );
+}
+
+function PlReplyInsurerModal({ c, t, api, onClose }) {
+  const cl = t.clarifications[t.clarifications.length - 1];
+  const [text, setText] = useState(`Thanks for the note. ${cl?.rmResponse || "The requested information is attached."} Please revert with terms at your earliest.`);
+  return (
+    <PlModal title={`Reply to ${PL_INSURERS[t.insurerId].name}`} subtitle={`${c.id} · resumes the insurer SLA`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Play} onClick={() => { api.replyToInsurer(c.id, t.insurerId, text); api.say(`Reply sent — clock resumed at ${plFmtH(t.slaH)}`); onClose(); }}>
+          Send reply and resume clock
+        </PlBtn></>}>
+      <PlLabel>Reply</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={4} /></div>
+      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+        <Play size={13} color={PL_T.green} style={{ marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 11.5, color: PL_T.green, lineHeight: 1.45 }}>
+          The clock resumes with <b>{plFmtH(t.slaH)}</b> remaining — the time it was held for is not counted against the insurer.
+        </span>
+      </div>
+    </PlModal>
+  );
+}
+
+/* ---------- scratch_pl_tabs2.jsx ---------- */
+/* ================================================================== *
+ *  BimaPlacement — Quotes / QCR / Negotiation / Activity tabs, ported
+ *  into the sister design system. Behaviour is FROZEN (see
+ *  FUNCTIONAL-CONTRACT.md); only symbol names and visual primitives are
+ *  remapped. Pl-/PL_-namespaced. Domain data, pure functions, api,
+ *  PlSimBlock/PlSimBtn, PlThreadPicker, plFmtVal, plQuotesOf are defined
+ *  elsewhere and referenced by name.
+ * ================================================================== */
+
+/* ------------------------------ Quotes tab -------------------------------- */
+/* PL_DECISION_CHIP is defined in the domain layer — referenced only. */
+
+function PlQuotesTab({ c, api }) {
+  const all = c.quotes.filter((q) => q.rfqV === c.activeRfq);
+  const [sel, setSel] = useState(all.find((q) => !q.decision)?.id || all[0]?.id || null);
+
+  if (all.length === 0)
+    return <PlEmpty icon={FileText} title="No quotes yet"
+      body="Quotes appear here as insurers respond. Each one needs your decision before it can count toward the QCR threshold." />;
+
+  const q = all.find((x) => x.id === sel) || all[0];
+  const byInsurer = c.panel.selected.filter((id) => all.some((x) => x.insurerId === id));
+
+  return (
+    <div className="flex gap-3 items-start">
+      {/* quotes received, grouped by insurer — one insurer counts once */}
+      <div className="shrink-0 space-y-3" style={{ width: 244 }}>
+        <PlCard alt>
+          <PlUsableMeter count={plUsableCount(c)} />
+          <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }} className="mt-1.5">
+            A quote counts only once you mark it usable, and only one quote per insurer counts. Revisions replace, they do not add.
+          </div>
+        </PlCard>
+
+        {byInsurer.map((id) => {
+          const qs = all.filter((x) => x.insurerId === id);
+          const counted = qs.some((x) => x.decision === "usable");
+          return (
+            <PlCard key={id} pad={false}>
+              <div className="px-3 py-2 flex items-center gap-1.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{PL_INSURERS[id].name}</span>
+                <span className="flex-1" />
+                {counted ? <PlChip tone="green" size="xs" dot>Counts</PlChip> : <PlChip size="xs">Not counted</PlChip>}
+              </div>
+              {qs.map((x) => {
+                const on = x.id === q.id;
+                const dead = x.decision === "superseded";
+                return (
+                  <button key={x.id} onClick={() => setSel(x.id)} className="w-full text-left px-3 py-2"
+                    style={{ borderBottom: `1px solid ${PL_T.border}`, background: on ? PL_T.navActive : "transparent", opacity: dead ? 0.6 : 1 }}>
+                    <div className="flex items-center gap-1.5">
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: on ? PL_T.purple : PL_T.ink }}>
+                        {PL_PRODUCTS[x.product]} · Quote V{x.version}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      {dead ? <PlChip size="xs">V{x.version} superseded</PlChip>
+                        : x.decision ? <PlChip size="xs" tone={PL_DECISION_CHIP[x.decision].tone} dot>{PL_DECISION_CHIP[x.decision].label}</PlChip>
+                          : <PlChip size="xs" tone="purple" dot>Awaiting decision</PlChip>}
+                    </div>
+                  </button>
+                );
+              })}
+            </PlCard>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <PlQuoteWorkspace c={c} q={q} api={api} />
+      </div>
+    </div>
+  );
+}
+
+/* §12 — verification workspace. Document on the left, extracted values on the
+   right, and the decision at the bottom. Received is not the same as usable. */
+function PlQuoteWorkspace({ c, q, api }) {
+  const [edit, setEdit] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [modal, setModal] = useState(null);
+  const [page, setPage] = useState(1);
+  const [zoom, setZoom] = useState(100);
+  const gaps = plGapsOf(q);
+  const corr = plCorrected(q);
+  const premium = q.fields.find((f) => f.key === "premium");
+  const dead = q.decision === "superseded";
+  const pages = 4;
+
+  return (
+    <div className="space-y-3">
+      <PlCard pad={false}>
+        <div className="px-4 py-3 flex items-center gap-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: 13.5, fontWeight: 650 }}>{PL_INSURERS[q.insurerId].name}</span>
+              <PlChip size="xs" mono>Quote V{q.version}</PlChip>
+              <PlChip size="xs" mono>RFQ V{q.rfqV}</PlChip>
+              {q.supersedes && <PlChip size="xs">V{q.supersedes} superseded</PlChip>}
+            </div>
+            <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{PL_PRODUCTS[q.product]} · received {q.receivedAt}</div>
+          </div>
+          <span className="flex-1" />
+          {premium && <PlMono size={14} color={PL_T.ink} weight={650}>{plFmtVal(premium) || "—"}</PlMono>}
+          {premium && Number(premium.value) > 0 && (() => {
+            const tf = plTargetFlag(c, Number(premium.value));
+            return <PlChip size="xs" tone={tf.tone}>{tf.label}</PlChip>;
+          })()}
+          {dead ? <PlChip dot>Superseded</PlChip>
+            : q.decision ? <PlChip tone={PL_DECISION_CHIP[q.decision].tone} dot>{PL_DECISION_CHIP[q.decision].label}</PlChip>
+              : <PlChip tone="purple" dot>Awaiting your decision</PlChip>}
+        </div>
+
+        <div className="flex items-start" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          {/* left — the original document */}
+          <div style={{ width: 340, borderRight: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
+            <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+              <FileText size={12} color={PL_T.ink3} />
+              <span className="truncate" style={{ fontSize: 11, color: PL_T.ink2, fontWeight: 550 }}>{q.doc}</span>
+              <span className="flex-1" />
+              <button onClick={() => setZoom((z) => Math.max(60, z - 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>−</button>
+              <PlMono size={10} color={PL_T.ink3}>{zoom}%</PlMono>
+              <button onClick={() => setZoom((z) => Math.min(160, z + 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>+</button>
+            </div>
+
+            <div className="px-4 py-4">
+              <div className="rounded-lg mx-auto px-4 py-5"
+                style={{ background: PL_T.card, border: `1px solid ${PL_T.border}`, width: `${zoom}%`, maxWidth: "100%", minHeight: 300 }}>
+                <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>{PL_INSURERS[q.insurerId].name.toUpperCase()}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>Quotation — {PL_PRODUCTS[q.product]}</div>
+                <div style={{ fontSize: 10.5, color: PL_T.ink3 }}>{c.client.name} · page {page} of {pages}</div>
+                <div className="mt-3 space-y-1.5">
+                  {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).length === 0 && (
+                    <div style={{ fontSize: 10.5, color: PL_T.ink3, fontStyle: "italic" }}>
+                      No extracted values sit on this page. Terms and conditions continue.
+                    </div>
+                  )}
+                  {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).map((f) => {
+                    const blank = String(f.value ?? "").trim() === "";
+                    return (
+                      <div key={f.key} className="rounded px-2 py-1"
+                        style={{ background: blank ? PL_T.redSoft : f.confidence === "low" ? PL_T.orangeSoft : "transparent",
+                          border: `1px solid ${blank ? PL_T.redLine : f.confidence === "low" ? PL_T.orangeLine : "transparent"}` }}>
+                        <div style={{ fontSize: 9.5, color: PL_T.ink3 }}>{f.label}</div>
+                        <div style={{ fontSize: 11, color: blank ? PL_T.red : PL_T.ink, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
+                          {blank ? "— left blank in the document —" : plFmtVal({ ...f, value: f.extracted !== undefined ? f.extracted : f.value })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="rounded mt-1.5" style={{ height: 5, background: PL_T.cardSunk, width: `${94 - i * 7}%` }} />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 pb-3">
+              <PlBtn size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Prev</PlBtn>
+              <PlMono size={11} color={PL_T.ink3}>{page} / {pages}</PlMono>
+              <PlBtn size="sm" disabled={page === pages} onClick={() => setPage((p) => p + 1)}>Next</PlBtn>
+            </div>
+          </div>
+
+          {/* right — what was extracted, and what you changed */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 px-4 py-2" style={{ background: PL_T.cardAlt, borderBottom: `1px solid ${PL_T.border}` }}>
+              <PlLabel>Extracted quote information</PlLabel>
+              {corr.length > 0 && <PlChip size="xs" tone="purple">{corr.length} corrected by you</PlChip>}
+              <span className="flex-1" />
+              <PlMono size={10.5} color={PL_T.ink3}>original document retained</PlMono>
+            </div>
+
+            <table className="w-full" style={{ borderCollapse: "collapse" }}>
+              <tbody>
+                {q.fields.map((f) => {
+                  const blank = String(f.value ?? "").trim() === "";
+                  const editing = edit === f.key;
+                  const suspect = f.confidence === "low" && !f.correctedBy;
+                  return (
+                    <tr key={f.key} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                      <td className="px-4 py-2" style={{ width: 176, verticalAlign: "top" }}>
+                        <span style={{ fontSize: 12, color: PL_T.ink2 }}>{f.label}</span>
+                        {f.required && <span style={{ fontSize: 10, color: PL_T.ink3 }}> *</span>}
+                        {f.page && <div><PlMono size={9.5} color={PL_T.ink3}>{f.page}</PlMono></div>}
+                      </td>
+                      <td className="px-4 py-2" style={{ verticalAlign: "top" }}>
+                        {editing ? (
+                          <div className="flex items-center gap-1.5">
+                            <PlInput value={draft} onChange={setDraft} mono={f.kind === "money"} />
+                            <PlBtn size="sm" variant="primary" onClick={() => {
+                              api.editField(c.id, q.id, f.key, f.kind === "money" ? Number(draft.replace(/[^\d]/g, "")) || draft : draft);
+                              api.say("Correction saved — the extracted value is kept"); setEdit(null);
+                            }}>Save</PlBtn>
+                            <PlBtn size="sm" variant="ghost" onClick={() => setEdit(null)}>Cancel</PlBtn>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <span className="flex-1">
+                              <span className="flex items-center gap-1.5">
+                                {suspect && <AlertTriangle size={12} color={PL_T.orange} />}
+                                <span style={{ fontSize: 12.5, color: blank ? PL_T.red : suspect ? PL_T.orange : PL_T.ink,
+                                  fontWeight: 500, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
+                                  {blank ? "Missing from document" : plFmtVal(f)}
+                                </span>
+                              </span>
+                              {suspect && <span className="block" style={{ fontSize: 10.5, color: PL_T.orange }}>Potential extraction issue — check the document</span>}
+                              {f.correctedBy && (
+                                <span className="block" style={{ fontSize: 10.5, color: PL_T.ink3 }}>
+                                  Extracted: {f.kind === "money" ? plInr(f.extracted) : (String(f.extracted).trim() || "blank")} · corrected by {f.correctedBy}
+                                </span>
+                              )}
+                            </span>
+                            {f.correctedBy && <PlChip tone="purple" size="xs">Corrected</PlChip>}
+                            {!dead && (
+                              <button onClick={() => { setEdit(f.key); setDraft(String(f.value ?? "")); }} style={{ color: PL_T.ink3 }}>
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {!dead && (
+          <div className="px-4 py-3" style={{ background: PL_T.cardAlt }}>
+            {gaps.length > 0 && (
+              <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.redLine, background: PL_T.redSoft }}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <AlertTriangle size={12} color={PL_T.red} />
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.red }}>Unresolved material information</span>
+                </div>
+                {gaps.map((g, i) => <div key={i} style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>— {g}</div>)}
+                <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-1">This quote cannot be marked usable until these are closed.</div>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <PlBtn variant="success" icon={CheckCircle2} disabled={!plCanMarkUsable(q) || q.decision === "usable"}
+                title={plCanMarkUsable(q) ? "" : "Resolve the material gaps first"}
+                onClick={() => { api.decideQuote(c.id, q.id, "usable"); api.say("Quote marked usable"); }}>
+                Mark usable
+              </PlBtn>
+              <PlBtn icon={MessageSquare} onClick={() => setModal("clarify")}>Needs clarification</PlBtn>
+              <PlBtn variant="danger" icon={XCircle} onClick={() => setModal("exclude")}>Exclude from QCR</PlBtn>
+              <span className="flex-1" />
+              {q.decision && q.decisionAt && (
+                <PlMono size={10.5} color={PL_T.ink3}>
+                  {PL_DECISION_CHIP[q.decision].label} · {q.decisionAt}{q.decisionNote ? ` · ${q.decisionNote}` : ""}
+                </PlMono>
+              )}
+            </div>
+          </div>
+        )}
+        {dead && (
+          <div className="px-4 py-2.5" style={{ background: PL_T.cardAlt, fontSize: 11.5, color: PL_T.ink3 }}>
+            Superseded by a later revision from the same insurer. Retained for audit; does not count toward the threshold.
+          </div>
+        )}
+      </PlCard>
+
+      {modal === "clarify" && <PlQuoteClarifyModal c={c} q={q} api={api} onClose={() => setModal(null)} />}
+      {modal === "exclude" && <PlQuoteExcludeModal c={c} q={q} api={api} onClose={() => setModal(null)} />}
+    </div>
+  );
+}
+
+function PlQuoteClarifyModal({ c, q, api, onClose }) {
+  const gaps = plGapsOf(q);
+  const [text, setText] = useState(
+    gaps.length ? `Thanks for the terms. Before we can put this in front of the client, please confirm: ${gaps.map((g) => g.replace(/\.$/, "")).join("; ")}.`
+      : "Thanks for the terms. Could you confirm the basis for the room rent limit and the quote validity period?");
+  return (
+    <PlModal title="Send clarification to insurer" subtitle={`${PL_INSURERS[q.insurerId].name} · ${q.doc}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Send} onClick={() => { api.decideQuote(c.id, q.id, "clarification", "Clarification sent to insurer"); api.say("Clarification sent — quote does not count until resolved"); onClose(); }}>
+          Send clarification
+        </PlBtn></>}>
+      <PlLabel>Message to the underwriting desk</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={4} /></div>
+      <div className="mt-3 rounded-lg px-3 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+        <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+          The quote stays on the case but does not count toward the usable-quote threshold while the clarification is open.
+        </span>
+      </div>
+    </PlModal>
+  );
+}
+
+function PlQuoteExcludeModal({ c, q, api, onClose }) {
+  const [reason, setReason] = useState("");
+  const presets = ["Terms are not comparable to the rest of the panel", "Quote is against superseded RFQ requirements",
+    "Insurer withdrew the terms", "Client has asked us not to use this market"];
+  return (
+    <PlModal title="Exclude from QCR" subtitle={`${PL_INSURERS[q.insurerId].name} · ${q.doc}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="danger" disabled={!reason.trim()} icon={XCircle}
+          onClick={() => { api.decideQuote(c.id, q.id, "excluded", reason); api.say("Quote excluded from the QCR"); onClose(); }}>
+          Exclude quote
+        </PlBtn></>}>
+      <PlLabel>Reason — recorded on the case audit trail</PlLabel>
+      <div className="flex flex-wrap gap-1.5 mt-1.5 mb-2">
+        {presets.map((p) => <PlBtn key={p} size="sm" variant={reason === p ? "primary" : "default"} onClick={() => setReason(p)}>{p}</PlBtn>)}
+      </div>
+      <PlTextArea value={reason} onChange={setReason} rows={3} placeholder="Why this quote should not reach the client" />
+    </PlModal>
+  );
+}
+
+/* -------------------------------- QCR tab --------------------------------- */
+
+function PlQcrTab({ c, api, goTo }) {
+  const draft = plDraftQcr(c);
+  const released = plReleasedQcr(c);
+  const met = plThresholdMet(c);
+  const [early, setEarly] = useState(false);
+  const [send, setSend] = useState(false);
+  const [outcome, setOutcome] = useState(null);
+  const lateQuotes = plLiveQuotes(c).filter((q) => !q.decision && released && q.receivedAt >= (released.releasedAt || ""));
+
+  return (
+    <div className="space-y-3">
+      {/* progress toward threshold */}
+      {!draft && !released && (
+        <PlCard>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.5 }} className="mt-0.5">
+                A draft QCR is generated automatically once {PL_THRESHOLD} usable quotes from {PL_THRESHOLD} distinct insurers
+                are on the current RFQ version. Nothing reaches the client until you release it.
+              </div>
+            </div>
+            <div className="shrink-0"><PlUsableMeter count={plUsableCount(c)} /></div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {plUsableInsurers(c).map((id) => (
+              <div key={id} className="flex items-center gap-2 rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.greenLine, background: PL_T.greenSoft }}>
+                <CheckCircle2 size={13} color={PL_T.green} />
+                <span style={{ fontSize: 12.5, fontWeight: 500 }}>{PL_INSURERS[id].name}</span>
+              </div>
+            ))}
+            {plUsableCount(c) === 0 && <div style={{ fontSize: 12, color: PL_T.ink3 }}>No quotes have been marked usable yet.</div>}
+          </div>
+          {c.priority === "Urgent" && !met && (
+            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>Release early on an urgent case</div>
+                  <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>Permitted below the threshold, but the reason is mandatory and stays on the record.</div>
+                </div>
+                <PlBtn variant="default" disabled={plUsableCount(c) === 0} icon={AlertTriangle} onClick={() => setEarly(true)}>
+                  Release with {plUsableCount(c)} quote{plUsableCount(c) === 1 ? "" : "s"}
+                </PlBtn>
+              </div>
+            </div>
+          )}
+        </PlCard>
+      )}
+
+      {/* late quote after release */}
+      {released && lateQuotes.length > 0 && (
+        <PlCard style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-2">
+              <AlertTriangle size={14} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>
+                  {lateQuotes.length} quote received after QCR V{released.v} was released
+                </div>
+                <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+                  {lateQuotes.map((q) => PL_INSURERS[q.insurerId].name).join(", ")}. QCR V{released.v} is locked. Review the
+                  quote first, then decide whether it is worth putting a new version in front of the client.
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 shrink-0">
+            <PlBtn size="sm" icon={Eye} onClick={() => goTo && goTo("quotes")}>Review quote</PlBtn>
+            <PlBtn variant="primary" size="sm" icon={Plus} onClick={() => { api.newQcrVersion(c.id); api.say(`Draft QCR V${c.qcrs.length + 1} created`); }}>
+              Create QCR V{c.qcrs.length + 1}
+            </PlBtn>
+            </div>
+          </div>
+        </PlCard>
+      )}
+
+      {/* versions */}
+      {c.qcrs.length > 0 && (
+        <div className="flex items-center gap-2">
+          <PlLabel>Versions</PlLabel>
+          {c.qcrs.map((q) => (
+            <PlChip key={q.v} tone={q.status === "released" ? "green" : "purple"} mono>
+              {q.status === "released" ? <Lock size={9} /> : null} QCR V{q.v} · {q.status}
+            </PlChip>
+          ))}
+        </div>
+      )}
+
+      {(draft || released) && <PlQcrDocument c={c} qcr={draft || released} locked={!draft} />}
+
+      {draft && (
+        <PlCard style={{ borderColor: PL_T.purpleLine, background: PL_T.purpleSoft }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600 }}>Release QCR V{draft.v} to the RM</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>
+                Released versions are locked. A later quote can only reach the client through a new version you create.
+              </div>
+            </div>
+            <PlBtn variant="primary" icon={Send} onClick={() => setSend(true)}>Send to RM</PlBtn>
+          </div>
+        </PlCard>
+      )}
+
+      {released && !c.outcome && !(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
+        <PlSimBlock title="Simulate RM request for more quotes">
+          <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received — your decision is needed on Insurer Threads"); }}>
+            RM asks for more options
+          </PlSimBtn>
+        </PlSimBlock>
+      )}
+      {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
+        <PlCard style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>RM requested more quotes</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>“{c.rmMoreQuotes.reason}” — decide on Insurer Threads whether to restart or approach a market.</div>
+            </div>
+            <PlBtn size="sm" variant="primary" icon={ArrowRight} onClick={() => goTo && goTo("market")}>Go to Insurer Threads</PlBtn>
+          </div>
+        </PlCard>
+      )}
+
+      {released && !c.outcome && (
+        <PlCard>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Record the client decision</div>
+          <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
+            QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. Log what came back.
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {[
+              { k: "quote_selected", label: "Quote selected", sub: "Client picked a market — hand off to issuance", tone: "green" },
+              { k: "negotiation", label: "Negotiation", sub: "Client wants improved terms before deciding", tone: "orange" },
+              { k: "more_quotes", label: "Request more quotes", sub: "Reopen the market and restart follow-ups", tone: "purple" },
+              { k: "rfq_v2", label: "Requirement change", sub: `Create RFQ V${c.activeRfq + 1} and re-approach the market`, tone: "purple" },
+              { k: "lost", label: "Lost", sub: "Client placed elsewhere or withdrew", tone: "red" },
+              { k: "unable_to_place", label: "Unable to place", sub: "No market available on this structure", tone: "red" },
+              { k: "cancelled_inactivity", label: "Cancelled — inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
+            ].map((o) => (
+              <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg border px-3 py-2.5"
+                style={{ borderColor: PL_T.border, background: PL_T.card }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[o.tone].fg }} />
+                  <span style={{ fontSize: 12.5, fontWeight: 550 }}>{o.label}</span>
+                </div>
+                <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }} className="mt-0.5">{o.sub}</div>
+              </button>
+            ))}
+          </div>
+        </PlCard>
+      )}
+
+      {early && <PlEarlyReleaseModal c={c} api={api} onClose={() => setEarly(false)} />}
+      {send && <PlSendQcrModal c={c} qcr={draft} api={api} onClose={() => setSend(false)} />}
+      {outcome && <PlOutcomeModal c={c} kind={outcome} api={api} onClose={() => setOutcome(null)} />}
+    </div>
+  );
+}
+
+function PlQcrDocument({ c, qcr, locked }) {
+  const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
+  const prods = [...new Set(usable.map((q) => q.product))];
+  const [p, setP] = useState(prods[0]);
+  const rows = usable.filter((q) => q.product === p);
+  const labels = rows.length ? rows[0].fields.map((f) => ({ key: f.key, label: f.label })) : [];
+
+  return (
+    <PlCard pad={false}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+        <div>
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report — V{qcr.v}</span>
+            {locked ? <PlChip tone="green" dot><Lock size={9} /> Released and locked</PlChip> : <PlChip tone="purple" dot>Draft</PlChip>}
+          </div>
+          <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-0.5">
+            {c.client.name} · RFQ V{c.activeRfq} · {rows.length} quote{rows.length === 1 ? "" : "s"}
+            {locked && qcr.releasedAt ? ` · released ${qcr.releasedAt} by ${qcr.releasedBy} to ${qcr.sentTo}` : ""}
+          </div>
+        </div>
+        {prods.length > 1 && (
+          <div className="flex gap-1">
+            {prods.map((x) => (
+              <button key={x} onClick={() => setP(x)} className="rounded-lg px-2.5 py-1 border"
+                style={{ background: p === x ? PL_T.card : "transparent", borderColor: p === x ? PL_T.borderStrong : "transparent", fontSize: 12, fontWeight: p === x ? 550 : 450 }}>
+                {x}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {qcr.earlyRelease && (
+        <div className="px-4 py-2.5" style={{ background: PL_T.orangeSoft, borderBottom: `1px solid ${PL_T.orangeLine}` }}>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.orange }}>
+            Released below the usual threshold with {qcr.earlyRelease.count} usable quote(s)
+          </div>
+          <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>{qcr.earlyRelease.reason}</div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 620 }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
+              <th className="text-left px-4 py-2.5" style={{ fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: PL_T.ink3, fontWeight: 600, width: 200 }}>Term</th>
+              {rows.map((q) => (
+                <th key={q.id} className="text-left px-4 py-2.5" style={{ minWidth: 170 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[q.insurerId].name}</div>
+                  <PlMono size={10.5} color={PL_T.ink3}>v{q.version} · {q.receivedAt}</PlMono>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {labels.map((L) => (
+              <tr key={L.key} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink3 }}>{L.label}</td>
+                {rows.map((q) => {
+                  const f = q.fields.find((x) => x.key === L.key);
+                  return (
+                    <td key={q.id} className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, fontFamily: f?.kind === "money" ? PL_MONO : FONT, verticalAlign: "top" }}>
+                      {f ? (plFmtVal(f) || "—") : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="px-4 py-2.5 flex gap-2" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+        <Info size={12.5} color={PL_T.ink3} style={{ marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }}>
+          Terms are shown as quoted. This report does not rank the quotes or identify a preferred market — the choice sits
+          with the client, advised by the RM.
+        </span>
+      </div>
+    </PlCard>
+  );
+}
+
+function PlEarlyReleaseModal({ c, api, onClose }) {
+  const [reason, setReason] = useState("");
+  return (
+    <PlModal title="Release below the usual threshold" subtitle={`${c.id} · ${plUsableCount(c)} usable quote(s)`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" disabled={reason.trim().length < 12} icon={ArrowRight}
+          onClick={() => { api.startDraftQcr(c.id, reason); api.say("Draft QCR created with the reason recorded"); onClose(); }}>
+          Create draft QCR
+        </PlBtn></>}>
+      {c.urgentReason && (
+        <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
+          <PlLabel>Why this case is urgent</PlLabel>
+          <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{c.urgentReason}</div>
+        </div>
+      )}
+      <PlLabel>Reason for releasing early — mandatory</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3}
+        placeholder="Explain why the client is better served by seeing fewer quotes now than by waiting" /></div>
+      <div className="mt-2" style={{ fontSize: 11, color: PL_T.ink3 }}>
+        This reason is printed on the QCR and kept on the audit trail.
+      </div>
+    </PlModal>
+  );
+}
+
+function PlSendQcrModal({ c, qcr, api, onClose }) {
+  const [note, setNote] = useState(
+    `Hi ${c.client.rm.split(" ")[0]}, comparison for ${c.client.name} is attached. All terms are as quoted and none of the markets have been ranked — happy to walk ${c.client.spoc.split(",")[0]} through the differences if useful.`);
+  const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
+  return (
+    <PlModal title={`Send QCR V${qcr.v} to RM`} subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose} wide
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Send} onClick={() => { api.releaseQcr(c.id, note); api.say(`QCR V${qcr.v} released and locked`); onClose(); }}>
+          Send to RM
+        </PlBtn></>}>
+      <PlLabel>Included quotes</PlLabel>
+      <div className="mt-1.5 mb-4 space-y-1">
+        {usable.map((q) => (
+          <div key={q.id} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+            <span style={{ fontSize: 12.5 }}>{PL_INSURERS[q.insurerId].name} — {PL_PRODUCTS[q.product]} v{q.version}</span>
+            <PlMono size={11.5}>{plFmtVal(q.fields.find((f) => f.key === "premium")) || "—"}</PlMono>
+          </div>
+        ))}
+      </div>
+      <PlLabel>Covering note</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.purpleSoft, border: `1px solid ${PL_T.purpleLine}` }}>
+        <Lock size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
+        <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>
+          QCR V{qcr.v} locks on send. Later quotes cannot be added to it — they would need QCR V{qcr.v + 1}, which only you can create.
+        </span>
+      </div>
+    </PlModal>
+  );
+}
+
+function PlTaxonomyPicker({ kind, broad, setBroad, detail, setDetail }) {
+  const rows = PL_TAXONOMY.filter((t) => t.kind === kind || t.broad === "Other");
+  const cur = PL_TAXONOMY.find((t) => t.broad === broad);
+  return (
+    <div className="mb-4">
+      <PlLabel>Broad reason</PlLabel>
+      <div className="mt-1.5 space-y-1">
+        {rows.map((t) => (
+          <button key={t.broad} onClick={() => { setBroad(t.broad); setDetail(""); }}
+            className="w-full text-left rounded-lg border px-3 py-2"
+            style={{ borderColor: broad === t.broad ? PL_T.purple : PL_T.border, background: broad === t.broad ? PL_T.purpleSoft : PL_T.card }}>
+            <div className="flex items-center justify-between">
+              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t.broad}</span>
+              {broad === t.broad && <Check size={13} color={PL_T.purple} />}
+            </div>
+            <div style={{ fontSize: 11, color: PL_T.ink3, marginTop: 2, lineHeight: 1.4 }}>{t.route}</div>
+          </button>
+        ))}
+      </div>
+      {cur && cur.details.length > 0 && (
+        <div className="mt-3">
+          <PlLabel>Detailed reason</PlLabel>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {cur.details.map((d) => (
+              <button key={d} onClick={() => setDetail(d)} className="rounded-full border px-2.5 py-1"
+                style={{ borderColor: detail === d ? PL_T.purple : PL_T.border, background: detail === d ? PL_T.purpleSoft : PL_T.card,
+                  color: detail === d ? PL_T.purpleDeep : PL_T.ink2, fontSize: 11.5, fontWeight: 500 }}>{d}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlOutcomeModal({ c, kind, api, onClose }) {
+  const usable = plUsableInsurers(c);
+  const [pick, setPick] = useState(usable[0] || "");
+  const [reason, setReason] = useState("");
+  const [broad, setBroad] = useState("");
+  const [detail, setDetail] = useState("");
+  const [picked2, setPicked2] = useState([]);
+  const taxed = ["negotiation", "rfq_v2", "lost"].includes(kind);
+  const fullReason = () => [broad, detail].filter(Boolean).join(" — ") + (reason.trim() ? ` · ${reason.trim()}` : "");
+  const [asks, setAsks] = useState(usable.map((id) => ({ insurerId: id, ask: "", status: "awaiting", response: null })));
+
+  const meta = {
+    quote_selected: { title: "Record quote selection", cta: "Confirm selection and hand off", tone: "success" },
+    negotiation: { title: "Open a negotiation round", cta: "Open round", tone: "primary" },
+    more_quotes: { title: "Reopen the market", cta: "Restart selected threads", tone: "primary" },
+    rfq_v2: { title: `Create RFQ V${c.activeRfq + 1}`, cta: "Create new version", tone: "primary" },
+    lost: { title: "Close as lost", cta: "Close case", tone: "danger" },
+    unable_to_place: { title: "Close as unable to place", cta: "Close case", tone: "danger" },
+    cancelled_inactivity: { title: "Close as cancelled — inactivity", cta: "Close case", tone: "danger" },
+  }[kind];
+
+  const run = () => {
+    if (kind === "quote_selected") { api.selectQuote(c.id, pick, reason || "Client selected these terms."); api.say("Selection recorded — handed off to RM / Policy Journey"); }
+    else if (kind === "negotiation") { api.openNegotiation(c.id, asks.filter((a) => a.ask.trim()), fullReason()); api.say("Negotiation round opened"); }
+    else if (kind === "more_quotes") { api.restartThreads(c.id, picked2, reason.trim()); api.say(`${picked2.length} thread${picked2.length === 1 ? "" : "s"} restarted`); }
+    else if (kind === "rfq_v2") { api.newRfqVersion(c.id, fullReason()); api.say(`RFQ V${c.activeRfq + 1} created`); }
+    else { api.recordOutcome(c.id, kind, taxed ? fullReason() : reason); api.say("Case closed"); }
+    onClose();
+  };
+
+  /* A successful selection needs the market, not an essay. Terminal closures
+     (Lost, Unable to Place, Cancelled) still require a reason. */
+  const valid = kind === "more_quotes" ? (picked2.length > 0 && reason.trim().length > 0)
+    : kind === "quote_selected" ? !!pick
+    : taxed ? (!!broad && (broad === "Other" ? reason.trim().length > 8 : !!detail) &&
+        (kind !== "negotiation" || asks.some((a) => a.ask.trim())))
+    : reason.trim().length > 8;
+
+  return (
+    <PlModal title={meta.title} subtitle={`${c.id} · ${c.client.name}`} onClose={onClose} wide={kind === "negotiation"}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant={meta.tone} disabled={!valid} onClick={run}>{meta.cta}</PlBtn></>}>
+      {taxed && <PlTaxonomyPicker kind={kind} broad={broad} setBroad={setBroad} detail={detail} setDetail={setDetail} />}
+
+      {kind === "quote_selected" && (
+        <>
+          <PlLabel>Selected market</PlLabel>
+          <div className="mt-1.5 mb-4 space-y-1">
+            {usable.map((id) => (
+              <button key={id} onClick={() => setPick(id)} className="w-full flex items-center justify-between rounded-lg border px-3 py-2"
+                style={{ borderColor: pick === id ? PL_T.purple : PL_T.border, background: pick === id ? PL_T.purpleSoft : PL_T.card }}>
+                <span style={{ fontSize: 12.5, fontWeight: 550 }}>{PL_INSURERS[id].name}</span>
+                {pick === id && <Check size={13} color={PL_T.purple} />}
+              </button>
+            ))}
+          </div>
+          <PlLabel>Note from the RM</PlLabel>
+          <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="What the client said, and anything issuance needs to know" /></div>
+        </>
+      )}
+
+      {kind === "negotiation" && (
+        <>
+          <PlLabel>What the client is asking for</PlLabel>
+          <div className="mt-1.5 mb-4"><PlTextArea value={reason} onChange={setReason} rows={2} placeholder="Summarise the client's position in one line" /></div>
+          <PlLabel>Ask per insurer</PlLabel>
+          <div className="mt-1.5 space-y-2">
+            {asks.map((a, i) => (
+              <div key={a.insurerId} className="rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
+                <div style={{ fontSize: 12.5, fontWeight: 550 }} className="mb-1.5">{PL_INSURERS[a.insurerId].name}</div>
+                <PlTextArea rows={2} value={a.ask} placeholder="Leave blank to skip this market"
+                  onChange={(v) => setAsks((s) => s.map((x, j) => (j === i ? { ...x, ask: v } : x)))} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {kind === "more_quotes" && (
+        <>
+          <div style={{ fontSize: 12.5, color: PL_T.ink2, lineHeight: 1.6 }} className="mb-3">
+            QCR V{(plReleasedQcr(c) || {}).v} stays locked with the client. Pick which threads to re-approach; anything new
+            would need a fresh QCR version.
+          </div>
+          <PlLabel>Select threads to restart</PlLabel>
+          <div className="mt-1.5 mb-3"><PlThreadPicker c={c} picked={picked2} setPicked={setPicked2} /></div>
+          <PlLabel>Reason (required)</PlLabel>
+          <div className="mt-1.5"><PlInput value={reason} onChange={setReason} placeholder="Why the market is being reopened" /></div>
+        </>
+      )}
+
+      {kind === "rfq_v2" && (
+        <>
+          <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+            <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
+              Insurer threads reset and the usable-quote count returns to zero. Quotes against RFQ V{c.activeRfq} stay on the
+              case for audit but stop counting toward the threshold.
+            </span>
+          </div>
+          <PlLabel>What changed</PlLabel>
+          <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="e.g. Sum insured raised to ₹10 L per family and parents moved in-scope" /></div>
+        </>
+      )}
+
+      {["lost", "unable_to_place", "cancelled_inactivity"].includes(kind) && (
+        <>
+          <PlLabel>Reason — mandatory, kept on the record</PlLabel>
+          <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={4} /></div>
+        </>
+      )}
+    </PlModal>
+  );
+}
+
+/* --------------------------- Negotiation + Activity ------------------------ */
+
+function PlNegotiationTab({ c, api }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [history, setHistory] = useState(false);
+  const [finalOpen, setFinalOpen] = useState(false);
+  if (c.negotiations.length === 0)
+    return (
+      <div>
+        <PlEmpty icon={MessageSquare} title="No negotiation rounds"
+          body={plReleasedQcr(c)
+            ? "Open a round when the client comes back asking for improved terms. Each ask is tracked per insurer."
+            : "Negotiation starts after a QCR has been released and the client has responded."}
+          action={plReleasedQcr(c) && !c.outcome ? <PlBtn variant="primary" icon={Plus} onClick={() => setOpen(true)}>Open a round</PlBtn> : null} />
+        {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
+      </div>
+    );
+
+  const latest = c.negotiations[c.negotiations.length - 1];
+  const responded = latest.items.some((it) => it.status !== "awaiting");
+  const canFinal = !c.outcome && !latest.final && latest.status !== "draft" && (latest.status === "closed" || responded);
+  const statusText = latest.status === "draft" ? "Draft — not sent"
+    : latest.final ? (latest.status === "open" ? "Final Revision Requested" : "Final revision — closed")
+    : latest.status === "open" ? "Awaiting insurer response" : "Closed";
+  const shown = history ? [...c.negotiations].reverse() : [latest];
+
+  return (
+    <div className="space-y-3">
+      <PlCard>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <PlLabel>Current negotiation</PlLabel>
+            <div className="flex items-center gap-2 mt-1">
+              <span style={{ fontSize: 14, fontWeight: 650 }}>Negotiation Round {latest.round}</span>
+              <PlChip tone={latest.status === "draft" ? "purple" : latest.status === "open" ? "orange" : "neutral"} dot>{statusText}</PlChip>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mt-2.5" style={{ maxWidth: 560 }}>
+              <PlKV k="Latest request" v={latest.brief} />
+              <PlKV k="Expected response" v={latest.status === "draft" ? "— not sent yet" : latest.status === "open" ? `${PL_SLA_MASTER["SLA-16"].target} from ${latest.sentAt || latest.openedAt}` : latest.closedAt ? `Closed ${latest.closedAt}` : "—"} />
+              <PlKV k="Insurers" v={latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")} />
+              <PlKV k="SLA owner" v={latest.status === "draft" ? PL_SLA_MASTER["SLA-15"].owner : latest.status === "open" ? PL_SLA_MASTER["SLA-16"].owner : "—"} />
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {latest.status === "draft" && (
+              <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
+                Send negotiation request
+              </PlBtn>
+            )}
+            {canFinal && <PlBtn variant="primary" icon={RefreshCw} onClick={() => setFinalOpen(true)}>Request final revision</PlBtn>}
+            <PlBtn size="sm" variant="ghost" icon={Clock} onClick={() => setHistory((v) => !v)}>{history ? "Hide history" : "View history"}</PlBtn>
+          </div>
+        </div>
+      </PlCard>
+
+      {shown.map((n) => (
+        <PlCard key={n.round} pad={false}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <div>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Round {n.round}</span>
+                <PlChip tone={n.status === "open" ? "orange" : n.status === "draft" ? "purple" : "neutral"} dot>
+                  {n.final ? (n.status === "open" ? "Final Revision Requested" : "Final revision — closed")
+                    : n.status === "open" ? "Sent — awaiting insurer" : n.status === "draft" ? "Draft — not sent" : "Closed"}
+                </PlChip>
+              </div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">{n.brief}</div>
+            </div>
+            <div className="text-right">
+              <PlMono size={10.5} color={PL_T.ink3}>{n.sentAt ? `Sent ${n.sentAt}` : `Drafted ${n.openedAt}`}</PlMono>
+              {n.status === "draft" && (
+                <div className="mt-1 flex gap-1.5 justify-end">
+                  <PlBtn size="sm" icon={Eye} onClick={() => setDraft(n)}>Review draft email</PlBtn>
+                </div>
+              )}
+              {n.status === "open" && (
+                <div className="mt-1"><PlBtn size="sm" onClick={() => { api.closeRound(c.id, n.round); api.say(`Round ${n.round} closed`); }}>Close round</PlBtn></div>
+              )}
+            </div>
+          </div>
+          {n.items.map((it) => (
+            <div key={it.insurerId} className="px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[it.insurerId].name}</span>
+                    <PlChip size="xs" tone={it.status === "improved" ? "green" : it.status === "declined" ? "red" : "orange"} dot>
+                      {it.status === "improved" ? "Improved" : it.status === "declined" ? "Held terms" : "Awaiting response"}
+                    </PlChip>
+                  </div>
+                  {(() => {
+                    const cur = plQuotesOf(c, it.insurerId).filter((q) => q.decision !== "superseded").slice(-1)[0];
+                    const prem = cur && cur.fields.find((f) => f.key === "premium");
+                    return cur ? (
+                      <div className="mt-1 flex items-center gap-3">
+                        <span style={{ fontSize: 11, color: PL_T.ink3 }}>Current</span>
+                        <PlMono size={12} color={PL_T.ink} weight={600}>{prem ? plFmtVal(prem) : "—"}</PlMono>
+                        <PlChip size="xs" mono>Quote V{cur.version}</PlChip>
+                      </div>
+                    ) : null;
+                  })()}
+                  <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-1.5">Ask</div>
+                  <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>{it.ask}</div>
+                  {it.response && (
+                    <div className="mt-2 rounded-lg px-3 py-2" style={{ background: it.status === "improved" ? PL_T.greenSoft : PL_T.cardSunk, border: `1px solid ${it.status === "improved" ? PL_T.greenLine : PL_T.border}` }}>
+                      <PlLabel>Insurer replied</PlLabel>
+                      <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{it.response}</div>
+                      {it.status === "improved" && (
+                        <div className="mt-1.5" style={{ fontSize: 11, color: PL_T.green }}>
+                          A revised quote version was created. Review it on the Quotes tab like any other quote.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {n.status === "open" && it.status === "awaiting" && (
+                  <div className="shrink-0" style={{ width: 236 }}>
+                    <PlSimBlock title="Simulate negotiation response">
+                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "improved", "Terms improved as requested. Revised quote attached."); api.say("Revised terms received — Quote V2 created"); }}>
+                        Improved terms
+                      </PlSimBtn>
+                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "declined", "Cannot improve at this risk profile. Terms stand."); api.say("Insurer held terms"); }}>
+                        Holds terms
+                      </PlSimBtn>
+                    </PlSimBlock>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </PlCard>
+      ))}
+      {!c.outcome && (
+        <div><PlBtn icon={Plus} onClick={() => setOpen(true)}>Open another round</PlBtn></div>
+      )}
+      {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
+      {finalOpen && <PlFinalRevisionModal c={c} api={api} onClose={() => setFinalOpen(false)} />}
+      {draft && (
+        <PlModal title={`Draft — round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
+          footer={<><PlBtn onClick={() => setDraft(null)}>Close</PlBtn>
+            <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
+          <div className="space-y-3">
+            {draft.items.map((it) => (
+              <div key={it.insurerId} className="rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+                <PlMono size={10.5} color={PL_T.ink3}>To: {plPocOf(c, it.insurerId)} · {PL_INSURERS[it.insurerId].name}</PlMono>
+                <div style={{ fontSize: 12, fontWeight: 600 }} className="mt-1">Reconsideration request: [{c.id}] {c.client.name} — {c.products.map((p) => PL_PRODUCTS[p]).join(", ")}</div>
+                <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6 }} className="mt-1.5">
+                  Dear {plPocOf(c, it.insurerId).split(" ")[0]}, the client has requested improved commercial terms. Please reconsider and share your best revised quotation.
+                  Current feedback: {it.ask} Any revised quote will be stored as a new quote version. Regards, {PL_ME.name}.
+                </div>
+              </div>
+            ))}
+          </div>
+        </PlModal>
+      )}
+    </div>
+  );
+}
+
+
+const PL_FINAL_REASONS = ["Premium reduction required", "Coverage improvement required", "Client requirement", "Other"];
+
+function PlFinalRevisionModal({ c, api, onClose }) {
+  const [reason, setReason] = useState(PL_FINAL_REASONS[0]);
+  const [comment, setComment] = useState("");
+  const latest = c.negotiations[c.negotiations.length - 1];
+  return (
+    <PlModal title="Request Final Revision" subtitle={`Round ${latest.round + 1} · goes to ${latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" icon={Send} disabled={reason === "Other" && !comment.trim()}
+          onClick={() => { api.requestFinalRevision(c.id, reason, comment.trim()); api.say("Final revision requested"); onClose(); }}>
+          Send request
+        </PlBtn></>}>
+      <PlLabel>Reason</PlLabel>
+      <div className="mt-1.5 mb-3"><PlSelect value={reason} onChange={setReason} options={PL_FINAL_REASONS} /></div>
+      <PlLabel>Comment (optional{reason === "Other" ? " — required for Other" : ""})</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={comment} onChange={setComment} rows={3} placeholder="Anything the insurer needs to know for this last pass." /></div>
+      <div className="mt-3" style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.5 }}>
+        One final ask to the same insurers on this round. Their reply arrives as the next Quote Version, reviewed on the Quotes tab.
+      </div>
+    </PlModal>
+  );
+}
+
+function PlActivityTab({ c }) {
+  const [f, setF] = useState("all");
+  const kinds = [["all", "Everything"], ["PM", "You"], ["Insurer", "Insurers"], ["RM", "RM"], ["System", "System"]];
+  const rows = [...c.audit].reverse().filter((a) => f === "all" || a.actorType === f);
+  return (
+    <PlCard pad={false}>
+      <div className="flex items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+        <PlLabel>Audit trail</PlLabel>
+        <span className="flex-1" />
+        {kinds.map(([id, label]) => (
+          <button key={id} onClick={() => setF(id)} className="rounded-lg px-2.5 py-1 border"
+            style={{ background: f === id ? PL_T.card : "transparent", borderColor: f === id ? PL_T.borderStrong : "transparent", fontSize: 11.5, fontWeight: f === id ? 550 : 450, color: f === id ? PL_T.ink : PL_T.ink2 }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {rows.map((a, i) => (
+        <div key={i} className="flex items-start gap-3 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <PlMono size={10.5} color={PL_T.ink3}>{a.at}</PlMono>
+          <span className="rounded-full shrink-0 mt-1.5"
+            style={{ width: 5, height: 5, background: a.actorType === "PM" ? PL_T.purple : a.actorType === "Insurer" ? PL_T.blue : a.actorType === "RM" ? PL_T.orange : PL_T.borderStrong }} />
+          <div className="flex-1 min-w-0">
+            <div style={{ fontSize: 12, color: PL_T.ink, fontWeight: 500 }}>{a.event}</div>
+            {a.detail && <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.4 }}>{a.detail}</div>}
+          </div>
+          <PlChip size="xs">{a.actor}</PlChip>
+        </div>
+      ))}
+    </PlCard>
+  );
+}
+
+/* ---------- scratch_pl_app.jsx ---------- */
+/* ---------- PlacementApp: controller + shared shell ----------
+   The reference App's state + routing, rehosted in the sister shell (shared
+   Sidebar + rounded white panel). The api factory (makePlacementApi) and the
+   domain selectors/data come from the ported domain layer. */
+const PL_NAV = [
+  ["home", "Home", HomeIcon],
+  ["cases", "My Cases", Briefcase],
+  ["inbox", "My Inbox", Inbox],
+  ["manual", "Manual Review", ClipboardCheck],
+  ["master", "Insurer Master", Building2],
+  ["reports", "Reports", BarChart3],
+];
+
+function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
+  const [cases, setCases] = useState(() => PL_ALL_CASES.map(plSeedSla));
+  const [nav, setNav] = useState("cases");
+  const [openId, setOpenId] = useState(null);
+  const [openTab, setOpenTab] = useState(null);
+  const [reviewDone, setReviewDone] = useState({});
+  const [role, setRole] = useState("Placement Manager");
+  const [toast, setToast] = useState(null);
+
+  const say = (msg, tone = "green") => { setToast({ msg, tone }); setTimeout(() => setToast(null), 3400); };
+  const api = useMemo(() => makePlacementApi(setCases, say), []);   // stable across renders
+
+  const openCase = cases.find((c) => c.id === openId) || null;
+  const go = (n) => { setNav(n); setOpenId(null); setOpenTab(null); };
+  const openCaseAt = (id, t) => { setOpenId(id); setOpenTab(t || null); setNav("cases"); };
+  const identity = user
+    ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status }
+    : undefined;
+
+  return (
+    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+      <style>{GLOBAL_CSS}</style>
+      <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
+        style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+        <Sidebar view={openCase ? "cases" : nav} go={go} mails={[]} openId={openId} openTicket={() => {}}
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut}
+          nav={PL_NAV} tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
+        <main className="flex flex-1 flex-col overflow-hidden">
+          <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
+            {openCase
+              ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
+              : nav === "cases" ? <PlQueueScreen cases={cases} onOpen={setOpenId} />
+              : nav === "manual" ? <PlManualScreen cases={cases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
+              : (
+                <div className="px-6 py-6">
+                  {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} />
+                    : nav === "inbox" ? <PlInboxScreen cases={cases} onOpen={openCaseAt} />
+                      : nav === "master" ? <PlMasterScreen role={role} />
+                        : <PlReportsScreen cases={cases} />}
+                </div>
+              )}
+          </div>
+        </main>
+
+        {toast && (
+          <div className="fixed bottom-6 left-1/2 z-50 rounded-xl border px-4 py-2.5 shadow-lg"
+            style={{ transform: "translateX(-50%)", background: C.white, borderColor: (PL_TONES[toast.tone] || PL_TONES.green).line }}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} color={(PL_TONES[toast.tone] || PL_TONES.green).fg} />
+              <span style={{ fontSize: 12.5, color: C.figInk, fontWeight: 500 }}>{toast.msg}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const bootSess = useMemo(readSession, []);
   const [authed, setAuthed] = useState(!!bootSess);
@@ -7376,6 +11890,11 @@ export default function App() {
   /* Claims — the second built environment. */
   if (env === "BimaClaim") {
     return <ClaimsApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
+  }
+
+  /* Placement — the third built environment (Placement Manager Workbench). */
+  if (env === "BimaPlacement") {
+    return <PlacementApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
   }
 
   /* Any other tool the session entered that isn't built: the real shell,
