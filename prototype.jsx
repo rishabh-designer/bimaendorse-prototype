@@ -4407,7 +4407,7 @@ const pathOf = (view, openId) => view === "ticket" ? `/tickets/${openId || ""}` 
 /* END is redundant on the sidebar rail - we are already inside BimaEndorse - so
    the collapsed/nested caption shows just the "-NNNN" suffix. Full id kept as the
    hover title and everywhere else. */
-const shortId = (id) => (id || "").replace(/^(END|CLM)/, "");
+const shortId = (id) => (id || "").replace(/^(END|CLM|PC)/, "");
 function routeOf(path) {
   const m = /^\/tickets\/(END-\d+)\/?$/.exec(path || "");
   if (m) return { view: "ticket", openId: m[1] };
@@ -4565,7 +4565,7 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
 /* Sidebar - Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
-function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch, nav = NAV,
+function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch, nav = NAV, listKey = "list",
   tool = "BimaEndorse", envs, onSwitchEnv = () => {}, identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
   const presence = identity.status || (isWorkingNow(new Date()) ? "online" : "offline");
   /* Environment switcher: a user with admin over more than one tool (Umesh holds
@@ -4648,12 +4648,12 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
           {!collapsed && <div className="px-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Menu</div>}
           <nav className={`flex flex-col gap-3 ${collapsed ? "items-center" : ""}`}>
             {nav.map(([k, label, Icon, off], i) => {
-              const on = view === k || (k === "list" && view === "ticket");
+              const on = view === k || (k === listKey && view === "ticket");
               return (
                 <div key={k} className={collapsed ? "" : "w-full"}>
                   <button
                     disabled={off}
-                    onClick={off ? undefined : () => go(k, k === "list" ? "attention" : undefined)}
+                    onClick={off ? undefined : () => go(k, k === listKey ? "attention" : undefined)}
                     title={off ? (k === "review" ? "Manual Review is turned off for now" : "Reports is not built in this prototype") : collapsed ? label : undefined}
                     className={`bk-item flex items-center rounded-lg ${row} ${collapsed ? "" : "w-full"} ${!on && !off ? "bk-navitem" : ""}`}
                     style={{ ...stagger(i),
@@ -4673,13 +4673,13 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                   </button>
                   {/* collapsed, the open ticket is a caption under its icon - the
                       design's sidebar/ticket variant */}
-                  {collapsed && k === "list" && view === "ticket" && openId && (
+                  {collapsed && k === listKey && view === "ticket" && openId && (
                     <button onClick={() => openTicket(openId)} title={openId}
                       className="bk-num mt-1 block w-full truncate text-center"
                       style={{ fontSize: 11, fontWeight: 600, color: C.brand }}>{shortId(openId)}</button>
                   )}
                   {/* the open ticket, nested under its list */}
-                  {!collapsed && k === "list" && view === "ticket" && openId && (
+                  {!collapsed && k === listKey && view === "ticket" && openId && (
                     <button onClick={() => openTicket(openId)}
                       className="mt-1 flex w-full items-center gap-1.5 rounded-lg py-1.5 pl-9 pr-2 text-left text-xs font-medium"
                       style={{ color: C.figInk }}>
@@ -11951,9 +11951,9 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
       <style>{GLOBAL_CSS}</style>
       <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
         style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
-        <Sidebar view={openCase ? "cases" : navAllowed(nav) ? nav : "cases"} go={go} mails={[]} openId={openId} openTicket={() => {}}
+        <Sidebar view={openCase ? "ticket" : navAllowed(nav) ? nav : "cases"} go={go} mails={[]} openId={openId} openTicket={(id) => setOpenId(id)}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
-          nav={navItems} tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
+          nav={navItems} listKey="cases" tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
             {openCase
