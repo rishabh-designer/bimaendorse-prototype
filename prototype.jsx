@@ -237,6 +237,9 @@ const GLOBAL_CSS = `
    #E8E2FF ring. */
 .bk-btn { transition: filter .12s ease-out, background-color .12s ease-out, box-shadow .12s ease-out; }
 .bk-btn:focus-visible { outline: none; box-shadow: 0 0 0 2.5px #E8E2FF; }
+/* Placement form-control focus ring - a11y replacement for outline-none on
+   Pl inputs/textareas/selects and picker triggers. Purple to match brand. */
+.pl-focus:focus-visible { outline: none; border-color: #4100CF !important; box-shadow: 0 0 0 2px #E8E2FF; }
 .bk-btn-fill:not(:disabled):hover  { filter: brightness(0.86); }
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
@@ -8884,7 +8887,7 @@ function PlDivider({ vertical = false }) {
     : <div style={{ height: 1, background: PL_T.border }} />;
 }
 
-function PlModal({ title, subtitle, children, onClose, footer, wide = false, tone = "purple" }) {
+function PlModal({ title, subtitle, children, onClose, footer, wide = false }) {
   return (
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(28,27,31,0.42)" }} onClick={onClose}>
@@ -8913,7 +8916,7 @@ function PlModal({ title, subtitle, children, onClose, footer, wide = false, ton
 function PlTextArea({ value, onChange, placeholder, rows = 3 }) {
   return (
     <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} rows={rows}
-      className="w-full rounded-lg border px-3 py-2 outline-none resize-none"
+      className="pl-focus w-full rounded-lg border px-3 py-2 outline-none resize-none"
       style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: FONT }} />
   );
 }
@@ -8921,7 +8924,7 @@ function PlTextArea({ value, onChange, placeholder, rows = 3 }) {
 function PlInput({ value, onChange, placeholder, mono = false }) {
   return (
     <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="w-full rounded-lg border px-3 py-1.5 outline-none"
+      className="pl-focus w-full rounded-lg border px-3 py-1.5 outline-none"
       style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: mono ? PL_MONO : FONT }} />
   );
 }
@@ -8929,7 +8932,7 @@ function PlInput({ value, onChange, placeholder, mono = false }) {
 function PlSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border px-2.5 py-1.5 outline-none"
+      className="pl-focus rounded-lg border px-2.5 py-1.5 outline-none"
       style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: FONT }}>
       {options.map((o) => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
     </select>
@@ -8956,7 +8959,7 @@ function PlMenuPicker({ value, options, placeholder = "Select", onChange, width 
   return (
     <div className="relative" data-plmenu style={{ width }}>
       <button type="button" onClick={() => !disabled && setOpen((v) => !v)} disabled={disabled}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 transition-colors"
+        className="pl-focus flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 transition-colors outline-none"
         style={{ borderColor: open ? PL_T.purple : PL_T.borderStrong,
           background: disabled ? PL_T.cardSunk : PL_T.card,
           fontSize: 12.5, color: selectedLabel ? PL_T.ink : PL_T.ink3, fontWeight: selectedLabel ? 550 : 500,
@@ -9180,9 +9183,7 @@ function PlQueueScreen({ cases, onOpen }) {
                 <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
                 <span style={cell(PCOLS.sla)}><PlSlaCell sla={sla} /></span>
                 <span className="flex" style={cell(PCOLS.usable)}>
-                  <span className="inline-flex items-center justify-center rounded-full"
-                    style={{ width: 22, height: 22, background: uc >= PL_THRESHOLD ? PL_T.greenSoft : PL_T.purpleSoft,
-                      color: uc >= PL_THRESHOLD ? PL_T.green : PL_T.purple, fontFamily: PL_MONO, fontSize: 11, fontWeight: 650 }}>{uc}</span>
+                  <PlUsableMeter count={uc} compact />
                 </span>
                 <span style={dueCell}>
                   {na ? (
@@ -9436,7 +9437,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
               <span>RFQ <b style={{ color: PL_T.ink2, fontWeight: 600, fontFamily: PL_MONO }}>V{c.activeRfq}</b></span>
             </div>
           </div>
-          <PlBtn icon={MessageSquare}>Contact RM</PlBtn>
+          <PlBtn size="sm" icon={MessageSquare}>Contact RM</PlBtn>
         </div>
 
         <div className="rounded-2xl mb-4 flex items-stretch"
@@ -9460,9 +9461,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>{c.threads.length}</div>
           </div>
           <div className="px-4 py-3 flex-1" style={{ borderLeft: `1px solid ${PL_T.stripLine}` }}>
-            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>CURRENT ACTION</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: PL_T.ink, marginTop: 3, lineHeight: 1.35 }}>
-              {na ? na.label : c.outcome ? PL_OUTCOME[c.outcome.type].label : "-"}
+            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>TARGET PREMIUM</div>
+            <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>
+              {c.meta.targetPremium ? plInrL(c.meta.targetPremium) : "-"}
             </div>
           </div>
         </div>
@@ -9473,8 +9474,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
       <div className="mb-4" style={{ borderBottom: `1px solid ${C.subtle}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
-        {/* The action rail is constant across every tab, so it sits on the left. */}
-        <PlRightRail c={c} api={api} goTo={setTab} />
         <div className="flex-1 min-w-0">
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
           {tab === "summary" && <div className="space-y-3"><PlRfqSummaryCard c={c} /></div>}
@@ -9487,6 +9486,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
+        {/* The action rail sits on the RIGHT of every tab so multi-column tabs
+            (Quotes, QCR) get the full leftward width. Constant across tabs. */}
+        <PlRightRail c={c} api={api} goTo={setTab} />
       </div>
     </div>
   );
@@ -9968,7 +9970,7 @@ function PlMasterScreen({ role = "Placement Manager" }) {
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search insurers..."
                 className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 140 }} />
             </div>
-            {canEdit && <PlBtn variant="primary" icon={Plus}>Add contact</PlBtn>}
+            {canEdit && <PlBtn size="sm" variant="primary" icon={Plus}>Add contact</PlBtn>}
           </div>
         }
       />
@@ -10259,8 +10261,7 @@ function PlRfqTab({ c, api }) {
   const canValidate = !!rfq.classification.confirmed && unresolvedMaterial.length === 0 && c.stage === "rfq_review";
 
   return (
-    <div className="flex gap-3 items-start">
-      <div className="flex-1 min-w-0 space-y-3">
+    <div className="space-y-3">
       {c.rfqs.length > 1 && (
         <PlCard alt>
           <div className="flex items-center gap-3">
@@ -10453,7 +10454,6 @@ function PlRfqTab({ c, api }) {
 
       {askOpen && <PlAskRmModal c={c} rfq={rfq} api={api} onClose={() => setAskOpen(false)} />}
       {rmOpen && <PlSimRmModal c={c} api={api} onClose={() => setRmOpen(false)} />}
-      </div>
     </div>
   );
 }
@@ -11003,7 +11003,7 @@ function PlRestartThreadsModal({ c, api, onClose }) {
       <PlLabel>Select threads to restart</PlLabel>
       <div className="mt-1.5 mb-3"><PlThreadPicker c={c} picked={picked} setPicked={setPicked} /></div>
       <PlLabel>Reason (required)</PlLabel>
-      <div className="mt-1.5"><PlInput value={reason} onChange={setReason} placeholder="Why these markets are being re-approached" /></div>
+      <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={2} placeholder="Why these markets are being re-approached" /></div>
     </PlModal>
   );
 }
@@ -11035,7 +11035,7 @@ function PlSimThreadRmModal({ c, t, api, onClose }) {
   return (
     <PlModal title="Simulate RM response" subtitle="Prototype control - stands in for the RM portal" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
+        <PlBtn variant="primary" icon={Check} onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
       <PlLabel>Response from {c.client.rm}</PlLabel>
       <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={3} /></div>
     </PlModal>
@@ -11482,7 +11482,7 @@ function PlQcrTab({ c, api, goTo }) {
                 Released versions are locked. A later quote can only reach the client through a new version you create.
               </div>
             </div>
-            <PlBtn variant="primary" icon={Send} onClick={() => setSend(true)}>Send to RM</PlBtn>
+            <PlBtn size="lg" variant="primary" icon={Send} onClick={() => setSend(true)}>Send to RM</PlBtn>
           </div>
         </PlCard>
       )}
@@ -11890,7 +11890,7 @@ function PlNegotiationTab({ c, api }) {
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             {latest.status === "draft" && (
-              <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
+              <PlBtn size="lg" variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
                 Send negotiation request
               </PlBtn>
             )}
@@ -11984,7 +11984,7 @@ function PlNegotiationTab({ c, api }) {
       {finalOpen && <PlFinalRevisionModal c={c} api={api} onClose={() => setFinalOpen(false)} />}
       {draft && (
         <PlModal title={`Draft - round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
-          footer={<><PlBtn onClick={() => setDraft(null)}>Close</PlBtn>
+          footer={<><PlBtn onClick={() => setDraft(null)}>Cancel</PlBtn>
             <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
           <div className="space-y-3">
             {draft.items.map((it) => (
