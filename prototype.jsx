@@ -240,6 +240,17 @@ const GLOBAL_CSS = `
 /* Placement form-control focus ring - a11y replacement for outline-none on
    Pl inputs/textareas/selects and picker triggers. Purple to match brand. */
 .pl-focus:focus-visible { outline: none; border-color: #4100CF !important; box-shadow: 0 0 0 2px #E8E2FF; }
+/* Placement button hover - subtle darken/tint per variant, 150ms. The base
+   variant colours are set inline; hover just lifts them without touching
+   the token layer. */
+.pl-btn { transition: filter .15s ease-out, background-color .15s ease-out, box-shadow .15s ease-out; }
+.pl-btn-primary:not(:disabled):hover { filter: brightness(0.9); }
+.pl-btn-primary:not(:disabled):active { filter: brightness(0.78); }
+.pl-btn-default:not(:disabled):hover { background-color: #F4F5F6 !important; }
+.pl-btn-default:not(:disabled):active { background-color: #E6E8EA !important; }
+.pl-btn-ghost:not(:disabled):hover { background-color: #F4F1FF !important; color: #4100CF !important; }
+.pl-btn-danger:not(:disabled):hover { filter: brightness(0.9); }
+.pl-btn-success:not(:disabled):hover { filter: brightness(0.9); }
 .bk-btn-fill:not(:disabled):hover  { filter: brightness(0.86); }
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
@@ -8804,18 +8815,19 @@ const PL_TONES = {
 
 /* ---------------------------------- primitives --------------------------------- */
 
-function PlChip({ tone = "neutral", children, dot = false, mono = false, size = "sm" }) {
+function PlChip({ tone = "neutral", children, dot = false, mono = false, size = "sm", dashed = false }) {
   const c = PL_TONES[tone] || PL_TONES.neutral;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap ${size === "xs" ? "px-1.5 py-0.5" : "px-2 py-0.5"}`}
+      className={`inline-flex items-center gap-1.5 rounded-full whitespace-nowrap ${size === "xs" ? "px-1.5 py-0.5" : "px-2 py-0.5"}`}
       style={{
-        color: c.fg, background: c.bg, borderColor: c.line,
+        color: c.fg, background: c.bg,
+        border: `1px ${dashed ? "dashed" : "solid"} ${c.line}`,
         fontSize: size === "xs" ? 10.5 : 11.5, fontWeight: 500,
         fontFamily: mono ? PL_MONO : FONT, letterSpacing: mono ? 0.2 : 0,
       }}
     >
-      {dot && <span className="rounded-full" style={{ width: 5, height: 5, background: c.fg }} />}
+      {dot && <span className="rounded-full" style={{ width: 6, height: 6, background: c.fg }} />}
       {children}
     </span>
   );
@@ -8833,13 +8845,14 @@ function PlBtn({ variant = "default", size = "md", onClick, disabled, children, 
   return (
     <button
       onClick={onClick} disabled={disabled} title={title}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border transition-colors ${pad} ${full ? "w-full" : ""}`}
+      className={`pl-focus pl-btn pl-btn-${variant} inline-flex items-center justify-center gap-1.5 rounded-lg border ${pad} ${full ? "w-full" : ""}`}
       style={{
         background: disabled ? PL_T.cardSunk : base.bg,
         color: disabled ? PL_T.ink3 : base.fg,
         borderColor: disabled ? PL_T.border : base.bd,
         fontSize: size === "sm" ? 12 : 12.5, fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer",
+        outline: "none",
       }}
     >
       {Icon && <Icon size={size === "sm" ? 12 : 13.5} strokeWidth={2.1} />}
@@ -8859,12 +8872,113 @@ function PlCard({ children, pad = true, className = "", style = {}, alt = false 
   );
 }
 
-function PlLabel({ children, className = "" }) {
+function PlLabel({ children, className = "", size = "sm" }) {
+  const style = size === "xs"
+    ? { fontSize: 9.5, letterSpacing: 0.6, fontWeight: 650 }
+    : size === "md"
+      ? { fontSize: 10.5, letterSpacing: 0.6, fontWeight: 600 }
+      : { fontSize: 10, letterSpacing: 0.7, fontWeight: 600 };
   return (
-    <div className={`uppercase ${className}`}
-      style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: PL_T.ink3 }}>
+    <div className={`uppercase ${className}`} style={{ ...style, color: PL_T.ink3 }}>
       {children}
     </div>
+  );
+}
+
+/* Tinted callout - a single-line or short-block panel with a rounded soft
+   background and matching tone border. Replaces the ~30 inline
+   `rounded-lg border px-3 py-2` blocks scattered through the case tabs. */
+function PlCallout({ tone = "neutral", children, className = "", style = {}, pad = "md" }) {
+  const c = PL_TONES[tone] || PL_TONES.neutral;
+  const p = pad === "sm" ? "px-2.5 py-1.5" : pad === "lg" ? "px-3.5 py-3" : "px-3 py-2";
+  return (
+    <div className={`rounded-lg ${p} ${className}`}
+      style={{ background: c.bg, border: `1px solid ${c.line}`, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+/* Search input shell used across Queue, Master, Add-insurer, and the search
+   modal. Sizes match those call sites (sm 12/1.5, md 12/2.5, lg 16/3). */
+function PlSearchField({ value, onChange, placeholder = "Search...", size = "md", width, autoFocus = false, onClear }) {
+  const dims = size === "sm"
+    ? { pad: "px-2.5 py-1.5", fs: 12, gap: "gap-1.5" }
+    : size === "lg"
+      ? { pad: "px-4 py-3", fs: 16, gap: "gap-2.5" }
+      : { pad: "px-3 py-2.5", fs: 13, gap: "gap-2" };
+  return (
+    <div className={`pl-focus flex items-center ${dims.gap} rounded-lg border ${dims.pad}`}
+      style={{ borderColor: PL_T.borderStrong, background: PL_T.card, width }}
+      tabIndex={-1}>
+      <Search size={size === "lg" ? 14 : 12} color={PL_T.ink3} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus}
+        className="outline-none bg-transparent flex-1 min-w-0"
+        style={{ fontSize: dims.fs, color: PL_T.ink, fontFamily: FONT }} />
+      {value && onClear && (
+        <button onClick={onClear} className="shrink-0" style={{ color: PL_T.ink3 }}>
+          <X size={size === "lg" ? 14 : 12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* Selection primitives - unify the five picker patterns identified in the
+   audit (bespoke button rows, rounded-full toggles, PlBtn-as-chip). */
+function PlPickerRow({ selected, onClick, label, sub, disabled = false }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="pl-focus w-full text-left rounded-lg border px-3 py-2 flex items-start justify-between gap-3 transition-colors outline-none"
+      style={{
+        borderColor: selected ? PL_T.purple : PL_T.border,
+        background: selected ? PL_T.purpleSoft : PL_T.card,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}>
+      <div className="min-w-0">
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: selected ? PL_T.purple : PL_T.ink }}>{label}</div>
+        {sub && <div className="mt-0.5" style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }}>{sub}</div>}
+      </div>
+      {selected && <Check size={14} color={PL_T.purple} className="shrink-0 mt-0.5" strokeWidth={2.4} />}
+    </button>
+  );
+}
+
+function PlPickerChip({ selected, onClick, children, disabled = false }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="pl-focus rounded-full border px-2.5 py-1 transition-colors outline-none"
+      style={{
+        borderColor: selected ? PL_T.purple : PL_T.border,
+        background: selected ? PL_T.purple : PL_T.card,
+        color: selected ? "#fff" : PL_T.ink,
+        fontSize: 11.5, fontWeight: 550,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}>
+      {children}
+    </button>
+  );
+}
+
+function PlOptionCard({ selected, onClick, label, sub, tone = "neutral", disabled = false }) {
+  const c = PL_TONES[tone] || PL_TONES.neutral;
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className="pl-focus text-left rounded-lg border px-3 py-2.5 transition-colors outline-none"
+      style={{
+        borderColor: selected ? c.fg : PL_T.border,
+        background: selected ? c.bg : PL_T.card,
+        opacity: disabled ? 0.55 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}>
+      <div className="flex items-center gap-1.5">
+        <span className="rounded-full" style={{ width: 6, height: 6, background: c.fg }} />
+        <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.ink }}>{label}</span>
+      </div>
+      {sub && <div className="mt-0.5" style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }}>{sub}</div>}
+    </button>
   );
 }
 
@@ -8887,12 +9001,13 @@ function PlDivider({ vertical = false }) {
     : <div style={{ height: 1, background: PL_T.border }} />;
 }
 
-function PlModal({ title, subtitle, children, onClose, footer, wide = false }) {
+function PlModal({ title, subtitle, children, onClose, footer, wide = false, size }) {
+  const width = size === "xl" ? 1000 : wide ? 860 : 560;
   return (
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
       style={{ background: "rgba(28,27,31,0.42)" }} onClick={onClose}>
       <div className="bk-modal rounded-2xl border shadow-2xl my-8"
-        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, width: wide ? 860 : 560, maxWidth: "100%" }}
+        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, width, maxWidth: "100%" }}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
           <div>
@@ -8921,11 +9036,35 @@ function PlTextArea({ value, onChange, placeholder, rows = 3 }) {
   );
 }
 
-function PlInput({ value, onChange, placeholder, mono = false }) {
+function PlInput({ value, onChange, placeholder, mono = false, kind = "text" }) {
+  /* Text mode is the original raw <input> - kept intact for every existing
+     caller. Numeric mode wraps a stripped input with a ₹/%/h affix, adds
+     inputMode=numeric, right-aligns, and formats en-IN groups when unfocused. */
+  if (kind === "text") {
+    return (
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        className="pl-focus w-full rounded-lg border px-3 py-1.5 outline-none"
+        style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: mono ? PL_MONO : FONT }} />
+    );
+  }
+  const [focused, setFocused] = useState(false);
+  const prefix = kind === "money" ? "₹" : "";
+  const suffix = kind === "percent" ? "%" : kind === "hours" ? "h" : "";
+  const raw = String(value ?? "").replace(/[^\d.]/g, "");
+  const display = focused || !raw
+    ? raw
+    : (kind === "money" ? Number(raw).toLocaleString("en-IN") : raw);
   return (
-    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="pl-focus w-full rounded-lg border px-3 py-1.5 outline-none"
-      style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: mono ? PL_MONO : FONT }} />
+    <div className="pl-focus flex items-center gap-1 rounded-lg border px-3 py-1.5"
+      style={{ borderColor: PL_T.borderStrong, background: PL_T.card }} tabIndex={-1}>
+      {prefix && <span style={{ fontSize: 12.5, color: PL_T.ink3, fontFamily: PL_MONO }}>{prefix}</span>}
+      <input value={display} onChange={(e) => onChange(e.target.value.replace(/[^\d.]/g, ""))} placeholder={placeholder}
+        inputMode="numeric"
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        className="w-full outline-none bg-transparent min-w-0"
+        style={{ fontSize: 12.5, color: PL_T.ink, fontFamily: PL_MONO, textAlign: "right" }} />
+      {suffix && <span style={{ fontSize: 12.5, color: PL_T.ink3, fontFamily: PL_MONO }}>{suffix}</span>}
+    </div>
   );
 }
 
@@ -9146,11 +9285,7 @@ function PlQueueScreen({ cases, onOpen }) {
         } />
 
       <div className="flex justify-end">
-        <div className="flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ border: `0.5px solid ${C.line}`, background: C.white }}>
-          <Search size={14} style={{ color: C.figHint }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search cases…"
-            className="bg-transparent outline-none" style={{ fontSize: 14, fontWeight: 500, color: C.figInk, width: 200 }} />
-        </div>
+        <PlSearchField value={q} onChange={setQ} placeholder="Search cases…" size="md" width={240} onClear={() => setQ("")} />
       </div>
 
       <section className="flex flex-col gap-1">
@@ -9437,7 +9572,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
               <span>RFQ <b style={{ color: PL_T.ink2, fontWeight: 600, fontFamily: PL_MONO }}>V{c.activeRfq}</b></span>
             </div>
           </div>
-          <PlBtn size="sm" icon={MessageSquare}>Contact RM</PlBtn>
+          <PlBtn size="sm">Contact RM</PlBtn>
         </div>
 
         <div className="rounded-2xl mb-4 flex items-stretch"
@@ -9965,12 +10100,8 @@ function PlMasterScreen({ role = "Placement Manager" }) {
             {canEdit
               ? <PlChip size="xs" tone="purple">Placement Head · can edit</PlChip>
               : <PlChip size="xs">Read-only · Placement Head maintains the master</PlChip>}
-            <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5" style={{ border: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-              <Search size={12} color={PL_T.ink3} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search insurers..."
-                className="outline-none bg-transparent" style={{ fontSize: 12, color: PL_T.ink, width: 140 }} />
-            </div>
-            {canEdit && <PlBtn size="sm" variant="primary" icon={Plus}>Add contact</PlBtn>}
+            <PlSearchField value={q} onChange={setQ} placeholder="Search insurers..." size="sm" width={200} onClear={() => setQ("")} />
+            {canEdit && <PlBtn size="sm" variant="primary">Add contact</PlBtn>}
           </div>
         }
       />
@@ -10001,7 +10132,7 @@ function PlMasterScreen({ role = "Placement Manager" }) {
                   <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.primary}</td>
                   <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.senior}</td>
                   <td className="px-3.5 py-3"><PlChip size="xs" tone={tone[ct.status]} dot>{ct.status}</PlChip></td>
-                  {canEdit && <td className="px-3.5 py-3"><PlBtn size="sm" variant="ghost" icon={Pencil}>Edit</PlBtn></td>}
+                  {canEdit && <td className="px-3.5 py-3"><PlBtn size="sm" variant="ghost">Edit</PlBtn></td>}
                 </tr>
               );
             })}
@@ -10382,7 +10513,7 @@ function PlRfqTab({ c, api }) {
               </div>
             </div>
             {editable && rfq.missing.some((m) => !m.resolved) && (
-              <PlBtn variant="primary" size="sm" icon={Send} onClick={() => setAskOpen(true)}>Request from RM</PlBtn>
+              <PlBtn variant="primary" size="sm" onClick={() => setAskOpen(true)}>Request from RM</PlBtn>
             )}
           </div>
           <div className="mt-3 space-y-1.5">
@@ -10629,7 +10760,7 @@ function PlInsurersTab({ c, api }) {
           </div>
         ))}
         <div className="px-4 py-2.5">
-          <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Add an insurer outside the recommendations</PlBtn>
+          <PlBtn size="sm" onClick={() => setAddOpen(true)}>Add an insurer outside the recommendations</PlBtn>
         </div>
       </PlCard>
 
@@ -10709,7 +10840,7 @@ function PlAddInsurerModal({ c, api, onClose }) {
   return (
     <PlModal title="Add an insurer" subtitle="From the insurer master" onClose={onClose}
       footer={<PlBtn onClick={onClose}>Done</PlBtn>}>
-      <PlInput value={q} onChange={setQ} placeholder="Search the insurer master" />
+      <PlSearchField value={q} onChange={setQ} placeholder="Search the insurer master" size="md" onClear={() => setQ("")} />
       <div className="mt-3 space-y-1 max-h-80 overflow-y-auto">
         {list.map(([id, v]) => {
           const fit = c.products.filter((p) => v.appetite.includes(p));
@@ -10786,7 +10917,7 @@ function PlMarketTab({ c, api, goTo }) {
                 onClick={() => setModal({ kind: "restart" })}>
                 Restart selected threads
               </PlBtn>
-              <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
+              <PlBtn size="sm" onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
             </div>
           </div>
         </PlCard>
@@ -10819,7 +10950,7 @@ function PlMarketTab({ c, api, goTo }) {
           </div>
         </div>
         <div className="flex gap-2">
-          <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another market</PlBtn>
+          <PlBtn size="sm" onClick={() => setAddOpen(true)}>Approach another market</PlBtn>
         </div>
       </div>
 
@@ -10919,7 +11050,7 @@ function PlMarketTab({ c, api, goTo }) {
                     <PlLabel className="mb-2">Actions</PlLabel>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {t.status === "insurer_clarification" && (
-                        <PlBtn size="sm" variant="primary" icon={MessageSquare} onClick={() => setModal({ kind: "askRm", t })}>
+                        <PlBtn size="sm" variant="primary" onClick={() => setModal({ kind: "askRm", t })}>
                           Request information from RM
                         </PlBtn>
                       )}
@@ -10927,20 +11058,20 @@ function PlMarketTab({ c, api, goTo }) {
                         <PlSimBtn onClick={() => setModal({ kind: "simRm", t })}>⚡ Simulate RM response</PlSimBtn>
                       )}
                       {t.status === "awaiting_rm" && cl?.rmResponse && (
-                        <PlBtn size="sm" variant="primary" icon={Send} onClick={() => setModal({ kind: "reply", t })}>
+                        <PlBtn size="sm" variant="primary" onClick={() => setModal({ kind: "reply", t })}>
                           Reply to insurer and resume clock
                         </PlBtn>
                       )}
                       {["rfq_sent", "acknowledged", "no_response"].includes(t.status) && (
-                        <PlBtn size="sm" icon={RefreshCw} onClick={() => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); }}>
+                        <PlBtn size="sm" onClick={() => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); }}>
                           Send follow-up
                         </PlBtn>
                       )}
                       {qs.some((q) => !q.decision) && (
-                        <PlBtn size="sm" variant="primary" icon={Eye} onClick={() => goTo("quotes")}>Open quote</PlBtn>
+                        <PlBtn size="sm" variant="primary" onClick={() => goTo("quotes")}>Open quote</PlBtn>
                       )}
-                      <PlBtn size="sm" icon={Users} onClick={() => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
-                      <PlBtn size="sm" icon={Plus} onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
+                      <PlBtn size="sm" onClick={() => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
+                      <PlBtn size="sm" onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
                     </div>
 
                     <PlSimBlock title="Simulate insurer response">
@@ -11257,7 +11388,7 @@ function PlQuoteWorkspace({ c, q, api }) {
                       <td className="px-4 py-2" style={{ verticalAlign: "top" }}>
                         {editing ? (
                           <div className="flex items-center gap-1.5">
-                            <PlInput value={draft} onChange={setDraft} mono={f.kind === "money"} />
+                            <PlInput value={draft} onChange={setDraft} kind={f.kind === "money" ? "money" : "text"} />
                             <PlBtn size="sm" variant="primary" onClick={() => {
                               api.editField(c.id, q.id, f.key, f.kind === "money" ? Number(draft.replace(/[^\d]/g, "")) || draft : draft);
                               api.say("Correction saved - the extracted value is kept"); setEdit(null);
@@ -11311,19 +11442,19 @@ function PlQuoteWorkspace({ c, q, api }) {
               </div>
             )}
             <div className="flex items-center gap-2">
-              <PlBtn variant="success" icon={CheckCircle2} disabled={!plCanMarkUsable(q) || q.decision === "usable"}
-                title={plCanMarkUsable(q) ? "" : "Resolve the material gaps first"}
-                onClick={() => { api.decideQuote(c.id, q.id, "usable"); api.say("Quote marked usable"); }}>
-                Mark usable
-              </PlBtn>
-              <PlBtn icon={MessageSquare} onClick={() => setModal("clarify")}>Needs clarification</PlBtn>
-              <PlBtn variant="danger" icon={XCircle} onClick={() => setModal("exclude")}>Exclude from QCR</PlBtn>
-              <span className="flex-1" />
               {q.decision && q.decisionAt && (
                 <PlMono size={10.5} color={PL_T.ink3}>
                   {PL_DECISION_CHIP[q.decision].label} · {q.decisionAt}{q.decisionNote ? ` · ${q.decisionNote}` : ""}
                 </PlMono>
               )}
+              <span className="flex-1" />
+              <PlBtn variant="danger" icon={XCircle} onClick={() => setModal("exclude")}>Exclude from QCR</PlBtn>
+              <PlBtn onClick={() => setModal("clarify")}>Needs clarification</PlBtn>
+              <PlBtn variant="success" icon={CheckCircle2} disabled={!plCanMarkUsable(q) || q.decision === "usable"}
+                title={plCanMarkUsable(q) ? "" : "Resolve the material gaps first"}
+                onClick={() => { api.decideQuote(c.id, q.id, "usable"); api.say("Quote marked usable"); }}>
+                Mark usable
+              </PlBtn>
             </div>
           </div>
         )}
@@ -11348,7 +11479,7 @@ function PlQuoteClarifyModal({ c, q, api, onClose }) {
   return (
     <PlModal title="Send clarification to insurer" subtitle={`${PL_INSURERS[q.insurerId].name} · ${q.doc}`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Send} onClick={() => { api.decideQuote(c.id, q.id, "clarification", "Clarification sent to insurer"); api.say("Clarification sent - quote does not count until resolved"); onClose(); }}>
+        <PlBtn variant="primary" onClick={() => { api.decideQuote(c.id, q.id, "clarification", "Clarification sent to insurer"); api.say("Clarification sent - quote does not count until resolved"); onClose(); }}>
           Send clarification
         </PlBtn></>}>
       <PlLabel>Message to the underwriting desk</PlLabel>
@@ -11450,8 +11581,8 @@ function PlQcrTab({ c, api, goTo }) {
               </div>
             </div>
             <div className="flex flex-col gap-1.5 shrink-0">
-            <PlBtn size="sm" icon={Eye} onClick={() => goTo && goTo("quotes")}>Review quote</PlBtn>
-            <PlBtn variant="primary" size="sm" icon={Plus} onClick={() => { api.newQcrVersion(c.id); api.say(`Draft QCR V${c.qcrs.length + 1} created`); }}>
+            <PlBtn size="sm" onClick={() => goTo && goTo("quotes")}>Review quote</PlBtn>
+            <PlBtn variant="primary" size="sm" onClick={() => { api.newQcrVersion(c.id); api.say(`Draft QCR V${c.qcrs.length + 1} created`); }}>
               Create QCR V{c.qcrs.length + 1}
             </PlBtn>
             </div>
@@ -11482,7 +11613,7 @@ function PlQcrTab({ c, api, goTo }) {
                 Released versions are locked. A later quote can only reach the client through a new version you create.
               </div>
             </div>
-            <PlBtn size="lg" variant="primary" icon={Send} onClick={() => setSend(true)}>Send to RM</PlBtn>
+            <PlBtn size="lg" variant="primary" onClick={() => setSend(true)}>Send to RM</PlBtn>
           </div>
         </PlCard>
       )}
@@ -11671,7 +11802,7 @@ function PlSendQcrModal({ c, qcr, api, onClose }) {
   return (
     <PlModal title={`Send QCR V${qcr.v} to RM`} subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose} wide
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Send} onClick={() => { api.releaseQcr(c.id, note); api.say(`QCR V${qcr.v} released and locked`); onClose(); }}>
+        <PlBtn variant="primary" onClick={() => { api.releaseQcr(c.id, note); api.say(`QCR V${qcr.v} released and locked`); onClose(); }}>
           Send to RM
         </PlBtn></>}>
       <PlLabel>Included quotes</PlLabel>
@@ -11858,7 +11989,7 @@ function PlNegotiationTab({ c, api }) {
           body={plReleasedQcr(c)
             ? "Open a round when the client comes back asking for improved terms. Each ask is tracked per insurer."
             : "Negotiation starts after a QCR has been released and the client has responded."}
-          action={plReleasedQcr(c) && !c.outcome ? <PlBtn variant="primary" icon={Plus} onClick={() => setOpen(true)}>Open a round</PlBtn> : null} />
+          action={plReleasedQcr(c) && !c.outcome ? <PlBtn variant="primary" onClick={() => setOpen(true)}>Open a round</PlBtn> : null} />
         {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
       </div>
     );
@@ -11890,12 +12021,12 @@ function PlNegotiationTab({ c, api }) {
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
             {latest.status === "draft" && (
-              <PlBtn size="lg" variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
+              <PlBtn size="lg" variant="primary" onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
                 Send negotiation request
               </PlBtn>
             )}
-            {canFinal && <PlBtn variant="primary" icon={RefreshCw} onClick={() => setFinalOpen(true)}>Request final revision</PlBtn>}
-            <PlBtn size="sm" variant="ghost" icon={Clock} onClick={() => setHistory((v) => !v)}>{history ? "Hide history" : "View history"}</PlBtn>
+            {canFinal && <PlBtn variant="primary" onClick={() => setFinalOpen(true)}>Request final revision</PlBtn>}
+            <PlBtn size="sm" variant="ghost" onClick={() => setHistory((v) => !v)}>{history ? "Hide history" : "View history"}</PlBtn>
           </div>
         </div>
       </PlCard>
@@ -11917,7 +12048,7 @@ function PlNegotiationTab({ c, api }) {
               <PlMono size={10.5} color={PL_T.ink3}>{n.sentAt ? `Sent ${n.sentAt}` : `Drafted ${n.openedAt}`}</PlMono>
               {n.status === "draft" && (
                 <div className="mt-1 flex gap-1.5 justify-end">
-                  <PlBtn size="sm" icon={Eye} onClick={() => setDraft(n)}>Review draft email</PlBtn>
+                  <PlBtn size="sm" onClick={() => setDraft(n)}>Review draft email</PlBtn>
                 </div>
               )}
               {n.status === "open" && (
@@ -11978,14 +12109,14 @@ function PlNegotiationTab({ c, api }) {
         </PlCard>
       ))}
       {!c.outcome && (
-        <div><PlBtn icon={Plus} onClick={() => setOpen(true)}>Open another round</PlBtn></div>
+        <div><PlBtn onClick={() => setOpen(true)}>Open another round</PlBtn></div>
       )}
       {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
       {finalOpen && <PlFinalRevisionModal c={c} api={api} onClose={() => setFinalOpen(false)} />}
       {draft && (
         <PlModal title={`Draft - round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
           footer={<><PlBtn onClick={() => setDraft(null)}>Cancel</PlBtn>
-            <PlBtn variant="primary" icon={Send} onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
+            <PlBtn variant="primary" onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
           <div className="space-y-3">
             {draft.items.map((it) => (
               <div key={it.insurerId} className="rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
@@ -12076,25 +12207,25 @@ function PlSearchCard({ c, q, onOpen }) {
   const sla = plCurrentSla(c);
   const product = PL_PRODUCTS[c.products[0]] || c.products[0];
   return (
-    <div className="flex flex-col border p-4" style={{ borderColor: C.subtle, borderRadius: 16, background: `linear-gradient(to top, ${C.brandBg} 0%, ${C.white} 55%)` }}>
+    <div className="flex flex-col border p-4" style={{ borderColor: PL_T.border, borderRadius: 16, background: `linear-gradient(to top, ${PL_T.purpleSoft} 0%, ${PL_T.card} 55%)` }}>
       <div className="mb-4 flex justify-end"><Indicator status big label={plStageLabel(c)} ind={plStageInd(c)} /></div>
-      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: C.brand }}><Highlight text={c.id} q={q} /></div>
-      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
-        <User size={16} className="shrink-0" style={{ color: C.figInk }} />
+      <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: PL_T.purple }}><Highlight text={c.id} q={q} /></div>
+      <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink3 }}>
+        <User size={16} className="shrink-0" style={{ color: PL_T.ink }} />
         <span className="truncate"><Highlight text={c.client.name} q={q} /></span>
       </div>
-      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}><Highlight text={product} q={q} /></div>
+      <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink }}><Highlight text={product} q={q} /></div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <Indicator thick label={c.meta.caseType} ind="neutral" />
         <Indicator thick label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} />
       </div>
       <div className="mt-4 flex items-center gap-1">
-        <Clock size={14} className="shrink-0" style={{ color: C.figHint }} />
+        <Clock size={14} className="shrink-0" style={{ color: PL_T.ink3 }} />
         <PlSlaCell sla={sla} />
       </div>
-      <button onClick={onOpen} className="bk-btn bk-btn-secondary mt-4 flex items-center justify-between rounded-xl border px-4 py-3"
-        style={{ borderColor: C.subtle, background: C.white, fontSize: 14, fontWeight: 600, color: C.figInk }}>
-        <span>Take Action</span><ArrowRight size={14} style={{ color: C.figInk }} />
+      <button onClick={onOpen} className="pl-btn pl-btn-default mt-4 flex items-center justify-between rounded-xl border px-4 py-3"
+        style={{ borderColor: PL_T.border, background: PL_T.card, fontSize: 14, fontWeight: 600, color: PL_T.ink }}>
+        <span>Take Action</span><ArrowRight size={14} style={{ color: PL_T.ink }} />
       </button>
     </div>
   );
@@ -12127,28 +12258,24 @@ function PlSearchModal({ open, onClose, cases, onOpen }) {
 
   return createPortal(
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center p-6"
-      style={{ background: "rgba(28,27,31,0.32)", backdropFilter: "blur(2px)", fontFamily: FONT, color: C.ink }} onClick={onClose}>
-      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl"
-        style={{ background: C.white, boxShadow: "0 24px 60px rgba(28,27,31,0.24)", maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
+      style={{ background: "rgba(28,27,31,0.42)", fontFamily: FONT, color: PL_T.ink }} onClick={onClose}>
+      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl border shadow-2xl"
+        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
-          <div className="flex items-center gap-2 rounded-xl border px-4 py-3" style={{ borderColor: C.subtle }}>
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder="Search Cases, Clients, And Insurers"
-              className="min-w-0 flex-1 bg-transparent outline-none" style={{ fontSize: 16, fontWeight: 500, color: q ? C.brand : C.figInk }} />
-            <button onClick={q ? () => setQ("") : onClose} className="bk-dim" title={q ? "Clear" : "Close"} style={{ color: C.figHint }}><X size={18} /></button>
-          </div>
+          <PlSearchField value={q} onChange={setQ} placeholder="Search Cases, Clients, And Insurers"
+            size="lg" autoFocus onClear={q ? () => setQ("") : undefined} />
 
-          <div className="mt-4" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Searching For</div>
+          <div className="mt-4" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink3 }}>Searching For</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {scopes.map((s) => (
-              <span key={s} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: C.subtle, fontSize: 13, fontWeight: 500, color: C.figInk }}>
-                {s}<button onClick={() => setScopes(scopes.filter((x) => x !== s))} className="bk-dim" style={{ color: C.figHint }}><X size={12} /></button>
+              <span key={s} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: PL_T.border, fontSize: 13, fontWeight: 500, color: PL_T.ink }}>
+                {s}<button onClick={() => setScopes(scopes.filter((x) => x !== s))} style={{ color: PL_T.ink3 }}><X size={12} /></button>
               </span>
             ))}
           </div>
 
-          <div className="my-4" style={{ height: 1, background: C.subtle }} aria-hidden />
-          <div style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{ql ? "Results" : "Recent Cases"}</div>
+          <div className="my-4" style={{ height: 1, background: PL_T.border }} aria-hidden />
+          <div style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink3 }}>{ql ? "Results" : "Recent Cases"}</div>
           <div className="mt-3 grid gap-4 md:grid-cols-3">
             {list.length
               ? list.map((c) => <PlSearchCard key={c.id} c={c} q={q} onOpen={() => { onClose(); onOpen(c.id); }} />)
