@@ -1772,12 +1772,27 @@ function Home({ tickets, scope, setScope, go, user }) {
   const closureScore = onTrack / totalOpen;
   const closureStatus = scoreStatus(closureScore);
 
-  /* Median Turnaround - the median share of the stage clock already spent;
-     less consumed reads as a healthier turnaround. */
-  const used = open.map((t) => Math.min(1, Math.max(0, clock(t).used || 0))).sort((a, b) => a - b);
-  const medUsed = used.length ? used[Math.floor((used.length - 1) / 2)] : 0;
-  const turnScore = 1 - medUsed;
-  const turnStatus = scoreStatus(turnScore);
+  /* Median Turnaround - total hours you've spent on your tickets across the
+     Service-Manager-owned stages (Under Verification + Copy Received),
+     compared to the SLA budget for those stages. Well Done when you finish
+     under budget, On Track when you land within ±10%, Poor when over. */
+  let turnActualH = 0, turnBudgetH = 0;
+  open.forEach((t) => {
+    seqOf(t).forEach((s) => {
+      const stg = stageOf(s);
+      if (stg.owner !== "Service Manager") return;
+      const legHrs = (t.legs || []).filter((l) => l.s === s).reduce((a, l) => a + l.h, 0);
+      const currentHrs = t.stage === s ? t.inStage : 0;
+      if (legHrs > 0 || t.stage === s) {
+        turnActualH += legHrs + currentHrs;
+        turnBudgetH += stg.unit === "WD" ? stg.sla * 9 : stg.unit === "MIN" ? stg.sla / 60 : stg.sla;
+      }
+    });
+  });
+  const turnScore = turnBudgetH === 0 ? 1 : Math.min(1, turnBudgetH / Math.max(turnActualH, turnBudgetH));
+  const turnStatus = turnActualH === 0 || turnActualH <= turnBudgetH * 0.9 ? "Well Done"
+                   : turnActualH <= turnBudgetH * 1.1 ? "On Track"
+                   : "Poor";
 
   /* Ticket Time Distribution - hours each player has held the ticket, from the
      stage legs + the current stage, weighted equally per ticket then scaled to a
@@ -1812,25 +1827,27 @@ function Home({ tickets, scope, setScope, go, user }) {
     "Last Week": {
       count: open.length,
       closure: { value: `${onTrack}/${totalOpen}`, status: closureStatus, score: closureScore, sub: overdue ? `${overdue} overdue right now` : "None overdue - on top of it", subTone: overdue ? C.semCaution : green },
-      turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of stage SLA used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
+      turn: { value: `${Math.round(turnActualH)} Hrs`, status: turnStatus, score: turnScore,
+        sub: `${Math.round(turnBudgetH)} Hrs of stage SLA available`,
+        subTone: turnStatus === "Poor" ? C.semCaution : green },
       segments,
     },
     "Last Month": {
       count: 23,
       closure: { value: "18/23", status: "On Track", score: 0.62, sub: "3 overdue this month", subTone: C.semCaution },
-      turn: { value: "44%", status: "On Track", score: 0.56, sub: "44% of stage SLA used (median)", subTone: green },
+      turn: { value: "68 Hrs", status: "On Track", score: 0.9, sub: "76 Hrs of stage SLA available", subTone: green },
       segments: seg(41, 17, 29, 9),
     },
     "Last Quarter": {
       count: 61,
       closure: { value: "54/61", status: "Well Done", score: 0.88, sub: "11% above the desk average", subTone: green },
-      turn: { value: "29%", status: "Well Done", score: 0.71, sub: "29% of stage SLA used (median)", subTone: green },
+      turn: { value: "182 Hrs", status: "Well Done", score: 1, sub: "228 Hrs of stage SLA available", subTone: green },
       segments: seg(46, 15, 31, 8),
     },
     "Custom": {
       count: 12,
       closure: { value: "7/12", status: "Poor", score: 0.34, sub: "5 overdue in range", subTone: C.semCaution },
-      turn: { value: "63%", status: "Poor", score: 0.37, sub: "63% of stage SLA used (median)", subTone: C.semCaution },
+      turn: { value: "45 Hrs", status: "Poor", score: 0.35, sub: "32 Hrs of stage SLA available", subTone: C.semCaution },
       segments: seg(33, 19, 22, 6),
     },
   };
