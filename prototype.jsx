@@ -1284,7 +1284,7 @@ function SortControl({ sort, setSort, openKey, setOpenKey }) {
       </button>
       {open && (
         <MenuCard right>
-          {["priority", "urgency", "oldest", "newest"].map((k) => (
+          {["urgency", "oldest", "newest"].map((k) => (
             <MenuOpt key={k} label={SORTS[k].label} on={sort === k} onClick={() => { setSort(k); setOpenKey(null); }} />
           ))}
         </MenuCard>
@@ -1321,7 +1321,6 @@ const initials = (n) => n.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpp
 
 function TicketCard({ t, onOpen, mode, i = 0 }) {
   const S = srcOf(t), Icon = S.icon;
-  const hot = PRIORITY[t.priority].rank <= 1;
   const mailCount = mailOf(t).length;
   return (
     <button onClick={() => onOpen(t.id)} className="bk-item w-full text-left px-4 py-3 flex gap-3 border-b hover:bg-slate-50"
@@ -1337,7 +1336,6 @@ function TicketCard({ t, onOpen, mode, i = 0 }) {
         <div className="mt-2"><SlaCell t={t} stacked /></div>
         <div className="flex items-center gap-1.5 mt-1.5 text-xs flex-wrap" style={{ color: C.figTert }}>
           <span>{statusOf(t).label}</span>
-          {hot && <><span>·</span><span className="font-semibold uppercase tracking-wide" style={{ color: PRIORITY[t.priority].color }}>{t.priority}</span></>}
           <span>·</span>
           <span className="flex items-center gap-0.5"><MessageSquare size={11} />{mailCount}</span>
           {blocked(t) && <><span>·</span><span className="flex items-center gap-0.5" style={{ color: C.warn }}><FileClock size={11} />{gapCount(t)} pending</span></>}
@@ -1455,7 +1453,6 @@ function CaseCard({ t, onOpen, style }) {
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.type}</div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
-        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
       </div>
       <div className="mt-4 flex items-end gap-4">
         <span className="flex min-w-0 flex-1 items-start gap-1">
@@ -1931,7 +1928,6 @@ const TABS = [
 
 const SORTS = {
   urgency: { label: "Urgency", fn: riskSort },
-  priority: { label: "Priority", fn: (a, b) => PRIORITY[a.priority].rank - PRIORITY[b.priority].rank || riskSort(a, b) },
   oldest: { label: "Oldest First", fn: (a, b) => ageOf(b) - ageOf(a) },
   newest: { label: "Newest First", fn: (a, b) => ageOf(a) - ageOf(b) },
   touched: { label: "Last worked", fn: (a, b) => a.lastAction - b.lastAction },
@@ -2095,7 +2091,6 @@ function SlaCell({ t, stacked }) {
    so every column stays on screen at laptop widths. */
 const COLS = {
   id:     { w: 100 },
-  prio:   { w: 100 },
   stage:  { w: 200 },
   kind:   { w: 120, pr: 8 },
   age:    { w: 110 },
@@ -2128,7 +2123,6 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
       <button onClick={() => onOpen(t.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50"
         style={stagger(i)}>
         <span className="bk-num truncate" style={cell(COLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>{t.id}</span>
-        <span className="flex" style={cell(COLS.prio)}><Indicator label={t.priority} ind={PRIO_IND[t.priority]} /></span>
         <span className="flex" style={cell(COLS.stage)}><Indicator status label={statusOf(t).label} ind={stageInd(t)} /></span>
         <span className="flex" style={cell(COLS.kind)}>
           <Indicator label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
@@ -2149,9 +2143,6 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
 
 function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset }) {
   const [sort, setSort] = useState("urgency");
-  /* Empty set means All - the same thing the old "All priorities" option meant. */
-  const [prio, setPrio] = useState(() =>
-    preset?.prio === "hot" ? new Set(["Critical", "High"]) : preset?.prio ? new Set([preset.prio]) : new Set());
   const [stage, setStage] = useState(new Set());
   const [slice, setSlice] = useState(() =>
     preset?.slice && preset.slice !== "all" ? new Set([preset.slice]) : new Set());
@@ -2174,7 +2165,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
   }, [openKey]);
 
   /* A filter change must not leave you stranded on a page that no longer exists. */
-  useEffect(() => { setPage(0); }, [tab, prio, stage, slice, kind, req, win]);
+  useEffect(() => { setPage(0); }, [tab, stage, slice, kind, req, win]);
 
   const scoped = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const counts = Object.fromEntries(TABS.map((x) => [x.key, scoped.filter(x.key === "recent" ? (t) => t.lastAction <= win : x.test).length]));
@@ -2184,7 +2175,6 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
     .filter(tab === "recent" ? (t) => t.lastAction <= win : TABS.find((x) => x.key === tab).test)
     .filter((t) => slice.size === 0 || [...slice].some((k) => SLICES[k].fn(t)))
     .filter((t) => has(kind, t.kind))
-    .filter((t) => has(prio, t.priority))
     .filter((t) => has(stage, statusOf(t).label))
     .filter((t) => has(req, t.type))
     .sort(SORTS[tab === "recent" ? "touched" : sort].fn);
@@ -2192,9 +2182,8 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const at = Math.min(page, pages - 1);
   const view = rows.slice(at * PAGE_SIZE, at * PAGE_SIZE + PAGE_SIZE);
-  const filtered = prio.size || stage.size || slice.size || kind.size || req.size;
+  const filtered = stage.size || slice.size || kind.size || req.size;
 
-  const PRIO_OPTS = Object.keys(PRIORITY).map((p) => ({ value: p, label: p }));
   const KIND_OPTS = [
     { value: "Financial", label: "Financial" },
     { value: "Non-Financial", label: "Non-Financial" },
@@ -2232,9 +2221,6 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
       <section className="flex flex-col gap-1">
         <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
           <span style={cell(COLS.id, head)}>ID</span>
-          <span style={cell(COLS.prio)}>
-            <HeaderFilter id="prio" label="Priority" options={PRIO_OPTS} selected={prio} setSelected={setPrio} {...hf} />
-          </span>
           <span style={cell(COLS.stage)}>
             <HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} />
           </span>
@@ -3215,7 +3201,6 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
           <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
           <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
           <Indicator thick label={t.type} ind="neutral" />
           <Participants t={t} down />
@@ -4045,16 +4030,16 @@ function Field({ label, hint, value, onClear, trail, children, locked, required 
 
 function Create({ onCreate, back, prefill }) {
   const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "",
-    product: "", type: "", priority: "" });
+    product: "", type: "" });
   const [vals, setVals] = useState({});
   const [ups, setUps] = useState({});
   const meta = TYPES[f.type] || { fields: [], docs: [] };
   const offered = PRODUCTS[f.product] || [];
   const refund = meta.kind === "Return-Premium";
-  const ready = f.client && f.policy && f.insurer && f.product && f.priority && f.type && !refund;
+  const ready = f.client && f.policy && f.insurer && f.product && f.type && !refund;
 
   /* Everything the form asks for, and how much of it is answered. */
-  const core = ["client", "policy", "insurer", "product", "priority", "type"];
+  const core = ["client", "policy", "insurer", "product", "type"];
   const wanted = core.length + meta.fields.length + meta.docs.length;
   const done = core.filter((k) => f[k]).length
     + meta.fields.filter((x) => (vals[x] || "").trim()).length
@@ -4104,13 +4089,6 @@ function Create({ onCreate, back, prefill }) {
                 onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
                 <input value={f.policy} onChange={onPolicyChange} onKeyDown={onPolicyKey}
                   placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
-              </Field>
-              <Field label="Priority" value={f.priority} onClear={() => setF({ ...f, priority: "" })}>
-                <select value={f.priority} onChange={set("priority")} className={selCls}
-                  style={{ ...inputSt, color: f.priority ? C.brand : "rgba(169,172,177,0.6)" }}>
-                  {ph("Priority")}
-                  {Object.keys(PRIORITY).map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
               </Field>
               <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
                 hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
@@ -4500,7 +4478,6 @@ function SearchCard({ t, q, onOpen }) {
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}><Highlight text={t.type} q={q} /></div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
-        <Indicator thick label={t.priority} ind={PRIO_IND[t.priority]} />
       </div>
       <div className="mt-4 flex items-end gap-4">
         <span className="flex min-w-0 flex-1 items-start gap-1">
