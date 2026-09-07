@@ -11876,12 +11876,14 @@ function PlQcrDocument({ c, qcr, locked }) {
   );
 }
 
+const PL_EARLY_RELEASE_REASONS = ["RM has requested", "Client wants it fast"];
+
 function PlEarlyReleaseModal({ c, api, onClose }) {
   const [reason, setReason] = useState("");
   return (
     <PlModal title="Release below the usual threshold" subtitle={`${c.id} · ${plUsableCount(c)} usable quote(s)`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" disabled={reason.trim().length < 12} icon={ArrowRight}
+        <PlBtn variant="primary" disabled={!reason} icon={ArrowRight}
           onClick={() => { api.startDraftQcr(c.id, reason); api.say("Draft QCR created with the reason recorded"); onClose(); }}>
           Create draft QCR
         </PlBtn></>}>
@@ -11892,8 +11894,11 @@ function PlEarlyReleaseModal({ c, api, onClose }) {
         </PlCallout>
       )}
       <PlLabel>Reason for releasing early - mandatory</PlLabel>
-      <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3}
-        placeholder="Explain why the client is better served by seeing fewer quotes now than by waiting" /></div>
+      <div className="mt-1.5">
+        <PlMenuPicker value={reason} onChange={setReason}
+          options={PL_EARLY_RELEASE_REASONS}
+          placeholder="Pick a reason" width={320} />
+      </div>
       <div className="mt-2" style={{ fontSize: 11, color: PL_T.ink3 }}>
         This reason is printed on the QCR and kept on the audit trail.
       </div>
