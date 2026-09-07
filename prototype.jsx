@@ -1759,12 +1759,11 @@ function Home({ tickets, scope, setScope, go, user }) {
   const totalOpen = open.length || 1;
 
   const cards = [
-    { count: open.filter((t) => PRIORITY[t.priority].rank <= 1).length, tint: "#FFECEC", pills: [{ label: "High", ind: "caution" }, { label: "Critical", ind: "error" }], preset: { prio: "hot" } },
-    { count: open.filter(breached).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], preset: { slice: "breached" } },
-    { count: open.filter(atRisk).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], preset: { slice: "risk" } },
-    { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], preset: { slice: "qClient" } },
     { count: open.filter(awaitingInsurer).length, tint: "#FFF6E0", pills: [{ label: "Insurer Response", ind: "caution" }], preset: { slice: "qInsurer" } },
+    { count: open.filter(onHold).length, tint: "#E9F1FF", pills: [{ label: "Client Response", ind: "info" }], preset: { slice: "qClient" } },
     { count: open.filter(isFresh).length, tint: "#E9FBF0", pills: [{ label: "Freshly Assigned", ind: "success" }], preset: { slice: "qFresh" } },
+    { count: open.filter(atRisk).length, tint: "#EDE6FF", pills: [{ label: "Due Today", ind: "brand" }], preset: { slice: "risk" } },
+    { count: open.filter(breached).length, tint: "#FFECEC", pills: [{ label: "Overdue", ind: "error" }], preset: { slice: "breached" } },
   ];
 
   /* Ticket Closure - the share of open tickets still inside SLA. */
