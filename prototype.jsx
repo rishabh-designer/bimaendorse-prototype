@@ -9762,6 +9762,16 @@ function PlRightRail({ c, api, goTo }) {
         </PlCard>
       )}
 
+      {/* Prototype-only: stand in for the RM raising an Exclusive Placement
+          Mandate. Hidden once a mandate is on file or the case has closed. */}
+      {!c.meta?.mandate && !c.outcome && (
+        <PlSimBlock title="Simulate RM asking for Exclusive Mandate">
+          <PlSimBtn onClick={() => api.say("RM has requested an Exclusive Placement Mandate")}>
+            RM asks for mandate
+          </PlSimBtn>
+        </PlSimBlock>
+      )}
+
       {c.outcome && (
         <PlCard style={{ borderColor: PL_TONES[PL_OUTCOME[c.outcome.type].tone].line }}>
           <PlChip tone={PL_OUTCOME[c.outcome.type].tone} dot>{PL_OUTCOME[c.outcome.type].label}</PlChip>
@@ -10356,22 +10366,79 @@ function PlCaseStrategyCard({ c }) {
 }
 
 function PlDocumentsCard({ c }) {
+  const [tab, setTab] = useState("internal");
+
+  const internal = [
+    { name: `RFQ_${c.id}_V${c.activeRfq}.pdf`, sub: `Uploaded ${c.receivedAt}` },
+    { name: "Client_form_submission.pdf", sub: `Uploaded ${c.receivedAt}` },
+    ...c.products.map((p) => ({ name: `${p}_expiring_schedule.pdf`, sub: `Uploaded ${c.receivedAt}` })),
+  ];
+
+  /* External documents surface as the case moves: every insurer quote (PDF
+     received against an RFQ version), plus every QCR version (draft or
+     released). Empty for a Fresh case until quotes start arriving. */
+  const external = [
+    ...(c.quotes || []).map((q) => ({
+      name: q.doc,
+      sub: `${PL_INSURERS[q.insurerId].name} · Quote V${q.version} against RFQ V${q.rfqV} · ${q.receivedAt}`,
+      chip: q.decision === "usable" ? { tone: "green", label: "Usable" }
+          : q.decision === "superseded" ? { tone: "neutral", label: "Superseded" }
+          : q.decision === "excluded" ? { tone: "red", label: "Excluded" }
+          : { tone: "purple", label: "Awaiting decision" },
+    })),
+    ...(c.qcrs || []).map((qcr) => ({
+      name: `QCR_${c.id}_V${qcr.v}.pdf`,
+      sub: `QCR Version ${qcr.v}${qcr.releasedAt ? ` · released ${qcr.releasedAt}` : ""}`,
+      chip: qcr.status === "released" ? { tone: "green", label: "Released" } : { tone: "purple", label: "Draft" },
+    })),
+  ];
+
+  const list = tab === "internal" ? internal : external;
+  const tabs = [
+    { id: "internal", label: "Internal", n: internal.length },
+    { id: "external", label: "External", n: external.length },
+  ];
+
   return (
-    <PlSection icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{2 + c.products.length}</PlChip>}>
-      <div className="space-y-2">
-        {[`RFQ_${c.id}_V${c.activeRfq}.pdf`, "Client_form_submission.pdf", ...c.products.map((p) => `${p}_expiring_schedule.pdf`)].map((d) => (
-          <div key={d} className="flex items-center gap-2">
-            <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: PL_T.purpleSoft }}>
-              <FileText size={12} color={PL_T.purple} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate" style={{ fontSize: 11.5, color: PL_T.blue, fontWeight: 550 }}>{d}</div>
-              <div style={{ fontSize: 10, color: PL_T.ink3 }}>Uploaded {c.receivedAt}</div>
-            </div>
-            <PlChip size="xs">Internal</PlChip>
-          </div>
-        ))}
+    <PlSection icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{internal.length + external.length}</PlChip>}>
+      <div className="flex items-center gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+        {tabs.map((t) => {
+          const on = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} className="px-3 pb-2 flex items-center gap-1.5"
+              style={{ fontSize: 12, fontWeight: on ? 600 : 500, color: on ? PL_T.purple : PL_T.ink3,
+                borderBottom: `2px solid ${on ? PL_T.purple : "transparent"}`, marginBottom: -1 }}>
+              {t.label}
+              <span className="rounded-full px-1.5"
+                style={{ fontSize: 10, fontFamily: PL_MONO,
+                  background: on ? PL_T.purpleSoft : PL_T.cardAlt, color: on ? PL_T.purple : PL_T.ink3 }}>{t.n}</span>
+            </button>
+          );
+        })}
       </div>
+
+      {list.length === 0 ? (
+        <div style={{ fontSize: 12, color: PL_T.ink3, lineHeight: 1.5 }} className="py-2">
+          {tab === "external"
+            ? "No external documents yet. Insurer quote PDFs and QCR versions appear here as the case moves through the workflow."
+            : "No internal documents."}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {list.map((d, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 26, height: 26, background: PL_T.purpleSoft }}>
+                <FileText size={12} color={PL_T.purple} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate" style={{ fontSize: 11.5, color: PL_T.blue, fontWeight: 550 }}>{d.name}</div>
+                <div className="truncate" style={{ fontSize: 10, color: PL_T.ink3 }}>{d.sub}</div>
+              </div>
+              {d.chip && <PlChip size="xs" tone={d.chip.tone} dot={d.chip.tone !== "neutral"}>{d.chip.label}</PlChip>}
+            </div>
+          ))}
+        </div>
+      )}
     </PlSection>
   );
 }
