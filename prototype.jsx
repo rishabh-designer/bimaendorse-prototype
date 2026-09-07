@@ -251,6 +251,7 @@ const GLOBAL_CSS = `
 .pl-btn-ghost:not(:disabled):hover { background-color: #F4F1FF !important; color: #4100CF !important; }
 .pl-btn-danger:not(:disabled):hover { filter: brightness(0.9); }
 .pl-btn-success:not(:disabled):hover { filter: brightness(0.9); }
+.pl-row-hover:hover { background: #F4F5F6; }  /* PL_T.cardAlt - Queue and list rows */
 .bk-btn-fill:not(:disabled):hover  { filter: brightness(0.86); }
 .bk-btn-fill:not(:disabled):active { filter: brightness(0.69); }
 .bk-btn-ghost:not(:disabled):hover  { background-color: #F4F1FF !important; }
@@ -678,7 +679,11 @@ function bucketOf(t) {
 function riskSort(a, b) {
   const d = bucketOf(a) - bucketOf(b);
   if (d) return d;
-  const p = PRIORITY[a.priority].rank - PRIORITY[b.priority].rank;
+  /* Priority is hidden from the UI everywhere; tickets created after the
+     strip may not carry the field. Fall back to Medium so the sort stays
+     total instead of throwing. */
+  const rank = (t) => (PRIORITY[t.priority] || PRIORITY.Medium).rank;
+  const p = rank(a) - rank(b);
   if (p) return p;
   return (clock(a).left ?? 0) - (clock(b).left ?? 0);
 }
@@ -1862,12 +1867,12 @@ function Home({ tickets, scope, setScope, go, user }) {
         )
       } />
 
-      {/* Your Desk - the six count-cards; each routes into My Tickets pre-filtered. */}
+      {/* Your Desk - five count-cards; each routes into My Tickets pre-filtered. */}
       <div>
         <div className="mb-4 flex items-center gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
         </div>
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {cards.map((c, i) => (
             <DeskCard key={i} count={c.count} tint={c.tint} pills={c.pills}
               onOpen={() => go("list", "open", c.preset)} />
@@ -1891,7 +1896,7 @@ function Home({ tickets, scope, setScope, go, user }) {
               tip="Open tickets still inside SLA - on-track over total open." />
             <ProgressCard title="Median Turnaround" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
               sub={prog.turn.sub} subTone={prog.turn.subTone}
-              tip="Median share of the stage clock used; lower is faster." />
+              tip="Hours you've spent on your tickets across Under Verification and Copy Received, against the SLA budget for those stages." />
           </div>
           <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-start justify-between">
@@ -5145,7 +5150,6 @@ function ClaimsRow({ t, onOpen, showCM, last }) {
       </span>
       {showCM && <span className="hidden w-20 shrink-0 md:block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{t.cm}</span>}
       <span className="hidden w-28 shrink-0 md:flex"><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
-      <span className="w-20 shrink-0"><Indicator label={t.priority} ind={clPrioInd(t.priority)} outline /></span>
       <span className="w-24 shrink-0 text-right"><ClDue t={t} /></span>
     </button>
   );
@@ -5510,7 +5514,6 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
           <span className="truncate" style={clFlex(th)}>Client</span>
           <span style={clFlex()}><HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} /></span>
           <span style={clCell(CL_COLS.owner)}><HeaderFilter id="owner" label="Owed by" options={OWNER_OPTS} selected={owner} setSelected={setOwner} {...hf} /></span>
-          <span style={clCell(CL_COLS.prio)}><HeaderFilter id="prio" label="Priority" options={PRIO_OPTS} selected={prio} setSelected={setPrio} {...hf} /></span>
           <SortHead label="Ticket Age" k="age" style={clCell(CL_COLS.age)} />
           {head && <span className="truncate" style={clCell(CL_COLS.cm, th)}>Manager</span>}
           <SortHead label="Stage due" k="due" style={clCell(CL_COLS.due)} />
@@ -5527,7 +5530,6 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
             </span>
             <span style={clFlex()}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
             <span style={clCell(CL_COLS.owner)}><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
-            <span style={clCell(CL_COLS.prio)}><Indicator label={t.priority} ind={clPrioInd(t.priority)} outline /></span>
             <span className="bk-num" style={clCell(CL_COLS.age, { fontSize: 12, fontWeight: 500, color: C.figHint })}>{clDur(CL_NOW - t.createdAt)}</span>
             {head && <span className="truncate" style={clCell(CL_COLS.cm, { fontSize: 12, fontWeight: 600, color: C.figHint })}>{t.cm}</span>}
             <span style={clCell(CL_COLS.due)}><ClDue t={t} /></span>
@@ -5617,10 +5619,9 @@ function ClaimsDetail({ t, role, act }) {
       {/* header */}
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="bk-num" style={{ fontSize: 24, fontWeight: 700, color: C.figInk }}>{t.id}</h1>
+          <h1 className="bk-num" style={{ fontSize: 24, fontWeight: 700, color: C.brand }}>{t.id}</h1>
           <Indicator label={clStageLabel(t)} ind={clStageInd(t)} big status />
           <span className="flex-1" />
-          <Indicator label={t.priority} ind={clPrioInd(t.priority)} outline />
           {/* Product chip removed - it's in the meta row below with Client and Policy. */}
           <Indicator label={`${t.channel} intake`} ind="neutral" outline />
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
@@ -9300,7 +9301,7 @@ function PlQueueScreen({ cases, onOpen }) {
           const last = i === rows.length - 1;
           return (
             <div key={c.id}>
-              <button onClick={() => onOpen(c.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50" style={stagger(i)}>
+              <button onClick={() => onOpen(c.id)} className="bk-item pl-row-hover flex w-full items-center rounded-xl px-2 py-3 text-left" style={stagger(i)}>
                 <span className="bk-num truncate" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
                   {c.id}{c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
                 </span>
@@ -9571,7 +9572,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
         <div className="rounded-2xl mb-4 flex items-stretch"
           style={{ background: PL_T.strip, border: `1px solid ${PL_T.stripLine}` }}>
           <div className="px-4 py-3" style={{ width: 210 }}>
-            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>CURRENT SLA</div>
+            <PlLabel>Current SLA</PlLabel>
             {sla ? (
               <>
                 <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink, marginTop: 2 }}>{sla.short}</div>
@@ -9581,15 +9582,15 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             ) : <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink3, marginTop: 2 }}>Stopped</div>}
           </div>
           <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 160 }}>
-            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>USABLE QUOTES</div>
+            <PlLabel>Usable quotes</PlLabel>
             <div className="mt-1.5"><PlUsableMeter count={uc} /></div>
           </div>
           <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 150 }}>
-            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>INSURERS APPROACHED</div>
+            <PlLabel>Insurers approached</PlLabel>
             <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>{c.threads.length}</div>
           </div>
           <div className="px-4 py-3 flex-1" style={{ borderLeft: `1px solid ${PL_T.stripLine}` }}>
-            <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 600 }}>TARGET PREMIUM</div>
+            <PlLabel>Target premium</PlLabel>
             <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>
               {c.meta.targetPremium ? plInrL(c.meta.targetPremium) : "-"}
             </div>
@@ -9599,7 +9600,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
         <div className="mb-2 flex justify-end"><PlStageRail stage={c.stage} outcome={c.outcome} /></div>
       </div>
       <TabBar tabs={TABS.map((t) => [t.id, t.label])} tab={tab} setTab={setTab} />
-      <div className="mb-4" style={{ borderBottom: `1px solid ${C.subtle}` }} />
+      <div className="mb-4" style={{ borderBottom: `1px solid ${PL_T.border}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
         {/* The action rail sits on the LEFT of every tab, matching the sister
@@ -9776,11 +9777,11 @@ function PlRightRail({ c, api, goTo }) {
           </div>
           <div className="mt-2" style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>{c.outcome.reason}</div>
           {c.outcome.handoffRef && (
-            <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+            <PlCallout tone="green" pad="sm" className="mt-2.5">
               <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.green, fontWeight: 650 }}>HANDOFF COMPLETED</div>
               <div style={{ fontSize: 11.5, color: PL_T.green, fontWeight: 550, marginTop: 2 }}>Handed off to RM / Policy Journey</div>
               <PlMono size={10.5} color={PL_T.green}>{c.outcome.handoffRef}</PlMono>
-            </div>
+            </PlCallout>
           )}
         </PlCard>
       )}
@@ -10316,14 +10317,14 @@ function PlCaseStrategyCard({ c }) {
         <PlKV k="Incumbent" v={m.incumbent || "None on record"} />
         <PlKV k="Target premium" v={m.targetPremium ? plInr(m.targetPremium) : "Not provided"} mono />
       </div>
-      <div className="mt-1.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.blueSoft, border: `1px solid ${PL_T.blueLine}` }}>
+      <PlCallout tone="blue" pad="sm" className="mt-1.5">
         <span style={{ fontSize: 10.5, color: PL_T.blue, lineHeight: 1.45 }}>
           Target premium is decision support only. No quote is rejected automatically for sitting above it.
         </span>
-      </div>
+      </PlCallout>
 
       {m.mandate && (
-        <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+        <PlCallout tone="green" pad="sm" className="mt-2">
           <div className="flex items-center gap-1.5">
             <ShieldCheck size={12} color={PL_T.green} />
             <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.green }}>{m.mandate.type}</span>
@@ -10341,14 +10342,14 @@ function PlCaseStrategyCard({ c }) {
           ) : (
             <div style={{ fontSize: 10.5, color: PL_T.green, marginTop: 3, lineHeight: 1.4 }}>{m.mandate.note}</div>
           )}
-        </div>
+        </PlCallout>
       )}
       {!m.mandate && m.caseType === "Rollover" && (
-        <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
+        <PlCallout tone="red" pad="sm" className="mt-2">
           <span style={{ fontSize: 11, color: PL_T.red }}>
             Rollover without an Incumbent Approach Mandate - the incumbent is blocked at insurer selection.
           </span>
-        </div>
+        </PlCallout>
       )}
     </PlSection>
   );
@@ -10441,10 +10442,10 @@ function PlRfqTab({ c, api }) {
         )}
 
         {rfq.classification.impact && (
-          <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.purpleSoft, border: `1px solid ${PL_T.purpleLine}` }}>
+          <PlCallout tone="purple" className="mt-3 flex gap-2">
             <Info size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
             <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>{rfq.classification.impact}</span>
-          </div>
+          </PlCallout>
         )}
 
         {editable && !rfq.classification.confirmed ? (
@@ -10591,7 +10592,7 @@ function PlAskRmModal({ c, rfq, api, onClose }) {
     <PlModal title="Request clarification from RM" subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose}
       footer={<>
         <PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Send} disabled={picked.length === 0}
+        <PlBtn variant="primary" disabled={picked.length === 0}
           onClick={() => { api.requestRmInfo(c.id, picked, note); api.say(`Clarification sent to ${c.client.rm}`); onClose(); }}>
           Send request
         </PlBtn>
@@ -10605,12 +10606,12 @@ function PlAskRmModal({ c, rfq, api, onClose }) {
       </div>
       <PlLabel>Message</PlLabel>
       <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
-      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+      <PlCallout tone="orange" className="mt-3 flex gap-2">
         <Info size={13} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
           The case moves to <b>Awaiting RM clarification</b>. The RFQ cannot be floated until the material gaps are closed.
         </span>
-      </div>
+      </PlCallout>
     </PlModal>
   );
 }
@@ -10788,7 +10789,7 @@ function PlInsurersTab({ c, api }) {
                 : "Floating creates one independent thread per insurer, each with its own SLA."}
             </div>
           </div>
-          <PlBtn variant="primary" disabled={c.panel.selected.length === 0} icon={Send} onClick={() => setFloatOpen(true)}>
+          <PlBtn variant="primary" disabled={c.panel.selected.length === 0} onClick={() => setFloatOpen(true)}>
             Approve and float RFQ
           </PlBtn>
         </div>
@@ -10797,7 +10798,7 @@ function PlInsurersTab({ c, api }) {
       {floatOpen && (
         <PlModal title={`Float RFQ V${c.activeRfq}`} subtitle={`${c.id} · ${c.client.name}`} onClose={() => setFloatOpen(false)}
           footer={<><PlBtn onClick={() => setFloatOpen(false)}>Cancel</PlBtn>
-            <PlBtn variant="primary" icon={Send} onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${c.panel.selected.length} insurers`); setFloatOpen(false); }}>
+            <PlBtn variant="primary" onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${c.panel.selected.length} insurers`); setFloatOpen(false); }}>
               Float to {c.panel.selected.length} insurers
             </PlBtn></>}>
           <PlLabel>Product sections being floated</PlLabel>
@@ -10906,7 +10907,7 @@ function PlMarketTab({ c, api, goTo }) {
               </div>
             </div>
             <div className="flex flex-col gap-1.5 shrink-0">
-              <PlBtn size="sm" variant="primary" icon={RefreshCw} disabled={plRestartableThreads(c).length === 0}
+              <PlBtn size="sm" variant="primary" disabled={plRestartableThreads(c).length === 0}
                 onClick={() => setModal({ kind: "restart" })}>
                 Restart selected threads
               </PlBtn>
@@ -11021,10 +11022,10 @@ function PlMarketTab({ c, api, goTo }) {
                     )}
 
                     {t.declineReason && (
-                      <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.redLine, background: PL_T.redSoft }}>
+                      <PlCallout tone="red" className="mb-3">
                         <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.red }}>Declined</div>
                         <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>{t.declineReason}</div>
-                      </div>
+                      </PlCallout>
                     )}
 
                     {cl && !cl.repliedAt && (
@@ -11032,10 +11033,10 @@ function PlMarketTab({ c, api, goTo }) {
                         <PlLabel>Insurer asked</PlLabel>
                         <div style={{ fontSize: 12, color: PL_T.ink, lineHeight: 1.5 }} className="mt-1">{cl.question}</div>
                         {cl.rmResponse && (
-                          <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+                          <PlCallout tone="green" pad="sm" className="mt-2">
                             <PlLabel>{c.client.rm} replied</PlLabel>
                             <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{cl.rmResponse}</div>
-                          </div>
+                          </PlCallout>
                         )}
                       </div>
                     )}
@@ -11114,15 +11115,15 @@ function PlRestartThreadsModal({ c, api, onClose }) {
   return (
     <PlModal title="Restart insurer threads" subtitle="Only the threads you select restart. Nothing else changes." onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={RefreshCw} disabled={picked.length === 0 || !reason.trim()}
+        <PlBtn variant="primary" disabled={picked.length === 0 || !reason.trim()}
           onClick={() => { api.restartThreads(c.id, picked, reason.trim()); api.say(`${picked.length} thread${picked.length === 1 ? "" : "s"} restarted`); onClose(); }}>
           Restart selected threads
         </PlBtn></>}>
       {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
-        <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+        <PlCallout tone="orange" className="mb-3">
           <PlLabel>RM request</PlLabel>
           <div style={{ fontSize: 12, color: PL_T.ink2 }} className="mt-0.5">“{c.rmMoreQuotes.reason}”</div>
-        </div>
+        </PlCallout>
       )}
       <PlLabel>Select threads to restart</PlLabel>
       <div className="mt-1.5 mb-3"><PlThreadPicker c={c} picked={picked} setPicked={setPicked} /></div>
@@ -11143,13 +11144,13 @@ function PlHoldForRmModal({ c, t, api, onClose }) {
         </PlBtn></>}>
       <PlLabel>What to ask {c.client.rm}</PlLabel>
       <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
-      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+      <PlCallout tone="orange" className="mt-3 flex gap-2">
         <Pause size={13} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
           This insurer's SLA holds at <b>{plFmtH(t.slaH)}</b> remaining and resumes from there once you reply.
           Every other thread on this case keeps running.
         </span>
-      </div>
+      </PlCallout>
     </PlModal>
   );
 }
@@ -11177,12 +11178,12 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
         </PlBtn></>}>
       <PlLabel>Reply</PlLabel>
       <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={4} /></div>
-      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.greenSoft, border: `1px solid ${PL_T.greenLine}` }}>
+      <PlCallout tone="green" className="mt-3 flex gap-2">
         <Play size={13} color={PL_T.green} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.green, lineHeight: 1.45 }}>
           The clock resumes with <b>{plFmtH(t.slaH)}</b> remaining - the time it was held for is not counted against the insurer.
         </span>
-      </div>
+      </PlCallout>
     </PlModal>
   );
 }
@@ -11320,7 +11321,7 @@ function PlQuoteWorkspace({ c, q, api }) {
             <div className="px-4 py-4">
               <div className="rounded-lg mx-auto px-4 py-5"
                 style={{ background: PL_T.card, border: `1px solid ${PL_T.border}`, width: `${zoom}%`, maxWidth: "100%", minHeight: 300 }}>
-                <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>{PL_INSURERS[q.insurerId].name.toUpperCase()}</div>
+                <PlLabel size="md">{PL_INSURERS[q.insurerId].name}</PlLabel>
                 <div style={{ fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>Quotation - {PL_PRODUCTS[q.product]}</div>
                 <div style={{ fontSize: 10.5, color: PL_T.ink3 }}>{c.client.name} · page {page} of {pages}</div>
                 <div className="mt-3 space-y-1.5">
@@ -11425,14 +11426,14 @@ function PlQuoteWorkspace({ c, q, api }) {
         {!dead && (
           <div className="px-4 py-3" style={{ background: PL_T.cardAlt }}>
             {gaps.length > 0 && (
-              <div className="rounded-lg border px-3 py-2 mb-3" style={{ borderColor: PL_T.redLine, background: PL_T.redSoft }}>
+              <PlCallout tone="red" className="mb-3">
                 <div className="flex items-center gap-1.5 mb-1">
                   <AlertTriangle size={12} color={PL_T.red} />
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.red }}>Unresolved material information</span>
                 </div>
                 {gaps.map((g, i) => <div key={i} style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>- {g}</div>)}
                 <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-1">This quote cannot be marked usable until these are closed.</div>
-              </div>
+              </PlCallout>
             )}
             <div className="flex items-center gap-2">
               {q.decision && q.decisionAt && (
@@ -11534,10 +11535,10 @@ function PlQcrTab({ c, api, goTo }) {
           </div>
           <div className="mt-3 space-y-1.5">
             {plUsableInsurers(c).map((id) => (
-              <div key={id} className="flex items-center gap-2 rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.greenLine, background: PL_T.greenSoft }}>
+              <PlCallout key={id} tone="green" pad="sm" className="flex items-center gap-2">
                 <CheckCircle2 size={13} color={PL_T.green} />
                 <span style={{ fontSize: 12.5, fontWeight: 500 }}>{PL_INSURERS[id].name}</span>
-              </div>
+              </PlCallout>
             ))}
             {plUsableCount(c) === 0 && <div style={{ fontSize: 12, color: PL_T.ink3 }}>No quotes have been marked usable yet.</div>}
           </div>
@@ -11773,10 +11774,10 @@ function PlEarlyReleaseModal({ c, api, onClose }) {
           Create draft QCR
         </PlBtn></>}>
       {c.urgentReason && (
-        <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.redSoft, border: `1px solid ${PL_T.redLine}` }}>
+        <PlCallout tone="red" className="mb-3">
           <PlLabel>Why this case is urgent</PlLabel>
           <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{c.urgentReason}</div>
-        </div>
+        </PlCallout>
       )}
       <PlLabel>Reason for releasing early - mandatory</PlLabel>
       <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3}
@@ -11809,12 +11810,12 @@ function PlSendQcrModal({ c, qcr, api, onClose }) {
       </div>
       <PlLabel>Covering note</PlLabel>
       <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
-      <div className="mt-3 rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.purpleSoft, border: `1px solid ${PL_T.purpleLine}` }}>
+      <PlCallout tone="purple" className="mt-3 flex gap-2">
         <Lock size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>
           QCR V{qcr.v} locks on send. Later quotes cannot be added to it - they would need QCR V{qcr.v + 1}, which only you can create.
         </span>
-      </div>
+      </PlCallout>
     </PlModal>
   );
 }
@@ -11947,12 +11948,12 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
 
       {kind === "rfq_v2" && (
         <>
-          <div className="rounded-lg px-3 py-2 mb-3" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+          <PlCallout tone="orange" className="mb-3">
             <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
               Insurer threads reset and the usable-quote count returns to zero. Quotes against RFQ V{c.activeRfq} stay on the
               case for audit but stop counting toward the threshold.
             </span>
-          </div>
+          </PlCallout>
           <PlLabel>What changed</PlLabel>
           <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="e.g. Sum insured raised to ₹10 L per family and parents moved in-scope" /></div>
         </>
@@ -12138,7 +12139,7 @@ function PlFinalRevisionModal({ c, api, onClose }) {
   return (
     <PlModal title="Request Final Revision" subtitle={`Round ${latest.round + 1} · goes to ${latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")}`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Send} disabled={reason === "Other" && !comment.trim()}
+        <PlBtn variant="primary" disabled={reason === "Other" && !comment.trim()}
           onClick={() => { api.requestFinalRevision(c.id, reason, comment.trim()); api.say("Final revision requested"); onClose(); }}>
           Send request
         </PlBtn></>}>
@@ -12196,12 +12197,16 @@ function PlActivityTab({ c }) {
 /* Power search - the sister-environment search lightbox, adapted to cases. Empty
    it shows recent cases; typed, it filters across the active scopes and
    highlights the match. No index - it reads the live case list. */
+/* Reverse-map an Indicator ind key to the PlChip tone system. */
+const plToneOf = (ind) => ({ caution: "orange", info: "blue", error: "red", brand: "purple", muted: "neutral", success: "green" })[ind] || "neutral";
+
 function PlSearchCard({ c, q, onOpen }) {
   const sla = plCurrentSla(c);
-  const product = PL_PRODUCTS[c.products[0]] || c.products[0];
+  /* Show every product, not just the first - multi-product cases (e.g. PC-1030) were hiding the second. */
+  const product = c.products.map((p) => PL_PRODUCTS[p] || p).join(", ");
   return (
     <div className="flex flex-col border p-4" style={{ borderColor: PL_T.border, borderRadius: 16, background: `linear-gradient(to top, ${PL_T.purpleSoft} 0%, ${PL_T.card} 55%)` }}>
-      <div className="mb-4 flex justify-end"><Indicator status big label={plStageLabel(c)} ind={plStageInd(c)} /></div>
+      <div className="mb-4 flex justify-end"><PlChip tone={plToneOf(plStageInd(c))} dot>{plStageLabel(c)}</PlChip></div>
       <div className="bk-num" style={{ fontSize: 18, fontWeight: 600, color: PL_T.purple }}><Highlight text={c.id} q={q} /></div>
       <div className="mt-0.5 flex items-center gap-1 truncate" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink3 }}>
         <User size={16} className="shrink-0" style={{ color: PL_T.ink }} />
@@ -12209,8 +12214,8 @@ function PlSearchCard({ c, q, onOpen }) {
       </div>
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink }}><Highlight text={product} q={q} /></div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <Indicator thick label={c.meta.caseType} ind="neutral" />
-        <Indicator thick label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} />
+        <PlChip>{c.meta.caseType}</PlChip>
+        <PlChip tone={c.meta.urgency === "High" ? "orange" : "neutral"}>{c.meta.urgency}</PlChip>
       </div>
       <div className="mt-4 flex items-center gap-1">
         <Clock size={14} className="shrink-0" style={{ color: PL_T.ink3 }} />
@@ -12272,7 +12277,7 @@ function PlSearchModal({ open, onClose, cases, onOpen }) {
           <div className="mt-3 grid gap-4 md:grid-cols-3">
             {list.length
               ? list.map((c) => <PlSearchCard key={c.id} c={c} q={q} onOpen={() => { onClose(); onOpen(c.id); }} />)
-              : <div className="md:col-span-3"><Empty>No cases match “{q.trim()}”.</Empty></div>}
+              : <div className="md:col-span-3"><PlEmpty icon={Search} title="No matches" body={`No cases match “${q.trim()}”.`} /></div>}
           </div>
         </div>
       </div>
@@ -12328,7 +12333,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
                 segments={openCase
                   ? [{ label: "My Cases", onClick: () => { setOpenId(null); setOpenTab(null); } }, { label: openCase.id }]
                   : [{ label: PL_NAV_LABEL[nav] || "Home" }]}
-                right={openCase && <TicketPager id={openCase.id} list={cases} onOpen={setOpenId} />}
+                right={openCase && <TicketPager id={openCase.id} list={cases.filter((c) => c.stage !== "closed" || c.id === openCase.id)} onOpen={setOpenId} />}
               />
             </div>
             {openCase
