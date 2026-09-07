@@ -9420,6 +9420,15 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
     .map((k) => ({ label: k, ind: PL_PIE[k].ind, fill: PL_PIE[k].fill, hrs: held[k] }))
     .filter((s) => s.hrs >= 0.25);
 
+  /* Multi-mandate: clients who raised more than one RFQ (typically driven by a
+     requirement change mid-flight). Faster QCR: releases sent below the usual
+     3-quote threshold, using the early-release exception path. */
+  const multiRfq = cases.filter((c) => (c.rfqs?.length || 0) > 1).length;
+  const earlyQcrs = cases.reduce(
+    (n, c) => n + (c.qcrs || []).filter((q) => q.status === "released" && q.earlyRelease && (q.earlyRelease.count ?? 3) < 3).length,
+    0,
+  );
+
   /* The range controller. Last Week reads the live desk; the wider windows are
      illustrative - the seeded cases are all under a month old, so month / quarter
      / custom are stand-ins, exactly as the sister environments handle it. */
@@ -9430,24 +9439,32 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
       count: active.length,
       closure: { value: `${onTrack}/${active.length}`, status: closureStatus, score: closureScore, sub: overdue.length ? `${overdue.length} overdue right now` : "None overdue - on top of it", subTone: overdue.length ? C.semCaution : green },
       turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of the current SLA target used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
+      multi: { value: `${multiRfq}/${cases.length}`, sub: `${multiRfq} of ${cases.length} clients raised more than one RFQ` },
+      early: { value: `${earlyQcrs}`, sub: `${earlyQcrs} QCR${earlyQcrs === 1 ? "" : "s"} sent below the 3-quote threshold` },
       segments,
     },
     "Last Month": {
       count: 24,
       closure: { value: "19/24", status: "On Track", score: 0.62, sub: "3 breached this month", subTone: C.semCaution },
       turn: { value: "46%", status: "On Track", score: 0.54, sub: "46% of the SLA target used (median)", subTone: green },
+      multi: { value: "5/24", sub: "5 of 24 clients raised more than one RFQ" },
+      early: { value: "3", sub: "3 QCRs sent below the 3-quote threshold" },
       segments: seg(58, 41, 12),
     },
     "Last Quarter": {
       count: 63,
       closure: { value: "57/63", status: "Well Done", score: 0.9, sub: "9% above the desk average", subTone: green },
       turn: { value: "31%", status: "Well Done", score: 0.69, sub: "31% of the SLA target used (median)", subTone: green },
+      multi: { value: "12/63", sub: "12 of 63 clients raised more than one RFQ" },
+      early: { value: "7", sub: "7 QCRs sent below the 3-quote threshold" },
       segments: seg(61, 44, 14),
     },
     "Custom": {
       count: 11,
       closure: { value: "7/11", status: "Poor", score: 0.36, sub: "4 breached in range", subTone: C.semCaution },
       turn: { value: "64%", status: "Poor", score: 0.36, sub: "64% of the SLA target used (median)", subTone: C.semCaution },
+      multi: { value: "3/11", sub: "3 of 11 clients raised more than one RFQ" },
+      early: { value: "2", sub: "2 QCRs sent below the 3-quote threshold" },
       segments: seg(29, 22, 9),
     },
   };
@@ -9479,14 +9496,42 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
           <RangePills value={range} onChange={setRange} />
         </div>
-        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="flex flex-col gap-4 lg:col-span-1">
+        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="flex flex-col gap-4">
             <ProgressCard title="Cases On Track" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
               sub={prog.closure.sub} subTone={prog.closure.subTone}
               tip="Active cases not in a Placement-owned SLA breach - external waits don't count against you." />
             <ProgressCard title="Median SLA Used" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
               sub={prog.turn.sub} subTone={prog.turn.subTone}
               tip="Median share of the live Placement-owned SLA clock already spent; lower is faster." />
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-1.5">
+                  <FileText size={14} style={{ color: C.figHint }} />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Multi-mandate quotes</span>
+                </div>
+                <InfoTip tip="Clients who raised more than one RFQ - typically driven by a requirement change or renegotiated structure mid-flight." />
+              </div>
+              <div className="mt-3">
+                <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.multi.value}</span>
+                <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figHint, lineHeight: 1.5 }}>{prog.multi.sub}</div>
+              </div>
+            </div>
+            <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-1.5">
+                  <FileText size={14} style={{ color: C.figHint }} />
+                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Faster QCR sent</span>
+                </div>
+                <InfoTip tip="QCRs you released early - using the exception path with fewer than 3 usable quotes on file - to unblock the client sooner." />
+              </div>
+              <div className="mt-3">
+                <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.early.value}</span>
+                <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figHint, lineHeight: 1.5 }}>{prog.early.sub}</div>
+              </div>
+            </div>
           </div>
           <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-start justify-between">
