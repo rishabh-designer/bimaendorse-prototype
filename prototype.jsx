@@ -11794,15 +11794,20 @@ function PlQcrTab({ c, api, goTo }) {
             ))}
             {plUsableCount(c) === 0 && <div style={{ fontSize: 12, color: PL_T.ink3 }}>No quotes have been marked usable yet.</div>}
           </div>
-          {c.priority === "Urgent" && !met && (
+          {!met && plUsableCount(c) > 0 && (
             <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${PL_T.border}` }}>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>Release early on an urgent case</div>
-                  <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>Permitted below the threshold, but the reason is mandatory and stays on the record.</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>
+                    Create the QCR with {plUsableCount(c)} quote{plUsableCount(c) === 1 ? "" : "s"}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>
+                    The report will show {plUsableCount(c)} column{plUsableCount(c) === 1 ? "" : "s"} instead of {PL_THRESHOLD}. A reason is
+                    required and stays on the record.
+                  </div>
                 </div>
-                <PlBtn variant="default" disabled={plUsableCount(c) === 0} icon={AlertTriangle} onClick={() => setEarly(true)}>
-                  Release with {plUsableCount(c)} quote{plUsableCount(c) === 1 ? "" : "s"}
+                <PlBtn variant="default" icon={AlertTriangle} onClick={() => setEarly(true)}>
+                  Create QCR with {plUsableCount(c)} quote{plUsableCount(c) === 1 ? "" : "s"}
                 </PlBtn>
               </div>
             </div>
@@ -12021,7 +12026,9 @@ const PL_EARLY_RELEASE_REASONS = ["RM has requested", "Client wants it fast"];
 function PlEarlyReleaseModal({ c, api, onClose }) {
   const [reason, setReason] = useState("");
   return (
-    <PlModal title="Release below the usual threshold" subtitle={`${c.id} · ${plUsableCount(c)} usable quote(s)`} onClose={onClose}
+    <PlModal title={`Create QCR with ${plUsableCount(c)} quote${plUsableCount(c) === 1 ? "" : "s"}`}
+      subtitle={`${c.id} · fewer than ${PL_THRESHOLD} usable quotes on the current RFQ`}
+      onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
         <PlBtn variant="primary" disabled={!reason} icon={ArrowRight}
           onClick={() => { api.startDraftQcr(c.id, reason); api.say("Draft QCR created with the reason recorded"); onClose(); }}>
