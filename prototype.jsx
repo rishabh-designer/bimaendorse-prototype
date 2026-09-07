@@ -7456,6 +7456,7 @@ const PL_INSURERS = {
   star: { name: "Star Health", appetite: ["GMC", "GPA"], sectors: "SME, Retail, Healthcare", note: "Health-only market." },
   sompo: { name: "Universal Sompo", appetite: ["GMC", "GPA", "Fire", "Marine", "WC"], sectors: "Manufacturing, Logistics", note: "" },
   oriental: { name: "Oriental Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC"], sectors: "PSU, Heavy engineering", note: "Commercial lines only for this segment." },
+  united: { name: "United India Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC", "GPA"], sectors: "PSU, Manufacturing, Cooperatives", note: "Preferred market for PSU-linked SMEs; branch routing decides the desk." },
 };
 
 /* Insurer Contact Master - routing key is Insurer + Product + Geography/Branch.
@@ -7475,8 +7476,18 @@ const PL_CONTACTS = {
   star: { branch: "Chennai - Group Health", status: "Active", primary: "Lakshmi Narayanan", alternates: ["Lakshmi Narayanan"], senior: "K. Sundaram" },
   sompo: { branch: "Mumbai - Property", status: "Active", primary: "Manish Tandon", alternates: ["Manish Tandon"], senior: "Alok Ranjan" },
   oriental: { branch: "Delhi - RO 2", status: "Do Not Float", primary: "B. K. Saxena", alternates: ["B. K. Saxena"], senior: "R. P. Gupta" },
+  united: { branch: "Chennai - RO", status: "Active", primary: "P. Ravi Kumar", alternates: ["P. Ravi Kumar", "Anitha Rajan"], senior: "T. S. Narayanan" },
 };
 const plPocOf = (c, id) => (c.pocs && c.pocs[id]) || PL_CONTACTS[id].primary;
+/* Per-case branch model - see plan for PC-1034. `insurerBranches` names every
+   branch this case is authorised to route to; `branchPicks` records the PM's
+   selection. Both keys are optional; when absent the tab falls back to the
+   single-string default from PL_CONTACTS and renders the pre-existing plain
+   line. Isolated from every other case by construction. */
+const plBranchOf = (c, id) =>
+  (c.branchPicks && c.branchPicks[id])
+  || (c.insurerBranches && c.insurerBranches[id] && c.insurerBranches[id][0])
+  || (PL_CONTACTS[id] && PL_CONTACTS[id].branch);
 
 const PL_PRODUCTS = {
   GMC: "Group Medical Cover", GPA: "Group Personal Accident", GTL: "Group Term Life",
@@ -7545,6 +7556,14 @@ const PL_FIELDSETS = {
     plQf("territory", "Territory & jurisdiction", p.territory, { required: true, page: "p.2" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
     plQf("exclusions", "Key exclusions", p.exclusions, { page: "p.4" }),
+  ],
+  WC: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("wageRoll", "Estimated annual wage roll", p.wageRoll, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("headcount", "Headcount covered", p.headcount, { required: true, page: "p.2" }),
+    plQf("scope", "Cover scope", p.scope, { required: true, page: "p.2" }),
+    plQf("occupational", "Occupational disease extension", p.occupational, { page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
 };
 
@@ -8119,6 +8138,64 @@ const PL_SEED_C = [
       plAu("01 Sep, 11:21", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
     ],
   },
+  /* 11 ── PSU panel with per-branch routing. Only PSU insurers (Oriental,
+     New India, United) are in appetite; each is authorised at multiple
+     branches so the PM can route to the desk that owns the geography. */
+  {
+    id: "PC-1034", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
+    client: { name: "Karnataka Fluid Systems Pvt Ltd", industry: "Industrial engineering - hydraulic assemblies", city: "Bengaluru, KA", headcount: 285, turnover: "₹92 Cr", spoc: "Suresh Ramakrishna, Plant Head", rm: "Praveen Kulkarni" },
+    products: ["Fire", "WC"], receivedAt: "02 Sep, 09:45", renewal: "20 Nov 2026", activeRfq: 1,
+    rfqs: [{
+      v: 1, status: "in_review", createdAt: "02 Sep, 09:45",
+      sections: [
+        { product: "Fire", si: "₹42 Cr total sum insured", detail: [
+          ["Occupancy", "Machine-shop + finished-goods godown, Peenya Industrial Area"],
+          ["Building basis", "Reinstatement value ₹18 Cr"],
+          ["Plant & machinery", "₹22 Cr (hydraulic presses, CNC lathes)"],
+          ["Stock", "₹2 Cr average FG stock"],
+          ["Claims history", "Nil in last 5 years"],
+        ] },
+        { product: "WC", si: "Statutory limits", detail: [
+          ["Headcount covered", "285 workmen (regular + contract)"],
+          ["Wage roll", "₹9.4 Cr per annum"],
+          ["Hazard category", "Cat III - light engineering"],
+          ["Claims history", "Two minor claims in last 3 years, closed"],
+        ] },
+      ],
+      classification: {
+        rmEntered: "Manufacture of fluid power equipment (NIC 2812)",
+        suggested: "Manufacture of fluid power equipment (NIC 2812)",
+        flagged: false, confirmed: null,
+        basis: ["Hydraulic assembly line at Peenya, Bengaluru.", "Contract labour in finishing bay flagged for WC premium loading."],
+        impact: "Classification is consistent. PSU insurers price on this NIC directly; no referral expected.",
+      },
+      missing: [],
+      rmThread: [],
+    }],
+    panel: { locked: false, selected: [], excluded: [] },
+    recommend: [
+      { id: "oriental", reasons: ["Preferred market for engineering-sector Fire risks in the Karnataka belt.", "Koramangala branch owns the Peenya cluster; competitive on WC pricing."] },
+      { id: "nia",      reasons: ["Writes large Fire + WC schemes for PSU-linked SMEs.", "Bengaluru Corporate desk has the local surveyor panel."] },
+      { id: "united",   reasons: ["Standard PSU wordings, competitive on Fire for machine-shop occupancy.", "Koramangala branch offers a single POC for both Fire and WC."] },
+    ],
+    notRecommended: [
+      { id: "digit",   reasons: ["Digital-first SME market; no dedicated PSU-Fire desk for this occupancy."] },
+    ],
+    /* PC-1034 only: each PSU insurer here is authorised at multiple branches;
+       the picker in PlInsurersTab lets the PM choose which desk to float to. */
+    insurerBranches: {
+      oriental: ["Koramangala Branch", "Indore Branch", "Ahmedabad Branch"],
+      nia:      ["Bengaluru Corporate", "Bandra Corporate", "Chennai RO"],
+      united:   ["Koramangala Branch", "Mysuru Branch", "Hyderabad Branch"],
+    },
+    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    tasks: [{ id: "t1", label: "Confirm classification, then pick a branch per PSU insurer and float", due: "Today", owner: "You", done: false }],
+    audit: [
+      plAu("02 Sep, 09:45", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections · web form"),
+      plAu("02 Sep, 09:46", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("02 Sep, 09:46", "System", "System", "RFQ extraction complete", "All mandatory Fire + WC fields present · classification consistent"),
+    ],
+  },
 ];
 
 /* Case type, mandates and Target Premium (decision support only).
@@ -8133,6 +8210,7 @@ const PL_CASE_META = {
   "PC-1030": { slaLeftMins: null, caseType: "Fresh", urgency: "High", targetPremium: 1800000, mandate: null, incumbent: null },
   "PC-1032": { slaLeftMins: 55, caseType: "Fresh", urgency: "Medium", targetPremium: 2900000, mandate: null, incumbent: null },
   "PC-1033": { slaLeftMins: 48, caseType: "Fresh", urgency: "Medium", targetPremium: 450000, mandate: null, incumbent: null },
+  "PC-1034": { slaLeftMins: 92, caseType: "Fresh", urgency: "Medium", targetPremium: 480000, mandate: null, incumbent: null },
   "PC-1031": { slaLeftMins: null, caseType: "Fresh", urgency: "Medium", targetPremium: 3600000, mandate: { type: "Exclusive Placement Mandate", ref: "MND-1031-E", note: "RM + Placement jointly approved the selected option." }, incumbent: null },
 };
 
@@ -8513,6 +8591,10 @@ function makePlacementApi(setCases, say = () => {}) {
     setPoc: (id, insurerId, poc) => patch(id, (c) => withLog(
       { ...c, pocs: { ...(c.pocs || {}), [insurerId]: poc } },
       PL_ME.name, "PM", "Insurer contact changed", `${PL_INSURERS[insurerId].name} → ${poc}`)),
+
+    setBranch: (id, insurerId, branch) => patch(id, (c) => withLog(
+      { ...c, branchPicks: { ...(c.branchPicks || {}), [insurerId]: branch } },
+      PL_ME.name, "PM", "Insurer branch changed", `${PL_INSURERS[insurerId].name} → ${branch}`)),
 
     logCall: (id, insurerId) => patch(id, (c) => {
       const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
@@ -10841,7 +10923,9 @@ function PlInsurersTab({ c, api }) {
                 <div className="mt-1">
                   <PlSelect value={plPocOf(c, r.id)} onChange={(v) => api.setPoc(c.id, r.id, v)} options={PL_CONTACTS[r.id].alternates} />
                 </div>
-                <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{PL_CONTACTS[r.id].branch}</div>
+                {(c.insurerBranches?.[r.id]?.length || 0) > 1
+                  ? <div className="mt-1"><PlMenuPicker value={plBranchOf(c, r.id)} onChange={(v) => api.setBranch(c.id, r.id, v)} options={c.insurerBranches[r.id]} width={168} /></div>
+                  : <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{plBranchOf(c, r.id)}</div>}
               </div>
             </div>
           );
@@ -10861,7 +10945,9 @@ function PlInsurersTab({ c, api }) {
               <div className="mt-1">
                 <PlSelect value={plPocOf(c, id)} onChange={(v) => api.setPoc(c.id, id, v)} options={PL_CONTACTS[id].alternates} />
               </div>
-              <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{PL_CONTACTS[id].branch}</div>
+              {(c.insurerBranches?.[id]?.length || 0) > 1
+                ? <div className="mt-1"><PlMenuPicker value={plBranchOf(c, id)} onChange={(v) => api.setBranch(c.id, id, v)} options={c.insurerBranches[id]} width={168} /></div>
+                : <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{plBranchOf(c, id)}</div>}
             </div>
           </div>
         ))}
