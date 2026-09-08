@@ -3110,12 +3110,12 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const sends = sendsOf(t);
   const qcDone = !!t.qcPassed;
   const openQ = queries.filter((q) => q.status === "open");
-  /* A captured value or document can be challenged with the client only while
-     the desk still holds the ticket - i.e. before it is submitted to the insurer.
-     Once it goes to the insurer the intake is locked, so the Query controls
-     disappear. A query routes it to Awaiting Customer Information and returns to
-     the prior stage once answered. */
-  const canAsk = !readOnly(t) && !atOrPast(t, "Submitted to Insurer");
+  /* Ask Client is available at every open stage — the SM may need to reach
+     the client for a missing detail, a document, or a clarification long
+     after the ticket has gone to the insurer. A query routes it to Awaiting
+     Customer Information and returns to the prior stage once answered.
+     Only closed / terminal tickets lock it out. */
+  const canAsk = !readOnly(t);
   const rem = remindersOf(t);
   const payLeft = t.payLink ? t.payLink.expiresIn - (t.stage === "Awaiting Payment" ? t.inStage : 0) : 0;
   const payExpired = !!t.payLink && payLeft <= 0;
@@ -3506,7 +3506,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
               </div>
               <div className="mt-auto flex justify-end pt-1">
                 <Btn size="xs" onClick={() => setAsk({ kind: "new", target: null })} disabled={!canAsk}
-                  title={canAsk ? "Raise a query with the client" : "Intake can only be queried before the ticket goes to the insurer"}>
+                  title={canAsk ? "Raise a query with the client" : "The ticket is closed — no more queries can be raised"}>
                   Ask Client
                 </Btn>
               </div>
