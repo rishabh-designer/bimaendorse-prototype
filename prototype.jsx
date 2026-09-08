@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle, Inbox, Clock, CheckCircle2, ChevronRight, ChevronDown, ArrowLeft,
@@ -2957,13 +2957,13 @@ function TabBar({ tabs, tab, setTab }) {
 
 /* The work panel: a scrolling body between a fixed top edge and a footer
    strip that carries this tab's actions. */
-function PanelCard({ children, footer }) {
+function PanelCard({ children, footer, footerRef }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden"
       style={{ background: C.white, border: `1px solid ${C.brand200}`, borderRadius: 12 }}>
       <div className="scroll-slim min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       {footer && (
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 p-3"
+        <div ref={footerRef} className="flex shrink-0 flex-wrap items-center justify-between gap-3 p-3"
           style={{ background: C.canvas, borderTop: `1px solid ${C.subtle}` }}>{footer}</div>
       )}
     </div>
@@ -3087,6 +3087,17 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const [stagesOpen, setStagesOpen] = useState(false);
   const [updatingQuote, setUpdatingQuote] = useState(false);
   const [quoteHistOpen, setQuoteHistOpen] = useState(false);
+  /* Ref on the panel footer so the "Go there" nudge can scroll the primary
+     stage action into view after switching to Overview. */
+  const actionFooterRef = useRef(null);
+  const goToNextAction = () => {
+    setTab("overview");
+    requestAnimationFrame(() => {
+      const el = actionFooterRef.current; if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "end" });
+      const btn = el.querySelector("button:not([disabled])"); if (btn) btn.focus({ preventScroll: true });
+    });
+  };
   const st = stageOf(t.stage);
   const s = clock(t);
   const docs = useMemo(() => docsOf(t), [t]);
@@ -3244,13 +3255,37 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
         <div className="scroll-slim flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
           style={{ flex: "0 0 340px", minWidth: 300, paddingTop: 40 }}>
           <SlaCard t={t} />
+          {/* Next Action nudge — mirrors the PlacementApp NEXT ACTION card.
+              Shortcut that switches to Overview and scrolls the primary
+              stage action into view. */}
+          {!readOnly(t) && (advLabel || simulate) && (
+            <div className="rounded-xl border p-4" style={{ background: "#FDF2E1", borderColor: "#F2DBBE" }}>
+              <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
+              <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 600, color: C.figInk, lineHeight: 1.35 }}>
+                {advLabel || simulate.label}
+              </div>
+              <button onClick={goToNextAction}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2"
+                style={{ background: C.brand, color: C.white, borderColor: C.brand, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                <ArrowRight size={12} /> Go there
+              </button>
+            </div>
+          )}
+          {!readOnly(t) && !advLabel && !simulate && (
+            <div className="rounded-xl border p-4" style={{ background: C.canvas, borderColor: C.subtle }}>
+              <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
+              <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figHint, lineHeight: 1.35 }}>
+                Waiting on {st.owner || "the counterparty"} — nothing on your desk right now.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* right - the Action Panel: tabs of work over one persistent footer */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TabBar tabs={TABS_T} tab={live} setTab={setTab} />
 
-          <PanelCard footer={panelFooter}>
+          <PanelCard footer={panelFooter} footerRef={actionFooterRef}>
             {live === "overview" && (
               <div className="space-y-5">
                 <SectionTitle right={<span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Ticket Age: <span className="bk-num" style={{ color: C.figInk }}>{fmtAge(t)}</span></span>}>Ticket Workflow</SectionTitle>
