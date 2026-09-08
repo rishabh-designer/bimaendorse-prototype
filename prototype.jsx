@@ -2456,7 +2456,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
           <span style={dueCell}>
             <HeaderFilter id="slice" label="Stage due" options={SLICE_OPTS} selected={slice} setSelected={setSlice} right {...hf} />
           </span>
-          {scope === "team" && <span style={cell(COLS.team, head)}>Teammate</span>}
+          {scope === "team" && <span style={cell(COLS.team, head)}>Owner</span>}
         </div>
         {view.length
           ? view.map((t, i) => <TableRow key={t.id} t={t} i={i} last={i === view.length - 1} onOpen={openTicket} showOwner={scope === "team"} />)
@@ -3909,8 +3909,8 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
     { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24 },
     { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22 },
     /* Team-scope viewers (Umesh looking at his team's tickets) get an extra
-       chip naming the servicing executive who owns this one. */
-    ...(scope === "team" ? [{ text: `Servicing Executive: ${t.owner}`, icon: User }] : []),
+       chip naming who owns this ticket. */
+    ...(scope === "team" ? [{ text: `Owner: ${t.owner}`, icon: User }] : []),
   ];
 
   /* Row chrome shared by Captured at intake and the Document Vault. */
