@@ -594,9 +594,10 @@ const SEED = [
       { id: "IQ-2", at: 0.6, question: "Also share the authorised signatory's Voter ID for KYC on the enhanced limit.", doc: "Voter ID", status: "pending" },
     ] },
   /* Refund case seeded from knowledge.centre-refund.endorsement — Return-Premium
-     classification, one calendar hour into Under Verification so its 4 BH clock
-     reads ~3 Hrs left. Persists across restarts because it lives in the seed. */
-  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Return-Premium", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 1, lastAction: 1, touched: false, legs: [{ s: "New / Unassigned", h: 0.2 }], missing: [] },
+     classification, sitting in Copy Received so the Refund & Payment tab is
+     immediately actionable (the tab is gated on Copy Received or later).
+     Persists across restarts because it lives in the seed. */
+  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Return-Premium", priority: "High", stage: "Copy Received", owner: "Nanditha P", inStage: 0.3, lastAction: 0.3, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 40 }], missing: [] },
 ];
 
 const SEED_MAILS = [
@@ -3112,9 +3113,10 @@ function TabBar({ tabs, tab, setTab }) {
       <div className="ml-auto flex items-center gap-1">
       {tabs.map(([k, label, off, dot]) => {
         const on = tab === k;
+        const offTip = typeof off === "string" ? off : off ? "Nothing to manage on a closed ticket" : undefined;
         return (
-          <button key={k} disabled={off} onClick={off ? undefined : () => setTab(k)}
-            title={off ? "Nothing to manage on a closed ticket" : undefined}
+          <button key={k} disabled={!!off} onClick={off ? undefined : () => setTab(k)}
+            title={offTip}
             className={`flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors ${!on && !off ? "bk-tab" : ""}`}
             style={{ background: on ? "rgba(65,0,207,0.08)" : "transparent",
               borderBottom: `2px solid ${on ? C.brand : "transparent"}`,
@@ -3486,6 +3488,57 @@ function RefundPanel({ t, onRefund, setPreview }) {
   );
 }
 
+/* Right-hand drawer for picking a document to attach to an insurer reply.
+   Sources from docsOf(t) so the list mirrors the ticket's Document Vault.
+   When the required item isn't on file, the SM drops into the "Ask client"
+   flow from a secondary button below the list. */
+function DocPickerDrawer({ t, onPick, onAskClient, onClose }) {
+  const docs = docsOf(t).filter((d) => d.status !== "Awaiting");
+  return createPortal(
+    <div className="bk-scrim fixed inset-0" style={{ zIndex: 60, background: "rgba(28,29,31,0.45)", fontFamily: FONT }} onClick={onClose}>
+      <div className="fixed right-0 top-0 flex h-full flex-col bk-modal"
+        style={{ width: 420, background: C.white, boxShadow: "-8px 0 32px rgba(0,0,0,0.16)" }}
+        onClick={(e) => e.stopPropagation()}>
+        <header className="flex items-start gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${C.subtle}` }}>
+          <div className="min-w-0 flex-1">
+            <div style={{ fontSize: 16, fontWeight: 600, color: C.brand }}>Choose a document</div>
+            <div className="mt-0.5" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.45, color: C.figTert }}>Attach one that's already on this ticket.</div>
+          </div>
+          <button onClick={onClose} title="Close" className="bk-iconctrl flex shrink-0 items-center justify-center"
+            style={{ width: 28, height: 28, borderRadius: 8, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}><X size={18} /></button>
+        </header>
+        <div className="scroll-slim min-h-0 flex-1 overflow-y-auto p-3">
+          {docs.length ? (
+            <div className="flex flex-col gap-1">
+              {docs.map((d, i) => (
+                <button key={i} onClick={() => onPick(d)}
+                  className="bk-opt flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
+                  style={{ background: "transparent" }}>
+                  <span className="flex shrink-0 items-center justify-center"
+                    style={{ width: 32, height: 32, borderRadius: 8, background: C.cream, border: "0.5px solid #FFD2A8" }}>
+                    <FileText size={16} style={{ color: C.brand }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{d.name}</div>
+                    <div className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{d.kind} · {d.size} · {d.status}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Empty>No documents on this ticket yet.</Empty>
+          )}
+        </div>
+        <footer className="px-5 py-4" style={{ background: C.canvas, borderTop: `1px solid ${C.subtle}` }}>
+          <div className="mb-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Not in the list? Turn this into a client-side request.</div>
+          <Btn size="xs" variant="outline" onClick={onAskClient}>Ask client for this document</Btn>
+        </footer>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* Insurer's mid-flight questions in the Client Channel. Surfaced by the
    BimaEndorse Bot on the insurer's behalf and rendered with the insurer's
    wordmark so the SM sees at a glance who's asking. Two response paths:
@@ -3496,6 +3549,9 @@ function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
   const list = t.insurerQueries || [];
   const [drafting, setDrafting] = useState(null); // iqid being answered
   const [draft, setDraft] = useState("");
+  const [attached, setAttached] = useState(null); // { name, file, size, kind } chosen from drawer
+  const [pickerFor, setPickerFor] = useState(null); // iqid the drawer belongs to
+  const resetDraft = () => { setDrafting(null); setDraft(""); setAttached(null); setPickerFor(null); };
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2" style={{ fontSize: 13, fontWeight: 600, color: C.figTert }}>
@@ -3556,15 +3612,44 @@ function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
                 <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2}
                   placeholder={`What should ${t.insurer} see? Attach or paraphrase the detail on file.`}
                   className="w-full resize-none" style={{ ...FIELD, fontSize: 13.5 }} />
-                <div className="flex justify-end gap-2">
-                  <Btn size="xs" variant="outline" onClick={() => { setDrafting(null); setDraft(""); }}>Cancel</Btn>
-                  <Btn size="xs" disabled={!draft.trim()} onClick={() => { onAnswer(q.id, draft.trim()); setDrafting(null); setDraft(""); }}>Send to insurer</Btn>
+                {attached && (
+                  <div className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    style={{ background: C.brandBg, border: `0.5px solid ${C.brand200}` }}>
+                    <Paperclip size={13} style={{ color: C.brand }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate" style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{attached.name}</div>
+                      <div className="truncate" style={{ fontSize: 12, color: C.figTert }}>{attached.file} · {attached.size}</div>
+                    </div>
+                    <button onClick={() => setAttached(null)} className="bk-iconctrl flex items-center justify-center shrink-0"
+                      style={{ width: 22, height: 22, borderRadius: 6, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Btn size="xs" variant="outline" onClick={() => setPickerFor(q.id)}>
+                    {attached ? "Change document" : "Choose document"}
+                  </Btn>
+                  <div className="flex gap-2">
+                    <Btn size="xs" variant="outline" onClick={resetDraft}>Cancel</Btn>
+                    <Btn size="xs" disabled={!draft.trim() && !attached}
+                      onClick={() => {
+                        const answer = attached ? `${draft.trim() || "Attached the requested document from our records."} [Attached: ${attached.name}]` : draft.trim();
+                        onAnswer(q.id, answer); resetDraft();
+                      }}>Send to insurer</Btn>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         );
       })}
+      {pickerFor && (
+        <DocPickerDrawer t={t}
+          onClose={() => setPickerFor(null)}
+          onPick={(d) => { setAttached(d); setPickerFor(null); }}
+          onAskClient={() => { const iq = pickerFor; setPickerFor(null); resetDraft(); onForward(iq); }} />
+      )}
     </div>
   );
 }
@@ -3672,7 +3757,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     ["mail", "Mail Trail", false, !!un.mail],
     ["trail", "Ticket History", false, !!un.trail],
     ...(t.kind === "Financial" ? [["payment", "Premium & Payment", false, !!un.payment]] : []),
-    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", false, !!un.refund]] : []),
+    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", !!un.refund]] : []),
     ["manage", "Manage Ticket", readOnly(t), !!un.manage],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
