@@ -1759,7 +1759,7 @@ function RangePills({ value, onChange }) {
 
 /* Home - the desk (six count-cards that route into My Tickets) over a progress
    dashboard. Home and My Tickets are separate pages again (Figma 1197:73447). */
-function Home({ tickets, scope, setScope, go, user }) {
+function Home({ tickets, scope, setScope, go, openTicket, user }) {
   const [range, setRange] = useState("Last Week");
   const desk = tickets.filter((t) => !isRouting(t) && (scope === "mine" ? t.owner === "Nanditha P" : true));
   const open = desk.filter(isOpen);
@@ -1872,10 +1872,11 @@ function Home({ tickets, scope, setScope, go, user }) {
         )
       } />
 
-      {/* Your Desk - five count-cards; each routes into My Tickets pre-filtered. */}
+      {/* Your Desk - five count-cards; each routes into My Tickets pre-filtered.
+          Copy flips when Umesh is on the Team tab. */}
       <div>
         <div className="mb-4 flex items-center gap-3">
-          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Desk" : "Your Desk"}</h2>
         </div>
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {cards.map((c, i) => (
@@ -1885,13 +1886,75 @@ function Home({ tickets, scope, setScope, go, user }) {
         </div>
       </div>
 
+      {/* Escalated to You - mirrors the BimaClaim Head view. Only rendered on
+          the Team tab; lists open tickets whose follow-up cadence has hit its
+          top rung (the SM's escalation ladder has fired every rung). */}
+      {scope === "team" && (() => {
+        const esc = open
+          .filter((t) => remindersOf(t).escalated)
+          .sort((a, b) => (breached(b) ? 1 : 0) - (breached(a) ? 1 : 0));
+        return (
+          <>
+            <div style={{ height: 1, background: C.subtle }} aria-hidden />
+            <div>
+              <h2 className="mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
+              <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+                <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+                  <span className="flex-1">Ticket</span>
+                  <span className="hidden w-24 md:block">Owner</span>
+                  <span className="hidden w-28 sm:block">Owed by</span>
+                  <span className="w-24">Reminders</span>
+                  <span className="w-24 text-right">Stage due</span>
+                </div>
+                {esc.length === 0 ? (
+                  <div className="px-4 py-6 text-center" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>Nothing escalated to you right now.</div>
+                ) : esc.map((t) => {
+                  const rem = remindersOf(t);
+                  const c = clock(t);
+                  const over = breached(t);
+                  const owe = awaitingInsurer(t) ? "Insurer" : onHold(t) ? "Customer" : "Us";
+                  return (
+                    <button key={t.id} onClick={() => openTicket && openTicket(t.id)}
+                      className="bk-item flex w-full items-center gap-3 px-3 py-3 text-left"
+                      style={{ borderBottom: `0.5px solid ${C.lineSoft}`, cursor: "pointer" }}>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="flex items-center gap-2">
+                          <span className="bk-num" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
+                          <Indicator label="Escalated" ind="error" outline />
+                        </span>
+                        <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.stage} · {t.client}</span>
+                      </span>
+                      <span className="hidden w-24 shrink-0 md:block truncate" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{t.owner}</span>
+                      <span className="hidden w-28 shrink-0 sm:flex">
+                        <Indicator label={owe || "-"} ind={owe === "Insurer" ? "caution" : owe === "Customer" ? "info" : owe === "Operations" ? "brand" : "muted"} outline />
+                      </span>
+                      <span className="w-24 shrink-0">
+                        <span className="bk-num" style={{ fontSize: 13, fontWeight: 600, color: rem.fired.length ? C.semError : C.figHint }}>
+                          {rem.fired.length} of {rem.max || 3}
+                        </span>
+                      </span>
+                      <span className="w-24 shrink-0 text-right bk-num" style={{ fontSize: 12, fontWeight: 500, color: over ? C.semError : C.figHint }}>
+                        {over ? `${c.label} over` : `${c.label} left`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
+                Escalation fires when a stage's reminder cadence has hit its top rung. The claim keeps its owner; the escalation is a nudge to you.
+              </p>
+            </div>
+          </>
+        );
+      })()}
+
       <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
       {/* Your Progress - two metric cards over an SLA time-distribution donut.
           Switching the range morphs the whole block (fade + slide, keyed on range). */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Progress" : "Your Progress"}</h2>
           <RangePills value={range} onChange={setRange} />
         </div>
         <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -8457,7 +8520,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
           <div key={view + (openId || "")} className="bk-route flex min-h-0 flex-1 flex-col px-6">
             <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
               {/* Home - the desk and the progress dashboard. Its cards route into My Tickets. */}
-              {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
+              {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
               {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
