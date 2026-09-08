@@ -3956,10 +3956,10 @@ function Review({ mails, tickets = [], onClaim, onAssign }) {
                   ) : <span style={{ fontSize: 14, fontWeight: 500, color: C.figTert }}>-</span>}
                 </span>
                 <span style={cell(MR_COLS.action)}>
-                  <button onClick={(e) => { e.stopPropagation(); onClaim(m.id); }}
+                  <button onClick={(e) => { e.stopPropagation(); setOpen(m); }}
                     className="bk-btn bk-btn-secondary inline-flex items-center gap-2 rounded-lg border px-3.5 py-2.5"
                     style={{ background: C.white, borderColor: C.subtle, fontSize: 12, fontWeight: 600, color: C.figInk }}>
-                    Create Ticket <ArrowRight size={12} />
+                    Take Action <ArrowRight size={12} />
                   </button>
                 </span>
               </div>
