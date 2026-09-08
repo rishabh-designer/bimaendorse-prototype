@@ -2933,7 +2933,8 @@ const StageCheck = ({ state }) => {
 const PHASES = [
   { label: "Ticket Intake",  stages: ["New / Unassigned"] },
   { label: "Verification",   stages: ["Under Verification"] },
-  { label: "Insurer",        stages: ["Submitted to Insurer", "Awaiting Quote", "Awaiting Refund Details"] },
+  { label: "Insurer",        stages: ["Submitted to Insurer", "Awaiting Quote"] },
+  { label: "Refund",         stages: ["Awaiting Refund Details"] },
   { label: "Payment",        stages: ["Awaiting Payment Link", "Awaiting Payment"] },
   { label: "Ticket Closure", stages: ["Awaiting Endorsement Copy", "Copy Received", "Closed"] },
 ];
