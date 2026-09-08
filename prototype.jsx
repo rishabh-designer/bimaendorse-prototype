@@ -3878,6 +3878,23 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       ? { label: `Simulate ${t.insurer} sending the copy`, run: () => onAttachCopy(t.id, {}) }
     : t.stage === "Awaiting Payment Link"
       ? { label: `Simulate the link arriving ${t.payMode === "Portal" ? `from ${t.childTicket}` : "in the insurer's mail"}`, run: () => onReceiveLink(t.id) }
+    : isRefund(t) && t.stage === "Awaiting Refund Details" && !t.refund?.amount
+      ? { label: `Simulate ${t.insurer} confirming the refund`, run: () => onRefund(t.id,
+          { amount: 18450, insurerRef: "ICL-END-99213", confirmedOn: "5 Sep 2026", insurerAt: 0 },
+          null, "Insurer confirmed refund of ₹18,450 (ref ICL-END-99213).") }
+    : isRefund(t) && t.stage === "Awaiting Refund Details" && t.refund?.amount && !t.refund?.clientAccept
+      ? { label: "Simulate: Client accepts the refund", run: () => {
+          onRefund(t.id, { clientAccept: true, consentAt: 0 }, null,
+            `${t.client} accepted the refund. Insurer notified to process payment.`);
+          onAdvance(t.id, "Client consent recorded — awaiting endorsement copy.");
+        } }
+    : isRefund(t) && t.stage === "Awaiting Endorsement Copy"
+      ? { label: `Simulate ${t.insurer} sending UTR + copy`, run: () => {
+          onRefund(t.id, { utr: "HDFC260908A991", paymentDate: "8 Sep 2026",
+            endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`, paidAt: 0 },
+            null, "Insurer credited the refund and shared UTR + endorsement copy.");
+          onAdvance(t.id, "Refund credited and endorsement copy received.");
+        } }
     : isRefund(t) && t.stage === "Copy Received" && qcDone
       ? { label: "Simulate: Client Confirms", run: () => {
           onRefund(t.id, { clientConfirmed: true, confirmedAt: 0 }, null, `${t.client} confirmed receipt. Ticket closed.`);
