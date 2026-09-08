@@ -3923,6 +3923,32 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   </>
                 )}
 
+                {/* Awaiting-payment ball is with the customer on BimaKendra —
+                    demo controls stand in for the two things they can do. */}
+                {t.stage === "Awaiting Payment" && t.payLink && !t.payment && !readOnly(t) && (
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <div className="rounded-xl p-4" style={{ background: C.brandBg, border: `1.5px dashed ${C.brand}` }}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Simulate client on BimaKendra</span>
+                        <span className="flex-1" />
+                        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>ticket auto-updates when the client acts on the portal</span>
+                      </div>
+                      <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+                        The link is with {t.client} on the BimaKendra portal. Acceptance advances to Awaiting Endorsement Copy; rejection closes the ticket as Customer Withdrawn.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <SimBtn onClick={() => onAdvance(t.id, "Client accepted and paid on BimaKendra")} title="Demo control - client accepts and pays on the portal">
+                          Simulate Client Acceptance
+                        </SimBtn>
+                        <Btn variant="secondary" size="sm" tone={C.semError} onClick={() => onWithdraw(t.id, { reason: "Client rejected the payment on the BimaKendra portal.", file: `client-rejection-${t.id.toLowerCase()}.txt` })}>
+                          Simulate Client Rejection
+                        </Btn>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {/* M6 FR-075 / FR-157 - proof and the revert path */}
                 {t.payment && (
                   <>
