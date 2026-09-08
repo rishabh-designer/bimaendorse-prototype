@@ -587,7 +587,12 @@ const SEED = [
     quote: { base: 15200, gst: 2736, total: 17936, file: "quote_GMC_2026_00390.pdf", version: 1, at: 18, source: "bot", confidence: 0.96 },
     payMode: "Email", payLink: { ref: "PL-1065-1", at: 17, expiresIn: 48, source: "bot-email", by: "Mail bot", confidence: 0.97, regens: [] },
     payment: { mode: "NEFT", utr: "UTR106588421903", date: "Fri 21 Aug, 3:40 PM", file: "payment_proof_nimbuseng.pdf", at: 6 } },
-  { id: "END-1066", client: "Everest Packaging Ltd", short: "everestpack", policy: "FIRE/2026/01034", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 2.4, lastAction: 2.4, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 1.2 }], missing: [] },
+  { id: "END-1066", client: "Everest Packaging Ltd", short: "everestpack", policy: "FIRE/2026/01034", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 2.4, lastAction: 2.4, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 1.2 }], missing: [],
+    unread: { queries: true },
+    insurerQueries: [
+      { id: "IQ-1", at: 0.5, question: "Please share the client's current GST certificate to process the sum-insured enhancement.", doc: "GST certificate", status: "pending" },
+      { id: "IQ-2", at: 0.6, question: "Also share the authorised signatory's Voter ID for KYC on the enhanced limit.", doc: "Voter ID", status: "pending" },
+    ] },
   /* Refund case seeded from knowledge.centre-refund.endorsement — Return-Premium
      classification, one calendar hour into Under Verification so its 4 BH clock
      reads ~3 Hrs left. Persists across restarts because it lives in the seed. */
@@ -3100,15 +3105,17 @@ const insurerCycles = (t) =>
 function TabBar({ tabs, tab, setTab }) {
   return (
     /* Right-aligned when they fit; when they do not, `ml-auto` collapses to zero
-       and the row scrolls from the left, so the active tab is never hidden. */
+       and the row scrolls from the left, so the active tab is never hidden.
+       A `dot` truthy on the tab tuple renders an unread indicator before the
+       label — cleared by the parent when the tab is opened. */
     <div className="scroll-slim flex min-w-0 overflow-x-auto px-3">
       <div className="ml-auto flex items-center gap-1">
-      {tabs.map(([k, label, off]) => {
+      {tabs.map(([k, label, off, dot]) => {
         const on = tab === k;
         return (
           <button key={k} disabled={off} onClick={off ? undefined : () => setTab(k)}
             title={off ? "Nothing to manage on a closed ticket" : undefined}
-            className={`flex h-10 shrink-0 items-center justify-center whitespace-nowrap transition-colors ${!on && !off ? "bk-tab" : ""}`}
+            className={`flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors ${!on && !off ? "bk-tab" : ""}`}
             style={{ background: on ? "rgba(65,0,207,0.08)" : "transparent",
               borderBottom: `2px solid ${on ? C.brand : "transparent"}`,
               borderTopLeftRadius: 8, borderTopRightRadius: 8,
@@ -3117,6 +3124,9 @@ function TabBar({ tabs, tab, setTab }) {
               fontSize: 14, fontWeight: 500,
               color: off ? C.figDisabled : on ? C.brand : C.figInk,
               cursor: off ? "not-allowed" : "pointer" }}>
+            {dot && !on && (
+              <span className="shrink-0 rounded-full" style={{ width: 6, height: 6, background: C.semError }} />
+            )}
             {label}
           </button>
         );
@@ -3475,7 +3485,90 @@ function RefundPanel({ t, onRefund, setPreview }) {
   );
 }
 
-function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment, onRefund }) {
+/* Insurer's mid-flight questions in the Client Channel. Surfaced by the
+   BimaEndorse Bot on the insurer's behalf and rendered with the insurer's
+   wordmark so the SM sees at a glance who's asking. Two response paths:
+   answer directly (details on file) or forward to the client (details on
+   file only with the customer). */
+function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
+  const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
+  const list = t.insurerQueries || [];
+  const [drafting, setDrafting] = useState(null); // iqid being answered
+  const [draft, setDraft] = useState("");
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2" style={{ fontSize: 13, fontWeight: 600, color: C.figTert }}>
+        <ShieldCheck size={12} style={{ color: C.warn }} />
+        <span>Insurer requests · surfaced by BimaEndorse Bot</span>
+        <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">{list.filter((q) => q.status === "pending" || q.status === "forwarded_to_client").length} open</MiniTag>
+      </div>
+      {list.map((q) => {
+        const pend = q.status === "pending";
+        const fwd = q.status === "forwarded_to_client";
+        const sm = q.status === "answered_by_sm";
+        const closed = q.status === "closed";
+        const tint = pend ? { tone: C.warn, bg: C.warnSoft, line: "#FFD2A8" }
+          : fwd ? { tone: C.wait, bg: C.waitSoft, line: C.waitSoft }
+          : { ...OK };
+        const label = pend ? "Awaiting SM"
+          : fwd ? "Forwarded to client"
+          : sm ? "Answered by SM"
+          : "Closed";
+        return (
+          <div key={q.id} className="rounded-xl" style={{ background: C.canvas, border: `0.5px solid ${C.subtle}`, padding: 12 }}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                  <MiniTag {...tint}>{label}</MiniTag>
+                  <MiniTag>Asked by insurer</MiniTag>
+                  {q.doc && <MiniTag>{q.doc}</MiniTag>}
+                </div>
+                <div className="flex items-center gap-2">
+                  {INSURER_LOGO[t.insurer]
+                    ? <img src={INSURER_LOGO[t.insurer]} alt="" className="shrink-0" style={{ height: 16, width: "auto" }} />
+                    : <ShieldCheck size={14} style={{ color: C.figHint }} />}
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{t.insurer}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>· asked {fmtAgo(q.at)}</span>
+                </div>
+                <div className="mt-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{q.question}</div>
+                {q.answer && (
+                  <div className="mt-2 pl-3" style={{ borderLeft: `2px solid ${C.brand200}` }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>Sent to {t.insurer} by {t.owner} · {fmtAgo(q.answeredAt)}</div>
+                    <div className="mt-0.5" style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{q.answer}</div>
+                  </div>
+                )}
+                {fwd && (
+                  <div className="mt-2" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>
+                    Passed to {t.client} on the portal. Their response returns here and can then go to {t.insurer}.
+                  </div>
+                )}
+              </div>
+              {pend && drafting !== q.id && (
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <Btn size="xs" onClick={() => { setDrafting(q.id); setDraft(q.doc === "GST certificate" ? "Attached the client's GST certificate from our records." : ""); }}>Answer &amp; send to insurer</Btn>
+                  <Btn size="xs" variant="outline" onClick={() => onForward(q.id)}>Ask client for this</Btn>
+                </div>
+              )}
+            </div>
+            {pend && drafting === q.id && (
+              <div className="mt-3 space-y-2">
+                <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2}
+                  placeholder={`What should ${t.insurer} see? Attach or paraphrase the detail on file.`}
+                  className="w-full resize-none" style={{ ...FIELD, fontSize: 13.5 }} />
+                <div className="flex justify-end gap-2">
+                  <Btn size="xs" variant="outline" onClick={() => { setDrafting(null); setDraft(""); }}>Cancel</Btn>
+                  <Btn size="xs" disabled={!draft.trim()} onClick={() => { onAnswer(q.id, draft.trim()); setDrafting(null); setDraft(""); }}>Send to insurer</Btn>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment, onRefund, onSeen, onInsurerQAnswer, onInsurerQForward }) {
   const [tab, setTab] = useState("overview");
   const [ask, setAsk] = useState(null);
   const [upload, setUpload] = useState(false);
@@ -3495,6 +3588,10 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
      mail trail is grouped by normalized subject (Re:/Fwd: stripped). */
   const [mailThread, setMailThread] = useState("all");
   useEffect(() => { setMailThread("all"); setMailQ(""); }, [t.id]);
+  /* Clear the tab's unread dot as soon as the SM opens it. Doing this in an
+     effect (rather than inside setTab) covers the initial-render case too —
+     landing on Overview counts as "seen". */
+  useEffect(() => { if (onSeen && (t.unread || {})[tab]) onSeen(t.id, tab); }, [t.id, tab, t.unread]);
   /* Ref on the panel footer so the "Go there" nudge can scroll the primary
      stage action into view after switching to Overview. */
   const actionFooterRef = useRef(null);
@@ -3562,16 +3659,20 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       ? { label: `Simulate the link arriving ${t.payMode === "Portal" ? `from ${t.childTicket}` : "in the insurer's mail"}`, run: () => onReceiveLink(t.id) }
     : null;
 
+  /* `dot` (4th tuple slot) lights an unread indicator on the tab. Any handler
+     that adds unaddressed work to a tab flips t.unread[tabKey]; opening the
+     tab clears it (see the useEffect below). */
+  const un = t.unread || {};
   const TABS_T = [
-    ["overview", "Overview"],
-    ["company", "Company Profile"],
-    ["docs", "Document Vault"],
-    ["queries", "Client Channel"],
-    ["mail", "Mail Trail"],
-    ["trail", "Ticket History"],
-    ...(t.kind === "Financial" ? [["payment", "Premium & Payment"]] : []),
-    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment"]] : []),
-    ["manage", "Manage Ticket", readOnly(t)],
+    ["overview", "Overview", false, !!un.overview],
+    ["company", "Company Profile", false, !!un.company],
+    ["docs", "Document Vault", false, !!un.docs],
+    ["queries", "Client Channel", false, !!un.queries],
+    ["mail", "Mail Trail", false, !!un.mail],
+    ["trail", "Ticket History", false, !!un.trail],
+    ...(t.kind === "Financial" ? [["payment", "Premium & Payment", false, !!un.payment]] : []),
+    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", false, !!un.refund]] : []),
+    ["manage", "Manage Ticket", readOnly(t), !!un.manage],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
 
@@ -3877,6 +3978,11 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                 <SectionTitle right={openQ.length > 0 ? <MiniTag tone={C.wait} bg={C.waitSoft} line={C.waitSoft}>{openQ.length} open</MiniTag> : null}>
                   Client Channel
                 </SectionTitle>
+                {(t.insurerQueries || []).length > 0 && (
+                  <InsurerQueries t={t} setPreview={setPreview}
+                    onAnswer={(iqid, answer) => onInsurerQAnswer(t.id, iqid, answer)}
+                    onForward={(iqid) => onInsurerQForward(t.id, iqid)} />
+                )}
                 {queries.length ? (
                   <div className="flex flex-col gap-1">
                     {queries.map((q) => (
@@ -8896,6 +9002,41 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Payment link regenerated and the customer notified.");
   };
 
+  /* Clear a tab's unread dot for one ticket. Called from Detail's tab-change
+     effect. Every setter that surfaces new tab-scoped work sets an unread flag
+     on t.unread[tabKey]; this clears it as soon as the SM opens the tab. */
+  const markSeen = (id, tabKey) => setTickets((ts) => ts.map((t) => {
+    if (t.id !== id) return t;
+    const un = t.unread || {};
+    if (!un[tabKey]) return t;
+    const next = { ...un }; delete next[tabKey];
+    return { ...t, unread: next };
+  }));
+
+  /* Insurer queries — the bot surfaces mid-flight requests from the insurer
+     (missing doc, missing detail) as pre-asked questions in the Client
+     Channel. The SM can either answer directly (details on file) or forward
+     to the client (details on file only with the customer). */
+  const answerInsurerQ = (id, iqid, answer) => setTickets((ts) => ts.map((t) => {
+    if (t.id !== id) return t;
+    const insurerQueries = (t.insurerQueries || []).map((q) => q.id === iqid
+      ? { ...q, status: "answered_by_sm", answer, answeredAt: 0 } : q);
+    const history = [...t.history, { text: `Responded to ${t.insurer} on: ${(t.insurerQueries || []).find((q) => q.id === iqid)?.doc || "requested detail"}`, by: t.owner, at: 0, note: answer }];
+    return { ...t, insurerQueries, history, lastAction: 0, touched: true };
+  }));
+  const forwardInsurerQ = (id, iqid) => setTickets((ts) => ts.map((t) => {
+    if (t.id !== id) return t;
+    const iq = (t.insurerQueries || []).find((q) => q.id === iqid); if (!iq) return t;
+    const insurerQueries = (t.insurerQueries || []).map((q) => q.id === iqid
+      ? { ...q, status: "forwarded_to_client", forwardedAt: 0 } : q);
+    const cqid = "Q" + ((t.queries || []).length + 1);
+    const queries = [...(t.queries || []), { id: cqid, kind: iq.doc ? "doc" : "new",
+      target: iq.doc || null, items: [{ text: iq.question, docs: iq.doc ? [iq.doc] : [] }],
+      text: iq.question, docs: iq.doc ? [iq.doc] : [], status: "open", by: t.owner, at: 0, forwardedFrom: iqid }];
+    const history = [...t.history, { text: `Forwarded ${t.insurer}'s request to ${t.client}`, by: t.owner, at: 0, note: iq.question }];
+    return { ...t, insurerQueries, queries, history, lastAction: 0, touched: true };
+  }));
+
   /* Refund flow (Return-Premium only) — walked through by the sim buttons on
      the Refund & Payment tab. Each step patches t.refund and appends a trail
      entry so the ticket history reads back the whole loop. */
@@ -9022,7 +9163,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} />}
+              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} onSeen={markSeen} onInsurerQAnswer={answerInsurerQ} onInsurerQForward={forwardInsurerQ} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
