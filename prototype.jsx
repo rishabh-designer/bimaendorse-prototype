@@ -2533,7 +2533,7 @@ function QueryModal({ ctx, t, onSend, onClose }) {
             </label>
             <div>
               <div className="flex items-baseline justify-between gap-2">
-                <FieldLabel>Documents to request <span style={{ color: C.figTert, fontWeight: 500 }}>· optional</span></FieldLabel>
+                <FieldLabel>Documents to request</FieldLabel>
                 {options.length > 0 && (
                   <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{options.length} Available for This Product</span>
                 )}
