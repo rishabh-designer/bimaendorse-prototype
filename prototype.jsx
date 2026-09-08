@@ -9366,7 +9366,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     setTickets((ts) => [{ ...f, id, short: f.client.toLowerCase().replace(/[^a-z]+/g, "").slice(0, 12) || "client",
       insurerMail: "endorsements@" + f.insurer.toLowerCase().replace(/[^a-z]+/g, "") + ".com",
       stage: "Under Verification", owner: "Nanditha P", inStage: 0, lastAction: 0, touched: false, legs: [{ s: "New / Unassigned", h: 0.03 }],
-      missing: [], missingFields: [], queries: [], extraMail: [], endo: null, sends: [],
+      missing: [], missingFields: [], queries: [], extraMail: [], sends: [],
       history: [
         { ...TRAIL.raised({ type: f.type, policy: f.policy }), at: 0 },
         { text: `Auto-assigned to ${ASSIGNMENT.podOf(f.insurer)} · Nanditha P`, by: "Routing rule", at: 0, note: ASSIGNMENT.rule },
