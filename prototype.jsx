@@ -513,11 +513,11 @@ const TYPES = {
   "Name / Entity Change": { kind: "Non-Financial", fields: ["Name"], docs: ["GST certificate", "Certificate of Incorporation"] },
   "Tax Invoice / Invoice Request": { kind: "Non-Financial", fields: ["Policy Number"], docs: [] },
   "Hypothecation - Removal": { kind: "Non-Financial", fields: [], docs: ["NOC from financier"] },
-  "Refund - Excess Premium": { kind: "Return-Premium", fields: [], docs: ["Cancelled cheque", "Payment screenshot"] },
+  "Refund - Excess Premium": { kind: "Financial", refund: true, fields: [], docs: ["Cancelled cheque", "Payment screenshot"] },
   "Business Description Correction": { kind: "Non-Financial", fields: ["Exact business description to be added in the policy"], docs: [] },
   "GST Details Update": { kind: "Non-Financial", fields: [], docs: ["GST certificate"] },
-  "Policy Cancellation": { kind: "Return-Premium", fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
-  "Policy Cancellation + Refund": { kind: "Return-Premium", fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
+  "Policy Cancellation": { kind: "Financial", refund: true, fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
+  "Policy Cancellation + Refund": { kind: "Financial", refund: true, fields: ["Reason for cancellation"], docs: ["Cancelled cheque"] },
   "Correction in Policy": { kind: "Non-Financial", fields: ["Provide exact wording of the correction/changes to be added"], docs: [] },
   "Retrieve Policy document": { kind: "Non-Financial", fields: ["Policy Number"], docs: [] },
   "Policy Genuineness Verification": { kind: "Non-Financial", fields: ["Mail confirmation from insurer to client"], docs: [] },
@@ -534,8 +534,8 @@ const TYPES = {
   "Subsidiary Addition / Change": { kind: "Financial", fields: ["Ownership %", "Nature of work"], docs: [] },
   "Employee / Headcount Addition": { kind: "Financial", fields: ["Count of employees", "Monthly average salary", "Skilled and unskilled split"], docs: [] },
   "Annexure Update": { kind: "Non-Financial", fields: ["Name", "Age and monthly wages"], docs: [] },
-  "Employee / Headcount Deletion": { kind: "Return-Premium", fields: ["Count of employees", "Skilled and unskilled split"], docs: [] },
-  "Asset Deletion": { kind: "Return-Premium", fields: ["Asset category / type", "Value of asset"], docs: [] },
+  "Employee / Headcount Deletion": { kind: "Financial", refund: true, fields: ["Count of employees", "Skilled and unskilled split"], docs: [] },
+  "Asset Deletion": { kind: "Financial", refund: true, fields: ["Asset category / type", "Value of asset"], docs: [] },
   "Others": { kind: "Non-Financial", fields: ["Describe the change required"], docs: [] },
 };
 
@@ -608,11 +608,12 @@ const SEED = [
       { id: "IQ-1", at: 0.5, question: "Please share the client's current GST certificate to process the sum-insured enhancement.", doc: "GST certificate", status: "pending" },
       { id: "IQ-2", at: 0.6, question: "Also share the authorised signatory's Voter ID for KYC on the enhanced limit.", doc: "Voter ID", status: "pending" },
     ] },
-  /* Refund case seeded from knowledge.centre-refund.endorsement — Return-Premium
-     classification, sitting in Copy Received so the Refund & Payment tab is
-     immediately actionable (the tab is gated on Copy Received or later).
-     Persists across restarts because it lives in the seed. */
-  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Return-Premium", priority: "High", stage: "Copy Received", owner: "Nanditha P", inStage: 0.3, lastAction: 0.3, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 40 }], missing: [] },
+  /* Refund case seeded from knowledge.centre-refund.endorsement — a Financial
+     ticket flagged refund via its type master (kind:"Financial", refund:true).
+     Sitting in Copy Received so the Refund & Payment tab is immediately
+     actionable (the tab is gated on Copy Received or later). Persists across
+     restarts because it lives in the seed. */
+  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Financial", priority: "High", stage: "Copy Received", owner: "Nanditha P", inStage: 0.3, lastAction: 0.3, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 40 }], missing: [] },
 ];
 
 const SEED_MAILS = [
@@ -1196,12 +1197,16 @@ const IND = {
   muted:   { dot: "#A9ACB1", line: "#E6E8EA", fill: "#F4F5F6",               tint: "#F4F5F6" },
 };
 const PRIO_IND = { Critical: "error", High: "caution", Medium: "neutral", Low: "neutral" };
-const KIND_IND = { Financial: "success", "Non-Financial": "info", "Return-Premium": "caution" };
-/* One spelling of the classification. The master calls a refund "Return-Premium";
-   every surface shows "Refund", and it used to be remapped in three places. */
+const KIND_IND = { Financial: "success", "Non-Financial": "info" };
+/* A refund is a Financial ticket with a return-premium money direction —
+   the classification pill still reads Financial, and `isRefund` opts the
+   ticket into the Refund & Payment tab (instead of Premium & Payment) and
+   into the refund-shaped SLA copy. Keyed off the type master so a ticket
+   raised in the app inherits it automatically. */
+const isRefund = (t) => !!TYPES[t.type]?.refund;
 /* A ticket raised in the app carries no `kind` at all - see OPEN-QUESTIONS -
    so the fallback keeps the pill from rendering blank until that is decided. */
-const kindLabel = (k) => k === "Return-Premium" ? "Refund" : (k || "Non-Financial");
+const kindLabel = (k) => k || "Non-Financial";
 /* Stage: awaiting an outside party reads info, terminal reads neutral, anything
    still moving reads caution. Derived from statusOf so the meaning is unchanged. */
 const stageInd = (t) => {
@@ -2387,7 +2392,6 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
   const KIND_OPTS = [
     { value: "Financial", label: "Financial" },
     { value: "Non-Financial", label: "Non-Financial" },
-    { value: "Return-Premium", label: "Refund" },
   ];
   /* Filter on what the column actually prints, so the derived statuses - awaiting
      customer information, manual review, the terminal ones - are selectable. */
@@ -3290,7 +3294,7 @@ function UpdateQuoteModal({ t, onConfirm, onClose }) {
  *  audit note and the primary stage action on every tab.
  * ------------------------------------------------------------------ */
 
-/* Refund & Payment tab — Return-Premium only. A five-step loop from the
+/* Refund & Payment tab — refund-typed Financial tickets only. A five-step loop from the
    insurer confirming the refund figure, through the client's consent, the
    insurer's payment + endorsement copy, back to a client confirmation that
    closes the ticket. Every step surfaces a small "Simulate" control so the
@@ -3831,8 +3835,8 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     ["queries", "Client Channel", false, dotFor("queries")],
     ["mail", "Mail Trail", false, dotFor("mail")],
     ["trail", "Ticket History", false, dotFor("trail")],
-    ...(t.kind === "Financial" ? [["payment", "Premium & Payment", false, dotFor("payment")]] : []),
-    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", dotFor("refund")]] : []),
+    ...(t.kind === "Financial" && !isRefund(t) ? [["payment", "Premium & Payment", false, dotFor("payment")]] : []),
+    ...(isRefund(t) ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", dotFor("refund")]] : []),
     ["manage", "Manage Ticket", readOnly(t), dotFor("manage")],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
@@ -5024,7 +5028,7 @@ function Create({ onCreate, back, prefill }) {
   const [ups, setUps] = useState({});
   const meta = TYPES[f.type] || { fields: [], docs: [] };
   const offered = PRODUCTS[f.product] || [];
-  const refund = meta.kind === "Return-Premium";
+  const refund = !!meta.refund;
   const ready = f.client && f.policy && f.insurer && f.product && f.type && !refund;
 
   /* Close the Policy picker on an outside click, matching the HeaderFilter idiom. */
@@ -9199,7 +9203,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     return { ...t, insurerQueries, queries, history, lastAction: 0, touched: true };
   }));
 
-  /* Refund flow (Return-Premium only) — walked through by the sim buttons on
+  /* Refund flow (refund-typed Financial tickets only) — walked through by the sim buttons on
      the Refund & Payment tab. Each step patches t.refund and appends a trail
      entry so the ticket history reads back the whole loop. */
   const refundAdvance = (id, refundPatch, ticketPatch, note) => {
