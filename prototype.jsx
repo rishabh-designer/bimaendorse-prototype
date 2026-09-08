@@ -4828,6 +4828,97 @@ const CL_INSURERS = {
   "Zurich Kotak": { mode: "Mail", medianDays: 8, poc: "arun.thomas1@zurichkotak.com" },
   "Generali Central": { mode: "Mail", medianDays: 12 },
 };
+/* PRD v2.2 §12 (Customer Insights) — customer master read by the Insights tab.
+   Scoped to what a Claims Manager reaches for first while working a claim:
+   the policy under claim (SI, premium, coins), the terms most likely to
+   determine coverage (excess, sub-limits, warranties, exclusions), endorsement
+   and renewal history, and the servicing manager (RM or POS Manager per §13). */
+const CL_CUST = {
+  "Sunrise Chemicals Ltd": { ref: "CL-00214", trade: "Speciality chemicals", addr: "Plot 42, MIDC Bhiwandi, Thane 421302",
+    contact: "Rajesh Patil · 98201 44120 · rajesh@sunrisechem.in", bor: "12 Mar 2021",
+    sm: { role: "Relationship Manager", name: "Shubh Agarwal", mobile: "99870 22114", email: "shubh.a@bimakavach.com" },
+    si: [["Building", "1,20,00,000"], ["Plant & machinery", "3,40,00,000"], ["Stock", "85,00,000"]],
+    premium: "₹4,86,200 · paid 03 Apr 2026", coins: "None",
+    excess: "5% of each claim, min ₹10,000",
+    sub: ["Debris removal — 1% of claim, max ₹2,00,000", "Architects and surveyors fees — 3% of claim"],
+    warr: ["Fire extinguishers serviced half-yearly", "Electrical installation inspected annually by a licensed contractor"],
+    excl: ["Wear and tear", "Consequential loss unless BI section opted"],
+    endorse: [["18 Jun 2026", "Sum insured increase", "Stock ₹65L → ₹85L", "01 Jul 2026"], ["22 Apr 2026", "Address addition", "Wagle Estate warehouse", "22 Apr 2026"]],
+    renew: [["01 Apr 2026", "Renewed — Iffco Tokio", "+6.2%"], ["01 Apr 2025", "Renewed — Iffco Tokio", "+3.0%"]],
+    claims: [["CLM-2025-0288", "FIR/2025/00812", "Fire", "11 Nov 2025", "Closed", "₹3,10,000", "Settled"],
+      ["CLM-2025-0102", "MAR/2025/4410", "Marine", "02 Jun 2025", "Closed", "₹78,000", "Settled"],
+      ["CLM-2024-0655", "MBD/2024/1180", "MBD", "19 Dec 2024", "Closed", "—", "Rejection upheld"]] },
+  "Vanguard Textiles Pvt Ltd": { ref: "CL-00871", trade: "Textile processing", addr: "Survey 118, Pandesara GIDC, Surat 394221",
+    contact: "Amit Shah · 98250 71144 · amit@vanguardtex.com", bor: "04 Aug 2023",
+    sm: { role: "POS Manager", name: "Mahendra Rao", mobile: "90040 55127", email: "mahendra.r@bimakavach.com" },
+    si: [["Building", "2,00,00,000"], ["Machinery", "6,10,00,000"], ["Stock", "1,40,00,000"]],
+    premium: "₹9,12,000 · paid 02 Apr 2026", coins: "HDFC Ergo 60% (lead) / New India 40%",
+    excess: "5% of each claim, min ₹25,000",
+    sub: ["Spontaneous combustion — ₹10,00,000"],
+    warr: ["Boiler inspected annually under the Boilers Act", "No storage of hazardous goods outside the designated bay"],
+    excl: ["Loss by theft during or after a fire", "Electrical breakdown of the machine in which it originates"],
+    endorse: [["09 May 2026", "Named insured correction", "Spelling of Pvt Ltd", "09 May 2026"]],
+    renew: [["01 Apr 2026", "Renewed — HDFC Ergo", "flat"]],
+    claims: [["CLM-2024-0771", "FIR/2024/04417", "Fire", "14 Jan 2025", "Closed", "₹1,42,000", "Settled"]] },
+  "Redwood Logistics Ltd": { ref: "CL-01044", trade: "Third-party warehousing", addr: "Chakan MIDC Phase II, Pune 410501",
+    contact: "Sunil Gowda · 90084 33127 · sunil@redwoodlog.in", bor: "21 Sep 2024",
+    sm: { role: "Relationship Manager", name: "Nandita Reddy", mobile: "98450 33218", email: "nandita.r@bimakavach.com" },
+    si: [["Forklifts & MHE", "1,80,00,000"]], premium: "₹1,44,000 · paid 04 Jan 2026", coins: "None",
+    excess: "₹25,000 each and every claim", sub: ["Any one machine — ₹40,00,000"],
+    warr: ["Daily pre-use inspection log maintained"], excl: ["Wear, tear and gradual deterioration"],
+    endorse: [], renew: [["01 Jan 2026", "New business — moved from Digit", "—"]], claims: [] },
+  "Meridian Foods Pvt Ltd": { ref: "CL-00522", trade: "Cold-chain produce", addr: "Bidadi Industrial Area, Ramanagara 562109",
+    contact: "Latha Rao · 99012 40088 · latha@meridianfoods.in", bor: "30 Jun 2022",
+    sm: { role: "Relationship Manager", name: "Shubh Agarwal", mobile: "99870 22114", email: "shubh.a@bimakavach.com" },
+    si: [["Building", "80,00,000"], ["Plant", "1,60,00,000"], ["Stock in cold store", "95,00,000"]],
+    premium: "₹3,08,000 · paid 06 Apr 2025", coins: "None", excess: "5% of each claim, min ₹10,000",
+    sub: ["Deterioration of stock — ₹30,00,000"], warr: ["Ammonia plant serviced quarterly"], excl: ["Shortage of power supply from the public grid"],
+    endorse: [], renew: [["01 Apr 2025", "Renewed — New India", "+4.1%"]], claims: [] },
+  "Vertex Pharma Ltd": { ref: "CL-00318", trade: "API manufacturing", addr: "Plot 22, JNPT Marine Zone, Navi Mumbai 410210",
+    contact: "Priya Nair · 99450 22118 · priya@vertexpharma.in", bor: "17 Jan 2023",
+    sm: { role: "Relationship Manager", name: "Nandita Reddy", mobile: "98450 33218", email: "nandita.r@bimakavach.com" },
+    si: [["Consignments in transit", "1,50,00,000"]], premium: "₹1,84,000 · paid 12 Jan 2026", coins: "None",
+    excess: "1% of consignment value, min ₹15,000", sub: ["Damage in loading/unloading — ₹15,00,000"],
+    warr: ["Sealed containers throughout the voyage"], excl: ["Ordinary leakage", "Delay-based losses"],
+    endorse: [], renew: [["01 Jan 2026", "Renewed — TATA AIG", "flat"]], claims: [] },
+  "Acme Manufacturing": { ref: "CL-00987", trade: "General engineering", addr: "Plot 7, MIDC Butibori, Nagpur 441122",
+    contact: "Rajesh Kumar · 98330 55221", bor: "12 Feb 2024",
+    sm: { role: "POS Manager", name: "Mahendra Rao", mobile: "90040 55127", email: "mahendra.r@bimakavach.com" },
+    si: [["Consignments", "2,00,00,000"]], premium: "₹2,40,000 · paid", coins: "None",
+    excess: "₹25,000 each claim", sub: [], warr: [], excl: ["Ordinary leakage"],
+    endorse: [], renew: [], claims: [] },
+  "Kaveri Steel Works": { ref: "CL-00612", trade: "Steel re-rolling", addr: "Ginigera Industrial Area, Koppal 583227",
+    contact: "Mahesh B · 94480 12007", bor: "05 Nov 2020",
+    sm: { role: "Relationship Manager", name: "Shubh Agarwal", mobile: "99870 22114", email: "shubh.a@bimakavach.com" },
+    si: [["Plant & machinery", "8,00,00,000"]], premium: "₹6,10,000 · paid", coins: "None",
+    excess: "5% of claim, min ₹50,000", sub: ["Any one machine — ₹1,50,00,000"],
+    warr: ["Monthly lubricant analysis", "Quarterly vibration monitoring"], excl: ["Overloading", "Non-genuine spares"],
+    endorse: [], renew: [["01 Apr 2025", "Renewed — TATA AIG", "-2.0%"]],
+    claims: [["CLM-2024-0512", "MBD/2024/00214", "MBD", "22 Sep 2024", "Closed", "₹92,000", "Settled"]] },
+  "Northgate Advisory LLP": { ref: "CL-01120", trade: "Corporate advisory", addr: "Prestige Meridian, Bengaluru 560001",
+    contact: "Ashwin Rao · 98450 11277 · ashwin@northgate.in", bor: "18 Sep 2025",
+    sm: { role: "Relationship Manager", name: "Nandita Reddy", mobile: "98450 33218", email: "nandita.r@bimakavach.com" },
+    si: [["Any one claim / Aggregate", "5,00,00,000"]], premium: "₹4,20,000 · paid", coins: "None",
+    excess: "₹1,00,000 each and every claim", sub: ["Regulatory investigation costs — ₹50,00,000"],
+    warr: ["Engagement letters retained for six years"], excl: ["Dishonesty of the insured", "Prior known circumstances"],
+    endorse: [], renew: [["01 Aug 2025", "New business — HDFC Ergo", "—"]], claims: [] },
+  "Orchid Hospitality Pvt Ltd": { ref: "CL-00445", trade: "Boutique hotels", addr: "Whitefield Main Road, Bengaluru 560066",
+    contact: "Deepa Iyer · 98801 14402 · deepa@orchidhospitality.in", bor: "22 Jul 2021",
+    sm: { role: "Relationship Manager", name: "Shubh Agarwal", mobile: "99870 22114", email: "shubh.a@bimakavach.com" },
+    si: [["Building", "18,00,00,000"], ["Contents", "2,20,00,000"]], premium: "₹12,80,000 · paid 05 Feb 2026", coins: "None",
+    excess: "10% of claim, min ₹1,00,000",
+    sub: ["Loss of rent — ₹75,00,000", "Debris removal — 1% of claim"],
+    warr: ["Six-monthly cleaning of kitchen extraction ductwork", "Sprinkler system tested quarterly"],
+    excl: ["Wear and tear", "Damage to plate glass unless separately insured"],
+    endorse: [["12 Jan 2026", "Sum insured increase", "Building ₹15Cr → ₹18Cr", "01 Feb 2026"]],
+    renew: [["01 Feb 2026", "Renewed — New India", "+7.5%"]],
+    claims: [["CLM-2023-0119", "FIR/2023/00812", "Fire", "04 Aug 2023", "Closed", "₹8,20,000", "Settled"]] },
+  "Sharma Textiles": { ref: "CL-00993", trade: "Textile trading", addr: "Not stated", contact: "Priya Sharma · 98110 33221",
+    bor: "02 Feb 2026", sm: { role: "POS Manager", name: "Mahendra Rao", mobile: "90040 55127", email: "mahendra.r@bimakavach.com" },
+    si: [["Stock", "60,00,000"]], premium: "₹89,400 · paid", coins: "None", excess: "₹25,000", sub: [], warr: [], excl: [],
+    endorse: [], renew: [], claims: [] },
+};
+const clCust = (t) => CL_CUST[t.client] || CL_CUST["Sharma Textiles"];
 const CL_FIELDS = {
   Fire: ["Policy No", "Insured Name", "Date & Time of Incident", "Brief description about the incident", "Cause of Loss",
     "Location of loss: full address", "Photos", "Estimated Loss Amount", "Contact Person Name & No"],
@@ -4876,6 +4967,7 @@ const CL_TAT_H9_ROUND_RESPONSE_H = 72;         // TODO: BKTech to confirm H-9
 const CL_TAT_H10_SETTLEMENT_ADVICE_H = 72;     // TODO: BKTech to confirm H-10
 const CL_TAT_I8_CM_REPUDIATION_ACTION_H = 24;  // TODO: BKTech to confirm I-8
 const CL_TAT_I9_FIGURE_REVIEW_H = 24;          // TODO: BKTech to confirm I-9
+const CL_TAT_ADMISSIBILITY_H = 48;             // FR-4.4 · parallel, indicator only
 
 /* PRD v2.2 M23 · FR-7.4 - contest cap per repudiation event. CH escalation is
    orthogonal (consumes no round). Cap is raisable by an audited CH action. */
@@ -5061,6 +5153,9 @@ function clMake(o, i) {
        the feedback window; feedback (or 5 working days of silence) closes
        the ticket as Settled. */
     closureStep: null,
+    /* PRD v2.2 §4 - parallel admissibility clock. Starts when the ticket is
+       intimated to the insurer (S3). Indicator only; nothing escalates. */
+    admissDueAt: null, admissAt: null,
     chase: { reminders: 0, escalations: 0, events: [] },
   }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
 }
@@ -5650,9 +5745,13 @@ function clStep(t, to, extra = {}) {
   const wasHold = CL_FLOW[t.state].client === "HOLD";
   const nowHold = CL_FLOW[next].client === "HOLD";
   const frozen = nowHold ? (wasHold ? t.frozen : clClientLabel(t)) : null;
+  /* PRD v2.2 §4 - admissibility is a parallel 48h obligation. The clock
+     starts once the ticket is intimated to the insurer (entry into S3).
+     Indicator only; nothing escalates, no gate on any transition. */
+  const admissDueAt = (next === "S3" && !t.admissDueAt) ? (CL_NOW + CL_TAT_ADMISSIBILITY_H * CL_HOUR) : t.admissDueAt;
   return { ...t, ...extra,
     ownerLog: [...t.ownerLog, { owner: CL_FLOW[t.state].owner, from: t.stageAt, to: CL_NOW, state: t.state }],
-    state: next, status: CL_FLOW[next].status, stageAt: CL_NOW, escalated: false, frozen,
+    state: next, status: CL_FLOW[next].status, stageAt: CL_NOW, escalated: false, frozen, admissDueAt,
     chase: { reminders: 0, escalations: 0, events: [] }, subStatus: CL_FLOW[next].sub || null };
 }
 /* Intake field → captured value (C-6 Overview). */
@@ -5686,7 +5785,7 @@ function clBotPreview(t) {
   };
   return { from: poc, ...(M[t.state] || { type: "Inbound mail", keys: [] }) };
 }
-const CL_TAB_LABELS = { overview: "Overview", contest: "Contest", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & Settlement", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
+const CL_TAB_LABELS = { overview: "Overview", contest: "Contest", insights: "Customer Insights", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & Settlement", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
 
 /* A labelled field control used by the action-panel forms. */
 function ClInput({ label, value, onChange, type = "text", placeholder, options }) {
@@ -5712,7 +5811,7 @@ function ClaimsDetail({ t, role, act }) {
   const contestMark = t.contest ? (t.state === "R2" ? " · insurer" : " · your move") : "";
   const tabs = [["overview"]]
     .concat(hasContest ? [["contest"]] : [])
-    .concat([["docs"], ["client"], ["mail"]])
+    .concat([["insights"], ["docs"], ["client"], ["mail"]])
     .concat(surveyTrack ? [["survey"]] : []).concat(consented ? [["payment"]] : [])
     .concat([["history"], ["manage"]])
     .map(([k]) => [k, k === "client" && qOpen ? `Client channel (${qOpen})` : k === "contest" ? `${CL_TAB_LABELS.contest}${contestMark}` : CL_TAB_LABELS[k]]);
@@ -5746,6 +5845,7 @@ function ClaimsDetail({ t, role, act }) {
             { key: "product", text: clProductLabel(t.product), icon: Layers, img: clProductIcon(t.product), imgH: 24, label: "Product" },
             { key: "insurer", text: `${t.insurer} (${CL_INSURERS[t.insurer].mode})`, icon: ShieldCheck, img: clInsurerLogo(t.insurer), imgH: 22, label: "Insurer · intimation mode" },
             { key: "claimno", text: t.claimNo || "No claim no. yet", icon: Tags, num: true, label: "Insurer claim number" },
+            { key: "sm", text: `${clCust(t).sm.role}: ${clCust(t).sm.name} · ${clCust(t).sm.mobile}`, icon: HeartHandshake, label: "Servicing manager for this client" },
             { key: "sees", text: `Client sees: ${clClientLabel(t)}`, icon: Eye, label: "Client's claim status on BimaKendra" },
           ].map((m) => <ClMetaItem key={m.key} m={m} />)}
         </div>
@@ -5756,6 +5856,7 @@ function ClaimsDetail({ t, role, act }) {
 
       {activeTab === "overview" && <ClOverview t={t} act={act} setTab={setTab} />}
       {activeTab === "contest" && <ClContest t={t} role={role} act={act} />}
+      {activeTab === "insights" && <ClInsights t={t} />}
       {activeTab === "docs" && <ClDocs t={t} act={act} />}
       {activeTab === "client" && <ClClient t={t} act={act} />}
       {activeTab === "mail" && <ClMail t={t} />}
@@ -6088,8 +6189,22 @@ function ClAgeBars({ t }) {
 function ClExtraPanels({ t, setTab }) {
   return (
     <>
-      {t.admissibility && (
-        <div className="mt-4"><ClNote tone={C.link} bg={C.waitSoft}>BimaKavach admissibility: <b>{t.admissibility}</b>. Never shown to the client.{t.admissibility === "Outside policy terms" ? ` ${CL_HEAD} notified; the claim proceeded to the insurer regardless.` : ""}</ClNote></div>
+      {(t.admissibility || t.admissDueAt) && (
+        <div className="mt-4 rounded-lg border p-3" style={{ borderColor: C.lineSoft }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Admissibility</span>
+            {t.admissibility === "Within policy terms" && <Indicator label="Pass" ind="success" outline />}
+            {t.admissibility === "Outside policy terms" && <Indicator label="Fail" ind="error" outline />}
+            {!t.admissibility && t.admissDueAt && CL_NOW > t.admissDueAt && <Indicator label={`Overdue by ${clDur(CL_NOW - t.admissDueAt)}`} ind="caution" outline />}
+            {!t.admissibility && t.admissDueAt && CL_NOW <= t.admissDueAt && <Indicator label={`Due in ${clDur(t.admissDueAt - CL_NOW)}`} ind="info" outline />}
+            {!t.admissibility && !t.admissDueAt && <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Clock starts once the claim is intimated to the insurer.</span>}
+            <span className="flex-1" />
+            <span style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>Parallel · 48h · never shown to the client</span>
+          </div>
+          <p className="mt-1.5" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+            Indicator only — pass or fail changes nothing on the claim (FR-4.4).{t.admissibility === "Outside policy terms" ? ` ${CL_HEAD} notified; the claim proceeded to the insurer regardless.` : ""}
+          </p>
+        </div>
       )}
       {(t.assessedLoss || t.settlement) && (
         <div className="mt-4 rounded-lg border p-3" style={{ borderColor: C.lineSoft }}>
@@ -6819,6 +6934,110 @@ function ClContest({ t, role, act }) {
   );
 }
 
+/* PRD v2.2 §12 — Customer Insights. Read-only view onto the client and the
+   policy under claim, with the terms a CM reaches for first, endorsement and
+   renewal history, and the claims history across every policy the customer
+   holds. Fetch-failure toggle demonstrates the last-fetched fallback. */
+function ClInsights({ t }) {
+  const [stale, setStale] = useState(false);
+  const c = clCust(t);
+  const Table = ({ head, rows, empty }) => (
+    <div className="mt-2 overflow-hidden rounded-lg border" style={{ borderColor: C.lineSoft, borderWidth: "0.5px" }}>
+      <div className="flex px-3 py-2" style={{ background: C.canvas, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+        {head.map((h, i) => <span key={i} className="flex-1 truncate">{h}</span>)}
+      </div>
+      {rows.length === 0
+        ? <div className="px-3 py-4 text-center" style={{ fontSize: 12, color: C.figTert }}>{empty}</div>
+        : rows.map((r, i) => (
+          <div key={i} className="flex px-3 py-2.5" style={{ fontSize: 12, fontWeight: 500, color: C.figInk, borderTop: i > 0 ? `0.5px solid ${C.lineSoft}` : "none" }}>
+            {r.map((cell, j) => <span key={j} className="flex-1 truncate" style={{ color: j === r.length - 1 ? C.figHint : C.figInk }}>{cell}</span>)}
+          </div>
+        ))}
+    </div>
+  );
+  const KV = ({ k, v }) => (
+    <div className="flex items-baseline gap-3 py-1.5" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>
+      <span className="w-40 shrink-0" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>{k}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{v}</span>
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <SectionTitle>Customer Insights</SectionTitle>
+      <div className="rounded-xl p-3" style={{ background: stale ? C.warnSoft : C.waitSoft, border: `1px solid ${stale ? IND.caution.line : IND.info.line}` }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Indicator label={stale ? "Fetch failure — showing last-fetched" : "Live from the policy system"} ind={stale ? "caution" : "info"} />
+          <span className="flex-1" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+            {stale ? "Last fetched three days ago. Values may not be current (FR-12.4)." : "Read-only. Policy, endorsement and renewal data scoped to this policy; claims history spans every policy this customer holds."}
+          </span>
+          <Btn variant="secondary" size="sm" onClick={() => setStale((s) => !s)}>{stale ? "Restore live fetch" : "Simulate fetch failure"}</Btn>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Customer</div>
+          <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{c.trade}</p>
+          <div className="mt-2">
+            <KV k="Client reference" v={c.ref} />
+            <KV k="Registered address" v={c.addr} />
+            <KV k="Primary contact" v={c.contact} />
+            <KV k="Broker of record since" v={c.bor} />
+            <KV k={c.sm.role} v={<><b>{c.sm.name}</b> · {c.sm.mobile}{c.sm.email ? " · " + c.sm.email : ""}</>} />
+          </div>
+        </div>
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Policy under claim</div>
+          <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.policy} · {t.insurer} · {clProductLabel(t.product)}</p>
+          <div className="mt-2">
+            {c.si.map(([k, v]) => <KV key={k} k={"Sum insured — " + k} v={<span className="bk-num">₹{v}</span>} />)}
+            <KV k="Premium" v={c.premium} />
+            <KV k="Co-insurance" v={c.coins} />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Terms a Claims Manager reaches for first</div>
+        <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Excess, sub-limits, warranties and exclusions — currently found by opening the policy PDF.</p>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div><div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Excess</div><p className="mt-1" style={{ fontSize: 13, color: C.figInk }}>{c.excess}</p></div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Sub-limits</div>
+            {c.sub.length ? <ul className="mt-1 list-disc pl-4" style={{ fontSize: 13, color: C.figInk }}>{c.sub.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              : <p className="mt-1" style={{ fontSize: 13, color: C.figTert }}>None</p>}
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Warranties</div>
+            {c.warr.length ? <ul className="mt-1 list-disc pl-4" style={{ fontSize: 13, color: C.figInk }}>{c.warr.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              : <p className="mt-1" style={{ fontSize: 13, color: C.figTert }}>None recorded</p>}
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Exclusions</div>
+            {c.excl.length ? <ul className="mt-1 list-disc pl-4" style={{ fontSize: 13, color: C.figInk }}>{c.excl.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              : <p className="mt-1" style={{ fontSize: 13, color: C.figTert }}>None recorded</p>}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Endorsements — this policy</div>
+        <Table head={["Date", "Kind", "Detail", "Effective"]} rows={c.endorse} empty="No endorsements on this policy." />
+      </div>
+
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Renewals — this policy</div>
+        <Table head={["Date", "Action", "Delta"]} rows={c.renew} empty="No renewal history yet." />
+      </div>
+
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Claims history — across every policy</div>
+        <Table head={["Claim ID", "Policy", "Product", "Date", "Status", "Amount", "Outcome"]} rows={c.claims} empty="No prior claims on file for this customer." />
+      </div>
+    </div>
+  );
+}
+
 function ClHistory({ t }) {
   const rows = t.audit.slice().sort((a, b) => b.at - a.at);
   return (
@@ -7287,7 +7506,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     let to = f.act.to; if (to === "BRANCH") to = (t0.loss || 0) > CL_SURVEYOR_THRESHOLD ? "S5" : "S8";
     const stay = form === "report" || (form === "payment" && v.i1 === "Instalment");
     let extra = {}, detail = "";
-    if (form === "admiss") { extra.admissibility = v.i1; detail = "Assessment: " + v.i1; if (v.i1 === "Outside policy terms") setTimeout(() => flash(`${CL_HEAD} notified. The claim proceeds to the insurer regardless.`), 0); }
+    if (form === "admiss") { extra.admissibility = v.i1; extra.admissAt = CL_NOW; detail = "Assessment: " + v.i1 + " (indicator only, FR-4.4)"; if (v.i1 === "Outside policy terms") setTimeout(() => flash(`${CL_HEAD} notified. The claim proceeds to the insurer regardless.`), 0); }
     else if (form === "claimno") { extra.claimNo = v.i1.trim(); detail = "Claim number " + extra.claimNo; }
     else if (form === "surveyor") { extra.surveyor = { name: v.i1.trim(), mobile: clCleanMob(v.i2), visit: v.i3 ? clFdate(new Date(v.i3).getTime()) : "to be confirmed" }; detail = "Surveyor " + extra.surveyor.name + " appointed"; }
     else if (form === "report") { extra.inspection = v.i0.trim(); extra.assessedLoss = Number(v.i1); extra.report = { source: v.i2, converted: v.i2 !== "Attached PDF", author: t0.surveyor ? "Surveyor" : t0.insurer, file: t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW }; extra.reportReleased = false; detail = "Inspection recorded · assessed " + clInr(extra.assessedLoss) + " · arrived as " + v.i2 + " · withheld from client by default (FR-8.5)"; }
@@ -7518,14 +7737,14 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
     const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared - optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
-    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
+    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, admissDueAt: null, admissAt: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
     flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
   };
   const createFromMail = (m) => {
     const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
-    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, admissDueAt: null, admissAt: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
     flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
   };
