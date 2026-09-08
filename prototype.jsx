@@ -422,6 +422,11 @@ const ALL_STAGES = {
     followUp: { every: 1, unit: "WD", max: 2 }, escalate: ["Insurer POC + POC head + Service Head", "+1 WD", "+2 WD", "+2 WD"],
     terminal: "Remains open - no auto-termination insurer-side",
   },
+  "Awaiting Refund Details": {
+    code: "SLA-12", label: "Awaiting refund details", sla: 2, unit: "WD", owner: "insurer", verb: null, awaited: true, ind: "info",
+    followUp: { every: 1, unit: "WD", max: 3 }, escalate: ["Insurer POC + POC head + Service Head", "+1 WD", "+1 WD", "+1 WD"],
+    terminal: "Remains open - no auto-termination insurer-side",
+  },
   "Copy Received": {
     code: "SLA-11", label: "Copy received", sla: 1, unit: "BH", owner: "Service Manager", verb: "Publish & close", ind: "success",
     followUp: { every: 0.5, unit: "BH", max: 3 }, escalate: ["Owning SM + Service Head", "+30 min BH", "+2 BH", "+4 BH"],
@@ -434,10 +439,15 @@ const FLOW = {
   "Non-Financial": ["New / Unassigned", "Under Verification", "Submitted to Insurer", "Awaiting Endorsement Copy", "Copy Received", "Closed"],
   "Financial": ["New / Unassigned", "Under Verification", "Submitted to Insurer", "Awaiting Quote",
                 "Awaiting Payment Link", "Awaiting Payment", "Awaiting Endorsement Copy", "Copy Received", "Closed"],
+  /* Refund tickets share the Financial kind but skip the quote/payment link/
+     payment leg — the insurer sends refund details instead of collecting a
+     premium, then the endorsement copy arrives and closes as usual. */
+  "Refund":       ["New / Unassigned", "Under Verification", "Submitted to Insurer", "Awaiting Refund Details",
+                   "Awaiting Endorsement Copy", "Copy Received", "Closed"],
 };
 
 const stageOf = (k) => ALL_STAGES[k] || ALL_STAGES["Closed"];
-const seqOf = (t) => FLOW[t.kind] || FLOW["Non-Financial"];
+const seqOf = (t) => TYPES[t.type]?.refund ? FLOW["Refund"] : (FLOW[t.kind] || FLOW["Non-Financial"]);
 const posOf = (t, k) => seqOf(t).indexOf(k || t.stage);
 const nextOf = (t) => seqOf(t)[(posOf(t) >= 0 ? posOf(t) : posOf(t, t.priorStage || "Under Verification")) + 1];
 const atOrPast = (t, k) => (posOf(t) >= 0 ? posOf(t) : posOf(t, t.priorStage || "Under Verification")) >= posOf(t, k);
@@ -454,6 +464,7 @@ const NEXT_ACTION_COPY = {
   "Awaiting Customer Information": "Client owes an answer. Send a reminder.",
   "Submitted to Insurer": "Sent to insurer. Log their acceptance next.",
   "Awaiting Quote": "Insurer owes a quote. Log it in.",
+  "Awaiting Refund Details": "Insurer owes the refund figure. Log it in.",
   "Awaiting Payment Link": "Quote logged. Attach the payment link.",
   "Awaiting Payment": "Link with client. Confirm the payment.",
   "Awaiting Endorsement Copy": "Payment done. Simulate the copy arriving.",
@@ -470,6 +481,7 @@ const NEXT_ACTION_TAB = {
   "Awaiting Quote": "payment",
   "Awaiting Payment Link": "payment",
   "Awaiting Payment": "payment",
+  "Awaiting Refund Details": "refund",
   "Awaiting Endorsement Copy": "overview",
   "Copy Received": "overview",
   "Awaiting Customer Information": "queries",
@@ -613,7 +625,7 @@ const SEED = [
      Sitting in Copy Received so the Refund & Payment tab is immediately
      actionable (the tab is gated on Copy Received or later). Persists across
      restarts because it lives in the seed. */
-  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Financial", priority: "High", stage: "Copy Received", owner: "Nanditha P", inStage: 0.3, lastAction: 0.3, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Submitted to Insurer", h: 24 }, { s: "Awaiting Endorsement Copy", h: 40 }], missing: [] },
+  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Financial", priority: "High", stage: "Awaiting Refund Details", owner: "Nanditha P", inStage: 4, lastAction: 4, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 3 }, { s: "Submitted to Insurer", h: 24 }], missing: [] },
 ];
 
 const SEED_MAILS = [
@@ -1197,16 +1209,20 @@ const IND = {
   muted:   { dot: "#A9ACB1", line: "#E6E8EA", fill: "#F4F5F6",               tint: "#F4F5F6" },
 };
 const PRIO_IND = { Critical: "error", High: "caution", Medium: "neutral", Low: "neutral" };
-const KIND_IND = { Financial: "success", "Non-Financial": "info" };
+const KIND_IND = { Financial: "success", "Non-Financial": "info", Refund: "caution" };
 /* A refund is a Financial ticket with a return-premium money direction —
-   the classification pill still reads Financial, and `isRefund` opts the
-   ticket into the Refund & Payment tab (instead of Premium & Payment) and
-   into the refund-shaped SLA copy. Keyed off the type master so a ticket
-   raised in the app inherits it automatically. */
+   backend classification stays Financial, but the header pill reads Refund
+   for the SM's benefit (see kindOf/kindLabel below). `isRefund` also opts
+   the ticket into the Refund & Payment tab (instead of Premium & Payment)
+   and into the refund-shaped stage sequence. Keyed off the type master so
+   a ticket raised in the app inherits it automatically. */
 const isRefund = (t) => !!TYPES[t.type]?.refund;
-/* A ticket raised in the app carries no `kind` at all - see OPEN-QUESTIONS -
-   so the fallback keeps the pill from rendering blank until that is decided. */
-const kindLabel = (k) => k || "Non-Financial";
+/* Display classification: refund tickets show "Refund" on the pill; every
+   other ticket shows its raw kind. A ticket raised in the app carries no
+   `kind` at all - see OPEN-QUESTIONS - so the fallback keeps the pill from
+   rendering blank until that is decided. */
+const kindOf = (t) => isRefund(t) ? "Refund" : (t.kind || "Non-Financial");
+const kindLabel = (t) => kindOf(t);
 /* Stage: awaiting an outside party reads info, terminal reads neutral, anything
    still moving reads caution. Derived from statusOf so the meaning is unchanged. */
 const stageInd = (t) => {
@@ -1502,7 +1518,7 @@ function CaseCard({ t, onOpen, style }) {
       </div>
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.type}</div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+        <Indicator thick label={kindLabel(t)} ind={KIND_IND[kindOf(t)]} />
       </div>
       <div className="mt-4 flex items-end gap-4">
         <span className="flex min-w-0 flex-1 items-start gap-1">
@@ -2330,7 +2346,7 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
         <span className="bk-num truncate" style={cell(COLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>{t.id}</span>
         <span className="flex" style={cell(COLS.stage)}><Indicator status label={statusOf(t).label} ind={stageInd(t)} /></span>
         <span className="flex" style={cell(COLS.kind)}>
-          <Indicator label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+          <Indicator label={kindLabel(t)} ind={KIND_IND[kindOf(t)]} />
         </span>
         <span className="bk-num truncate" style={cell(COLS.age, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{fmtAge(t)}</span>
         <span className="truncate" style={cell(COLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{t.client}</span>
@@ -2917,7 +2933,7 @@ const StageCheck = ({ state }) => {
 const PHASES = [
   { label: "Ticket Intake",  stages: ["New / Unassigned"] },
   { label: "Verification",   stages: ["Under Verification"] },
-  { label: "Insurer",        stages: ["Submitted to Insurer", "Awaiting Quote"] },
+  { label: "Insurer",        stages: ["Submitted to Insurer", "Awaiting Quote", "Awaiting Refund Details"] },
   { label: "Payment",        stages: ["Awaiting Payment Link", "Awaiting Payment"] },
   { label: "Ticket Closure", stages: ["Awaiting Endorsement Copy", "Copy Received", "Closed"] },
 ];
@@ -3303,33 +3319,54 @@ const REF_STEPS = [
   { key: "insurer",   label: "Refund details from insurer" },
   { key: "consent",   label: "Client consent" },
   { key: "payment",   label: "Payment & endorsement copy" },
+  { key: "qc",        label: "QC on Overview" },
   { key: "confirm",   label: "Client confirmation" },
   { key: "closed",    label: "Closed" },
 ];
 const refStepIdx = (k) => Math.max(0, REF_STEPS.findIndex((s) => s.key === k));
 
-function RefundPanel({ t, onRefund, setPreview }) {
+function RefundPanel({ t, onRefund, onAdvance, setTab, setPreview }) {
   const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
   const r = t.refund || { step: "insurer" };
-  const step = r.step || "insurer";
+  /* Step 4 (qc) is done on the Overview tab — the SM eyeballs the endorsement
+     copy and clicks Pass QC there. After Pass QC (which for a refund ticket
+     sends the copy but doesn't close), the flow lands on step 5 (client
+     confirmation), where Simulate: Client Confirms closes the ticket. */
+  const derivedStep = t.stage === "Closed" ? "closed"
+    : t.stage === "Copy Received" && (t.sends || []).length ? "confirm"
+    : t.stage === "Copy Received" ? "qc"
+    : t.stage === "Awaiting Endorsement Copy" ? "payment"
+    : r.amount ? "consent"
+    : "insurer";
+  const step = r.step === "rejected" ? "rejected" : derivedStep;
   const rejected = step === "rejected";
   const idx = refStepIdx(step);
   const done = (k) => !rejected && refStepIdx(k) < idx;
   const current = (k) => !rejected && step === k;
+  const qcDone = (t.sends || []).length > 0;
 
-  const simInsurer = () => onRefund(t.id, { step: "consent", amount: 18450,
+  const simInsurer = () => onRefund(t.id, { amount: 18450,
     insurerRef: "ICL-END-99213", confirmedOn: "5 Sep 2026", insurerAt: 0 },
     null, "Insurer confirmed refund of ₹18,450 (ref ICL-END-99213).");
-  const simAccept = () => onRefund(t.id, { step: "payment", clientAccept: true, consentAt: 0 },
-    null, `${t.client} accepted the refund. Insurer notified to process payment.`);
+  const simAccept = () => {
+    onRefund(t.id, { clientAccept: true, consentAt: 0 },
+      null, `${t.client} accepted the refund. Insurer notified to process payment.`);
+    onAdvance(t.id, "Client consent recorded — awaiting endorsement copy.");
+  };
   const simReject = () => onRefund(t.id, { step: "rejected", clientAccept: false, consentAt: 0 },
     null, `${t.client} declined the refund. Ticket held for further instructions.`);
-  const simPayment = () => onRefund(t.id, { step: "confirm", utr: "HDFC260908A991",
-    paymentDate: "8 Sep 2026", endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`,
-    paidAt: 0 }, null, "Insurer credited the refund and shared UTR + endorsement copy.");
-  const simClientConfirm = () => onRefund(t.id, { step: "closed", clientConfirmed: true, confirmedAt: 0 },
-    { stage: "Closed" }, `${t.client} confirmed receipt. Ticket closed.`);
-  const simReopen = () => onRefund(t.id, { step: "consent", clientAccept: null, consentAt: null },
+  const simPayment = () => {
+    onRefund(t.id, { utr: "HDFC260908A991",
+      paymentDate: "8 Sep 2026", endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`,
+      paidAt: 0 }, null, "Insurer credited the refund and shared UTR + endorsement copy.");
+    onAdvance(t.id, "Refund credited and endorsement copy received.");
+  };
+  const simClientConfirm = () => {
+    onRefund(t.id, { clientConfirmed: true, confirmedAt: 0 }, null,
+      `${t.client} confirmed receipt. Ticket closed.`);
+    onAdvance(t.id, "Client confirmed refund and endorsement copy.");
+  };
+  const simReopen = () => onRefund(t.id, { step: null, clientAccept: null, consentAt: null },
     null, "Reopened for a fresh consent decision.");
 
   const Row = ({ k, l }) => (
@@ -3472,7 +3509,29 @@ function RefundPanel({ t, onRefund, setPreview }) {
         </>
       )}
 
-      {/* 4 — Client confirmation */}
+      {/* 4 — QC on Overview */}
+      {!rejected && (done("qc") || current("qc")) && (
+        <>
+          <div className="bk-rule" aria-hidden />
+          <div className="space-y-3">
+            <SectionTitle right={qcDone
+              ? <MiniTag {...OK}>QC passed</MiniTag>
+              : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">on Overview</MiniTag>}>QC the endorsement copy</SectionTitle>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+              {qcDone
+                ? `Copy passed QC and was sent to ${t.client}. Awaiting their final confirmation on the portal.`
+                : `The endorsement copy lives on Overview. Head there to review it, pass QC and send it to ${t.client}.`}
+            </div>
+            {current("qc") && (
+              <div className="flex justify-end">
+                <Btn size="xs" onClick={() => setTab && setTab("overview")}>Go to Overview to QC</Btn>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 5 — Client confirmation */}
       {!rejected && (done("confirm") || current("confirm")) && (
         <>
           <div className="bk-rule" aria-hidden />
@@ -3836,7 +3895,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     ["mail", "Mail Trail", false, dotFor("mail")],
     ["trail", "Ticket History", false, dotFor("trail")],
     ...(t.kind === "Financial" && !isRefund(t) ? [["payment", "Premium & Payment", false, dotFor("payment")]] : []),
-    ...(isRefund(t) ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", dotFor("refund")]] : []),
+    ...(isRefund(t) ? [["refund", "Refund & Payment", atOrPast(t, "Awaiting Refund Details") ? false : "The refund flow opens once the ticket is submitted and the insurer starts working on the refund details.", dotFor("refund")]] : []),
     ["manage", "Manage Ticket", readOnly(t), dotFor("manage")],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
@@ -3912,7 +3971,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+          <Indicator thick label={kindLabel(t)} ind={KIND_IND[kindOf(t)]} />
           <Indicator thick label={t.type} ind="neutral" />
           <Participants t={t} down />
         </div>
@@ -3964,10 +4023,13 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                     <Btn variant="secondary" size="sm" onClick={() => setUpload(true)}>Log manually, upload copy</Btn>
                   )}
                   {/* Copy Received: one atomic "Pass QC" action — passes QC,
-                      sends the copy to the client, and closes the ticket. */}
+                      sends the copy to the client, and closes the ticket.
+                      Refund tickets skip the close here: the ticket stays at
+                      Copy Received until the client confirms receipt from the
+                      Refund & Payment tab. */}
                   {t.stage === "Copy Received" ? (
-                    <button onClick={() => askConfirm(() => { if (!qcDone) onQc(t.id); if (!sends.length) onSendCopy(t.id); doAdvance(); })}
-                      disabled={!endo} title={!endo ? "Copy is not on file yet" : "Pass QC, send the copy to the client, and close the ticket"}
+                    <button onClick={() => askConfirm(() => { if (!qcDone) onQc(t.id); if (!sends.length) onSendCopy(t.id); if (!isRefund(t)) doAdvance(); })}
+                      disabled={!endo} title={!endo ? "Copy is not on file yet" : isRefund(t) ? "Pass QC and send the copy to the client (the ticket closes once the client confirms)" : "Pass QC, send the copy to the client, and close the ticket"}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
                       style={{ background: !endo ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: !endo ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: !endo ? "not-allowed" : "pointer" }}>
                       Pass QC
@@ -4559,7 +4621,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
           )}
 
           {live === "refund" && (
-            <RefundPanel t={t} onRefund={onRefund} setPreview={setPreview} />
+            <RefundPanel t={t} onRefund={onRefund} onAdvance={onAdvance} setTab={setTab} setPreview={setPreview} />
           )}
 
           {live === "manage" && (
@@ -5581,7 +5643,7 @@ function SearchCard({ t, q, onOpen }) {
       </div>
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}><Highlight text={t.type} q={q} /></div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
-        <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
+        <Indicator thick label={kindLabel(t)} ind={KIND_IND[kindOf(t)]} />
       </div>
       <div className="mt-4 flex items-end gap-4">
         <span className="flex min-w-0 flex-1 items-start gap-1">
