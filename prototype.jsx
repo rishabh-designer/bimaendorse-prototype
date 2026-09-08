@@ -3262,7 +3262,220 @@ function UpdateQuoteModal({ t, onConfirm, onClose }) {
  *  Ticket Trail, Payment, Manage) over ONE persistent footer that carries the
  *  audit note and the primary stage action on every tab.
  * ------------------------------------------------------------------ */
-function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment }) {
+
+/* Refund & Payment tab — Return-Premium only. A five-step loop from the
+   insurer confirming the refund figure, through the client's consent, the
+   insurer's payment + endorsement copy, back to a client confirmation that
+   closes the ticket. Every step surfaces a small "Simulate" control so the
+   demo can walk end to end without an external actor. */
+const REF_STEPS = [
+  { key: "insurer",   label: "Refund details from insurer" },
+  { key: "consent",   label: "Client consent" },
+  { key: "payment",   label: "Payment & endorsement copy" },
+  { key: "confirm",   label: "Client confirmation" },
+  { key: "closed",    label: "Closed" },
+];
+const refStepIdx = (k) => Math.max(0, REF_STEPS.findIndex((s) => s.key === k));
+
+function RefundPanel({ t, onRefund, setPreview }) {
+  const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
+  const r = t.refund || { step: "insurer" };
+  const step = r.step || "insurer";
+  const rejected = step === "rejected";
+  const idx = refStepIdx(step);
+  const done = (k) => !rejected && refStepIdx(k) < idx;
+  const current = (k) => !rejected && step === k;
+
+  const simInsurer = () => onRefund(t.id, { step: "consent", amount: 18450,
+    insurerRef: "ICL-END-99213", confirmedOn: "5 Sep 2026", insurerAt: 0 },
+    null, "Insurer confirmed refund of ₹18,450 (ref ICL-END-99213).");
+  const simAccept = () => onRefund(t.id, { step: "payment", clientAccept: true, consentAt: 0 },
+    null, `${t.client} accepted the refund. Insurer notified to process payment.`);
+  const simReject = () => onRefund(t.id, { step: "rejected", clientAccept: false, consentAt: 0 },
+    null, `${t.client} declined the refund. Ticket held for further instructions.`);
+  const simPayment = () => onRefund(t.id, { step: "confirm", utr: "HDFC260908A991",
+    paymentDate: "8 Sep 2026", endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`,
+    paidAt: 0 }, null, "Insurer credited the refund and shared UTR + endorsement copy.");
+  const simClientConfirm = () => onRefund(t.id, { step: "closed", clientConfirmed: true, confirmedAt: 0 },
+    { stage: "Closed" }, `${t.client} confirmed receipt. Ticket closed.`);
+  const simReopen = () => onRefund(t.id, { step: "consent", clientAccept: null, consentAt: null },
+    null, "Reopened for a fresh consent decision.");
+
+  const Row = ({ k, l }) => (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{l}</div>
+      <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{k}</div>
+    </div>
+  );
+
+  const StepChip = ({ i, s }) => {
+    const state = rejected && i > 1 ? "skip"
+      : done(s.key) ? "done"
+      : current(s.key) ? "current"
+      : "todo";
+    const fg = state === "done" ? C.teal
+      : state === "current" ? C.brand
+      : state === "skip" ? C.figPlaceholder
+      : C.figHint;
+    const bg = state === "done" ? C.tealSoft
+      : state === "current" ? C.brandBg
+      : "transparent";
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 20, height: 20, background: bg, border: `0.5px solid ${fg}`, color: fg, fontSize: 11, fontWeight: 600 }}>
+          {state === "done" ? <Check size={11} strokeWidth={3} /> : i + 1}
+        </span>
+        <span className="truncate" style={{ fontSize: 13, fontWeight: state === "current" ? 600 : 500, color: fg }}>{s.label}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Stepper */}
+      <div className="rounded-xl p-3" style={{ border: `0.5px solid ${C.subtle}`, background: C.white }}>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-5">
+          {REF_STEPS.map((s, i) => <StepChip key={s.key} i={i} s={s} />)}
+        </div>
+        {rejected && (
+          <div className="mt-3" style={{ fontSize: 13, fontWeight: 500, color: C.semError }}>
+            Client declined the refund. The flow is on hold until instructions arrive.
+          </div>
+        )}
+      </div>
+
+      {/* 1 — Refund details from insurer */}
+      <div className="space-y-3">
+        <SectionTitle right={r.amount
+          ? <MiniTag {...OK}>{money(r.amount)}</MiniTag>
+          : <MiniTag>{t.insurer}</MiniTag>}>Refund details from insurer</SectionTitle>
+        {r.amount ? (
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            <Row l="Refund amount" k={money(r.amount)} />
+            <Row l="Insurer reference" k={r.insurerRef} />
+            <Row l="Confirmed on" k={r.confirmedOn} />
+          </div>
+        ) : (
+          <Empty>{t.insurer} has not shared the refund figure yet.</Empty>
+        )}
+        {current("insurer") && (
+          <div className="flex justify-end">
+            <Btn size="xs" variant="outline" onClick={simInsurer}>Simulate: Insurer confirms refund</Btn>
+          </div>
+        )}
+      </div>
+
+      {/* 2 — Client consent */}
+      {(done("consent") || current("consent") || rejected) && (
+        <>
+          <div className="bk-rule" aria-hidden />
+          <div className="space-y-3">
+            <SectionTitle right={r.clientAccept === true
+              ? <MiniTag {...OK}>accepted</MiniTag>
+              : r.clientAccept === false
+                ? <MiniTag tone={C.semError} bg={C.breachSoft} line="#F4C7C7">declined</MiniTag>
+                : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">awaiting</MiniTag>}>Client consent</SectionTitle>
+            {r.clientAccept === true && (
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+                {t.client} accepted the refund on the client portal. Details forwarded to {t.insurer} for payment.
+              </div>
+            )}
+            {r.clientAccept === false && (
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+                {t.client} declined the refund. Confirm next steps before advancing.
+              </div>
+            )}
+            {r.clientAccept == null && (
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+                Refund summary has been sent to {t.client} on the BimaKendra portal. Awaiting their accept or decline.
+              </div>
+            )}
+            {current("consent") && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Btn size="xs" variant="outline" tone={C.semError} onClick={simReject}>Simulate: Client Rejects</Btn>
+                <Btn size="xs" variant="outline" onClick={simAccept}>Simulate: Client Accepts</Btn>
+              </div>
+            )}
+            {rejected && (
+              <div className="flex justify-end">
+                <Btn size="xs" variant="outline" onClick={simReopen}>Reopen for consent</Btn>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 3 — Payment & endorsement copy */}
+      {!rejected && (done("payment") || current("payment")) && (
+        <>
+          <div className="bk-rule" aria-hidden />
+          <div className="space-y-3">
+            <SectionTitle right={r.utr
+              ? <MiniTag {...OK}>credited</MiniTag>
+              : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">with insurer</MiniTag>}>Payment &amp; endorsement copy</SectionTitle>
+            {r.utr ? (
+              <>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  <Row l="UTR / transaction reference" k={r.utr} />
+                  <Row l="Payment date" k={r.paymentDate} />
+                  <Row l="Amount credited" k={money(r.amount)} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: C.canvas, border: `0.5px solid ${C.subtle}` }}>
+                  <FileCheck2 size={14} style={{ color: C.brand }} />
+                  <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{r.endoCopyFile}</span>
+                  <SoftBtn onClick={() => setPreview({ name: "Endorsement copy", kind: "Insurer issued", file: r.endoCopyFile, size: "312 KB", by: t.insurer, status: "Verified", at: r.paidAt || 0 })}>View</SoftBtn>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+                {t.insurer} is processing the credit. UTR and endorsement copy will arrive together.
+              </div>
+            )}
+            {current("payment") && (
+              <div className="flex justify-end">
+                <Btn size="xs" variant="outline" onClick={simPayment}>Simulate: Insurer sends UTR + copy</Btn>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 4 — Client confirmation */}
+      {!rejected && (done("confirm") || current("confirm")) && (
+        <>
+          <div className="bk-rule" aria-hidden />
+          <div className="space-y-3">
+            <SectionTitle right={r.clientConfirmed
+              ? <MiniTag {...OK}>confirmed</MiniTag>
+              : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">awaiting</MiniTag>}>Client confirmation</SectionTitle>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figHint }}>
+              {r.clientConfirmed
+                ? `${t.client} confirmed the credit and endorsement copy on the portal.`
+                : `UTR and endorsement copy have been shared with ${t.client}. Awaiting their confirmation to close the ticket.`}
+            </div>
+            {current("confirm") && (
+              <div className="flex justify-end">
+                <Btn size="xs" variant="outline" onClick={simClientConfirm}>Simulate: Client Confirms</Btn>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* 5 — Closed */}
+      {step === "closed" && (
+        <>
+          <div className="bk-rule" aria-hidden />
+          <Note icon={CheckCircle2} tone={C.teal} bg={C.tealSoft}>
+            Refund settled and confirmed by the client. Ticket is closed.
+          </Note>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment, onRefund }) {
   const [tab, setTab] = useState("overview");
   const [ask, setAsk] = useState(null);
   const [upload, setUpload] = useState(false);
@@ -3357,6 +3570,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     ["mail", "Mail Trail"],
     ["trail", "Ticket History"],
     ...(t.kind === "Financial" ? [["payment", "Premium & Payment"]] : []),
+    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment"]] : []),
     ["manage", "Manage Ticket", readOnly(t)],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
@@ -4070,6 +4284,10 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   </>
                 )}
               </div>
+          )}
+
+          {live === "refund" && (
+            <RefundPanel t={t} onRefund={onRefund} setPreview={setPreview} />
           )}
 
           {live === "manage" && (
@@ -8678,6 +8896,19 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     flash("Payment link regenerated and the customer notified.");
   };
 
+  /* Refund flow (Return-Premium only) — walked through by the sim buttons on
+     the Refund & Payment tab. Each step patches t.refund and appends a trail
+     entry so the ticket history reads back the whole loop. */
+  const refundAdvance = (id, refundPatch, ticketPatch, note) => {
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== id) return t;
+      const refund = { ...(t.refund || {}), ...refundPatch };
+      const history = note ? [...t.history, { text: note, by: t.owner, at: 0 }] : t.history;
+      return { ...t, ...(ticketPatch || {}), refund, lastAction: 0, touched: true, history };
+    }));
+    if (note) flash(note);
+  };
+
   /* M6 FR-157 - revert a mismatched payment, reason mandatory and audited */
   const revertPayment = (id) => {
     setTickets((ts) => ts.map((t) => {
@@ -8791,7 +9022,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
+              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
