@@ -3950,7 +3950,10 @@ function Review({ mails, tickets = [], onClaim, onAssign }) {
             <Btn variant="secondary" onClick={closeAssign}>Cancel</Btn>
             <Btn onClick={() => { if (!assignPick) return; onAssign(assignFor.id, assignPick); setOpen(null); closeAssign(); }} disabled={!assignPick}>Confirm</Btn>
           </>}>
-          <div className="relative min-w-0" data-menu>
+          {/* Give the body enough height for the picker to unfold in place —
+              the modal body has overflow-y-auto, so a short body clips the
+              dropdown; ~460px comfortably fits the 7-8 live tickets. */}
+          <div className="relative min-w-0" data-menu style={{ minHeight: 460 }}>
             <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
               <span style={{ color: C.figHint }}>Ticket ID</span><span style={{ color: "#F10000" }}>*</span>
             </div>
