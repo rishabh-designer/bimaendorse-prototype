@@ -3794,8 +3794,24 @@ const MR_COLS = {
   action: { w: 150 },
 };
 
-function Review({ mails, onClaim }) {
+function Review({ mails, tickets = [], onClaim, onAssign }) {
   const [open, setOpen] = useState(null);
+  /* Nested "Assign to Existing Ticket" state — non-null when the SM has
+     opened the second-level modal for a manual-review mail. */
+  const [assignFor, setAssignFor] = useState(null);
+  const [assignPick, setAssignPick] = useState(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  useEffect(() => {
+    if (!assignOpen) return;
+    const away = (e) => { if (!e.target.closest("[data-menu]")) setAssignOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setAssignOpen(false); };
+    document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [assignOpen]);
+  const openAssign = (m) => { setAssignFor(m); setAssignPick(null); setAssignOpen(false); };
+  const closeAssign = () => { setAssignFor(null); setAssignPick(null); setAssignOpen(false); };
+  /* Only live tickets are eligible — a closed one has no owner to route to. */
+  const assignableTickets = tickets.filter((t) => t.stage && t.stage !== "Closed");
   const over = mails.filter((m) => m.received >= MR_ESCALATION.overH).length;
   const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
   const body = { fontSize: 14, fontWeight: 500, color: C.figHint };
@@ -3873,7 +3889,10 @@ function Review({ mails, onClaim }) {
           <ModalShell icon={SquareDashedMousePointer} title={`Manual review · ${open.id}`}
             sub="The bot could not match this mail to a policy on its own - review it and create the ticket."
             width={760} onClose={() => setOpen(null)}
-            footer={<Btn onClick={() => { onClaim(open.id); setOpen(null); }}>Create Ticket</Btn>}>
+            footer={<>
+              <Btn variant="secondary" onClick={() => openAssign(open)}>Assign to Existing Ticket</Btn>
+              <Btn onClick={() => { onClaim(open.id); setOpen(null); }}>Create Ticket</Btn>
+            </>}>
             <div className="grid gap-6" style={{ gridTemplateColumns: "220px minmax(0, 1fr)" }}>
               {/* left - the bot's read of the mail */}
               <div className="space-y-5">
@@ -3920,6 +3939,43 @@ function Review({ mails, onClaim }) {
           </ModalShell>
         );
       })()}
+      {assignFor && (
+        <ModalShell icon={SquareDashedMousePointer} title={`Assign ${assignFor.id} to Existing Ticket`}
+          sub="Pick a live endorsement ticket to attach this mail to. The mail is filed in the ticket's mail trail and leaves the review queue."
+          width={760} onClose={closeAssign}
+          footer={<>
+            <Btn variant="secondary" onClick={closeAssign}>Cancel</Btn>
+            <Btn onClick={() => { if (!assignPick) return; onAssign(assignFor.id, assignPick); setOpen(null); closeAssign(); }} disabled={!assignPick}>Confirm</Btn>
+          </>}>
+          <div className="relative min-w-0" data-menu>
+            <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
+              <span style={{ color: C.figHint }}>Ticket ID</span><span style={{ color: "#F10000" }}>*</span>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-2.5" style={{ borderBottom: `1px solid ${assignPick ? C.brand : C.line}`, background: assignPick ? "rgba(65,0,207,0.02)" : "transparent" }}>
+              <button type="button" onClick={() => setAssignOpen((o) => !o)} disabled={assignableTickets.length === 0}
+                className="min-w-0 flex-1 bg-transparent outline-none flex items-center justify-between text-left"
+                style={{ fontSize: 16, fontWeight: 500, color: assignPick ? C.brand : "rgba(169,172,177,0.6)", cursor: assignableTickets.length ? "pointer" : "not-allowed" }}>
+                <span className="truncate">{assignPick || (assignableTickets.length ? "Select a live ticket" : "No live tickets to assign to")}</span>
+                {assignableTickets.length > 0 && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: assignOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
+              </button>
+              <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+                <CheckCircle2 size={15} fill={assignPick ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
+              </span>
+            </div>
+            {assignOpen && assignableTickets.length > 0 && (
+              <MenuCard>
+                {assignableTickets.map((t) => (
+                  <MenuOpt key={t.id} label={`${t.id} — ${t.client} · ${t.type}`} on={assignPick === t.id}
+                    onClick={() => { setAssignPick(t.id); setAssignOpen(false); }} />
+                ))}
+              </MenuCard>
+            )}
+            <p className="px-2 pt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+              Attaches the mail to the ticket's mail trail; the ticket's stage does not change.
+            </p>
+          </div>
+        </ModalShell>
+      )}
     </div>
   );
 }
@@ -8232,6 +8288,21 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     setView("create");
   };
 
+  /* Manual review · alternative to Create Ticket: attach this mail to an
+     existing endorsement ticket. Appends the mail to the ticket's mail trail
+     and drops it from the queue. */
+  const assign = (mid, tid) => {
+    const m = mails.find((x) => x.id === mid); if (!m) return;
+    setTickets((ts) => ts.map((t) => {
+      if (t.id !== tid) return t;
+      const extraMail = [...(t.extraMail || []), { dir: "in", who: m.from, name: (m.from || "").split("@")[0], subject: m.subject, at: 0, att: 0, body: m.body || "", queueRef: m.id }];
+      const history = [...t.history, { text: `Mail linked from manual review · ${m.id}`, by: "Nanditha P", at: 0, note: `${m.subject} · from ${m.from}${m.reason ? " · queue reason: " + m.reason : ""}` }];
+      return { ...t, extraMail, history, lastAction: 0, touched: true };
+    }));
+    setMails((q) => q.filter((x) => x.id !== mid));
+    flash(`${mid} linked to ${tid}.`);
+  };
+
   const current = tickets.find((t) => t.id === openId);
   const bc = useMemo(() => tickets.filter((t) => t.owner === "Nanditha P" && breached(t)).length, [tickets]);
 
@@ -8297,7 +8368,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
               {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
-              {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} onClaim={claim} />}
+              {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
           </div>
