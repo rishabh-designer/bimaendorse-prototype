@@ -1121,7 +1121,7 @@ function SlaBar({ t }) {
         <div className="absolute -top-0.5 -bottom-0.5 w-px" style={{ left: `${allowPct}%`, background: C.ink2 }} />
       </div>
       <div className="flex items-baseline justify-between mt-1 text-xs">
-        <span style={{ color: C.ink3 }}>{st.code} · {unitLabel(st.sla, st.unit)}</span>
+        <span title={`${st.code} · ${unitLabel(st.sla, st.unit)}`} style={{ color: C.ink3 }}>{unitLabel(st.sla, st.unit)}</span>
         {c.state === "held" ? <span style={{ color: C.wait }}>paused</span>
           : over ? <span style={{ color: C.breach }}>+{c.label} over</span>
           : <span style={{ color: tone }}>{c.label} left</span>}
@@ -2809,8 +2809,9 @@ function StageList({ t }) {
                   </span>
                 );
               })()}
-              <span className="bk-num whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
-                {sg.sla !== null ? `${sg.code} · ${unitLabel(sg.sla, sg.unit)}` : "no clock"}
+              <span className="bk-num whitespace-nowrap" title={sg.sla !== null ? `${sg.code} · ${unitLabel(sg.sla, sg.unit)}` : ""}
+                style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
+                {sg.sla !== null ? unitLabel(sg.sla, sg.unit) : "no clock"}
               </span>
               <span className="bk-num w-20 shrink-0 whitespace-nowrap text-right"
                 style={{ fontSize: 13, fontWeight: 500, color: over ? C.semError : now ? C.figInk : C.figHint }}>
