@@ -3198,6 +3198,11 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       const btn = el.querySelector("button:not([disabled])"); if (btn) btn.focus({ preventScroll: true });
     });
   };
+  /* Confirm-before-advance guard — any primary button that moves the ticket
+     to the next stage funnels through this. Simulate controls (demo-only)
+     bypass it since they won't exist in the final product. */
+  const [confirm, setConfirm] = useState(null);
+  const askConfirm = (onProceed) => setConfirm({ onProceed });
   const st = stageOf(t.stage);
   const s = clock(t);
   const docs = useMemo(() => docsOf(t), [t]);
@@ -3386,14 +3391,14 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   {/* Copy Received: one atomic "Pass QC" action — passes QC,
                       sends the copy to the client, and closes the ticket. */}
                   {t.stage === "Copy Received" ? (
-                    <button onClick={() => { if (!qcDone) onQc(t.id); if (!sends.length) onSendCopy(t.id); doAdvance(); }}
+                    <button onClick={() => askConfirm(() => { if (!qcDone) onQc(t.id); if (!sends.length) onSendCopy(t.id); doAdvance(); })}
                       disabled={!endo} title={!endo ? "Copy is not on file yet" : "Pass QC, send the copy to the client, and close the ticket"}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
                       style={{ background: !endo ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: !endo ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: !endo ? "not-allowed" : "pointer" }}>
                       Pass QC
                     </button>
                   ) : showAdvance && (
-                    <button onClick={doAdvance} disabled={advBlocked} title={advBlocked ? advHint : undefined}
+                    <button onClick={() => askConfirm(doAdvance)} disabled={advBlocked} title={advBlocked ? advHint : undefined}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
                       style={{ background: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: advBlocked ? "not-allowed" : "pointer" }}>
                       {advLabel}
@@ -4050,6 +4055,17 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       {withdrawing && <WithdrawModal t={t} onClose={() => setWithdrawing(false)} onConfirm={(x) => { onWithdraw(t.id, x); setWithdrawing(false); }} />}
       {reassigning && <ReassignModal t={t} onClose={() => setReassigning(false)} onConfirm={(x) => { onReassign(t.id, x); setReassigning(false); }} />}
       {upload && <UploadModal t={t} onClose={() => setUpload(false)} onConfirm={(file) => { onAttachCopy(t.id, { source: "manual", file }); setUpload(false); setNote(""); }} />}
+      {confirm && (
+        <ModalShell icon={ChevronRight} title="Confirm Action" width={440} onClose={() => setConfirm(null)}
+          footer={<>
+            <Cancel onClick={() => setConfirm(null)} />
+            <Btn onClick={() => { const fn = confirm.onProceed; setConfirm(null); fn(); }}>Move Ticket</Btn>
+          </>}>
+          <p style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.55, color: C.figInk }}>
+            This action will move the ticket to the next stage and this cannot be undone. Are you sure you want to proceed?
+          </p>
+        </ModalShell>
+      )}
     </div>
   );
 }
