@@ -2317,6 +2317,7 @@ const COLS = {
   age:    { w: 110 },
   client: { w: 200, pl: 8 },
   req:    { w: 250 },
+  team:   { w: 110, pl: 8 },
 };
 const cell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0,
   paddingLeft: c.pl, paddingRight: c.pr, ...extra });
@@ -2353,8 +2354,8 @@ function TableRow({ t, onOpen, showOwner, i = 0, last }) {
         <span className="flex" style={cell(COLS.req)}><Indicator label={t.type} ind="neutral" /></span>
         <span style={dueCell}><StageDue t={t} /></span>
         {showOwner && (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-            style={{ background: C.subtle, color: C.figHint }} title={t.owner}>{initials(t.owner)}</span>
+          <span className="truncate" style={cell(COLS.team, { fontSize: 13, fontWeight: 600, color: C.figHint })}
+            title={t.owner}>{t.owner.split(" ")[0]}</span>
         )}
       </button>
       {!last && <div style={{ height: 1, background: C.lineSoft }} />}
@@ -2455,7 +2456,7 @@ function ListView({ tickets, filter, setFilter, scope, openTicket, go, preset })
           <span style={dueCell}>
             <HeaderFilter id="slice" label="Stage due" options={SLICE_OPTS} selected={slice} setSelected={setSlice} right {...hf} />
           </span>
-          {scope === "team" && <span className="w-8 shrink-0" />}
+          {scope === "team" && <span style={cell(COLS.team, head)}>Teammate</span>}
         </div>
         {view.length
           ? view.map((t, i) => <TableRow key={t.id} t={t} i={i} last={i === view.length - 1} onOpen={openTicket} showOwner={scope === "team"} />)
@@ -3755,7 +3756,7 @@ function InsurerQueries({ t, onAnswer, onForward, onSimulateClientReply, setPrev
   );
 }
 
-function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment, onRefund, onSeen, onInsurerQAnswer, onInsurerQForward }) {
+function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment, onRefund, onSeen, onInsurerQAnswer, onInsurerQForward }) {
   const [tab, setTab] = useState("overview");
   const [ask, setAsk] = useState(null);
   const [upload, setUpload] = useState(false);
@@ -3907,6 +3908,9 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     { text: t.policy, icon: FileText, num: true },
     { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24 },
     { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22 },
+    /* Team-scope viewers (Umesh looking at his team's tickets) get an extra
+       chip naming the servicing executive who owns this one. */
+    ...(scope === "team" ? [{ text: `Servicing Executive: ${t.owner}`, icon: User }] : []),
   ];
 
   /* Row chrome shared by Captured at intake and the Document Vault. */
@@ -9417,6 +9421,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
           envs={user?.envs} onSwitchEnv={setEnv}
+          nav={NAV.map((row) => row[0] === "list" && scope === "team" ? ["list", "Tickets", row[2], row[3]] : row)}
           identity={user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
@@ -9439,7 +9444,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} onSeen={markSeen} onInsurerQAnswer={answerInsurerQ} onInsurerQForward={forwardInsurerQ} />}
+              {view === "ticket" && current && <Detail t={current} user={user} scope={scope} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} onSeen={markSeen} onInsurerQAnswer={answerInsurerQ} onInsurerQForward={forwardInsurerQ} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
