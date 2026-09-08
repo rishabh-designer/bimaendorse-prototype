@@ -3950,32 +3950,35 @@ function Review({ mails, tickets = [], onClaim, onAssign }) {
             <Btn variant="secondary" onClick={closeAssign}>Cancel</Btn>
             <Btn onClick={() => { if (!assignPick) return; onAssign(assignFor.id, assignPick); setOpen(null); closeAssign(); }} disabled={!assignPick}>Confirm</Btn>
           </>}>
-          {/* Give the body enough height for the picker to unfold in place —
-              the modal body has overflow-y-auto, so a short body clips the
-              dropdown; ~460px comfortably fits the 7-8 live tickets. */}
-          <div className="relative min-w-0" data-menu style={{ minHeight: 460 }}>
+          {/* Reserve height on an outer wrapper so the modal body is tall
+              enough to hold the open picker. The `.relative` anchor below
+              stays tight around the field so MenuCard's top-full sits just
+              under the field, not at the bottom of the reserved space. */}
+          <div style={{ minHeight: 460 }}>
             <div className="flex items-center px-2 pb-1.5 text-sm font-medium leading-none">
               <span style={{ color: C.figHint }}>Ticket ID</span><span style={{ color: "#F10000" }}>*</span>
             </div>
-            <div className="flex items-center gap-2 px-2 py-2.5" style={{ borderBottom: `1px solid ${assignPick ? C.brand : C.line}`, background: assignPick ? "rgba(65,0,207,0.02)" : "transparent" }}>
-              <button type="button" onClick={() => setAssignOpen((o) => !o)} disabled={assignableTickets.length === 0}
-                className="min-w-0 flex-1 bg-transparent outline-none flex items-center justify-between text-left"
-                style={{ fontSize: 16, fontWeight: 500, color: assignPick ? C.brand : "rgba(169,172,177,0.6)", cursor: assignableTickets.length ? "pointer" : "not-allowed" }}>
-                <span className="truncate">{assignPick || (assignableTickets.length ? "Select a live ticket" : "No live tickets to assign to")}</span>
-                {assignableTickets.length > 0 && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: assignOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
-              </button>
-              <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
-                <CheckCircle2 size={15} fill={assignPick ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
-              </span>
+            <div className="relative min-w-0" data-menu>
+              <div className="flex items-center gap-2 px-2 py-2.5" style={{ borderBottom: `1px solid ${assignPick ? C.brand : C.line}`, background: assignPick ? "rgba(65,0,207,0.02)" : "transparent" }}>
+                <button type="button" onClick={() => setAssignOpen((o) => !o)} disabled={assignableTickets.length === 0}
+                  className="min-w-0 flex-1 bg-transparent outline-none flex items-center justify-between text-left"
+                  style={{ fontSize: 16, fontWeight: 500, color: assignPick ? C.brand : "rgba(169,172,177,0.6)", cursor: assignableTickets.length ? "pointer" : "not-allowed" }}>
+                  <span className="truncate">{assignPick || (assignableTickets.length ? "Select a live ticket" : "No live tickets to assign to")}</span>
+                  {assignableTickets.length > 0 && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: assignOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
+                </button>
+                <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+                  <CheckCircle2 size={15} fill={assignPick ? "#1F9D6B" : C.figPlaceholder} color={C.white} />
+                </span>
+              </div>
+              {assignOpen && assignableTickets.length > 0 && (
+                <MenuCard>
+                  {assignableTickets.map((t) => (
+                    <MenuOpt key={t.id} label={`${t.id} — ${t.client} · ${t.type}`} on={assignPick === t.id}
+                      onClick={() => { setAssignPick(t.id); setAssignOpen(false); }} />
+                  ))}
+                </MenuCard>
+              )}
             </div>
-            {assignOpen && assignableTickets.length > 0 && (
-              <MenuCard>
-                {assignableTickets.map((t) => (
-                  <MenuOpt key={t.id} label={`${t.id} — ${t.client} · ${t.type}`} on={assignPick === t.id}
-                    onClick={() => { setAssignPick(t.id); setAssignOpen(false); }} />
-                ))}
-              </MenuCard>
-            )}
             <p className="px-2 pt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
               Attaches the mail to the ticket's mail trail; the ticket's stage does not change.
             </p>
