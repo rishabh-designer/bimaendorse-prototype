@@ -5051,6 +5051,16 @@ function clMake(o, i) {
     settlement: null, settlementSrc: null, settlementAt: null,
     settlementFrozen: false, settlementReleasedAt: null, settlementProof: null,
     reportReleased: false, lateSettlements: [],
+    /* PRD v2.2 §5 - document-request loops. docRequest is an overlay on the
+       ticket: while set, the ticket displays as "Documents pending" but the
+       state key doesn't change. On client upload it clears and the ticket
+       reappears in its original state; requests from insurer/surveyor are
+       auto-forwarded from BimaKavach when the docs arrive. */
+    docRequest: null,
+    /* PRD v2.2 FR-11.5 - S12 closure sub-steps. Receipt confirmation opens
+       the feedback window; feedback (or 5 working days of silence) closes
+       the ticket as Settled. */
+    closureStep: null,
     chase: { reminders: 0, escalations: 0, events: [] },
   }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
 }
@@ -5998,6 +6008,18 @@ function ClOverview({ t, act, setTab }) {
             </div>
           </div>
         )}
+        {t.docRequest && (
+          <div className="rounded-xl p-3" style={{ background: C.warnSoft, border: `1px solid ${IND.caution.line}` }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: IND.caution.dot }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>
+                Documents pending on client — {t.docRequest.items.length} item{t.docRequest.items.length === 1 ? "" : "s"} · requested by {t.docRequest.by === "cm" ? "BimaKavach (CM)" : t.docRequest.by === "insurer" ? "the insurer" : "the surveyor"}
+              </span>
+              <span className="flex-1" />
+              <Btn size="xs" onClick={() => setTab("client")}>Open Client channel</Btn>
+            </div>
+          </div>
+        )}
         <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           <div className="flex items-baseline justify-between gap-3">
             <SectionTitle>Claim workflow</SectionTitle>
@@ -6170,10 +6192,16 @@ function ClActionPanel({ t, act, setTab }) {
   }
 
   /* client waiting panel — S9/S10/S12 only. The Contest track (R1/R2/R3)
-     short-circuits above; v2.2 §7 moves those actions to the Contest tab. */
+     short-circuits above; v2.2 §7 moves those actions to the Contest tab.
+     S12 walks the closure timer: receipt → feedback → Settled. */
   if (src === "client") {
-    const what = { S9: "Consent to the assessed amount", S10: "Bank details and cancelled cheque", S12: "Confirmation that the money arrived" }[t.state];
-    const detail = { S9: "The assessment report is published on BimaKendra with two actions - consent or object. Objections are capped at two rounds.", S10: "Asked for only now - after consent - so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm." }[t.state];
+    const s12Step = t.state === "S12" ? (t.closureStep || "receipt") : null;
+    const what = { S9: "Consent to the settlement figure", S10: "Bank details and cancelled cheque",
+      S12: s12Step === "feedback" ? "Feedback on the claim (optional)" : "Confirmation that the money arrived" }[t.state];
+    const detail = { S9: "The settlement figure is published on BimaKendra with two actions — consent or withdraw.",
+      S10: "Asked for only now - after consent - so only clients who will actually be paid are ever asked. Captured on the Payment tab.",
+      S12: s12Step === "feedback" ? "Feedback is optional. Ticket auto-closes as Settled after 5 working days of silence (FR-11.5)."
+        : "Client confirms receipt on BimaKendra. Ticket then opens the 5-working-day feedback window before auto-closing." }[t.state];
     return (
       <div className="mt-4 rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
         <div className="flex flex-wrap items-center gap-2">
@@ -6184,9 +6212,16 @@ function ClActionPanel({ t, act, setTab }) {
         </div>
         <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{detail}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {t.state === "S10"
-            ? <Btn size="sm" onClick={() => setTab("payment")}>Open the Payment tab</Btn>
-            : <SimBtn onClick={() => act.clientRun(t.id)}>Simulate: the client acts on BimaKendra</SimBtn>}
+          {t.state === "S10" && <Btn size="sm" onClick={() => setTab("payment")}>Open the Payment tab</Btn>}
+          {t.state === "S9" && <SimBtn onClick={() => act.clientRun(t.id)}>Simulate: the client acts on BimaKendra</SimBtn>}
+          {t.state === "S12" && s12Step === "receipt" && (<>
+            <SimBtn onClick={() => act.closureAdvance(t.id, "receipt")}>Simulate: client confirms receipt</SimBtn>
+            <Btn variant="secondary" size="sm" onClick={() => act.closureAdvance(t.id, "auto")}>Simulate: 5 working days elapse (auto-close)</Btn>
+          </>)}
+          {t.state === "S12" && s12Step === "feedback" && (<>
+            <SimBtn onClick={() => act.closureAdvance(t.id, "feedback")}>Simulate: client gives feedback</SimBtn>
+            <Btn variant="secondary" size="sm" onClick={() => act.closureAdvance(t.id, "auto")}>Simulate: 5 working days elapse (auto-close)</Btn>
+          </>)}
         </div>
       </div>
     );
@@ -6314,14 +6349,47 @@ function ClClient({ t, act }) {
   const [text, setText] = useState("");
   const [target, setTarget] = useState("");
   const [src, setSrc] = useState("BimaKavach");
+  const [docBy, setDocBy] = useState("cm");
+  const [docItems, setDocItems] = useState("");
+  useEffect(() => { setDocBy("cm"); setDocItems(""); }, [t.id]);
   const queries = t.queries;
+  const canRequestDocs = !CL_FLOW[t.state].terminal && !t.dormant && !t.docRequest;
+  const rq = t.docRequest;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <SectionTitle>Client channel</SectionTitle>
         <Btn size="sm" onClick={() => { setAsk(true); setText(""); setTarget(""); }}>Ask the client</Btn>
       </div>
-      {queries.length === 0 && <Empty>No queries raised on this claim.</Empty>}
+      {/* PRD v2.2 §5 — document-request loop overlay. */}
+      {rq ? (
+        <div className="rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Indicator label="Documents pending on client" ind="caution" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Requested by {rq.by === "cm" ? "BimaKavach (CM)" : rq.by === "insurer" ? "the insurer" : "the surveyor"}</span>
+            <span className="flex-1" />
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>opened {clFdt(rq.at)}</span>
+          </div>
+          <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+            {rq.items.length} item{rq.items.length === 1 ? "" : "s"}: <b style={{ color: C.figInk }}>{rq.items.join(", ")}</b>
+            {rq.by !== "cm" && <> — will auto-forward to {rq.by === "insurer" ? "the insurer" : "the surveyor"} on receipt.</>}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <SimBtn onClick={() => act.docUpload(t.id)}>Simulate: client uploads on BimaKendra</SimBtn>
+          </div>
+        </div>
+      ) : canRequestDocs ? (
+        <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Request more documents from the client</div>
+          <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Documents are collected on BimaKendra only. Insurer and surveyor requests auto-forward from us when the client uploads (FR-5).</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <ClInput label="Requested by" value={docBy} onChange={setDocBy} options={["cm", "insurer", "surveyor"]} />
+            <ClInput label="Items (comma-separated)" value={docItems} onChange={setDocItems} placeholder="e.g. Repair quotation, Stock register" />
+          </div>
+          <div className="mt-3"><Btn size="sm" onClick={() => act.docRequest(t.id, docBy, docItems)}>Request documents</Btn></div>
+        </div>
+      ) : null}
+      {queries.length === 0 && !rq && <Empty>No queries raised on this claim.</Empty>}
       {queries.map((q) => (
         <div key={q.id} className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           <div className="flex flex-wrap items-center gap-2">
@@ -7358,6 +7426,54 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   };
   /* Deprecated shim so any older reference doesn't crash; new UI uses releaseSettlement. */
   const shareReport = (id) => releaseSettlement(id, tickets.find((x) => x.id === id)?.assessedLoss || 0, "manual");
+  /* PRD v2.2 §5 - document-request loops.
+     - by "cm": we ask the client for our own reasons.
+     - by "insurer" | "surveyor": their request routes through us; we forward
+       the client's uploads back to them automatically.
+     While a request is open the ticket displays "Documents pending" without
+     changing state; upload clears the overlay and the ticket resurfaces. */
+  const CL_DOC_LABEL = { cm: "BimaKavach (CM)", insurer: "the insurer", surveyor: "the surveyor" };
+  const docRequestFn = (id, by, itemsCsv) => {
+    const items = String(itemsCsv || "").split(",").map((x) => x.trim()).filter(Boolean);
+    if (!items.length) return flash("List at least one document (comma-separated).");
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (CL_FLOW[t0.state].terminal || t0.dormant) return flash("This ticket cannot take new document requests right now.");
+    if (t0.docRequest) return flash("A document request is already open — resolve it first.");
+    const who = CL_DOC_LABEL[by] || CL_DOC_LABEL.cm;
+    mut(id, (t) => clAudit({ ...t, docRequest: { by, items, at: CL_NOW, returnState: t.state } }, "Document request opened", "By " + who + " · items: " + items.join(", ") + " · pushed to the client on BimaKendra (email + WhatsApp notify).", actor(), roleName()));
+    flash("Requested " + items.length + " item" + (items.length === 1 ? "" : "s") + " from the client on behalf of " + who + ".");
+  };
+  const docUpload = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.docRequest) return;
+    const r = t0.docRequest;
+    mut(id, (t) => {
+      const uploads = { ...t.uploads };
+      r.items.forEach((k) => { uploads[k] = { name: k.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf", at: CL_NOW, by: t.client + " (from BimaKendra)" }; });
+      let t1 = { ...t, uploads, docRequest: null };
+      t1 = clAudit(t1, "Client uploaded requested documents", r.items.join(", ") + (r.by !== "cm" ? " · collated and forwarded to " + CL_DOC_LABEL[r.by] + " automatically" : ""), t.client, "Client");
+      if (r.by !== "cm") {
+        t1 = clAudit(t1, "Forwarded to " + CL_DOC_LABEL[r.by], "Auto-forward mail sent with " + r.items.length + " attachment" + (r.items.length === 1 ? "" : "s") + " — no CM action needed.", "System", "Bot");
+      }
+      return t1;
+    });
+    flash("Uploaded on the portal. " + (r.by === "cm" ? "Back to you." : "Auto-forwarded to " + CL_DOC_LABEL[r.by] + "."));
+  };
+  /* PRD v2.2 FR-11.5 - closure timers. Receipt confirmation opens the
+     feedback window; feedback (or 5 working days of silence) closes as
+     Settled. The demo uses per-ticket sim buttons instead of a global clock. */
+  const closureAdvance = (id, step) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || t0.state !== "S12") return;
+    if (step === "receipt") {
+      mut(id, (t) => clAudit({ ...t, closureStep: "feedback", stageAt: CL_NOW }, "Client confirmed receipt", "Feedback window opens · closes as Settled after 5 working days if the client does not respond (FR-11.5).", t.client, "Client"));
+      flash("Receipt confirmed. Feedback window open — optional.");
+    } else if (step === "feedback") {
+      mut(id, (t) => clStep(clAudit({ ...t, closureStep: null }, "Client gave feedback", "Closed as Settled.", t.client, "Client"), "S13"));
+      flash("Feedback received. Closed as Settled.");
+    } else if (step === "auto") {
+      mut(id, (t) => clStep(clAudit({ ...t, closureStep: null }, "Auto-closed as Settled", "5 working days elapsed with no client action (FR-11.5).", "System", "Timer"), "S13"));
+      flash("Auto-closed as Settled.");
+    }
+  };
   const ask = (id, q) => { mut(id, (t) => { const qid = "Q" + (t.queries.length + 1); return clAudit({ ...t, queries: [...t.queries, { id: qid, target: q.target, text: q.text, src: q.src, status: "open", at: CL_NOW, response: null }] }, "Query raised" + (q.target ? " on " + q.target : ""), q.text + " · on behalf of " + q.src, actor(), roleName()); }); flash("Sent to the client. They see it on their surface; the reminder cycle starts now."); };
   const answer = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "answered", response: "Sharing the requested detail from our records.", respondedAt: CL_NOW } : q)), audit: [{ at: CL_NOW, actor: t.client, role: "Client", what: "Client responded to a query", detail: "" }, ...t.audit] })); flash("Response recorded."); };
   const closeQuery = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "closed" } : q)) })); flash("Query closed."); };
@@ -7402,14 +7518,14 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
     const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared - optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
-    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
+    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
     flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
   };
   const createFromMail = (m) => {
     const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
-    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], docRequest: null, closureStep: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
     flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
   };
@@ -7424,7 +7540,8 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
 
   const act = { cmForm, bot, clientRun, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash,
     contestRepudiate, contestRaiseRound, contestEscalateCH, contestRaiseCap, contestInsurerMaintains, contestInsurerAccepts, contestAccept, contestLateRepudiation,
-    releaseSettlement, editSettlement, settlementLateAdvice };
+    releaseSettlement, editSettlement, settlementLateAdvice,
+    docRequest: docRequestFn, docUpload, closureAdvance };
   const current = tickets.find((t) => t.id === openId);
   /* The order the ticket pager walks - the same urgency order the queues use. */
   const pagerList = useMemo(() => clVisible(tickets, role).slice().sort((a, b) => {
