@@ -3991,6 +3991,45 @@ const POLICY_BOOK = {
   "BK-PROP-D&O-B-1968": { client: "Rahul Badoni", insurer: "ICICI Lombard", product: "Directors & Officers (D&O)" },
   "BK-WC-2026-0092":    { client: "Redwood Logistics Ltd", insurer: "ICICI Lombard", product: "Workmen Compensation (WC)" },
 };
+/* PAN → client + the policies that PAN holds. Drives the Create-ticket flow:
+   the SM enters the PAN first, the Policy Number field then lists what that
+   PAN owns, and picking a policy locks in Client/Insurer/Product. Prototype
+   fixture — no real PAN master yet (see OPEN-QUESTIONS). */
+const PAN_BOOK = {
+  "AABCA1234E": { client: "Acme Logistics Pvt Ltd", policies: [
+    { policy: "FIRE/2026/00812", insurer: "ICICI Lombard", product: "Fire & Burglary" },
+    { policy: "MAR/2026/00203",  insurer: "Bajaj Allianz", product: "Marine Cargo" },
+    { policy: "WC/2026/00187",   insurer: "ICICI Lombard", product: "Workmen Compensation (WC)" },
+  ] },
+  "AABCV5678F": { client: "Vertex Pharma Ltd", policies: [
+    { policy: "FIRE/2026/00947", insurer: "Bajaj Allianz", product: "Fire & Burglary" },
+    { policy: "PI/2026/00318",   insurer: "TATA AIG", product: "Professional Indemnity (PI)" },
+  ] },
+  "AABCS4231Q": { client: "Sunrise Chemicals Ltd", policies: [
+    { policy: "MAR/2026/00655",  insurer: "IFFCO Tokio", product: "Marine Cargo" },
+    { policy: "FIRE/2026/00812", insurer: "IFFCO Tokio", product: "Fire & Burglary" },
+  ] },
+  "AAACR9012K": { client: "Redwood Logistics Ltd", policies: [
+    { policy: "WC/2026/00744",   insurer: "ICICI Lombard", product: "Workmen Compensation (WC)" },
+    { policy: "MBD/2026/00218",  insurer: "Bajaj Allianz", product: "Machinery Breakdown (MBD)" },
+  ] },
+  "AABCP3456L": { client: "Pinnacle Retail Ltd", policies: [
+    { policy: "PI/2026/00092",   insurer: "ICICI Lombard", product: "Professional Indemnity (PI)" },
+  ] },
+  "AABCN7788M": { client: "Nimbus Engineering", policies: [
+    { policy: "OFF/2026/00390",  insurer: "Bajaj Allianz", product: "Office / Package Policy" },
+    { policy: "MBD/2026/00622",  insurer: "TATA AIG", product: "Machinery Breakdown (MBD)" },
+  ] },
+  "AABCE1122N": { client: "Everest Packaging Ltd", policies: [
+    { policy: "FIRE/2026/01034", insurer: "ICICI Lombard", product: "Fire & Burglary" },
+  ] },
+  "AABCV3344P": { client: "Vanguard Textiles Pvt Ltd", policies: [
+    { policy: "FIRE/2026/00922", insurer: "Chola MS", product: "Fire & Burglary" },
+    { policy: "WC/2026/00415",   insurer: "Chola MS", product: "Workmen Compensation (WC)" },
+  ] },
+};
+const isPan = (s) => /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(String(s || "").trim().toUpperCase());
+const fetchPan = (pan) => PAN_BOOK[String(pan || "").trim().toUpperCase()] || null;
 const DEMO_CLIENTS = ["Acme Logistics Pvt Ltd", "Vertex Pharma Ltd", "Nimbus Engineering", "Pinnacle Retail Ltd",
   "Redwood Logistics Ltd", "Sunrise Chemicals Ltd", "Vanguard Textiles Pvt Ltd", "Meridian Foods Ltd"];
 const fetchPolicy = (policy) => {
@@ -4034,8 +4073,13 @@ function Field({ label, hint, value, onClear, trail, children, locked, required 
 }
 
 function Create({ onCreate, back, prefill }) {
-  const [f, setF] = useState({ client: prefill?.client || "", policy: "", insurer: "",
+  const [f, setF] = useState({ pan: "", client: prefill?.client || "", policy: "", insurer: "",
     product: "", type: "" });
+  /* Committed PAN record (name + policies). Non-null once the SM has Entered a
+     PAN that resolves; drives the Policy Number picker's enabled state. */
+  const [panRec, setPanRec] = useState(null);
+  const [panErr, setPanErr] = useState(null);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [vals, setVals] = useState({});
   const [ups, setUps] = useState({});
   const meta = TYPES[f.type] || { fields: [], docs: [] };
@@ -4043,27 +4087,48 @@ function Create({ onCreate, back, prefill }) {
   const refund = meta.kind === "Return-Premium";
   const ready = f.client && f.policy && f.insurer && f.product && f.type && !refund;
 
+  /* Close the Policy picker on an outside click, matching the HeaderFilter idiom. */
+  useEffect(() => {
+    if (!policyOpen) return;
+    const away = (e) => { if (!e.target.closest("[data-menu]")) setPolicyOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setPolicyOpen(false); };
+    document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [policyOpen]);
+
   /* Everything the form asks for, and how much of it is answered. */
-  const core = ["client", "policy", "insurer", "product", "type"];
+  const core = ["pan", "policy", "client", "insurer", "product", "type"];
   const wanted = core.length + meta.fields.length + meta.docs.length;
   const done = core.filter((k) => f[k]).length
     + meta.fields.filter((x) => (vals[x] || "").trim()).length
     + meta.docs.filter((d) => ups[d]?.state === "success").length;
   const pct = Math.round((done / wanted) * 100);
 
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  /* The three inputs the SM fills; entering the policy auto-fetches (and locks)
-     Client / Insurer / Product, and resets the type since its list is per-product. */
-  const onPolicyChange = (e) => setF((prev) => ({ ...prev, policy: e.target.value }));
-  /* Fetch ONLY when the SM commits the policy with Enter - never on keystroke,
-     so partial input like "E" doesn't populate the trio or steal focus. */
-  const onPolicyKey = (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const rec = fetchPolicy(f.policy);
-    if (rec.product !== f.product) { setVals({}); setUps({}); }
-    setF((prev) => ({ ...prev, ...rec, type: rec.product !== prev.product ? "" : prev.type }));
+  /* PAN entry — free-typing the PAN uppercases the value but does not commit.
+     Enter commits and resolves; a good PAN populates panRec and pre-fills the
+     Client, ready for the SM to pick a policy. */
+  const onPanChange = (e) => {
+    const raw = e.target.value.toUpperCase();
+    setF((prev) => ({ ...prev, pan: raw }));
+    if (panRec) { setPanRec(null); setF((prev) => ({ ...prev, pan: raw, client: "", policy: "", insurer: "", product: "", type: "" })); setVals({}); setUps({}); }
+    setPanErr(null);
   };
+  const commitPan = () => {
+    const rec = fetchPan(f.pan);
+    if (!rec) { setPanErr(isPan(f.pan) ? "PAN not found in the master" : "PAN format is AABCA1234E"); setPanRec(null); return; }
+    setPanRec(rec); setPanErr(null);
+    setF((prev) => ({ ...prev, client: rec.client, policy: "", insurer: "", product: "", type: "" }));
+    setVals({}); setUps({});
+  };
+  const onPanKey = (e) => { if (e.key === "Enter") { e.preventDefault(); commitPan(); } };
+  /* Policy pick — resets the type since its list is per-product. */
+  const pickPolicy = (p) => {
+    if (p.product !== f.product) { setVals({}); setUps({}); }
+    setF((prev) => ({ ...prev, policy: p.policy, insurer: p.insurer, product: p.product, type: p.product !== prev.product ? "" : prev.type }));
+    setPolicyOpen(false);
+  };
+  const clearPan = () => { setPanRec(null); setPanErr(null); setF({ pan: "", client: "", policy: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); };
+  const clearPolicy = () => { setF((prev) => ({ ...prev, policy: "", insurer: "", product: "", type: "" })); setVals({}); setUps({}); };
   const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
   const selCls = "min-w-0 flex-1 appearance-none bg-transparent outline-none";
   const inputSt = { fontSize: 16, fontWeight: 500, color: C.brand };
@@ -4088,23 +4153,35 @@ function Create({ onCreate, back, prefill }) {
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
           <div className="grid gap-x-10 sm:grid-cols-2">
-            {/* Left - the three inputs, then the read-only trio fetched from the policy */}
+            {/* Left column — the ordered flow: PAN → Policy Number → auto-filled
+                trio → Endorsement Type. Every step gates on the one above. */}
             <div className="min-w-0">
-              <Field label="Policy Number" value={f.policy}
-                onClear={() => { setF({ ...f, policy: "", client: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); }}>
-                <input value={f.policy} onChange={onPolicyChange} onKeyDown={onPolicyKey}
-                  placeholder="Enter Policy Number" className={inputCls} style={inputSt} />
+              <Field label="PAN Number" value={f.pan} onClear={clearPan}
+                hint={panRec ? <>Matched: <span style={{ color: C.figInk }}>{panRec.client}</span></> : panErr ? <span style={{ color: C.warn }}>{panErr}</span> : null}>
+                <input value={f.pan} onChange={onPanChange} onKeyDown={onPanKey} onBlur={() => { if (f.pan && !panRec) commitPan(); }}
+                  placeholder="Enter PAN (Press Enter)" className={inputCls} style={inputSt} maxLength={10} spellCheck={false} autoCapitalize="characters" />
               </Field>
-              <Field label="Endorsement Type" value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
-                hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
-                <select value={f.type} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
-                  className={selCls} style={{ ...inputSt, color: f.type ? C.brand : "rgba(169,172,177,0.6)" }}>
-                  {ph("Endorsement Type")}
-                  {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
-                </select>
-              </Field>
+              {/* Policy Number picker — MenuCard/MenuOpt idiom. Disabled until
+                  a PAN is committed. Options = the policies that PAN owns. */}
+              <div className="relative min-w-0" data-menu>
+                <Field label="Policy Number" locked={!panRec} required value={f.policy} onClear={clearPolicy}>
+                  <button type="button" disabled={!panRec} onClick={() => setPolicyOpen((o) => !o)}
+                    className={inputCls + " flex items-center justify-between text-left"}
+                    style={{ ...inputSt, color: f.policy ? C.brand : "rgba(169,172,177,0.6)", cursor: panRec ? "pointer" : "not-allowed" }}>
+                    <span className="truncate">{f.policy || (panRec ? "Select Policy Number" : "Enter a PAN first")}</span>
+                    {panRec && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: policyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
+                  </button>
+                </Field>
+                {policyOpen && panRec && (
+                  <MenuCard>
+                    {panRec.policies.map((p) => (
+                      <MenuOpt key={p.policy} label={`${p.policy} — ${p.product} · ${p.insurer}`} on={f.policy === p.policy} onClick={() => pickPolicy(p)} />
+                    ))}
+                  </MenuCard>
+                )}
+              </div>
               <Field label="Client" locked required={false} value={f.client}>
-                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from policy"}</span>
+                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from PAN"}</span>
               </Field>
               <Field label="Insurer" locked required={false} value={f.insurer}
                 trail={INSURER_LOGO[f.insurer] && <img src={INSURER_LOGO[f.insurer]} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
@@ -4113,6 +4190,14 @@ function Create({ onCreate, back, prefill }) {
               <Field label="Product" locked required={false} value={f.product}
                 trail={PRODUCT_ICON[f.product] && <img src={PRODUCT_ICON[f.product]} alt="" className="shrink-0" style={{ height: 22, width: 22 }} />}>
                 <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product || "Auto-filled from policy"}</span>
+              </Field>
+              <Field label="Endorsement Type" locked={!f.product} value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
+                hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
+                <select value={f.type} disabled={!f.product} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
+                  className={selCls} style={{ ...inputSt, color: f.type ? C.brand : "rgba(169,172,177,0.6)", cursor: f.product ? "pointer" : "not-allowed" }}>
+                  {ph(f.product ? "Endorsement Type" : "Pick a policy first")}
+                  {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
+                </select>
               </Field>
             </div>
 
