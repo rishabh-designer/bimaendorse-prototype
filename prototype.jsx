@@ -4224,7 +4224,7 @@ function Create({ onCreate, back, prefill }) {
                   : <>Have the Policy Number? <button type="button" onClick={swap} className="bk-link" style={{ color: C.brand, fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>Enter it directly</button></>}
               </div>
               <Field label="Client" locked required={false} value={f.client}>
-                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from PAN"}</span>
+                <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || (mode === "pan" ? "Auto-filled from PAN" : "Auto-filled from policy")}</span>
               </Field>
               <Field label="Insurer" locked required={false} value={f.insurer}
                 trail={INSURER_LOGO[f.insurer] && <img src={INSURER_LOGO[f.insurer]} alt="" className="shrink-0" style={{ height: 18, width: "auto" }} />}>
@@ -4238,7 +4238,7 @@ function Create({ onCreate, back, prefill }) {
                 hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
                 <select value={f.type} disabled={!f.product} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
                   className={selCls} style={{ ...inputSt, color: f.type ? C.brand : "rgba(169,172,177,0.6)", cursor: f.product ? "pointer" : "not-allowed" }}>
-                  {ph(f.product ? "Endorsement Type" : "Pick a policy first")}
+                  <option value="" disabled>{f.product ? "Select Endorsement Type" : "Pick a policy first"}</option>
                   {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
                 </select>
               </Field>
