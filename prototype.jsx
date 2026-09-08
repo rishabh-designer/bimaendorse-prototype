@@ -4104,6 +4104,50 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   {!intake.length && <Empty>This endorsement type has no mandatory fields.</Empty>}
                 </div>
 
+                {/* Refund details on Overview for refund tickets — amount +
+                    UTR + payment date summarised out of t.refund so the SM
+                    doesn't have to jump to the Refund tab to see them. */}
+                {isRefund(t) && t.refund && (t.refund.amount || t.refund.utr) && (
+                  <>
+                    <div className="bk-rule" aria-hidden />
+                    <SectionTitle right={t.refund.utr
+                      ? <MiniTag {...OK}>credited</MiniTag>
+                      : <MiniTag tone={C.warn} bg={C.warnSoft} line="#FFD2A8">confirmed</MiniTag>}>Refund details</SectionTitle>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                      {t.refund.amount != null && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Refund amount</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{money(t.refund.amount)}</div>
+                        </div>
+                      )}
+                      {t.refund.insurerRef && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Insurer reference</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.refund.insurerRef}</div>
+                        </div>
+                      )}
+                      {t.refund.confirmedOn && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Confirmed on</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.refund.confirmedOn}</div>
+                        </div>
+                      )}
+                      {t.refund.utr && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>UTR / transaction reference</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.refund.utr}</div>
+                        </div>
+                      )}
+                      {t.refund.paymentDate && (
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Payment date</div>
+                          <div className="bk-num mt-0.5" style={{ fontSize: 14, fontWeight: 500, color: C.figInk }}>{t.refund.paymentDate}</div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 {endo && (
                   <>
                     <div className="bk-rule" aria-hidden />
