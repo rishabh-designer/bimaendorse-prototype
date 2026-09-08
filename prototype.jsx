@@ -1243,8 +1243,8 @@ const MenuOpt = ({ label, on, onClick }) => (
   </button>
 );
 
-const MenuCard = ({ children, right, wide }) => (
-  <div className="scroll-slim absolute top-full z-30 mt-3 max-h-80 overflow-y-auto rounded-2xl border px-2 py-3"
+const MenuCard = ({ children, right, wide, up }) => (
+  <div className={`scroll-slim absolute z-30 max-h-80 overflow-y-auto rounded-2xl border px-2 py-3 ${up ? "bottom-full mb-3" : "top-full mt-3"}`}
     style={{ ...(wide ? { left: 0, right: 0 } : { [right ? "right" : "left"]: 0 }),
       ...(wide ? {} : { minWidth: 240 }),
       background: C.white, borderColor: "#DFE0E2",
@@ -4707,7 +4707,7 @@ function Create({ onCreate, back, prefill }) {
                   const q = typeQ.trim().toLowerCase();
                   const matches = q ? offered.filter((tp) => tp.toLowerCase().includes(q)) : offered;
                   return (
-                    <MenuCard wide>
+                    <MenuCard wide up>
                       {matches.length === 0
                         ? <div className="px-3 py-3" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>No endorsement types match "{typeQ}".</div>
                         : matches.map((tp) => (
