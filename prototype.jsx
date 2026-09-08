@@ -744,7 +744,7 @@ const kindOfType = (type) => TYPES[type]?.kind || "Non-Financial";
 function intakeOf(t) {
   const fields = TYPES[t.type]?.fields || [];
   const gaps = t.missingFields || [];
-  return fields.map((f) => ({ label: f, value: gaps.includes(f) ? null : (FIELD_VALUES[f] || "Provided by client") }));
+  return fields.map((f) => ({ label: f, value: gaps.includes(f) ? null : (t.vals?.[f] || FIELD_VALUES[f] || "Provided by client") }));
 }
 const fieldGaps = (t) => (t.missingFields || []).length;
 const gapCount = (t) => t.missing.length + fieldGaps(t);
@@ -4755,7 +4755,7 @@ function Create({ onCreate, back, prefill }) {
             </div>
             <div className="mt-1.5 bk-num" style={{ fontSize: 13, fontWeight: 500, color: C.accent }}>{pct}% Complete</div>
           </div>
-          <button disabled={!ready} onClick={() => onCreate(f)}
+          <button disabled={!ready} onClick={() => onCreate({ ...f, vals, ups })}
             className="shrink-0 rounded-xl px-7 py-3.5" style={{ fontSize: 16, fontWeight: 600,
               background: ready ? C.brand : "rgba(169,172,177,0.24)", color: ready ? C.white : C.figPlaceholder,
               cursor: ready ? "pointer" : "not-allowed" }}>
