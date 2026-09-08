@@ -4298,6 +4298,10 @@ function Create({ onCreate, back, prefill }) {
   const [panRec, setPanRec] = useState(null);
   const [panErr, setPanErr] = useState(null);
   const [policyOpen, setPolicyOpen] = useState(false);
+  /* Endorsement Type is now a searchable combobox — typing filters the
+     product's option list; picking one commits and closes. */
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeQ, setTypeQ] = useState("");
   const [vals, setVals] = useState({});
   const [ups, setUps] = useState({});
   const meta = TYPES[f.type] || { fields: [], docs: [] };
@@ -4313,6 +4317,16 @@ function Create({ onCreate, back, prefill }) {
     document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
   }, [policyOpen]);
+  useEffect(() => {
+    if (!typeOpen) return;
+    const away = (e) => { if (!e.target.closest("[data-type-menu]")) { setTypeOpen(false); setTypeQ(""); } };
+    const esc = (e) => { if (e.key === "Escape") { setTypeOpen(false); setTypeQ(""); } };
+    document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [typeOpen]);
+  /* Close the picker + drop the query whenever the option list changes shape
+     (product cleared or swapped). */
+  useEffect(() => { setTypeOpen(false); setTypeQ(""); }, [f.product]);
 
   /* Everything the form asks for, and how much of it is answered — PAN counts
      only when the flow is PAN-first. */
@@ -4446,14 +4460,36 @@ function Create({ onCreate, back, prefill }) {
                 trail={PRODUCT_ICON[f.product] && <img src={PRODUCT_ICON[f.product]} alt="" className="shrink-0" style={{ height: 22, width: 22 }} />}>
                 <span className={inputCls} style={{ ...inputSt, color: f.product ? C.figHint : C.figPlaceholder }}>{f.product || "Auto-filled from policy"}</span>
               </Field>
-              <Field label="Endorsement Type" locked={!f.product} value={f.type} onClear={() => { setF({ ...f, type: "" }); setVals({}); setUps({}); }}
-                hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
-                <select value={f.type} disabled={!f.product} onChange={(e) => { setF({ ...f, type: e.target.value }); setVals({}); setUps({}); }}
-                  className={selCls} style={{ ...inputSt, color: f.type ? C.brand : "rgba(169,172,177,0.6)", cursor: f.product ? "pointer" : "not-allowed" }}>
-                  <option value="" disabled>{f.product ? "Select Endorsement Type" : "Pick a policy first"}</option>
-                  {offered.map((tp) => <option key={tp} value={tp}>{tp}</option>)}
-                </select>
-              </Field>
+              {/* Searchable combobox for Endorsement Type — mirrors the Peetal
+                  interactive.input/alphanumeric/active pattern: field acts as a
+                  keyword search; matching options render below in a MenuCard. */}
+              <div className="relative min-w-0" data-type-menu>
+                <Field label="Endorsement Type" locked={!f.product} value={f.type}
+                  onClear={() => { setF({ ...f, type: "" }); setTypeQ(""); setTypeOpen(false); setVals({}); setUps({}); }}
+                  hint={f.type ? <>Classification: <span style={{ color: refund ? C.warn : C.figInk }}>{meta.kind}</span></> : null}>
+                  <input value={typeOpen ? typeQ : (f.type || "")}
+                    onFocus={() => { if (f.product) { setTypeOpen(true); setTypeQ(""); } }}
+                    onChange={(e) => { setTypeOpen(true); setTypeQ(e.target.value); }}
+                    disabled={!f.product}
+                    placeholder={f.product ? "Search by keyword" : "Pick a policy first"}
+                    className={inputCls}
+                    style={{ ...inputSt, color: typeOpen ? C.figInk : (f.type ? C.brand : "rgba(169,172,177,0.6)"), cursor: f.product ? "text" : "not-allowed" }} />
+                </Field>
+                {typeOpen && f.product && (() => {
+                  const q = typeQ.trim().toLowerCase();
+                  const matches = q ? offered.filter((tp) => tp.toLowerCase().includes(q)) : offered;
+                  return (
+                    <MenuCard wide>
+                      {matches.length === 0
+                        ? <div className="px-3 py-3" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>No endorsement types match "{typeQ}".</div>
+                        : matches.map((tp) => (
+                          <MenuOpt key={tp} label={tp} on={f.type === tp}
+                            onClick={() => { setF({ ...f, type: tp }); setTypeOpen(false); setTypeQ(""); setVals({}); setUps({}); }} />
+                        ))}
+                    </MenuCard>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Right - the endorsement type's own fields and document uploads, kept
