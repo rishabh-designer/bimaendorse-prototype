@@ -588,6 +588,10 @@ const SEED = [
     payMode: "Email", payLink: { ref: "PL-1065-1", at: 17, expiresIn: 48, source: "bot-email", by: "Mail bot", confidence: 0.97, regens: [] },
     payment: { mode: "NEFT", utr: "UTR106588421903", date: "Fri 21 Aug, 3:40 PM", file: "payment_proof_nimbuseng.pdf", at: 6 } },
   { id: "END-1066", client: "Everest Packaging Ltd", short: "everestpack", policy: "FIRE/2026/01034", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Sum Insured / Limit Enhancement", kind: "Financial", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 2.4, lastAction: 2.4, touched: true, legs: [{ s: "New / Unassigned", h: 0.2 }, { s: "Under Verification", h: 1.2 }], missing: [] },
+  /* Refund case seeded from knowledge.centre-refund.endorsement — Return-Premium
+     classification, one calendar hour into Under Verification so its 4 BH clock
+     reads ~3 Hrs left. Persists across restarts because it lives in the seed. */
+  { id: "END-1069", client: "Acme Manufacturing Pvt Ltd", short: "acmemfg", policy: "FIRE/2026/00812", insurer: "ICICI Lombard", insurerMail: "endorsement@icicilombard.com", product: "Fire & Burglary", type: "Refund - Excess Premium", kind: "Return-Premium", priority: "High", stage: "Under Verification", owner: "Nanditha P", inStage: 1, lastAction: 1, touched: false, legs: [{ s: "New / Unassigned", h: 0.2 }], missing: [] },
 ];
 
 const SEED_MAILS = [
