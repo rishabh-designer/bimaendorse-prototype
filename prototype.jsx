@@ -4056,7 +4056,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       {reassigning && <ReassignModal t={t} onClose={() => setReassigning(false)} onConfirm={(x) => { onReassign(t.id, x); setReassigning(false); }} />}
       {upload && <UploadModal t={t} onClose={() => setUpload(false)} onConfirm={(file) => { onAttachCopy(t.id, { source: "manual", file }); setUpload(false); setNote(""); }} />}
       {confirm && (
-        <ModalShell icon={AlertTriangle} tint={C.warn} title="Confirm Action" width={440} onClose={() => setConfirm(null)}
+        <ModalShell title="Confirm Action" width={440} onClose={() => setConfirm(null)}
           footer={<>
             <Cancel onClick={() => setConfirm(null)} />
             <Btn onClick={() => { const fn = confirm.onProceed; setConfirm(null); fn(); }}>Move Ticket</Btn>
