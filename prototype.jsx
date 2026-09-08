@@ -3559,7 +3559,7 @@ function DocPickerDrawer({ t, onPick, onAskClient, onClose }) {
    wordmark so the SM sees at a glance who's asking. Two response paths:
    answer directly (details on file) or forward to the client (details on
    file only with the customer). */
-function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
+function InsurerQueries({ t, onAnswer, onForward, onSimulateClientReply, setPreview }) {
   const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
   const list = t.insurerQueries || [];
   const [drafting, setDrafting] = useState(null); // iqid being answered
@@ -3579,10 +3579,17 @@ function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
         const fwd = q.status === "forwarded_to_client";
         const sm = q.status === "answered_by_sm";
         const closed = q.status === "closed";
+        /* When forwarded to the client, look up the mirror SM→client query
+           so its reply can nest inside this card instead of appearing as a
+           second row on the tab. */
+        const linked = fwd ? (t.queries || []).find((x) => x.forwardedFrom === q.id) : null;
+        const clientReply = linked?.reply;
         const tint = pend ? { tone: C.warn, bg: C.warnSoft, line: "#FFD2A8" }
+          : fwd && clientReply ? { ...OK }
           : fwd ? { tone: C.wait, bg: C.waitSoft, line: C.waitSoft }
           : { ...OK };
         const label = pend ? "Awaiting SM"
+          : fwd && clientReply ? "Client responded"
           : fwd ? "Forwarded to client"
           : sm ? "Answered by SM"
           : "Closed";
@@ -3609,9 +3616,49 @@ function InsurerQueries({ t, onAnswer, onForward, setPreview }) {
                     <div className="mt-0.5" style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{q.answer}</div>
                   </div>
                 )}
-                {fwd && (
-                  <div className="mt-2" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>
-                    Passed to {t.client} on the portal. Their response returns here and can then go to {t.insurer}.
+                {fwd && !clientReply && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <div style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>
+                      Passed to {t.client} on the portal. Their response returns here and can then go to {t.insurer}.
+                    </div>
+                    {linked && (
+                      <SimBtn onClick={() => onSimulateClientReply(t.id, linked.id)}
+                        title="Demo control — the client answers this query in the portal">
+                        Simulate portal response
+                      </SimBtn>
+                    )}
+                  </div>
+                )}
+                {fwd && clientReply && (
+                  <div className="mt-3 pl-3" style={{ borderLeft: `2px solid ${C.brand200}` }}>
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                      <Globe size={12} style={{ color: C.brand }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>{t.client}</span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>· responded {fmtAgo(clientReply.at)} via the client portal</span>
+                    </div>
+                    {Object.entries(clientReply.values || {}).map(([k, v]) => (
+                      <div key={k} className="mb-1.5">
+                        <div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{k}</div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{v}</div>
+                      </div>
+                    ))}
+                    {clientReply.note && (
+                      <div className="mb-1.5" style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{clientReply.note}</div>
+                    )}
+                    {clientReply.files?.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {clientReply.files.map((f) => (
+                          <SoftBtn key={f.name} onClick={() => setPreview({ name: f.name, kind: "Client portal upload", file: f.file, size: f.size, by: clientReply.by, status: "Received", at: clientReply.at })}>
+                            <Paperclip size={10} style={{ color: C.brand }} /> {f.file}
+                          </SoftBtn>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-2 flex justify-end">
+                      <Btn size="xs" onClick={() => onAnswer(q.id, `Forwarded ${t.client}'s response received via the portal.${clientReply.files?.length ? " " + clientReply.files.map((f) => "[Attached: " + f.file + "]").join(" ") : ""}`)}>
+                        Send response to insurer
+                      </Btn>
+                    </div>
                   </div>
                 )}
               </div>
@@ -3719,7 +3766,10 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
   const s = clock(t);
   const docs = useMemo(() => docsOf(t), [t]);
   const intake = useMemo(() => intakeOf(t), [t]);
-  const queries = t.queries || [];
+  /* Queries the SM raised directly with the client — a forwarded insurer
+     request lives inside its InsurerQueries card instead, so it's excluded
+     here to avoid the same conversation appearing twice on the tab. */
+  const queries = (t.queries || []).filter((q) => !q.forwardedFrom);
   const endo = endoOf(t);
   const sends = sendsOf(t);
   const qcDone = !!t.qcPassed;
@@ -4092,7 +4142,8 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                 {(t.insurerQueries || []).length > 0 && (
                   <InsurerQueries t={t} setPreview={setPreview}
                     onAnswer={(iqid, answer) => onInsurerQAnswer(t.id, iqid, answer)}
-                    onForward={(iqid) => onInsurerQForward(t.id, iqid)} />
+                    onForward={(iqid) => onInsurerQForward(t.id, iqid)}
+                    onSimulateClientReply={onAnswer} />
                 )}
                 {queries.length ? (
                   <div className="flex flex-col gap-1">
