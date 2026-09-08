@@ -446,6 +446,19 @@ const TERMINAL = {
   "Customer Withdrawn": { label: "Customer withdrawn", color: C.ink2 },
   "Cancelled": { label: "Cancelled", color: C.ink2 },
 };
+/* Next Action card copy — plain-language "what happened, what to do now",
+   under 10 words each, no em-dash. Keyed by stage name. */
+const NEXT_ACTION_COPY = {
+  "New / Unassigned": "Assigned to you. Begin verification.",
+  "Under Verification": "Client raised a request. Verify and submit.",
+  "Awaiting Customer Information": "Client owes an answer. Send a reminder.",
+  "Submitted to Insurer": "Sent to insurer. Log their acceptance next.",
+  "Awaiting Quote": "Insurer owes a quote. Log it in.",
+  "Awaiting Payment Link": "Quote logged. Attach the payment link.",
+  "Awaiting Payment": "Link with client. Confirm the payment.",
+  "Awaiting Endorsement Copy": "Payment done. Simulate the copy arriving.",
+  "Copy Received": "Copy is in. Publish and close.",
+};
 const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
 const readOnly = (t) => isTerminal(t);
 /* A chase only makes sense while the ball is in the insurer's court - the three
@@ -3350,27 +3363,42 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
         <div className="scroll-slim flex min-h-0 shrink-0 flex-col gap-4 overflow-y-auto pr-1"
           style={{ flex: "0 0 340px", minWidth: 300, paddingTop: 40 }}>
           <SlaCard t={t} />
-          {/* Next Action nudge — mirrors the PlacementApp NEXT ACTION card.
-              Shortcut that switches to Overview and scrolls the primary
-              stage action into view. */}
-          {!readOnly(t) && (advLabel || simulate) && (
-            <div className="rounded-xl border p-4" style={{ background: "#FDF2E1", borderColor: "#F2DBBE" }}>
-              <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
-              <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 600, color: C.figInk, lineHeight: 1.35 }}>
-                {advLabel || simulate.label}
+          {/* Next Action card — now owns the primary stage action (the footer
+              underneath the panel is gone). Copy names what has just happened
+              and what Nanditha does next; the button(s) below advance / simulate
+              / manually log the copy per stage. */}
+          {!readOnly(t) && (advLabel || simulate) && (() => {
+            const copy = NEXT_ACTION_COPY[t.stage] || advLabel || (simulate ? simulate.label : "");
+            return (
+              <div className="rounded-xl border p-4" style={{ background: "#FDF2E1", borderColor: "#F2DBBE" }}>
+                <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
+                <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 600, color: C.figInk, lineHeight: 1.35 }}>{copy}</div>
+                <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the audit trail"
+                  className="mt-3 w-full outline-none"
+                  style={{ background: C.white, border: `0.5px solid ${C.subtle}`, borderRadius: 10, padding: "8px 10px", fontSize: 12, fontWeight: 500, color: C.figInk }} />
+                <div className="mt-3 flex flex-col gap-2">
+                  {simulate && (
+                    <SimBtn onClick={simulate.run} title="Demo control - stands in for the outside party">{simulate.label}</SimBtn>
+                  )}
+                  {t.stage === "Awaiting Endorsement Copy" && !endo && (
+                    <Btn variant="secondary" size="sm" onClick={() => setUpload(true)}>Log manually, upload copy</Btn>
+                  )}
+                  {showAdvance && (
+                    <button onClick={doAdvance} disabled={advBlocked} title={advBlocked ? advHint : undefined}
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
+                      style={{ background: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: advBlocked ? "not-allowed" : "pointer" }}>
+                      {advLabel}
+                    </button>
+                  )}
+                </div>
               </div>
-              <button onClick={goToNextAction}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2"
-                style={{ background: C.brand, color: C.white, borderColor: C.brand, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                <ArrowRight size={12} /> Go there
-              </button>
-            </div>
-          )}
+            );
+          })()}
           {!readOnly(t) && !advLabel && !simulate && (
             <div className="rounded-xl border p-4" style={{ background: C.canvas, borderColor: C.subtle }}>
               <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
               <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figHint, lineHeight: 1.35 }}>
-                Waiting on {st.owner || "the counterparty"} — nothing on your desk right now.
+                Waiting on {st.owner || "the counterparty"}. Nothing on your desk right now.
               </div>
             </div>
           )}
@@ -3380,7 +3408,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <TabBar tabs={TABS_T} tab={live} setTab={setTab} />
 
-          <PanelCard footer={panelFooter} footerRef={actionFooterRef}>
+          <PanelCard>
             {live === "overview" && (
               <div className="space-y-5">
                 <SectionTitle right={<span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Ticket Age: <span className="bk-num" style={{ color: C.figInk }}>{fmtAge(t)}</span></span>}>Ticket Workflow</SectionTitle>
