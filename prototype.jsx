@@ -3318,41 +3318,42 @@ function RefundPanel({ t, onRefund, setPreview }) {
     </div>
   );
 
-  const StepChip = ({ i, s }) => {
+  /* Bars mirror the Overview PhaseBar: 3px rail per step, filled green when
+     done, amber while running, empty ahead. Label goes bold on the current
+     step. Rejected paths stop filling from step 2 onward. */
+  const Bar = ({ i, s }) => {
     const state = rejected && i > 1 ? "skip"
       : done(s.key) ? "done"
       : current(s.key) ? "current"
       : "todo";
-    const fg = state === "done" ? C.teal
-      : state === "current" ? C.brand
-      : state === "skip" ? C.figPlaceholder
-      : C.figHint;
-    const bg = state === "done" ? C.tealSoft
-      : state === "current" ? C.brandBg
+    const fill = state === "done" || state === "current" ? "100%" : "0%";
+    const tone = state === "done" ? C.teal
+      : state === "current" ? C.warn
       : "transparent";
     return (
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="flex shrink-0 items-center justify-center rounded-full" style={{ width: 20, height: 20, background: bg, border: `0.5px solid ${fg}`, color: fg, fontSize: 11, fontWeight: 600 }}>
-          {state === "done" ? <Check size={11} strokeWidth={3} /> : i + 1}
-        </span>
-        <span className="truncate" style={{ fontSize: 13, fontWeight: state === "current" ? 600 : 500, color: fg }}>{s.label}</span>
+      <div className="min-w-0 flex-1">
+        <div style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: fill, borderRadius: 999, background: tone }} />
+        </div>
+        <div className="mt-2 truncate" title={s.label}
+          style={{ fontSize: 14, fontWeight: state === "current" ? 600 : 500, color: state === "current" ? C.figInk : C.figHint }}>
+          {s.label}
+        </div>
       </div>
     );
   };
 
   return (
     <div className="space-y-4">
-      {/* Stepper */}
-      <div className="rounded-xl p-3" style={{ border: `0.5px solid ${C.subtle}`, background: C.white }}>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-5">
-          {REF_STEPS.map((s, i) => <StepChip key={s.key} i={i} s={s} />)}
-        </div>
-        {rejected && (
-          <div className="mt-3" style={{ fontSize: 13, fontWeight: 500, color: C.semError }}>
-            Client declined the refund. The flow is on hold until instructions arrive.
-          </div>
-        )}
+      {/* Stepper — matches Overview's Ticket Workflow phase bar */}
+      <div className="flex gap-3">
+        {REF_STEPS.map((s, i) => <Bar key={s.key} i={i} s={s} />)}
       </div>
+      {rejected && (
+        <div style={{ fontSize: 13, fontWeight: 500, color: C.semError }}>
+          Client declined the refund. The flow is on hold until instructions arrive.
+        </div>
+      )}
 
       {/* 1 — Refund details from insurer */}
       <div className="space-y-3">
