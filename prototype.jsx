@@ -1230,9 +1230,11 @@ const MenuOpt = ({ label, on, onClick }) => (
   </button>
 );
 
-const MenuCard = ({ children, right }) => (
+const MenuCard = ({ children, right, wide }) => (
   <div className="scroll-slim absolute top-full z-30 mt-3 max-h-80 overflow-y-auto rounded-2xl border px-2 py-3"
-    style={{ [right ? "right" : "left"]: 0, minWidth: 240, background: C.white, borderColor: "#DFE0E2",
+    style={{ ...(wide ? { left: 0, right: 0 } : { [right ? "right" : "left"]: 0 }),
+      ...(wide ? {} : { minWidth: 240 }),
+      background: C.white, borderColor: "#DFE0E2",
       boxShadow: "0 2px 16px rgba(169,172,177,0.24)" }}>{children}</div>
 );
 
@@ -3971,7 +3973,7 @@ function Review({ mails, tickets = [], onClaim, onAssign }) {
                 </span>
               </div>
               {assignOpen && assignableTickets.length > 0 && (
-                <MenuCard>
+                <MenuCard wide>
                   {assignableTickets.map((t) => (
                     <MenuOpt key={t.id} label={`${t.id} — ${t.client} · ${t.type}`} on={assignPick === t.id}
                       onClick={() => { setAssignPick(t.id); setAssignOpen(false); }} />
