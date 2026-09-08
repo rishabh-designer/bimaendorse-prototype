@@ -2533,7 +2533,7 @@ function QueryModal({ ctx, t, onSend, onClose }) {
             </label>
             <div>
               <div className="flex items-baseline justify-between gap-2">
-                <FieldLabel>Documents to request <span style={{ color: C.semError }}>*</span></FieldLabel>
+                <FieldLabel>Documents to request <span style={{ color: C.figTert, fontWeight: 500 }}>· optional</span></FieldLabel>
                 <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{options.length} Available for This Product</span>
               </div>
               <div className="mt-1.5 flex items-center gap-2.5" style={{ borderBottom: `1px solid ${C.subtle}`, paddingBottom: 8 }}>
