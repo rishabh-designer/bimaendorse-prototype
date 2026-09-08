@@ -3140,6 +3140,7 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
 
   const TABS_T = [
     ["overview", "Overview"],
+    ["company", "Company Profile"],
     ["docs", "Document Vault"],
     ["queries", "Client Channel"],
     ["mail", "Mail Trail"],
@@ -3328,6 +3329,23 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {live === "company" && (
+              <div className="flex min-h-full flex-col gap-4">
+                <div className="flex flex-col items-center justify-center rounded-2xl border p-10 text-center"
+                  style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white, minHeight: 320 }}>
+                  <span className="flex items-center justify-center rounded-full" style={{ width: 44, height: 44, background: C.brandBg, color: C.brand }}>
+                    <Building2 size={20} />
+                  </span>
+                  <p className="mt-4" style={{ fontSize: 16, fontWeight: 600, color: C.figInk }}>
+                    Company Profile is syncing info from Client 360
+                  </p>
+                  <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert, maxWidth: 420, lineHeight: 1.5 }}>
+                    Nothing on this tab yet — the sync pulls the customer's registered details, servicing manager and policy summary from Client 360 and lands them here.
+                  </p>
+                </div>
               </div>
             )}
 
