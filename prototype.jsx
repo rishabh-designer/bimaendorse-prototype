@@ -4075,6 +4075,12 @@ function Field({ label, hint, value, onClear, trail, children, locked, required 
 function Create({ onCreate, back, prefill }) {
   const [f, setF] = useState({ pan: "", client: prefill?.client || "", policy: "", insurer: "",
     product: "", type: "" });
+  /* Two ways in:
+     - "policy" (default): the SM types the Policy Number and Enter fetches
+       Client / Insurer / Product.
+     - "pan": PAN Number sits above Policy Number; committing the PAN unlocks
+       Policy Number as a dropdown of that PAN's policies. */
+  const [mode, setMode] = useState("policy");
   /* Committed PAN record (name + policies). Non-null once the SM has Entered a
      PAN that resolves; drives the Policy Number picker's enabled state. */
   const [panRec, setPanRec] = useState(null);
@@ -4096,8 +4102,9 @@ function Create({ onCreate, back, prefill }) {
     return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
   }, [policyOpen]);
 
-  /* Everything the form asks for, and how much of it is answered. */
-  const core = ["pan", "policy", "client", "insurer", "product", "type"];
+  /* Everything the form asks for, and how much of it is answered — PAN counts
+     only when the flow is PAN-first. */
+  const core = (mode === "pan" ? ["pan"] : []).concat(["policy", "client", "insurer", "product", "type"]);
   const wanted = core.length + meta.fields.length + meta.docs.length;
   const done = core.filter((k) => f[k]).length
     + meta.fields.filter((x) => (vals[x] || "").trim()).length
@@ -4127,8 +4134,25 @@ function Create({ onCreate, back, prefill }) {
     setF((prev) => ({ ...prev, policy: p.policy, insurer: p.insurer, product: p.product, type: p.product !== prev.product ? "" : prev.type }));
     setPolicyOpen(false);
   };
+  /* Direct-policy path (policy mode): type + Enter fetches the trio via
+     fetchPolicy the same way this form always did. */
+  const onPolicyChange = (e) => setF((prev) => ({ ...prev, policy: e.target.value }));
+  const onPolicyKey = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const rec = fetchPolicy(f.policy);
+    if (rec.product !== f.product) { setVals({}); setUps({}); }
+    setF((prev) => ({ ...prev, ...rec, type: rec.product !== prev.product ? "" : prev.type }));
+  };
   const clearPan = () => { setPanRec(null); setPanErr(null); setF({ pan: "", client: "", policy: "", insurer: "", product: "", type: "" }); setVals({}); setUps({}); };
-  const clearPolicy = () => { setF((prev) => ({ ...prev, policy: "", insurer: "", product: "", type: "" })); setVals({}); setUps({}); };
+  const clearPolicy = () => { setF((prev) => ({ ...prev, policy: "", insurer: mode === "pan" ? "" : prev.insurer, product: mode === "pan" ? "" : prev.product, type: "" })); setVals({}); setUps({}); };
+  /* Swap between the two entry flows — clears everything the previous flow set. */
+  const swap = () => {
+    setPanRec(null); setPanErr(null); setPolicyOpen(false);
+    setF({ pan: "", client: prefill?.client || "", policy: "", insurer: "", product: "", type: "" });
+    setVals({}); setUps({});
+    setMode((m) => (m === "policy" ? "pan" : "policy"));
+  };
   const inputCls = "min-w-0 flex-1 bg-transparent outline-none";
   const selCls = "min-w-0 flex-1 appearance-none bg-transparent outline-none";
   const inputSt = { fontSize: 16, fontWeight: 500, color: C.brand };
@@ -4153,32 +4177,51 @@ function Create({ onCreate, back, prefill }) {
 
         <div className="border-t px-6 py-2" style={{ borderColor: C.lineSoft }}>
           <div className="grid gap-x-10 sm:grid-cols-2">
-            {/* Left column — the ordered flow: PAN → Policy Number → auto-filled
-                trio → Endorsement Type. Every step gates on the one above. */}
+            {/* Left column — two entry flows:
+                • "policy" (default): the SM types the Policy Number and Enter
+                  fetches the trio.
+                • "pan": PAN Number appears above Policy Number; Policy Number
+                  becomes a dropdown of that PAN's policies.
+                A small swap link sits below Policy Number in either mode. */}
             <div className="min-w-0">
-              <Field label="PAN Number" value={f.pan} onClear={clearPan}
-                hint={panRec ? <>Matched: <span style={{ color: C.figInk }}>{panRec.client}</span></> : panErr ? <span style={{ color: C.warn }}>{panErr}</span> : null}>
-                <input value={f.pan} onChange={onPanChange} onKeyDown={onPanKey} onBlur={() => { if (f.pan && !panRec) commitPan(); }}
-                  placeholder="Enter PAN (Press Enter)" className={inputCls} style={inputSt} maxLength={10} spellCheck={false} autoCapitalize="characters" />
-              </Field>
-              {/* Policy Number picker — MenuCard/MenuOpt idiom. Disabled until
-                  a PAN is committed. Options = the policies that PAN owns. */}
-              <div className="relative min-w-0" data-menu>
-                <Field label="Policy Number" locked={!panRec} required value={f.policy} onClear={clearPolicy}>
-                  <button type="button" disabled={!panRec} onClick={() => setPolicyOpen((o) => !o)}
-                    className={inputCls + " flex items-center justify-between text-left"}
-                    style={{ ...inputSt, color: f.policy ? C.brand : "rgba(169,172,177,0.6)", cursor: panRec ? "pointer" : "not-allowed" }}>
-                    <span className="truncate">{f.policy || (panRec ? "Select Policy Number" : "Enter a PAN first")}</span>
-                    {panRec && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: policyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
-                  </button>
+              {mode === "pan" && (
+                <Field label="PAN Number" value={f.pan} onClear={clearPan}
+                  hint={panRec ? <>Matched: <span style={{ color: C.figInk }}>{panRec.client}</span></> : panErr ? <span style={{ color: C.warn }}>{panErr}</span> : null}>
+                  <input value={f.pan} onChange={onPanChange} onKeyDown={onPanKey} onBlur={() => { if (f.pan && !panRec) commitPan(); }}
+                    placeholder="Enter PAN (Press Enter)" className={inputCls} style={inputSt} maxLength={10} spellCheck={false} autoCapitalize="characters" />
                 </Field>
-                {policyOpen && panRec && (
-                  <MenuCard>
-                    {panRec.policies.map((p) => (
-                      <MenuOpt key={p.policy} label={`${p.policy} — ${p.product} · ${p.insurer}`} on={f.policy === p.policy} onClick={() => pickPolicy(p)} />
-                    ))}
-                  </MenuCard>
-                )}
+              )}
+              {mode === "pan" ? (
+                /* Policy Number picker — MenuCard/MenuOpt idiom. Disabled until
+                   a PAN is committed. Options = the policies that PAN owns. */
+                <div className="relative min-w-0" data-menu>
+                  <Field label="Policy Number" locked={!panRec} required value={f.policy} onClear={clearPolicy}>
+                    <button type="button" disabled={!panRec} onClick={() => setPolicyOpen((o) => !o)}
+                      className={inputCls + " flex items-center justify-between text-left"}
+                      style={{ ...inputSt, color: f.policy ? C.brand : "rgba(169,172,177,0.6)", cursor: panRec ? "pointer" : "not-allowed" }}>
+                      <span className="truncate">{f.policy || (panRec ? "Select Policy Number" : "Enter a PAN first")}</span>
+                      {panRec && <ChevronDown size={14} className="ml-2 shrink-0" style={{ color: C.figHint, transform: policyOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
+                    </button>
+                  </Field>
+                  {policyOpen && panRec && (
+                    <MenuCard>
+                      {panRec.policies.map((p) => (
+                        <MenuOpt key={p.policy} label={`${p.policy} — ${p.product} · ${p.insurer}`} on={f.policy === p.policy} onClick={() => pickPolicy(p)} />
+                      ))}
+                    </MenuCard>
+                  )}
+                </div>
+              ) : (
+                <Field label="Policy Number" value={f.policy} onClear={clearPolicy}>
+                  <input value={f.policy} onChange={onPolicyChange} onKeyDown={onPolicyKey}
+                    placeholder="Enter Policy Number (Press Enter)" className={inputCls} style={inputSt} />
+                </Field>
+              )}
+              {/* Swap link — sits between Policy Number and the auto-filled trio. */}
+              <div className="mb-3 px-2 -mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>
+                {mode === "policy"
+                  ? <>Don't have the Policy Number? <button type="button" onClick={swap} className="bk-link" style={{ color: C.brand, fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>Search by PAN instead</button></>
+                  : <>Have the Policy Number? <button type="button" onClick={swap} className="bk-link" style={{ color: C.brand, fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 2 }}>Enter it directly</button></>}
               </div>
               <Field label="Client" locked required={false} value={f.client}>
                 <span className={inputCls} style={{ ...inputSt, color: f.client ? C.figHint : C.figPlaceholder }}>{f.client || "Auto-filled from PAN"}</span>
