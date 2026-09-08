@@ -3087,6 +3087,9 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
   const [stagesOpen, setStagesOpen] = useState(false);
   const [updatingQuote, setUpdatingQuote] = useState(false);
   const [quoteHistOpen, setQuoteHistOpen] = useState(false);
+  /* Mail Trail search — filters the thread by subject / body / sender / recipient
+     / attachment filename. Case-insensitive substring match. */
+  const [mailQ, setMailQ] = useState("");
   /* Ref on the panel footer so the "Go there" nudge can scroll the primary
      stage action into view after switching to Overview. */
   const actionFooterRef = useRef(null);
@@ -3534,11 +3537,34 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : (() => {
+                const q = mailQ.trim().toLowerCase();
+                const mailAtts = (m) => (m.att > 0 ? docs.slice(0, m.att).map((d) => d.file || "") : []);
+                const matches = (m) => {
+                  if (!q) return true;
+                  const hay = [m.subject, m.body, m.name, m.who, m.to, ...mailAtts(m)].filter(Boolean).join(" ").toLowerCase();
+                  return hay.includes(q);
+                };
+                const shown = thread.filter(matches);
+                return (
                 <div className="space-y-4">
-                  <SectionTitle>Mail Trail</SectionTitle>
+                  <SectionTitle right={q ? <MiniTag>{shown.length} of {thread.length}</MiniTag> : null}>Mail Trail</SectionTitle>
+                  <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
+                    style={{ borderColor: C.subtle, background: C.white }}>
+                    <Search size={14} style={{ color: C.figTert }} />
+                    <input value={mailQ} onChange={(e) => setMailQ(e.target.value)}
+                      placeholder="Search sender, subject, body or attachment name"
+                      className="min-w-0 flex-1 bg-transparent outline-none"
+                      style={{ fontSize: 14, fontWeight: 500, color: C.figInk }} />
+                    {mailQ && (
+                      <button onClick={() => setMailQ("")} title="Clear search"
+                        className="shrink-0 rounded-md p-0.5" style={{ color: C.figHint }}>
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                   <div>
-                    {thread.map((m, i) => {
+                    {shown.map((m, i) => {
                       const kind = m.dir === "out" ? "owner" : m.name === t.insurer ? "insurer" : "client";
                       return (
                         <div key={i}>
@@ -3567,14 +3593,16 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
                               )}
                             </div>
                           </div>
-                          {i < thread.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
+                          {i < shown.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
                         </div>
                       );
                     })}
                     {!thread.length && <Empty>Nothing on the mail trail yet.</Empty>}
+                    {thread.length > 0 && !shown.length && <Empty>No mail matches "{mailQ}".</Empty>}
                   </div>
                 </div>
-              )}
+                );
+              })()}
               <div className="mt-auto flex flex-wrap items-center justify-end gap-2 pt-1">
                 {awaitingInsurer(t) && (
                   <Btn size="xs" variant="outline" tone={C.figHint} onClick={() => onChase(t.id)}>Chase insurer</Btn>
