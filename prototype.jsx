@@ -4877,6 +4877,16 @@ const CL_TAT_H10_SETTLEMENT_ADVICE_H = 72;     // TODO: BKTech to confirm H-10
 const CL_TAT_I8_CM_REPUDIATION_ACTION_H = 24;  // TODO: BKTech to confirm I-8
 const CL_TAT_I9_FIGURE_REVIEW_H = 24;          // TODO: BKTech to confirm I-9
 
+/* PRD v2.2 M23 · FR-7.4 - contest cap per repudiation event. CH escalation is
+   orthogonal (consumes no round). Cap is raisable by an audited CH action. */
+const CL_CONTEST_CAP = 4;
+/* States a contest wall can come down over. FR-7.8 bars repudiation after this. */
+const CL_CAN_REPUDIATE = ["S4", "S5", "S6", "S8"];
+/* Rounds owed by BimaKavach at these states; owed by insurer at R2. */
+const clContestOwner = (t) => (t.state === "R2" ? "Insurer" : t.contest && t.contest.chEscalated && t.state === "R1" ? "BimaKavach" : t.state === "R1" || t.state === "R3" ? "BimaKavach" : CL_FLOW[t.state].owner);
+const clContestUsed = (t) => (t.contest ? t.contest.rounds.length : 0);
+const clContestCap  = (t) => CL_CONTEST_CAP + (t.contest ? (t.contest.capOverride || 0) : 0);
+
 /* PRD v2.2 §9.7 - hide the State chip on the numeric statuses where it would
    only echo the Stage: 1 Draft, 8 Bank Details Pending, 10 Payment Confirmation. */
 const CL_STATE_HIDDEN = new Set(["Draft", "Bank Details Pending", "Payment Confirmation"]);
@@ -5033,6 +5043,7 @@ function clMake(o, i) {
     stageAt: clAgo(o.stageH != null ? o.stageH : (o.ageH || 24)),
     ownerLog: [], audit: [], mail: [], requests: [], queries: [], uploads: {}, botLog: [], inbox: [],
     rejection: null, challenges: 0, dormant: null, closureReason: null, frozen: null,
+    contest: null, pastContests: [], lateRepudiations: [],
     chase: { reminders: 0, escalations: 0, events: [] },
   }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
 }
@@ -5050,25 +5061,32 @@ const CL_SEED = [
 ];
 function makeCLTickets() {
   const TICKETS = CL_SEED.map((o, i) => clMake(o, i));
-  /* One completed round of rejection argument, so the to-and-fro shows on load (C-1). */
+  /* PRD v2.2 §7 - one live contest on the desk so the to-and-fro shows on load.
+     Rounds shape: {n, at, ground, resp?, respAt?}. Client label freezes at
+     "Submitted to Insurer" (the state the ticket held when repudiation arrived). */
   const rj = TICKETS.find((x) => x.state === "R1");
   if (rj) {
     const poc = (CL_INSURERS[rj.insurer] || {}).poc || "claims@newindia.co.in";
-    rj.rejection = {
+    const t0 = rj.createdAt + 21 * CL_DAY;
+    rj.frozen = "Submitted to Insurer";
+    rj.contest = {
+      receivedAt: t0,
+      returnState: "S4",
+      chEscalated: false,
+      chEscalatedAt: null,
+      capOverride: 0,
       reason: "Repudiated under the warranty requiring six-monthly cleaning of kitchen extraction ductwork. The last cleaning certificate on file predates the loss by fourteen months.",
-      at: rj.createdAt + 21 * CL_DAY,
-      responses: [
-        { kind: "challenge", n: 1, at: rj.createdAt + 24 * CL_DAY, text: "The duct was cleaned in March by a contractor who did not issue a certificate. The invoice and the contractor's confirmation are attached. The warranty speaks to cleaning, not to certification." },
-        { kind: "reply", n: 1, at: rj.createdAt + 27 * CL_DAY, text: "We have re-examined the file against the challenge raised. The invoice is noted, but the warranty is expressed as a condition precedent and requires documentary evidence of each cleaning. The repudiation is maintained, with the fuller reasoning set out below." },
+      rounds: [
+        { n: 1, at: rj.createdAt + 24 * CL_DAY, ground: "The duct was cleaned in March by a contractor who did not issue a certificate. The invoice and the contractor's confirmation are attached. The warranty speaks to cleaning, not to certification.",
+          resp: "We have re-examined the file against the challenge raised. The invoice is noted, but the warranty is expressed as a condition precedent and requires documentary evidence of each cleaning. The repudiation is maintained.", respAt: rj.createdAt + 27 * CL_DAY },
       ],
     };
-    rj.challenges = 1;
-    rj.subStatus = "Awaiting client";
-    rj.botLog.unshift({ at: rj.rejection.at, state: "S4", type: "Insurer rejection", conf: 96, from: poc, extract: { Outcome: "Repudiated", Reason: "Warranty breach - duct cleaning" } });
+    rj.subStatus = "Awaiting BimaKavach";
+    rj.botLog.unshift({ at: t0, state: "S4", type: "Insurer repudiation", conf: 96, from: poc, extract: { Outcome: "Repudiated", Reason: "Warranty breach - duct cleaning" } });
     rj.audit.unshift(
-      { at: rj.rejection.at, actor: "Email bot", role: "", what: "Insurer rejection classified and extracted", detail: "Warranty breach - duct cleaning · 96% confidence, from " + poc },
-      { at: rj.rejection.responses[0].at, actor: rj.client, role: "Client", what: "Challenge 1 of 2 raised by the client", detail: rj.rejection.responses[0].text },
-      { at: rj.rejection.responses[1].at, actor: "Email bot", role: "", what: "Insurer's detailed reply to challenge 1", detail: "Rejection upheld - warranty treated as a condition precedent · 96% confidence, from " + poc },
+      { at: t0, actor: "Email bot", role: "", what: "Repudiation received", detail: "Status 4 Under Contest. No client notification. Client label held at ‘Submitted to Insurer’. Returns to Insurer Review if won. · 96% confidence, from " + poc },
+      { at: rj.contest.rounds[0].at, actor: CL_HEAD, role: "Claims Head", what: "Contest round 1 raised", detail: rj.contest.rounds[0].ground },
+      { at: rj.contest.rounds[0].respAt, actor: "Email bot", role: "", what: "Insurer response recorded", detail: "Repudiation maintained after round 1 · 96% confidence, from " + poc },
     );
     rj.audit.sort((a, b) => b.at - a.at);
   }
@@ -5642,7 +5660,7 @@ function clBotPreview(t) {
   };
   return { from: poc, ...(M[t.state] || { type: "Inbound mail", keys: [] }) };
 }
-const CL_TAB_LABELS = { overview: "Overview", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & Settlement", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
+const CL_TAB_LABELS = { overview: "Overview", contest: "Contest", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & Settlement", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
 
 /* A labelled field control used by the action-panel forms. */
 function ClInput({ label, value, onChange, type = "text", placeholder, options }) {
@@ -5664,11 +5682,15 @@ function ClaimsDetail({ t, role, act }) {
   const consented = CL_ORDER.indexOf(t.state) >= CL_ORDER.indexOf("S10");
   const surveyTrack = !!t.surveyor || !!t.report || CL_ORDER.indexOf(t.state) >= CL_ORDER.indexOf("S5");
   const qOpen = t.queries.filter((q) => q.status === "open").length;
-  const tabs = [["overview"], ["docs"], ["client"], ["mail"]]
+  const hasContest = !!t.contest || (t.pastContests && t.pastContests.length > 0);
+  const contestMark = t.contest ? (t.state === "R2" ? " · insurer" : " · your move") : "";
+  const tabs = [["overview"]]
+    .concat(hasContest ? [["contest"]] : [])
+    .concat([["docs"], ["client"], ["mail"]])
     .concat(surveyTrack ? [["survey"]] : []).concat(consented ? [["payment"]] : [])
     .concat([["history"], ["manage"]])
-    .map(([k]) => [k, k === "client" && qOpen ? `Client channel (${qOpen})` : CL_TAB_LABELS[k]]);
-  const activeTab = (tab === "payment" && !consented) || (tab === "survey" && !surveyTrack) ? "overview" : tab;
+    .map(([k]) => [k, k === "client" && qOpen ? `Client channel (${qOpen})` : k === "contest" ? `${CL_TAB_LABELS.contest}${contestMark}` : CL_TAB_LABELS[k]]);
+  const activeTab = (tab === "payment" && !consented) || (tab === "survey" && !surveyTrack) || (tab === "contest" && !hasContest) ? "overview" : tab;
   const f = CL_FLOW[t.state], hc = clHealth(t);
 
   return (
@@ -5707,6 +5729,7 @@ function ClaimsDetail({ t, role, act }) {
       </div>
 
       {activeTab === "overview" && <ClOverview t={t} act={act} setTab={setTab} />}
+      {activeTab === "contest" && <ClContest t={t} role={role} act={act} />}
       {activeTab === "docs" && <ClDocs t={t} act={act} />}
       {activeTab === "client" && <ClClient t={t} act={act} />}
       {activeTab === "mail" && <ClMail t={t} />}
@@ -5946,6 +5969,19 @@ function ClOverview({ t, act, setTab }) {
 
       {/* right: workflow + capture + action */}
       <div className="flex flex-col gap-4">
+        {["R1", "R2", "R3"].includes(t.state) && (
+          <div className="rounded-xl p-3" style={{ background: "#FCFBFE", border: `1px solid #D8CDE9` }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: C.link }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>
+                Under contest — round {clContestUsed(t)} of {clContestCap(t)}, {t.state === "R2" ? "waiting on the insurer" : "your move"}
+              </span>
+              <span className="flex-1" />
+              <span style={{ fontSize: 12, color: C.figTert }}>Client still sees “{clClientLabel(t)}”</span>
+              <Btn size="xs" onClick={() => setTab("contest")}>Open contest</Btn>
+            </div>
+          </div>
+        )}
         <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           <div className="flex items-baseline justify-between gap-3">
             <SectionTitle>Claim workflow</SectionTitle>
@@ -6048,9 +6084,8 @@ function ClActionPanel({ t, act, setTab }) {
   const [manual, setManual] = useState(false);
   const [form, setForm] = useState({});
   const [note, setNote] = useState("");
-  const [rejWhy, setRejWhy] = useState("");
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
-  useEffect(() => { setManual(false); setForm({}); setNote(""); setRejWhy(""); }, [t.state, t.id]);
+  useEffect(() => { setManual(false); setForm({}); setNote(""); }, [t.state, t.id]);
 
   if (f.terminal) return <div className="mt-4"><ClNote tone={"#007B00"} bg={C.tealSoft}>This claim is closed. No further actions are available.</ClNote></div>;
   if (t.dormant) return (
@@ -6059,6 +6094,29 @@ function ClActionPanel({ t, act, setTab }) {
       <Btn variant="secondary" size="sm" onClick={() => setTab("manage")}>Open Manage ticket</Btn>
     </div>
   );
+
+  /* Contest track — the action lives on the Contest tab; here we just point
+     to it. Client label is frozen; owner is BimaKavach (or the insurer on R2). */
+  if (["R1", "R2", "R3"].includes(t.state)) {
+    const owe = t.state === "R2" ? "Insurer" : "BimaKavach";
+    const owedText = owe === "Insurer" ? "waiting on the insurer" : (t.state === "R3" ? "cap reached — accept, or ask the Claims Head to raise the cap" : "your move — contest, escalate, or accept");
+    return (
+      <div className="mt-4 rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Indicator label="Under contest" ind="caution" />
+          <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Round {clContestUsed(t)} of {clContestCap(t)} · {owedText}</span>
+          <span className="flex-1" />
+          <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Client still sees “{clClientLabel(t)}”</span>
+        </div>
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+          Nothing on the to-and-fro reaches the client. Only accept-and-close ever changes the client label.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Btn size="sm" onClick={() => setTab("contest")}>Open the Contest tab</Btn>
+        </div>
+      </div>
+    );
+  }
 
   const src = f.act.src || "cm";
 
@@ -6085,18 +6143,18 @@ function ClActionPanel({ t, act, setTab }) {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <SimBtn onClick={() => act.bot(t.id)}>Simulate: {t.state === "S4" ? "an acceptance arrives" : "the mail arrives"}</SimBtn>
-          {t.state === "S4" && <SimBtn onClick={() => act.botReject(t.id)}>Simulate: a rejection arrives</SimBtn>}
+          {CL_CAN_REPUDIATE.includes(t.state) && <SimBtn onClick={() => act.contestRepudiate(t.id)}>Simulate: a repudiation arrives</SimBtn>}
           <Btn variant="secondary" size="sm" onClick={() => setManual(true)}>Extraction failed - record manually</Btn>
         </div>
       </div>
     );
   }
 
-  /* client waiting panel */
+  /* client waiting panel — S9/S10/S12 only. The Contest track (R1/R2/R3)
+     short-circuits above; v2.2 §7 moves those actions to the Contest tab. */
   if (src === "client") {
-    const reject = t.state === "R1", rejectFinal = t.state === "R3";
-    const what = { S9: "Consent to the assessed amount", S10: "Bank details and cancelled cheque", S12: "Confirmation that the money arrived", R1: "Challenge the rejection, or accept it", R3: "Accept the rejection" }[t.state];
-    const detail = { S9: "The assessment report is published on BimaKendra with two actions - consent or object. Objections are capped at two rounds.", S10: "Asked for only now - after consent - so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm.", R1: "The rejection reason is published on BimaKendra as the insurer wrote it. The client may challenge it twice; each needs a reason. There is no withdrawal on this track.", R3: "Both challenges are used, so Accept is the only remaining action. The client stays free to approach IRDAI or a court; the platform records that, it does not offer it." }[t.state];
+    const what = { S9: "Consent to the assessed amount", S10: "Bank details and cancelled cheque", S12: "Confirmation that the money arrived" }[t.state];
+    const detail = { S9: "The assessment report is published on BimaKendra with two actions - consent or object. Objections are capped at two rounds.", S10: "Asked for only now - after consent - so only clients who will actually be paid are ever asked. Captured on the Payment tab.", S12: "Auto-advances after 5 working days if the client does not confirm." }[t.state];
     return (
       <div className="mt-4 rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
         <div className="flex flex-wrap items-center gap-2">
@@ -6106,27 +6164,10 @@ function ClActionPanel({ t, act, setTab }) {
           <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>on BimaKendra</span>
         </div>
         <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{detail}</p>
-        {reject && (
-          <div className="mt-3 rounded-lg border p-3" style={{ borderColor: C.lineSoft, background: C.white }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>The insurer's reason, as written</div>
-            <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{t.rejection.reason}</p>
-            <div className="mt-3" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Challenges used - {t.challenges} of 2</div>
-            <textarea value={rejWhy} onChange={(e) => setRejWhy(e.target.value)} placeholder={`The client's reason for challenging. Mandatory. Goes to ${t.insurer} as written.`} className="mt-2 w-full" rows={3} style={{ ...FIELD, resize: "vertical" }} />
-          </div>
-        )}
         <div className="mt-3 flex flex-wrap gap-2">
-          {reject ? (
-            <>
-              <SimBtn onClick={() => act.challenge(t.id, rejWhy)}>Simulate: the client challenges</SimBtn>
-              <Btn variant="secondary" size="sm" onClick={() => act.acceptRej(t.id)}>Simulate: the client accepts</Btn>
-            </>
-          ) : rejectFinal ? (
-            <SimBtn onClick={() => act.acceptRej(t.id)}>Simulate: the client accepts</SimBtn>
-          ) : t.state === "S10" ? (
-            <Btn size="sm" onClick={() => setTab("payment")}>Open the Payment tab</Btn>
-          ) : (
-            <SimBtn onClick={() => act.clientRun(t.id)}>Simulate: the client acts on BimaKendra</SimBtn>
-          )}
+          {t.state === "S10"
+            ? <Btn size="sm" onClick={() => setTab("payment")}>Open the Payment tab</Btn>
+            : <SimBtn onClick={() => act.clientRun(t.id)}>Simulate: the client acts on BimaKendra</SimBtn>}
         </div>
       </div>
     );
@@ -6435,6 +6476,189 @@ function ClPayment({ t, act, setTab }) {
 }
 
 /* ---------- Ticket history ---------- */
+/* Contest tab (PRD v2.2 §7) — three tiles + rounds thread + two-card decision.
+   Behind the wall: the client label never moves; only accept-and-close changes
+   what the client sees. CH escalation is orthogonal to the round cap. */
+function ClContestThread({ contest, t, live }) {
+  const ev = [];
+  ev.push({ at: contest.receivedAt, kind: "bad", who: t.insurer, tag: "Repudiation", txt: contest.reason });
+  contest.rounds.forEach((r) => {
+    ev.push({ at: r.at, kind: "us", who: "BimaKavach", tag: "Round " + r.n + " — our ground", txt: r.ground });
+    if (r.resp) ev.push({ at: r.respAt, kind: "them", who: t.insurer, tag: "Response to round " + r.n, txt: r.resp });
+  });
+  if (contest.chEscalated) ev.push({ at: contest.chEscalatedAt || contest.receivedAt, kind: "ch", who: CL_HEAD, tag: "Claims Head joined", txt: "Escalated by the CM. Consumes no round; owner stays BimaKavach." });
+  if (contest.outcome === "overturned") ev.push({ at: contest.endedAt, kind: "us", who: "System", tag: "Contest won", txt: "Written acceptance received. Ticket returned to " + CL_FLOW[contest.returnState].label + ". The client never saw a change." });
+  if (contest.outcome === "upheld") ev.push({ at: contest.endedAt, kind: "bad", who: t.cm, tag: "Rejection accepted", txt: "Closed as Rejection upheld. Client label flipped to ‘Claim Rejected’ in the same transition." });
+  ev.sort((a, b) => a.at - b.at);
+  const tint = { us: { line: C.brand, bg: C.brandBg }, them: { line: IND.caution.line, bg: C.warnSoft }, bad: { line: IND.error.line, bg: C.breachSoft }, ch: { line: C.link, bg: C.waitSoft } };
+  return (
+    <div className="flex flex-col gap-2">
+      {ev.map((e, i) => {
+        const s = tint[e.kind] || { line: C.subtle, bg: C.white };
+        return (
+          <div key={i} className="rounded-xl p-3" style={{ background: s.bg, borderLeft: `3px solid ${s.line}`, border: `0.5px solid ${C.lineSoft}` }}>
+            <div className="flex flex-wrap items-baseline gap-2" style={{ fontSize: 12, color: C.figTert }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{e.tag}</span>
+              <span>{e.who}</span><span>·</span><span>{clFdt(e.at)}</span>
+            </div>
+            <div className="mt-1" style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.5, color: C.figInk }}>{e.txt}</div>
+          </div>
+        );
+      })}
+      {live && (t.state === "R2" ? (
+        <div className="rounded-xl p-3" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>Awaiting the insurer</div>
+          <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+            Response to round {contest.rounds[contest.rounds.length - 1]?.n} · H-9 chases the insurer from here. Nothing reaches the client.
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl p-3" style={{ background: C.brandBg, border: `1.5px dashed ${C.brand}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>Your move</div>
+          <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+            {clContestUsed(t) >= clContestCap(t) ? "Round cap reached — accept, or have the cap raised." : "Contest it, bring in " + CL_HEAD + ", or accept it."}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ClContest({ t, role, act }) {
+  const [ground, setGround] = useState("");
+  useEffect(() => { setGround(""); }, [t.id]);
+  const c = t.contest;
+
+  /* Past contests only (won or accepted earlier) — no live contest today. */
+  if (!c) {
+    if (!t.pastContests || t.pastContests.length === 0) return (
+      <div className="flex flex-col gap-3">
+        <SectionTitle>Contest</SectionTitle>
+        <div className="rounded-xl border p-6 text-center" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white, fontSize: 13, color: C.figTert }}>No contest on this ticket.</div>
+      </div>
+    );
+    return (
+      <div className="flex flex-col gap-3">
+        <SectionTitle>Contest — past events</SectionTitle>
+        {t.pastContests.map((pc, i) => (
+          <div key={i} className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span style={{ fontSize: 15, fontWeight: 700, color: C.figInk }}>Contest — {pc.outcome === "overturned" ? "won" : "rejection upheld"}</span>
+              <Indicator label={pc.outcome === "overturned" ? "Overturned" : "Upheld"} ind={pc.outcome === "overturned" ? "success" : "error"} outline />
+              <span className="flex-1" />
+              <span style={{ fontSize: 12, color: C.figTert }}>{pc.rounds.length} round{pc.rounds.length === 1 ? "" : "s"} · {clDur(pc.endedAt - pc.receivedAt)}</span>
+            </div>
+            <div className="mt-3"><ClContestThread contest={pc} t={t} live={false} /></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const used = clContestUsed(t), cap = clContestCap(t), owe = clContestOwner(t);
+  const capReached = used >= cap;
+  const overdue = clOverdueBy(t);
+  const owedText = owe === "Insurer" ? "Insurer owes a response" : "Your move";
+  const dueText = CL_FLOW[t.state].terminal ? "" : (overdue > 0 ? clDur(overdue) + " over" : clDur(-overdue) + " left");
+
+  const Tile = ({ tone, k, v, m, children }) => (
+    <div className="flex flex-col gap-1 rounded-xl border p-3.5" style={{ borderColor: tone === "us" ? C.brand : tone === "ins" ? IND.caution.line : tone === "wall" ? "#D8CDE9" : C.subtle, borderWidth: tone ? "1px" : "0.5px", background: tone === "us" ? C.brandBg : tone === "ins" ? C.warnSoft : tone === "wall" ? "#FCFBFE" : C.white }}>
+      <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.11em", color: C.figTert }}>{k}</span>
+      <span style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.figInk }}>{v}</span>
+      {m && <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{m}</span>}
+      {children}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Tile k="Repudiated" v={clFdate(c.receivedAt)}
+          m={<>{clDur(CL_NOW - c.receivedAt)} behind the wall · will return to <b style={{ color: C.figInk }}>{CL_FLOW[c.returnState].code} {CL_FLOW[c.returnState].label}</b> if won</>} />
+        <Tile tone={owe === "Insurer" ? "ins" : "us"} k="Where it stands" v={"Round " + used + " of " + cap}
+          m={<><b style={{ color: C.figInk }}>{owedText}</b>{dueText ? " · " + dueText : ""}{c.chEscalated ? " · " + CL_HEAD + " is in" : ""}</>}>
+          <div className="mt-2 flex gap-1">{Array.from({ length: cap }, (_, i) => (
+            <span key={i} className="rounded-sm" style={{ height: 4, flex: 1, background: i < used ? C.brand : C.subtle }} />
+          ))}</div>
+        </Tile>
+        <Tile tone="wall" k="What the client sees" v={"“" + clClientLabel(t) + "”"}
+          m="Unchanged since the repudiation. No notification has been sent and none will be until this resolves." />
+      </div>
+
+      <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <SectionTitle>The contest so far</SectionTitle>
+          <span className="flex-1" />
+          <span style={{ fontSize: 12, color: C.figTert }}>Email rounds appear in Mail trail; calls and meetings leave no record</span>
+        </div>
+        <div className="mt-3"><ClContestThread contest={c} t={t} live /></div>
+      </div>
+
+      {t.state === "R2" ? (
+        <div className="rounded-xl p-4" style={{ background: C.warnSoft, border: `1.5px dashed ${IND.caution.line}` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>Simulate the insurer's reply to round {used}</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <SimBtn onClick={() => act.contestInsurerMaintains(t.id)}>Simulate: insurer maintains the repudiation</SimBtn>
+            <Btn variant="secondary" size="sm" onClick={() => act.contestInsurerAccepts(t.id)}>Simulate: insurer accepts in writing</Btn>
+          </div>
+          <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+            Only a written acceptance moves the ticket — a verbal one does not (OQ-37). On acceptance the ticket returns to {CL_FLOW[c.returnState].label}; the client label never moved.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.figInk }}>{capReached ? "Round cap reached" : "Contest it"}</div>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+              {capReached
+                ? (role === "head" ? "Four rounds are used. You can raise the cap for this ticket — it is audited." : "Four rounds are used. Ask " + CL_HEAD + " to raise the cap, or accept.")
+                : "Round " + (used + 1) + " of " + cap + ". Goes to the insurer by email; nothing reaches the client."}
+            </p>
+            {capReached ? (
+              role === "head" ? (
+                <div className="mt-3"><Btn size="sm" onClick={() => act.contestRaiseCap(t.id)}>Raise the cap (audited)</Btn></div>
+              ) : null
+            ) : (
+              <>
+                <textarea value={ground} onChange={(e) => setGround(e.target.value)} placeholder="What we are putting to the insurer, and what we are attaching" className="mt-3 w-full" rows={3} style={{ ...FIELD, resize: "vertical" }} />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Btn size="sm" onClick={() => act.contestRaiseRound(t.id, ground)}>Raise round {used + 1}</Btn>
+                  <Btn variant="secondary" size="sm" onClick={() => act.contestEscalateCH(t.id)} disabled={c.chEscalated}>{c.chEscalated ? CL_HEAD + " is in" : "Bring in " + CL_HEAD}</Btn>
+                </div>
+                <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>Escalating to the Claims Head strengthens a round; it does not spend one.</p>
+              </>
+            )}
+          </div>
+          <div className="rounded-xl border p-4" style={{ borderColor: IND.error.line, borderWidth: "0.5px", background: C.white }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.figInk }}>Accept the rejection</div>
+            <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>
+              Closes the ticket as <b>Rejection upheld</b> and flips the client label to <b>Claim Rejected</b> in one transition. You tell the client in a meeting or call; the system records nothing of that conversation (FR-7.7).
+            </p>
+            <div className="mt-3"><Btn variant="secondary" size="sm" tone={C.semError} onClick={() => act.contestAccept(t.id)}>Accept and close</Btn></div>
+          </div>
+        </div>
+      )}
+
+      {t.pastContests && t.pastContests.length > 0 && (
+        <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+          <SectionTitle>Earlier contests</SectionTitle>
+          <div className="mt-3 flex flex-col gap-4">
+            {t.pastContests.map((pc, i) => (
+              <div key={i}>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Indicator label={pc.outcome === "overturned" ? "Overturned" : "Upheld"} ind={pc.outcome === "overturned" ? "success" : "error"} outline />
+                  <span style={{ fontSize: 12, color: C.figTert }}>{pc.rounds.length} round{pc.rounds.length === 1 ? "" : "s"} · {clDur(pc.endedAt - pc.receivedAt)}</span>
+                </div>
+                <ClContestThread contest={pc} t={t} live={false} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ClHistory({ t }) {
   const rows = t.audit.slice().sort((a, b) => b.at - a.at);
   return (
@@ -6906,16 +7130,82 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     if (s === "S4") { mut(id, (t) => clStep(clAudit(t, "Admissibility decision classified and extracted", "Decision: Admitted · 94% confidence, from " + poc, "Email bot"), "BRANCH")); return flash("Bot recorded the insurer's acceptance and routed the claim. No human touched it."); }
     if (s === "S5") { const sv = CL_SURVEYORS[t0.id.charCodeAt(t0.id.length - 1) % CL_SURVEYORS.length]; const surveyor = { name: sv.name, firm: sv.firm, mobile: sv.mobile, visit: clFdate(CL_NOW + 3 * CL_DAY), source: "Bot-extracted from insurer mail" }; mut(id, (t) => clStep(clAudit({ ...t, surveyor }, "Surveyor appointment classified and extracted", "Surveyor " + sv.name + " (" + sv.firm + ") · 93% confidence, from " + poc, "Email bot"), "S6")); return flash("Bot advanced the claim to “Inspection & assessment report”."); }
     if (s === "S6" || s === "S8") { const assessed = Math.round((t0.loss || 250000) * 0.88 / 1000) * 1000; const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection - assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, assessedLoss: assessed, report }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and extracted", "Assessed loss " + clInr(assessed) + " · arrived as " + (asPdf ? "attached PDF" : "email body"), "Email bot")); return flash("Report extracted. Share it with the client on the Survey tab to start consent."); }
-    if (s === "R2") { const n = t0.challenges; const body = n === 1 ? "We have re-examined the file against the challenge raised. The exclusion relied on is unchanged, but we set out below the basis on which it was applied." : "This is our final position. The file has been reviewed a second time. The repudiation stands and no further internal review is available."; mut(id, (t) => { const to = t.challenges >= 2 ? "R3" : "R1"; const rej = { ...t.rejection, responses: [...t.rejection.responses, { kind: "reply", n: t.challenges, text: body, at: CL_NOW }] }; return clStep(clAudit({ ...t, rejection: rej }, "Insurer's detailed reply to challenge " + t.challenges, "Rejection upheld · 96% confidence, from " + poc, "Email bot"), to); }); return flash("Insurer's reply recorded and published to the client."); }
+    /* R2 is now a Contest state — the insurer's reply comes in through
+       contestInsurerMaintains / contestInsurerAccepts, not through `bot`. */
     if (s === "S11") { mut(id, (t) => { const pay = { type: "Full and final", n: null, date: clFdate(CL_NOW), amt: t.assessedLoss || t.loss || 0, utr: "UTR" + String(CL_NOW).slice(2, 10), mode: "NEFT" }; return clStep(clAudit({ ...t, payments: [...t.payments, pay] }, "Payment confirmation classified and extracted", "Amount " + clInr(pay.amt) + " · UTR " + pay.utr + " · 97% confidence, from " + poc, "Email bot"), "S12"); }); return flash("Bot recorded the payment. Client now sees “Payment Released”."); }
     return flash("No inbound mail is expected at this stage.");
   };
-  const botReject = (id) => {
+  /* ---- Contest handlers (PRD v2.2 §7) ----
+     Repudiation flips the ticket to R1 (Contest Review), snapshots the state
+     it will return to on a win, and freezes the client-facing label at
+     whatever it showed before. No client notification at any point in the
+     to-and-fro; only accept-and-close ever changes what the client sees. */
+  const contestRepudiate = (id) => {
     const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (!CL_CAN_REPUDIATE.includes(t0.state)) return flash("Repudiation can only arrive during insurer review, survey or internal assessment (FR-7.8).");
     const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
     const reason = CL_REJ_REASONS[t0.id.charCodeAt(t0.id.length - 1) % CL_REJ_REASONS.length];
-    mut(id, (t) => clStep(clAudit({ ...t, rejection: { reason, at: CL_NOW, responses: [] }, challenges: 0 }, "Insurer rejection classified and extracted", reason + " · 96% confidence, from " + poc, "Email bot"), "R1"));
-    flash("Rejection recorded and published to the client. They may challenge it twice.");
+    mut(id, (t) => clStep(clAudit({ ...t, contest: { receivedAt: CL_NOW, returnState: t.state, chEscalated: false, chEscalatedAt: null, capOverride: 0, reason, rounds: [] } }, "Repudiation received", "Status 4 Under Contest. No client notification. Client label held at ‘" + clClientLabel(t) + "’. Returns to " + CL_FLOW[t.state].label + " if won. · 96% confidence, from " + poc, "Email bot"), "R1"));
+    flash("Behind the wall — the client still sees the label they saw before.");
+  };
+  const contestRaiseRound = (id, ground) => {
+    if (!String(ground || "").trim()) return flash("State the ground for this round — it goes to the insurer as written.");
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest) return;
+    if (clContestUsed(t0) >= clContestCap(t0)) return flash("Round cap reached. Accept, or ask the Claims Head to raise the cap.");
+    const n = clContestUsed(t0) + 1;
+    mut(id, (t) => { const contest = { ...t.contest, rounds: [...t.contest.rounds, { n, at: CL_NOW, ground: ground.trim(), resp: null, respAt: null }] }; return clStep(clAudit({ ...t, contest }, "Contest round " + n + " raised", ground.trim(), actor(), roleName()), "R2"); });
+    flash("Round " + n + " with the insurer. Nothing has been sent to the client.");
+  };
+  const contestEscalateCH = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest) return;
+    if (t0.contest.chEscalated) return flash(CL_HEAD + " is already in on this contest.");
+    mut(id, (t) => clAudit({ ...t, contest: { ...t.contest, chEscalated: true, chEscalatedAt: CL_NOW } }, "Contest escalated to " + CL_HEAD, "Consumes no round. Owner stays BimaKavach. FR-7.4.", actor(), roleName()));
+    flash(CL_HEAD + " is in. Round count unchanged.");
+  };
+  const contestRaiseCap = (id) => {
+    if (role !== "head") return flash("Only the Claims Head can raise the round cap. Escalate first.");
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest) return;
+    mut(id, (t) => { const contest = { ...t.contest, capOverride: (t.contest.capOverride || 0) + 1 }; return clAudit({ ...t, contest }, "Contest cap raised to " + (CL_CONTEST_CAP + contest.capOverride), "Exceptional case. Audited. FR-7.4.", CL_HEAD, "Claims Head"); });
+    flash("Cap raised — the action is audited.");
+  };
+  const contestInsurerMaintains = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest || t0.state !== "R2") return;
+    const last = t0.contest.rounds[t0.contest.rounds.length - 1]; if (!last) return;
+    const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    const capReached = clContestUsed(t0) >= clContestCap(t0);
+    mut(id, (t) => {
+      const rounds = t.contest.rounds.slice(); rounds[rounds.length - 1] = { ...last, resp: "Repudiation maintained.", respAt: CL_NOW };
+      const to = capReached ? "R3" : "R1";
+      return clStep(clAudit({ ...t, contest: { ...t.contest, rounds } }, "Insurer response recorded", "Repudiation maintained after round " + last.n + " · 96% confidence, from " + poc, "Email bot"), to);
+    });
+    flash(capReached ? "Maintained. Cap reached — accept, or ask " + CL_HEAD + " to raise the cap." : "Maintained. Back to you — round " + clContestUsed(t0) + " of " + clContestCap(t0) + " used.");
+  };
+  const contestInsurerAccepts = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest || t0.state !== "R2") return;
+    const last = t0.contest.rounds[t0.contest.rounds.length - 1]; if (!last) return;
+    const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    const back = t0.contest.returnState;
+    mut(id, (t) => {
+      const rounds = t.contest.rounds.slice(); rounds[rounds.length - 1] = { ...last, resp: "Repudiation withdrawn. Liability admitted.", respAt: CL_NOW };
+      const contest = { ...t.contest, rounds, outcome: "overturned", endedAt: CL_NOW };
+      return clStep(clAudit({ ...t, contest: null, pastContests: [...t.pastContests, contest] }, "Written insurer acceptance received", "Ticket returned to " + CL_FLOW[back].label + ". The client label never changed. · 96% confidence, from " + poc, "Email bot"), back);
+    });
+    flash("Won. Back to “" + CL_FLOW[back].label + "” — the client never knew.");
+  };
+  const contestAccept = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.contest) return;
+    mut(id, (t) => {
+      const contest = { ...t.contest, outcome: "upheld", endedAt: CL_NOW };
+      return clStep(clAudit({ ...t, contest: null, pastContests: [...t.pastContests, contest] }, "Repudiation accepted", "Closed as Rejection upheld. Client label flipped to ‘Claim Rejected’ in the same transition. Client informed offline — not recorded (OQ-35).", actor(), roleName()), "RX", { closureReason: "Rejection upheld", subStatus: null });
+    });
+    flash("Closed — Rejection upheld. Client now sees “Claim Rejected”.");
+  };
+  const contestLateRepudiation = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (CL_CAN_REPUDIATE.includes(t0.state) || t0.state === "R1" || t0.state === "R2" || t0.state === "R3") return flash("Late-repudiation guard only fires at or after Consent (FR-7.8).");
+    const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    mut(id, (t) => clAudit({ ...t, lateRepudiations: [...(t.lateRepudiations || []), { at: CL_NOW, from: poc }] }, "Guard rule fired · late repudiation", "Repudiation-classified mail at or beyond Consent. Routed to CM tray. Ticket unchanged (FR-7.8).", "Email bot", ""));
+    flash("Routed to your tray. The ticket is untouched — approval is final.");
   };
   const clientRun = (id) => {
     const t0 = tickets.find((x) => x.id === id); if (!t0) return;
@@ -6965,14 +7255,14 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
     const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared - optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
-    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
+    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
     flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
   };
   const createFromMail = (m) => {
     const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
-    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
     flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
   };
@@ -6985,7 +7275,8 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const discardMail = (id) => { setMrq((q) => q.filter((x) => x.id !== id)); flash("Discarded and logged for threshold tuning. No reply sent."); };
   const rejectMail = (id) => { const m = mrq.find((x) => x.id === id); setMrq((q) => q.filter((x) => x.id !== id)); flash("Rejected. A reasoned reply went to " + (m ? m.from : "the sender") + " - no ticket created."); };
 
-  const act = { cmForm, bot, botReject, clientRun, challenge, acceptRej, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash };
+  const act = { cmForm, bot, clientRun, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash,
+    contestRepudiate, contestRaiseRound, contestEscalateCH, contestRaiseCap, contestInsurerMaintains, contestInsurerAccepts, contestAccept, contestLateRepudiation };
   const current = tickets.find((t) => t.id === openId);
   /* The order the ticket pager walks - the same urgency order the queues use. */
   const pagerList = useMemo(() => clVisible(tickets, role).slice().sort((a, b) => {
