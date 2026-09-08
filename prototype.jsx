@@ -9025,6 +9025,98 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   );
 }
 
+/* Manager-only Reports surface (Umesh). A plain read-out of the desk from
+   three angles — where tickets sit, which insurers hold them, and how each
+   servicing executive's load looks. Every number is derived off the same
+   `tickets` array the rest of the app reads, so nothing here can drift out
+   of sync with the queue. Illustrative KPI copy uses "this session" language
+   because there's no history store behind the prototype. */
+function ReportsView({ tickets }) {
+  const open = tickets.filter(isOpen);
+  const overdue = tickets.filter((t) => isOpen(t) && breached(t));
+  const held = tickets.filter((t) => isOpen(t) && (onHold(t) || awaitingInsurer(t)));
+  const closed = tickets.filter((t) => !isOpen(t));
+  const medianAge = (() => {
+    const ages = open.map(ageOf).sort((a, b) => a - b);
+    if (!ages.length) return 0;
+    const mid = Math.floor(ages.length / 2);
+    return ages.length % 2 ? ages[mid] : (ages[mid - 1] + ages[mid]) / 2;
+  })();
+  const groupCount = (get) => {
+    const m = new Map();
+    for (const t of tickets) { const k = get(t); if (!k) continue; m.set(k, (m.get(k) || 0) + 1); }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const byStage = groupCount((t) => statusOf(t).label);
+  const byInsurer = groupCount((t) => t.insurer);
+  const byOwner = groupCount((t) => t.owner);
+
+  const Kpi = ({ label, value, sub, tone }) => (
+    <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>{label}</div>
+      <div className="bk-num mt-1" style={{ fontSize: 26, fontWeight: 700, color: tone || C.figInk, lineHeight: 1 }}>{value}</div>
+      {sub && <div className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{sub}</div>}
+    </div>
+  );
+  const CountTable = ({ title, rows, right }) => (
+    <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${C.subtle}` }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{title}</span>
+        {right}
+      </div>
+      <div>
+        {rows.length ? rows.map(([k, v], i) => (
+          <div key={k} className="flex items-center justify-between px-4 py-2.5" style={i < rows.length - 1 ? { borderBottom: `1px solid ${C.lineSoft}` } : undefined}>
+            <span className="truncate" style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{k}</span>
+            <span className="bk-num ml-3 shrink-0" style={{ fontSize: 14, fontWeight: 600, color: C.figHint }}>{v}</span>
+          </div>
+        )) : <div className="px-4 py-8 text-center" style={{ fontSize: 13, color: C.figTert }}>No tickets in this slice.</div>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Reports</h2>
+          <div className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>
+            Read-out of the desk right now. Historical rollups will appear here once the warehouse is wired up.
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kpi label="Open tickets" value={open.length} sub={`${tickets.length} total`} />
+        <Kpi label="Overdue" value={overdue.length} tone={overdue.length ? C.semError : C.figInk}
+          sub={overdue.length ? "past their stage SLA" : "clean"} />
+        <Kpi label="Awaiting outside party" value={held.length}
+          sub="insurer or client" />
+        <Kpi label="Median open age" value={ageOf({ legs: [], inStage: 0 }) >= 0 && open.length ? `${Math.round(medianAge / 24)}d` : "—"}
+          sub="calendar days" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <CountTable title="By stage" rows={byStage} right={<MiniTag>{byStage.length} stages</MiniTag>} />
+        <CountTable title="By insurer" rows={byInsurer} right={<MiniTag>{byInsurer.length} insurers</MiniTag>} />
+        <CountTable title="By servicing executive" rows={byOwner} right={<MiniTag>{byOwner.length} owners</MiniTag>} />
+      </div>
+
+      <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.canvas }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint, letterSpacing: 0.4 }}>WHAT'S COMING</div>
+        <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>
+          <div>· SLA compliance over time, per stage.</div>
+          <div>· First-response time by insurer + POC.</div>
+          <div>· Manual-review resolution rate.</div>
+          <div>· Executive throughput vs. capacity.</div>
+          <div>· Insurer response quality (queries per ticket).</div>
+          <div>· Closed {closed.length ? `(${closed.length} closed to date)` : ""}: reason breakdown.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
   const [tickets, setTickets] = useState(() =>
     SEED.map((t) => {
@@ -9421,7 +9513,13 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
           envs={user?.envs} onSwitchEnv={setEnv}
-          nav={NAV.map((row) => row[0] === "list" && scope === "team" ? ["list", "Tickets", row[2], row[3]] : row)}
+          nav={NAV.map((row) => {
+            /* Reports is a manager-only surface (Umesh); everyone else keeps
+               the inert tile. Sidebar label swap for team scope stays. */
+            if (row[0] === "reports") return [row[0], row[1], row[2], user?.role !== "Claims & Endorsements Head"];
+            if (row[0] === "list" && scope === "team") return ["list", "Tickets", row[2], row[3]];
+            return row;
+          })}
           identity={user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined} />
 
         <main className="flex flex-1 flex-col overflow-hidden">
@@ -9445,6 +9543,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
               {view === "ticket" && current && <Detail t={current} user={user} scope={scope} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} onRefund={refundAdvance} onSeen={markSeen} onInsurerQAnswer={answerInsurerQ} onInsurerQForward={forwardInsurerQ} />}
+              {view === "reports" && <ReportsView tickets={tickets} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
