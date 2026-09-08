@@ -3377,37 +3377,8 @@ function RefundPanel({ t, onRefund, onAdvance, setTab, setPreview }) {
     </div>
   );
 
-  /* Bars mirror the Overview PhaseBar: 3px rail per step, filled green when
-     done, amber while running, empty ahead. Label goes bold on the current
-     step. Rejected paths stop filling from step 2 onward. */
-  const Bar = ({ i, s }) => {
-    const state = rejected && i > 1 ? "skip"
-      : done(s.key) ? "done"
-      : current(s.key) ? "current"
-      : "todo";
-    const fill = state === "done" || state === "current" ? "100%" : "0%";
-    const tone = state === "done" ? C.teal
-      : state === "current" ? C.warn
-      : "transparent";
-    return (
-      <div className="min-w-0 flex-1">
-        <div style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: fill, borderRadius: 999, background: tone }} />
-        </div>
-        <div className="mt-2 truncate" title={s.label}
-          style={{ fontSize: 14, fontWeight: state === "current" ? 600 : 500, color: state === "current" ? C.figInk : C.figHint }}>
-          {s.label}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4">
-      {/* Stepper — matches Overview's Ticket Workflow phase bar */}
-      <div className="flex gap-3">
-        {REF_STEPS.map((s, i) => <Bar key={s.key} i={i} s={s} />)}
-      </div>
       {rejected && (
         <div style={{ fontSize: 13, fontWeight: 500, color: C.semError }}>
           Client declined the refund. The flow is on hold until instructions arrive.
