@@ -4323,7 +4323,6 @@ function Login({ onSignIn }) {
                 <div className="flex items-center gap-1.5 rounded-xl border p-1.5" style={{ borderColor: C.subtle, background: C.white }}>
                   <img src={user.avatar} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
                   <span className="text-sm font-medium leading-none" style={{ color: C.figInk }}>{user.name}</span>
-                  <span className="text-xs font-medium leading-none" style={{ color: C.figHint }}>{email.trim().toLowerCase()}</span>
                 </div>
                 <div className="relative flex items-center gap-2">
                   <span className="leading-none" style={{ fontSize: 16, fontWeight: 500 }}>
@@ -4871,28 +4870,47 @@ const CL_ME = "Ruksana";
 const CL_HEAD = "Umesh";
 const CL_SURVEYOR_THRESHOLD = 100000;
 
+/* PRD v2.2 M25 - values still to set with BKTech (Sep '26). Placeholders keep
+   the demo timers moving; do NOT quote to the client. */
+const CL_TAT_H9_ROUND_RESPONSE_H = 72;         // TODO: BKTech to confirm H-9
+const CL_TAT_H10_SETTLEMENT_ADVICE_H = 72;     // TODO: BKTech to confirm H-10
+const CL_TAT_I8_CM_REPUDIATION_ACTION_H = 24;  // TODO: BKTech to confirm I-8
+const CL_TAT_I9_FIGURE_REVIEW_H = 24;          // TODO: BKTech to confirm I-9
+
+/* PRD v2.2 §9.7 - hide the State chip on the numeric statuses where it would
+   only echo the Stage: 1 Draft, 8 Bank Details Pending, 10 Payment Confirmation. */
+const CL_STATE_HIDDEN = new Set(["Draft", "Bank Details Pending", "Payment Confirmation"]);
+
 /* ---------- state machine (C-1) ---------- */
 const CL_PHASES = ["Intake", "BK Review", "Insurer", "Assessment & Consent", "Settlement & Closure"];
+/* PRD v2.2 §9.1 — every entry now carries a public `code` (S01/S25/… — the
+   sixteen-state catalogue) and a `pend` line (what is pending inside the
+   status). Internal keys are unchanged so seed data and mutations keep working.
+   `client:"HOLD"` freezes the client-facing label at the value held when the
+   ticket entered the state — see clClientLabel + clStep. */
 const CL_FLOW = {
-  S0: { status: "Draft", label: "Draft - intake incomplete", client: "Details Required", phase: 0, owner: "Client", tat: { v: 2, unit: "WD" }, act: { label: "Mark intake complete", to: "S1" } },
-  S1: { status: "Under Review", label: "Under Review – BimaKavach", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 2, unit: "BH" }, act: { label: "Record admissibility assessment", to: "S2", form: "admiss" } },
-  S2: { status: "Under Review", label: "Ready for insurer intimation", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 1, unit: "BH" }, act: { label: "Submit to insurer", to: "S3" } },
-  S3: { status: "With Insurer", label: "Awaiting claim number", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 1, unit: "WD" }, act: { src: "auto", label: "Record insurer claim number", to: "S4", form: "claimno" } },
-  S4: { status: "With Insurer", label: "Awaiting admissibility decision", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Log insurer decision", to: "BRANCH" } },
-  S5: { tab: "survey", status: "Survey & Assessment", label: "Surveyor appointment awaited", client: "Survey in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record surveyor appointment", to: "S6", form: "surveyor" } },
-  S6: { tab: "survey", status: "Survey & Assessment", label: "Inspection & assessment report", client: "Assessment in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record inspection & assessment report", to: "S9", form: "report" } },
-  S8: { tab: "survey", status: "Report Awaited", label: "Insurer assessing internally", client: "Assessment in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record assessment report", to: "S9", form: "report" } },
-  S9: { status: "Consent", label: "Consent Pending", client: "Consent", phase: 3, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record client consent", to: "S10" } },
-  S10: { tab: "payment", status: "Bank Details Pending", label: "Bank Details Pending", client: "Bank Details Required", phase: 4, owner: "Client", tat: { v: 3, unit: "WD" }, act: { src: "client", label: "Record bank details", to: "S11", form: "bank" } },
-  S11: { tab: "payment", status: "Payment in Progress", label: "Payment in Progress", client: "Payment in Progress", phase: 4, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record payment", to: "S12", form: "payment" } },
-  S12: { tab: "payment", status: "Payment Confirmation", label: "Awaiting Client Confirmation", client: "Payment Released", phase: 4, owner: "Client", tat: { v: 5, unit: "WD" }, act: { src: "client", label: "Record client confirmation of receipt", to: "S13" } },
-  S13: { status: "Closed", label: "Closed – Settled", client: "Claim Settled", phase: 4, owner: "-", terminal: true },
-  R1: { status: "Rejected", label: "Rejection shared", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's response", to: "R2" } },
-  R2: { status: "Rejected", label: "Challenge with insurer", client: "Claim Rejected", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, sub: "Awaiting insurer", act: { src: "bot", label: "Record the insurer's detailed reply", to: "R1" } },
-  R3: { status: "Rejected", label: "Challenges exhausted", client: "Claim Rejected", phase: 2, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record the client's acceptance", to: "RX" } },
-  RX: { status: "Closed", label: "Closed – Rejection accepted", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
-  SX: { status: "Closed", label: "Closed", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
-  ST: { status: "Terminated", label: "Terminated – Inactivity", client: "Claim Closed – No Response", phase: 4, owner: "-", terminal: true },
+  S0: { code: "S01", pend: "missing mandatory items", status: "Draft", label: "Draft - intake incomplete", client: "Details Required", phase: 0, owner: "Client", tat: { v: 2, unit: "WD" }, act: { label: "Mark intake complete", to: "S1" } },
+  S1: { code: "S03", pend: "first response · admissibility", status: "Under Review", label: "Under Review – BimaKavach", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 2, unit: "BH" }, act: { label: "Record admissibility assessment", to: "S2", form: "admiss" } },
+  S2: { code: "S03", pend: "insurer intimation", status: "Under Review", label: "Ready for insurer intimation", client: "Under Review", phase: 1, owner: "BimaKavach", tat: { v: 1, unit: "BH" }, act: { label: "Submit to insurer", to: "S3" } },
+  S3: { code: "S11", pend: "insurer claim number", status: "With Insurer", label: "Awaiting claim number", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 1, unit: "WD" }, act: { src: "auto", label: "Record insurer claim number", to: "S4", form: "claimno" } },
+  S4: { code: "S11", pend: "admissibility decision", status: "With Insurer", label: "Awaiting admissibility decision", client: "Submitted to Insurer", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Log insurer decision", to: "BRANCH" } },
+  S5: { code: "S31", tab: "survey", pend: "surveyor appointment", status: "Survey & Assessment", label: "Surveyor appointment awaited", client: "Survey in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record surveyor appointment", to: "S6", form: "surveyor" } },
+  S6: { code: "S31", tab: "survey", pend: "inspection & assessment report", status: "Survey & Assessment", label: "Inspection & assessment report", client: "Assessment in Progress", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record inspection & assessment report", to: "S9", form: "report" } },
+  S8: { code: "S38", tab: "survey", pend: "internal assessment report", status: "Report Awaited", label: "Insurer assessing internally", client: "HOLD", phase: 3, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record assessment report", to: "S9", form: "report" } },
+  S9: { code: "S41", pend: "consent or withdraw", status: "Consent", label: "Consent Pending", client: "Consent", phase: 3, owner: "Client", tat: { v: 3, unit: "WD" }, sub: "Awaiting client", act: { src: "client", label: "Record client consent", to: "S10" } },
+  S10: { code: "S49", tab: "payment", pend: "bank details", status: "Bank Details Pending", label: "Bank Details Pending", client: "Bank Details Required", phase: 4, owner: "Client", tat: { v: 3, unit: "WD" }, act: { src: "client", label: "Record bank details", to: "S11", form: "bank" } },
+  S11: { code: "S50", tab: "payment", pend: "first payment · next instalment", status: "Payment in Progress", label: "Payment in Progress", client: "Payment in Progress", phase: 4, owner: "Insurer", tat: { v: 2, unit: "WD" }, act: { src: "bot", label: "Record payment", to: "S12", form: "payment" } },
+  S12: { code: "S54", tab: "payment", pend: "receipt · feedback", status: "Payment Confirmation", label: "Awaiting Client Confirmation", client: "Payment Released", phase: 4, owner: "Client", tat: { v: 5, unit: "WD" }, act: { src: "client", label: "Record client confirmation of receipt", to: "S13" } },
+  S13: { code: "—", pend: "", status: "Closed", label: "Closed – Settled", client: "Claim Settled", phase: 4, owner: "-", terminal: true },
+  /* R1/R2/R3 are the PRD v2.2 Contest track. Status = "Under Contest"; the
+     client-facing label freezes at whatever the ticket showed when the
+     repudiation arrived (`client:"HOLD"`). Slice B rebuilds the tab. */
+  R1: { code: "S25", pend: "review repudiation · raise round · accept", status: "Under Contest", label: "Contest Review", client: "HOLD", phase: 2, owner: "BimaKavach", tat: { v: 3, unit: "WD" }, sub: "Awaiting BimaKavach", act: { src: "client", label: "Record the client's response", to: "R2" } },
+  R2: { code: "S27", pend: "round response", status: "Under Contest", label: "Round Response", client: "HOLD", phase: 2, owner: "Insurer", tat: { v: 2, unit: "WD" }, sub: "Awaiting insurer", act: { src: "bot", label: "Record the insurer's detailed reply", to: "R1" } },
+  R3: { code: "S25", pend: "cap reached · accept or raise cap", status: "Under Contest", label: "Contest cap reached", client: "HOLD", phase: 2, owner: "BimaKavach", tat: { v: 3, unit: "WD" }, sub: "Awaiting BimaKavach", act: { src: "client", label: "Record the client's acceptance", to: "RX" } },
+  RX: { code: "—", pend: "", status: "Closed", label: "Closed – Rejection accepted", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
+  SX: { code: "—", pend: "", status: "Closed", label: "Closed", client: "Claim Closed", phase: 4, owner: "-", terminal: true },
+  ST: { code: "—", pend: "", status: "Closed", label: "Terminated – Inactivity", client: "Claim Closed – No Response", phase: 4, owner: "-", terminal: true },
 };
 const CL_ORDER = ["S0", "S1", "S2", "S3", "S4", "S5", "S6", "S8", "S9", "S10", "S11", "S12", "S13"];
 const CL_REJ = ["S0", "S1", "S2", "S3", "S4", "R1", "R2", "R3", "RX"];
@@ -4950,7 +4968,19 @@ function clClientLabel(t) {
   if (t.state === "ST") return "Claim Closed – No Response";
   if (t.state === "RX") return "Claim Closed";
   if (t.closureReason) return ({ Withdrawn: "Claim Withdrawn", Duplicate: "Duplicate Claim", "Dormancy closure": "Claim Closed" }[t.closureReason]) || "Claim Closed";
-  return CL_FLOW[t.state].client;
+  /* PRD v2.2 §9.7 - HOLD entries (Contest track, Report Awaited) freeze at
+     whatever the client was seeing when the ticket entered the state. */
+  const f = CL_FLOW[t.state];
+  if (f.client === "HOLD") return t.frozen || "Submitted to Insurer";
+  return f.client;
+}
+/* v2.2 splits Stage (primary status name — 12 values) from State (the specific
+   catalogue state — code + label + pending item). This helper returns the
+   Stage, with dormant/terminal handled consistently. */
+function clStatusName(t) {
+  if (t.dormant) return CL_FLOW[t.dormant.fromState].status;
+  if (t.closureReason) return "Closed";
+  return CL_FLOW[t.state].status;
 }
 function clDueText(t) {
   if (CL_FLOW[t.state].terminal) return { cls: "fine", txt: "-" };
@@ -5002,7 +5032,7 @@ function clMake(o, i) {
     createdAt: clAgo(o.ageH || 24),
     stageAt: clAgo(o.stageH != null ? o.stageH : (o.ageH || 24)),
     ownerLog: [], audit: [], mail: [], requests: [], queries: [], uploads: {}, botLog: [], inbox: [],
-    rejection: null, challenges: 0, dormant: null, closureReason: null,
+    rejection: null, challenges: 0, dormant: null, closureReason: null, frozen: null,
     chase: { reminders: 0, escalations: 0, events: [] },
   }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
 }
@@ -5147,8 +5177,12 @@ function ClaimsRow({ t, onOpen, showCM, last }) {
         </span>
       </span>
       <span className="hidden min-w-0 flex-col gap-1 sm:flex" style={{ flexBasis: 180 }}>
-        <span className="truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{clStageLabel(t)}</span>
-        <span style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{clDur(CL_NOW - t.createdAt)} old</span>
+        <span className="truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{clStatusName(t)}</span>
+        <span className="truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>
+          {CL_FLOW[t.state].terminal || CL_STATE_HIDDEN.has(clStatusName(t))
+            ? `${clDur(CL_NOW - t.createdAt)} old`
+            : <><span className="bk-num">{CL_FLOW[t.state].code}</span> · {CL_FLOW[t.state].label}</>}
+        </span>
       </span>
       {showCM && <span className="hidden w-20 shrink-0 md:block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{t.cm}</span>}
       <span className="hidden w-28 shrink-0 md:flex"><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
@@ -5452,7 +5486,7 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
 /* Fixed columns hold their width; the two content columns (Client, Stage) share
    the leftover space equally via `clFlex`, so the row fills the width evenly and
    stays responsive - no single column runs away (mirrors the Endorsement table). */
-const CL_COLS = { id: { w: 150 }, owner: { w: 116 }, prio: { w: 96 }, age: { w: 92 }, cm: { w: 84 }, due: { w: 132 } };
+const CL_COLS = { id: { w: 150 }, state: { w: 168 }, owner: { w: 116 }, prio: { w: 96 }, age: { w: 92 }, cm: { w: 84 }, due: { w: 132 } };
 const clCell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0, paddingLeft: c.pl, paddingRight: c.pr, ...extra });
 const clFlex = (extra) => ({ flex: "1 1 0", minWidth: 148, paddingRight: 8, ...extra });
 const CL_PAGE = 10;
@@ -5477,7 +5511,7 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
   const B = clBuckets(tickets, role);
   const counts = Object.fromEntries(CL_FILTERS.map(([k]) => [k, (B[k] || []).length]));
   const has = (s, v) => s.size === 0 || s.has(v);
-  const base = (B[filter] || B.attention).filter((t) => has(owner, clOwner(t))).filter((t) => has(prio, t.priority)).filter((t) => has(stage, clStageLabel(t)));
+  const base = (B[filter] || B.attention).filter((t) => has(owner, clOwner(t))).filter((t) => has(prio, t.priority)).filter((t) => has(stage, clStatusName(t)));
   const d = sort.dir === "asc" ? 1 : -1;
   const rows = base.slice().sort((a, b) => {
     if (sort.key === "urgency") { const rk = (t) => (t.escalated ? 0 : clOverdueBy(t) > 0 ? 1 : 2); return rk(a) - rk(b) || clOverdueBy(b) - clOverdueBy(a); }
@@ -5494,7 +5528,9 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
 
   const OWNER_OPTS = ["Client", "Insurer", "BimaKavach"].map((v) => ({ value: v, label: v }));
   const PRIO_OPTS = ["Critical", "High", "Medium", "Low"].map((v) => ({ value: v, label: v }));
-  const STAGE_OPTS = [...new Set(clVisible(tickets, role).map((t) => clStageLabel(t)))].sort().map((v) => ({ value: v, label: v }));
+  /* v2.2 - Stage filter now runs on the 12-value status name; the specific
+     state (S03/S25 etc.) sits in its own column. */
+  const STAGE_OPTS = [...new Set(clVisible(tickets, role).map((t) => clStatusName(t)))].sort().map((v) => ({ value: v, label: v }));
   const hf = { openKey, setOpenKey };
   const th = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
   const sortBy = (k) => setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "desc" }));
@@ -5515,12 +5551,16 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
           <SortHead label="Claim" k="id" style={clCell(CL_COLS.id)} />
           <span className="truncate" style={clFlex(th)}>Client</span>
           <span style={clFlex()}><HeaderFilter id="stage" label="Stage" options={STAGE_OPTS} selected={stage} setSelected={setStage} {...hf} /></span>
+          <span className="truncate" style={clCell(CL_COLS.state, th)}>State</span>
           <span style={clCell(CL_COLS.owner)}><HeaderFilter id="owner" label="Owed by" options={OWNER_OPTS} selected={owner} setSelected={setOwner} {...hf} /></span>
           <SortHead label="Ticket Age" k="age" style={clCell(CL_COLS.age)} />
           {head && <span className="truncate" style={clCell(CL_COLS.cm, th)}>Manager</span>}
           <SortHead label="Stage due" k="due" style={clCell(CL_COLS.due)} />
         </div>
-        {view.length ? view.map((t) => (
+        {view.length ? view.map((t) => {
+          const f = CL_FLOW[t.state];
+          const hideState = f.terminal || CL_STATE_HIDDEN.has(clStatusName(t));
+          return (
           <button key={t.id} onClick={() => openTicket(t.id)} className="bk-item flex w-full items-center rounded-xl px-2 py-3 text-left hover:bg-slate-50" style={{ cursor: "pointer" }}>
             <span className="flex items-center gap-2" style={clCell(CL_COLS.id)}>
               <span className="bk-num truncate" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{t.id}</span>
@@ -5530,13 +5570,23 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
               <span className="block truncate" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>{t.client}</span>
               <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{clProductLabel(t.product)} · {t.insurer}</span>
             </span>
-            <span style={clFlex()}><Indicator label={clStageLabel(t)} ind={clStageInd(t)} outline /></span>
+            <span style={clFlex()}><Indicator label={clStatusName(t)} ind={clStageInd(t)} outline /></span>
+            <span className="truncate" style={clCell(CL_COLS.state)}>
+              {hideState
+                ? <span style={{ fontSize: 12, color: C.figTert }}>—</span>
+                : <>
+                    <span className="block truncate" title={f.pend ? `${f.code} · ${f.pend}` : f.code} style={{ fontSize: 12, fontWeight: 600, color: C.figInk }}>
+                      <span className="bk-num" style={{ color: C.figTert, fontWeight: 500 }}>{f.code}</span> · {f.label}
+                    </span>
+                    {f.pend && <span className="block truncate" style={{ fontSize: 11, fontWeight: 500, color: C.figTert }}>{f.pend}</span>}
+                  </>}
+            </span>
             <span style={clCell(CL_COLS.owner)}><Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline /></span>
             <span className="bk-num" style={clCell(CL_COLS.age, { fontSize: 12, fontWeight: 500, color: C.figHint })}>{clDur(CL_NOW - t.createdAt)}</span>
             {head && <span className="truncate" style={clCell(CL_COLS.cm, { fontSize: 12, fontWeight: 600, color: C.figHint })}>{t.cm}</span>}
             <span style={clCell(CL_COLS.due)}><ClDue t={t} /></span>
           </button>
-        )) : <Empty>No claims match these filters.</Empty>}
+        );}) : <Empty>No claims match these filters.</Empty>}
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs" style={{ color: C.figTert }}>
@@ -5551,9 +5601,14 @@ function ClaimsList({ tickets, role, filter, setFilter, openTicket }) {
 const clAudit = (t, what, detail, actor, role) => ({ ...t, audit: [{ at: CL_NOW, actor: actor || CL_ME, role: role || (actor ? "" : "Claims Manager"), what, detail: detail || "" }, ...t.audit] });
 function clStep(t, to, extra = {}) {
   const next = to === "BRANCH" ? ((t.loss || 0) > CL_SURVEYOR_THRESHOLD ? "S5" : "S8") : to;
+  /* PRD v2.2 §9.7 - snapshot the client label on the way INTO a HOLD state so
+     the client keeps seeing what they saw; clear it on the way OUT. */
+  const wasHold = CL_FLOW[t.state].client === "HOLD";
+  const nowHold = CL_FLOW[next].client === "HOLD";
+  const frozen = nowHold ? (wasHold ? t.frozen : clClientLabel(t)) : null;
   return { ...t, ...extra,
     ownerLog: [...t.ownerLog, { owner: CL_FLOW[t.state].owner, from: t.stageAt, to: CL_NOW, state: t.state }],
-    state: next, status: CL_FLOW[next].status, stageAt: CL_NOW, escalated: false,
+    state: next, status: CL_FLOW[next].status, stageAt: CL_NOW, escalated: false, frozen,
     chase: { reminders: 0, escalations: 0, events: [] }, subStatus: CL_FLOW[next].sub || null };
 }
 /* Intake field → captured value (C-6 Overview). */
@@ -5587,7 +5642,7 @@ function clBotPreview(t) {
   };
   return { from: poc, ...(M[t.state] || { type: "Inbound mail", keys: [] }) };
 }
-const CL_TAB_LABELS = { overview: "Overview", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & assessment", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
+const CL_TAB_LABELS = { overview: "Overview", docs: "Document vault", client: "Client channel", mail: "Mail trail", survey: "Survey & Settlement", payment: "Payment", history: "Ticket history", manage: "Manage ticket" };
 
 /* A labelled field control used by the action-panel forms. */
 function ClInput({ label, value, onChange, type = "text", placeholder, options }) {
@@ -5622,10 +5677,15 @@ function ClaimsDetail({ t, role, act }) {
       <div className="mb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="bk-num" style={{ fontSize: 24, fontWeight: 700, color: C.brand }}>{t.id}</h1>
-          <Indicator label={clStageLabel(t)} ind={clStageInd(t)} big status />
+          {/* v2.2 §9.7 - Stage (primary) shows the 12-value status; the State
+              chip sits beside the owner and names the specific catalogue state. */}
+          <Indicator label={clStatusName(t)} ind={clStageInd(t)} big status />
           <span className="flex-1" />
           {/* Product chip removed - it's in the meta row below with Client and Policy. */}
           <Indicator label={`${t.channel} intake`} ind="neutral" outline />
+          {!CL_FLOW[t.state].terminal && !CL_STATE_HIDDEN.has(clStatusName(t)) && (
+            <Indicator label={`${CL_FLOW[t.state].code} · ${CL_FLOW[t.state].label}`} ind="neutral" outline />
+          )}
           <Indicator label={clOwner(t)} ind={clOwnerInd(t)} outline />
           <ClParticipants t={t} down />
         </div>
