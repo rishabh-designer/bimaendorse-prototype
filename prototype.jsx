@@ -1749,16 +1749,16 @@ function Donut({ segments }) {
    reads real data; the other windows are illustrative (no historical store). */
 const RANGES = ["Last Week", "Last Month", "Last Quarter", "Custom"];
 const RP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const rpFmtDate = (iso) => {
-  if (!iso) return "";
-  const p = iso.split("-");
-  return `${Number(p[2])} ${RP_MONTHS[Number(p[1]) - 1]}`;
+const rpMonthLabel = (p) => p ? `${RP_MONTHS[p.m]} ${p.y}` : "";
+const rpRangeLabel = (a, b) => {
+  if (!a || !b) return "";
+  return a.y === b.y ? `${RP_MONTHS[a.m]} – ${RP_MONTHS[b.m]} ${a.y}` : `${rpMonthLabel(a)} – ${rpMonthLabel(b)}`;
 };
 function RangePills({ value, onChange }) {
   const [modal, setModal] = useState(false);
-  const [custom, setCustom] = useState(null); // { start, end } ISO strings
+  const [custom, setCustom] = useState(null); // { start:{y,m}, end:{y,m} }
   const labelFor = (o) => (o === "Custom" && custom && value === "Custom")
-    ? `${rpFmtDate(custom.start)} – ${rpFmtDate(custom.end)}`
+    ? rpRangeLabel(custom.start, custom.end)
     : o;
   const handle = (o) => { if (o === "Custom") setModal(true); else onChange(o); };
   return (
@@ -1783,39 +1783,79 @@ function RangePills({ value, onChange }) {
   );
 }
 
-/* Custom date-range picker for the Range pill. Two native date inputs on the
-   sunken ground; confirmation switches the parent range to "Custom" and stores
-   the picked window locally so the pill can label itself with the dates. */
+/* Custom range picker for the Range pill. Two month-grid cards side by side —
+   pick a start month and an end month, both capped at the current month. On
+   confirm the parent range switches to "Custom" and the pill re-labels itself
+   with the picked window ("Jul – Sep 2026"). Mirrors the month-picker card
+   idiom used elsewhere in the design system rather than a native date input. */
 function CustomRangeModal({ initial, onClose, onConfirm }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const [start, setStart] = useState(initial?.start || "");
-  const [end, setEnd] = useState(initial?.end || "");
-  const invalid = start && end && start > end;
-  const ready = start && end && !invalid;
+  const now = new Date();
+  const CUR = { y: now.getFullYear(), m: now.getMonth() };
+  const [start, setStart] = useState(initial?.start || { y: CUR.y, m: Math.max(0, CUR.m - 1) });
+  const [end, setEnd] = useState(initial?.end || CUR);
+  const key = (p) => p.y * 12 + p.m;
+  const invalid = key(start) > key(end);
+  const ready = !invalid;
   return (
-    <ModalShell icon={Calendar} title="Pick a custom range" sub="The dashboard will describe this window." onClose={onClose}
+    <ModalShell icon={Calendar} title="Pick a custom range" sub="Choose the start month and the end month." onClose={onClose} width={640}
       footer={<>
         <Cancel onClick={onClose} />
         <Btn disabled={!ready} onClick={() => onConfirm({ start, end })}>Apply range</Btn>
       </>}>
       <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <FieldLabel>Start date</FieldLabel>
-          <input type="date" value={start} max={end || today}
-            onChange={(e) => setStart(e.target.value)} className="mt-1.5 w-full" style={FIELD} />
-        </label>
-        <label className="block">
-          <FieldLabel>End date</FieldLabel>
-          <input type="date" value={end} min={start} max={today}
-            onChange={(e) => setEnd(e.target.value)} className="mt-1.5 w-full" style={FIELD} />
-        </label>
+        <RpMonthPicker title="Start" value={start} onChange={setStart} cur={CUR} />
+        <RpMonthPicker title="End" value={end} onChange={setEnd} cur={CUR} />
       </div>
-      {invalid && (
-        <div className="mt-3" style={{ fontSize: 12, fontWeight: 500, color: C.semError }}>
-          End date must be on or after the start date.
-        </div>
-      )}
+      <div className="mt-4 flex items-center justify-between rounded-xl"
+        style={{ padding: "12px 14px", background: C.canvas, border: `0.5px solid ${C.subtle}` }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Selected window</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: invalid ? C.semError : C.figInk }}>
+          {invalid ? "End must be on or after Start" : rpRangeLabel(start, end)}
+        </span>
+      </div>
     </ModalShell>
+  );
+}
+
+function RpMonthPicker({ title, value, onChange, cur }) {
+  const forwardOk = value.y < cur.y;
+  const maxM = value.y === cur.y ? cur.m : 11;
+  const setYear = (dy) => onChange({ y: value.y + dy, m: Math.min(value.m, dy > 0 ? (value.y + dy === cur.y ? cur.m : 11) : 11) });
+  return (
+    <div className="rounded-xl" style={{ padding: 14, background: C.white, border: `0.5px solid ${C.subtle}` }}>
+      <div className="mb-3 flex items-center justify-between">
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.figHint }}>{title}</span>
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setYear(-1)} className="bk-iconctrl flex items-center justify-center"
+            style={{ width: 24, height: 24, borderRadius: 6, border: `0.5px solid ${C.subtle}`, background: C.white, color: C.figHint }}>
+            <ChevronLeft size={14} />
+          </button>
+          <span className="bk-num text-center" style={{ fontSize: 15, fontWeight: 600, color: C.figInk, minWidth: 44 }}>{value.y}</span>
+          <button disabled={!forwardOk} onClick={() => setYear(1)} className="bk-iconctrl flex items-center justify-center"
+            style={{ width: 24, height: 24, borderRadius: 6, border: `0.5px solid ${C.subtle}`, background: C.white,
+              color: forwardOk ? C.figHint : C.line, opacity: forwardOk ? 1 : 0.5,
+              cursor: forwardOk ? "pointer" : "not-allowed" }}>
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {RP_MONTHS.map((m, i) => {
+          const on = value.m === i;
+          const dis = i > maxM;
+          return (
+            <button key={m} disabled={dis} onClick={() => onChange({ y: value.y, m: i })}
+              className={dis ? "" : (on ? "" : "bk-opt")}
+              style={{ padding: "8px 4px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                border: `0.5px solid ${on ? C.brand : "transparent"}`,
+                background: on ? C.brand : "transparent",
+                color: on ? C.white : (dis ? C.line : C.figInk),
+                cursor: dis ? "not-allowed" : "pointer",
+                opacity: dis ? 0.45 : 1 }}>{m}</button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
