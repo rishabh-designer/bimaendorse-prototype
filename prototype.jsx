@@ -9,7 +9,7 @@ import {
   HeartHandshake, ListChecks, SquareDashedMousePointer, TextSearch, PanelLeftClose, PanelLeftOpen,
   Eye, EyeOff, Info, Loader2, LogOut, ChevronLeft, ArrowDownWideNarrow, AlertCircle, Upload,
   Check, Minus, History, SmilePlus, MoreVertical, MoreHorizontal, BadgeCheck, ChevronUp, CornerDownRight, Tags,
-  Home as HomeIcon, Briefcase, ClipboardCheck, BarChart3, Lock, Users, Pencil, Pause, Play, Ban, Circle, Zap, Bell, Settings
+  Home as HomeIcon, Briefcase, ClipboardCheck, BarChart3, Lock, Users, Pencil, Pause, Play, Ban, Circle, Zap, Bell, Settings, Calendar
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
@@ -1689,10 +1689,7 @@ function ProgressCard({ title, value, status, score, tip }) {
       </div>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{value}</span>
-            <Indicator label={status} ind={STATUS_IND[status]} />
-          </div>
+          <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{value}</span>
         </div>
         <div className="shrink-0"><Spark status={status} /></div>
       </div>
@@ -1751,22 +1748,74 @@ function Donut({ segments }) {
    Tickets filters (StagePills): bk-pill hover, brand fill when active. Last Week
    reads real data; the other windows are illustrative (no historical store). */
 const RANGES = ["Last Week", "Last Month", "Last Quarter", "Custom"];
+const RP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const rpFmtDate = (iso) => {
+  if (!iso) return "";
+  const p = iso.split("-");
+  return `${Number(p[2])} ${RP_MONTHS[Number(p[1]) - 1]}`;
+};
 function RangePills({ value, onChange }) {
+  const [modal, setModal] = useState(false);
+  const [custom, setCustom] = useState(null); // { start, end } ISO strings
+  const labelFor = (o) => (o === "Custom" && custom && value === "Custom")
+    ? `${rpFmtDate(custom.start)} – ${rpFmtDate(custom.end)}`
+    : o;
+  const handle = (o) => { if (o === "Custom") setModal(true); else onChange(o); };
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {RANGES.map((o) => {
-        const on = value === o;
-        return (
-          <button key={o} onClick={() => onChange(o)}
-            className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
-            style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
-              background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
-            <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
-            <span>{o}</span>
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        {RANGES.map((o) => {
+          const on = value === o;
+          return (
+            <button key={o} onClick={() => handle(o)}
+              className={`flex items-center whitespace-nowrap rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+              style={{ padding: "8px 12px", gap: 6, border: `0.5px solid ${on ? C.brand : C.line}`,
+                background: on ? C.brand : C.white, color: on ? C.white : C.figHint, fontSize: 16, fontWeight: 500 }}>
+              <span className="bk-pill-dot shrink-0 rounded-full" style={{ width: 8, height: 8, background: on ? C.white : C.figHint }} />
+              <span>{labelFor(o)}</span>
+            </button>
+          );
+        })}
+      </div>
+      {modal && <CustomRangeModal initial={custom} onClose={() => setModal(false)}
+        onConfirm={(r) => { setCustom(r); onChange("Custom"); setModal(false); }} />}
+    </>
+  );
+}
+
+/* Custom date-range picker for the Range pill. Two native date inputs on the
+   sunken ground; confirmation switches the parent range to "Custom" and stores
+   the picked window locally so the pill can label itself with the dates. */
+function CustomRangeModal({ initial, onClose, onConfirm }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [start, setStart] = useState(initial?.start || "");
+  const [end, setEnd] = useState(initial?.end || "");
+  const invalid = start && end && start > end;
+  const ready = start && end && !invalid;
+  return (
+    <ModalShell icon={Calendar} title="Pick a custom range" sub="The dashboard will describe this window." onClose={onClose}
+      footer={<>
+        <Cancel onClick={onClose} />
+        <Btn disabled={!ready} onClick={() => onConfirm({ start, end })}>Apply range</Btn>
+      </>}>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <FieldLabel>Start date</FieldLabel>
+          <input type="date" value={start} max={end || today}
+            onChange={(e) => setStart(e.target.value)} className="mt-1.5 w-full" style={FIELD} />
+        </label>
+        <label className="block">
+          <FieldLabel>End date</FieldLabel>
+          <input type="date" value={end} min={start} max={today}
+            onChange={(e) => setEnd(e.target.value)} className="mt-1.5 w-full" style={FIELD} />
+        </label>
+      </div>
+      {invalid && (
+        <div className="mt-3" style={{ fontSize: 12, fontWeight: 500, color: C.semError }}>
+          End date must be on or after the start date.
+        </div>
+      )}
+    </ModalShell>
   );
 }
 
