@@ -3138,7 +3138,7 @@ function UpdateQuoteModal({ t, onConfirm, onClose }) {
  *  Ticket Trail, Payment, Manage) over ONE persistent footer that carries the
  *  audit note and the primary stage action on every tab.
  * ------------------------------------------------------------------ */
-function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment }) {
+function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSendCopy, onWithdraw, onReassign, onManualReview, onChangeType, onRemind, onQc, onReceiveLink, onRevise, onRegenerate, onRevertPayment }) {
   const [tab, setTab] = useState("overview");
   const [ask, setAsk] = useState(null);
   const [upload, setUpload] = useState(false);
@@ -3288,6 +3288,14 @@ function Detail({ t, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, onSend
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <span className="bk-num" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1, color: C.brand }}>{t.id}</span>
           <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
+          {/* Amber "Escalated" nudge — only for the SM whose desk this is on,
+              only while the reminder cadence has hit its top rung. Advancing
+              the stage resets the ladder, so the badge disappears the moment
+              she takes action. Umesh sees the team-level Escalated to You
+              panel on Home, so we don't repeat it in the header for him. */}
+          {user?.name === t.owner && remindersOf(t).escalated && (
+            <Indicator big label="Escalated" ind="caution" size={16} />
+          )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Indicator thick label={kindLabel(t.kind)} ind={KIND_IND[t.kind]} />
@@ -8559,7 +8567,7 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
               {view === "home" && <Home tickets={tickets} scope={scope} setScope={setScope} go={go} openTicket={openTicket} user={user || PORTAL_USERS["nanditha.p@bimakavach.com"]} />}
               {(view === "list" || (view === "create" && createFrom === "list")) && <ListView key={JSON.stringify(preset)} tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={preset} />}
               {view === "ticket" && !current && <ListView key="missing" tickets={tickets} filter={filter} setFilter={setFilter} scope={scope} openTicket={openTicket} go={go} preset={null} />}
-              {view === "ticket" && current && <Detail t={current} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
+              {view === "ticket" && current && <Detail t={current} user={user} onAdvance={advance} onAttachCopy={attachCopy} onChase={chase} onQuery={raiseQuery} onAnswer={receiveReply} onSendCopy={sendCopy} onWithdraw={withdraw} onReassign={reassign} onManualReview={resolveManualReview} onChangeType={changeType} onRemind={sendReminder} onQc={passQc} onReceiveLink={receiveLink} onRevise={reviseQuote} onRegenerate={regenerateLink} onRevertPayment={revertPayment} />}
               {(view === "review" || (view === "create" && createFrom === "review")) && <Review mails={mails} tickets={tickets} onClaim={claim} onAssign={assign} />}
               {view === "create" && <Create onCreate={create} back={() => { setClaimId(null); setPrefill(null); setView(createFrom); }} prefill={prefill} />}
             </div>
