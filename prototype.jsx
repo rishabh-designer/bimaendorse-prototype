@@ -3288,13 +3288,13 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <span className="bk-num" style={{ fontSize: 28, fontWeight: 600, lineHeight: 1, color: C.brand }}>{t.id}</span>
           <Indicator status big label={statusOf(t).label} ind={stageInd(t)} size={16} />
-          {/* Amber "Escalated" nudge — only for the SM whose desk this is on,
+          {/* Red "Escalated" nudge — only for the SM whose desk this is on,
               only while the reminder cadence has hit its top rung. Advancing
               the stage resets the ladder, so the badge disappears the moment
               she takes action. Umesh sees the team-level Escalated to You
               panel on Home, so we don't repeat it in the header for him. */}
           {user?.name === t.owner && remindersOf(t).escalated && (
-            <Indicator big label="Escalated" ind="caution" size={16} />
+            <Indicator big label="Escalated" ind="error" size={16} />
           )}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
