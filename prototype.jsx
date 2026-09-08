@@ -459,6 +459,21 @@ const NEXT_ACTION_COPY = {
   "Awaiting Endorsement Copy": "Payment done. Simulate the copy arriving.",
   "Copy Received": "Copy is in. Pass QC to send to client and close.",
 };
+/* The tab that carries the primary action for each stage. Detail lights a red
+   dot on that tab so the SM can see from any tab where the next action lives,
+   and the Next Action button navigates there before firing so the action
+   completes in context. Stages not listed here have no primary action tab
+   (either terminal or waiting on a counterparty). */
+const NEXT_ACTION_TAB = {
+  "Under Verification": "overview",
+  "Submitted to Insurer": "overview",
+  "Awaiting Quote": "payment",
+  "Awaiting Payment Link": "payment",
+  "Awaiting Payment": "payment",
+  "Awaiting Endorsement Copy": "overview",
+  "Copy Received": "overview",
+  "Awaiting Customer Information": "queries",
+};
 const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
 const readOnly = (t) => isTerminal(t);
 /* A chase only makes sense while the ball is in the insurer's court - the three
@@ -3690,10 +3705,16 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
     });
   };
   /* Confirm-before-advance guard — any primary button that moves the ticket
-     to the next stage funnels through this. Simulate controls (demo-only)
-     bypass it since they won't exist in the final product. */
+     to the next stage funnels through this. Also switches to the stage's
+     next-action tab first (see NEXT_ACTION_TAB) so the confirmation and the
+     result land in context. Simulate controls (demo-only) bypass it since
+     they won't exist in the final product. */
   const [confirm, setConfirm] = useState(null);
-  const askConfirm = (onProceed) => setConfirm({ onProceed });
+  const askConfirm = (onProceed) => {
+    const target = NEXT_ACTION_TAB[t.stage];
+    if (target && tab !== target) setTab(target);
+    setConfirm({ onProceed });
+  };
   const st = stageOf(t.stage);
   const s = clock(t);
   const docs = useMemo(() => docsOf(t), [t]);
@@ -3745,20 +3766,24 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
       ? { label: `Simulate the link arriving ${t.payMode === "Portal" ? `from ${t.childTicket}` : "in the insurer's mail"}`, run: () => onReceiveLink(t.id) }
     : null;
 
-  /* `dot` (4th tuple slot) lights an unread indicator on the tab. Any handler
-     that adds unaddressed work to a tab flips t.unread[tabKey]; opening the
-     tab clears it (see the useEffect below). */
+  /* `dot` (4th tuple slot) lights an unread indicator on the tab. Two things
+     turn it on: unread work (t.unread[tabKey], set by handlers that surface
+     new items and cleared when the SM opens the tab) OR the current stage's
+     primary action lives on this tab — a "your next move is here" hint that
+     stays lit until the ticket advances. */
   const un = t.unread || {};
+  const nextTab = !readOnly(t) ? NEXT_ACTION_TAB[t.stage] : null;
+  const dotFor = (k) => !!un[k] || nextTab === k;
   const TABS_T = [
-    ["overview", "Overview", false, !!un.overview],
-    ["company", "Company Profile", false, !!un.company],
-    ["docs", "Document Vault", false, !!un.docs],
-    ["queries", "Client Channel", false, !!un.queries],
-    ["mail", "Mail Trail", false, !!un.mail],
-    ["trail", "Ticket History", false, !!un.trail],
-    ...(t.kind === "Financial" ? [["payment", "Premium & Payment", false, !!un.payment]] : []),
-    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", !!un.refund]] : []),
-    ["manage", "Manage Ticket", readOnly(t), !!un.manage],
+    ["overview", "Overview", false, dotFor("overview")],
+    ["company", "Company Profile", false, dotFor("company")],
+    ["docs", "Document Vault", false, dotFor("docs")],
+    ["queries", "Client Channel", false, dotFor("queries")],
+    ["mail", "Mail Trail", false, dotFor("mail")],
+    ["trail", "Ticket History", false, dotFor("trail")],
+    ...(t.kind === "Financial" ? [["payment", "Premium & Payment", false, dotFor("payment")]] : []),
+    ...(t.kind === "Return-Premium" ? [["refund", "Refund & Payment", atOrPast(t, "Copy Received") ? false : "The refund flow opens once the endorsement copy has been received.", dotFor("refund")]] : []),
+    ["manage", "Manage Ticket", readOnly(t), dotFor("manage")],
   ];
   const live = TABS_T.some(([k, , off]) => k === tab && !off) ? tab : "overview";
 
