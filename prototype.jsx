@@ -3020,6 +3020,22 @@ function TabBar({ tabs, tab, setTab }) {
 
 /* The work panel: a scrolling body between a fixed top edge and a footer
    strip that carries this tab's actions. */
+/* Mail-trail thread chip — a compact pill toggle. Selected = brand-bg;
+   idle = neutral outline. Used by the Mail Trail thread tab bar. */
+function ThreadTab({ label, title, on, onClick }) {
+  return (
+    <button type="button" onClick={onClick} title={title}
+      className="whitespace-nowrap rounded-full border px-3 py-1"
+      style={{ fontSize: 12, fontWeight: 600,
+        background: on ? C.brand : C.white,
+        color: on ? C.white : C.figHint,
+        borderColor: on ? C.brand : C.subtle,
+        cursor: "pointer" }}>
+      {label}
+    </button>
+  );
+}
+
 function PanelCard({ children, footer, footerRef }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -3153,6 +3169,11 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
   /* Mail Trail search — filters the thread by subject / body / sender / recipient
      / attachment filename. Case-insensitive substring match. */
   const [mailQ, setMailQ] = useState("");
+  /* Mail Trail thread tabs — "all" or a specific thread key. Clients often
+     start a fresh subject rather than reply to the existing chain, so the
+     mail trail is grouped by normalized subject (Re:/Fwd: stripped). */
+  const [mailThread, setMailThread] = useState("all");
+  useEffect(() => { setMailThread("all"); setMailQ(""); }, [t.id]);
   /* Ref on the panel footer so the "Go there" nudge can scroll the primary
      stage action into view after switching to Overview. */
   const actionFooterRef = useRef(null);
@@ -3616,10 +3637,35 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   const hay = [m.subject, m.body, m.name, m.who, m.to, ...mailAtts(m)].filter(Boolean).join(" ").toLowerCase();
                   return hay.includes(q);
                 };
-                const shown = thread.filter(matches);
+                /* Threads: group by normalized subject (strip Re:/Fwd: prefixes).
+                   Numbered by chronological first appearance (Thread 1 = oldest
+                   subject). */
+                const threadKey = (m) => (m.subject || "")
+                  .replace(/^\s*(re|fw|fwd)\s*:\s*/i, "")
+                  .replace(/^\s*(re|fw|fwd)\s*:\s*/i, "")
+                  .trim().toLowerCase();
+                const byKey = new Map();
+                thread.slice().sort((a, b) => a.at - b.at).forEach((m) => {
+                  const k = threadKey(m); if (!k) return;
+                  if (!byKey.has(k)) byKey.set(k, { key: k, subject: (m.subject || "").replace(/^\s*(re|fw|fwd)\s*:\s*/i, "").trim(), items: [] });
+                  byKey.get(k).items.push(m);
+                });
+                const threads = Array.from(byKey.values());
+                const inThread = mailThread === "all" ? () => true : (m) => threadKey(m) === mailThread;
+                const shown = thread.filter(matches).filter(inThread);
                 return (
                 <div className="space-y-4">
                   <SectionTitle right={q ? <MiniTag>{shown.length} of {thread.length}</MiniTag> : null}>Mail Trail</SectionTitle>
+                  {threads.length > 1 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <ThreadTab label={`All (${thread.length})`} on={mailThread === "all"} onClick={() => setMailThread("all")} />
+                      {threads.map((thr, i) => (
+                        <ThreadTab key={thr.key} label={`Thread ${i + 1} (${thr.items.length})`}
+                          title={thr.subject} on={mailThread === thr.key}
+                          onClick={() => setMailThread(thr.key)} />
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
                     style={{ borderColor: C.subtle, background: C.white }}>
                     <Search size={14} style={{ color: C.figTert }} />
