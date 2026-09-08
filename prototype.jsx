@@ -3873,10 +3873,15 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
   /* Stages the desk cannot leave on its own: an outside party has to act first.
      The prototype has no insurer and no Operations, so it offers a ▶ stand-in. */
   const simulate = readOnly(t) ? null
-    : t.stage === "Awaiting Endorsement Copy"
+    : t.stage === "Awaiting Endorsement Copy" && !isRefund(t)
       ? { label: `Simulate ${t.insurer} sending the copy`, run: () => onAttachCopy(t.id, {}) }
     : t.stage === "Awaiting Payment Link"
       ? { label: `Simulate the link arriving ${t.payMode === "Portal" ? `from ${t.childTicket}` : "in the insurer's mail"}`, run: () => onReceiveLink(t.id) }
+    : isRefund(t) && t.stage === "Copy Received" && qcDone
+      ? { label: "Simulate: Client Confirms", run: () => {
+          onRefund(t.id, { clientConfirmed: true, confirmedAt: 0 }, null, `${t.client} confirmed receipt. Ticket closed.`);
+          onAdvance(t.id, "Client confirmed refund and endorsement copy.");
+        } }
     : null;
 
   /* `dot` (4th tuple slot) lights an unread indicator on the tab. Two things
@@ -4007,7 +4012,9 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
               and what Nanditha does next; the button(s) below advance / simulate
               / manually log the copy per stage. */}
           {!readOnly(t) && (advLabel || simulate) && (() => {
-            const copy = NEXT_ACTION_COPY[t.stage] || advLabel || (simulate ? simulate.label : "");
+            const copy = isRefund(t) && t.stage === "Copy Received" && qcDone && sends.length
+              ? `Copy passed QC and sent to ${t.client}. Awaiting their confirmation on the portal.`
+              : (NEXT_ACTION_COPY[t.stage] || advLabel || (simulate ? simulate.label : ""));
             return (
               <div className="rounded-xl border p-4" style={{ background: "#FDF2E1", borderColor: "#F2DBBE" }}>
                 <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
@@ -4026,8 +4033,11 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                       sends the copy to the client, and closes the ticket.
                       Refund tickets skip the close here: the ticket stays at
                       Copy Received until the client confirms receipt from the
-                      Refund & Payment tab. */}
-                  {t.stage === "Copy Received" ? (
+                      Refund & Payment tab. Once QC is done + copy sent, this
+                      button vanishes for refunds — the client-confirm sim in
+                      the slot above owns the next move. */}
+                  {isRefund(t) && t.stage === "Copy Received" && qcDone && sends.length ? null
+                    : t.stage === "Copy Received" ? (
                     <button onClick={() => askConfirm(() => { if (!qcDone) onQc(t.id); if (!sends.length) onSendCopy(t.id); if (!isRefund(t)) doAdvance(); })}
                       disabled={!endo} title={!endo ? "Copy is not on file yet" : isRefund(t) ? "Pass QC and send the copy to the client (the ticket closes once the client confirms)" : "Pass QC, send the copy to the client, and close the ticket"}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
