@@ -3326,7 +3326,7 @@ const REF_STEPS = [
 ];
 const refStepIdx = (k) => Math.max(0, REF_STEPS.findIndex((s) => s.key === k));
 
-function RefundPanel({ t, onRefund, onAdvance, setTab, setPreview }) {
+function RefundPanel({ t, onRefund, onAdvance, onAttachCopy, setTab, setPreview }) {
   const OK = { tone: "#007B00", bg: "rgba(0,178,0,0.08)", line: "#A9EAA2" };
   const r = t.refund || { step: "insurer" };
   /* Step 4 (qc) is done on the Overview tab — the SM eyeballs the endorsement
@@ -3357,10 +3357,14 @@ function RefundPanel({ t, onRefund, onAdvance, setTab, setPreview }) {
   const simReject = () => onRefund(t.id, { step: "rejected", clientAccept: false, consentAt: 0 },
     null, `${t.client} declined the refund. Ticket held for further instructions.`);
   const simPayment = () => {
-    onRefund(t.id, { utr: "HDFC260908A991",
-      paymentDate: "8 Sep 2026", endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`,
-      paidAt: 0 }, null, "Insurer credited the refund and shared UTR + endorsement copy.");
-    onAdvance(t.id, "Refund credited and endorsement copy received.");
+    const file = `endorsement_${t.policy.replace(/\//g, "_")}.pdf`;
+    onRefund(t.id, { utr: "HDFC260908A991", paymentDate: "8 Sep 2026",
+      endoCopyFile: file, paidAt: 0 },
+      null, "Insurer credited the refund and shared UTR + endorsement copy.");
+    /* attachCopy sets t.endo AND advances Awaiting Endorsement Copy →
+       Copy Received — using it here means the copy is actually on file so
+       Overview's Pass QC unlocks, instead of endoOf falling through null. */
+    onAttachCopy(t.id, { file });
   };
   const simClientConfirm = () => {
     onRefund(t.id, { clientConfirmed: true, confirmedAt: 0 }, null,
@@ -3861,10 +3865,11 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
         } }
     : isRefund(t) && t.stage === "Awaiting Endorsement Copy"
       ? { label: `Simulate ${t.insurer} sending UTR + copy`, run: () => {
+          const file = `endorsement_${t.policy.replace(/\//g, "_")}.pdf`;
           onRefund(t.id, { utr: "HDFC260908A991", paymentDate: "8 Sep 2026",
-            endoCopyFile: `endorsement_${t.policy.replace(/\//g, "_")}.pdf`, paidAt: 0 },
+            endoCopyFile: file, paidAt: 0 },
             null, "Insurer credited the refund and shared UTR + endorsement copy.");
-          onAdvance(t.id, "Refund credited and endorsement copy received.");
+          onAttachCopy(t.id, { file });
         } }
     : isRefund(t) && t.stage === "Copy Received" && qcDone
       ? { label: "Simulate: Client Confirms", run: () => {
@@ -4664,7 +4669,7 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
           )}
 
           {live === "refund" && (
-            <RefundPanel t={t} onRefund={onRefund} onAdvance={onAdvance} setTab={setTab} setPreview={setPreview} />
+            <RefundPanel t={t} onRefund={onRefund} onAdvance={onAdvance} onAttachCopy={onAttachCopy} setTab={setTab} setPreview={setPreview} />
           )}
 
           {live === "manage" && (
