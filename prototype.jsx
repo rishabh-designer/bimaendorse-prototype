@@ -457,7 +457,7 @@ const NEXT_ACTION_COPY = {
   "Awaiting Payment Link": "Quote logged. Attach the payment link.",
   "Awaiting Payment": "Link with client. Confirm the payment.",
   "Awaiting Endorsement Copy": "Payment done. Simulate the copy arriving.",
-  "Copy Received": "Copy is in. Publish and close.",
+  "Copy Received": "Copy is in. Pass QC and send to insurer.",
 };
 const isTerminal = (t) => t.stage === "Closed" || !!t.terminal;
 const readOnly = (t) => isTerminal(t);
@@ -3383,7 +3383,24 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                   {t.stage === "Awaiting Endorsement Copy" && !endo && (
                     <Btn variant="secondary" size="sm" onClick={() => setUpload(true)}>Log manually, upload copy</Btn>
                   )}
-                  {showAdvance && (
+                  {/* Copy Received owns a two-step close: Pass QC first, then
+                      Send to Insurer (which closes the ticket). */}
+                  {t.stage === "Copy Received" ? (
+                    <>
+                      <button onClick={() => onQc(t.id)} disabled={qcDone || !endo}
+                        title={qcDone ? "QC already passed" : !endo ? "Copy is not on file yet" : "Mark the copy QC'd"}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
+                        style={{ background: qcDone ? "rgba(0,178,0,0.16)" : C.white, color: qcDone ? "#007B00" : C.figInk, borderColor: qcDone ? "#A9EAA2" : C.subtle, fontSize: 13, fontWeight: 600, cursor: (qcDone || !endo) ? "not-allowed" : "pointer" }}>
+                        {qcDone ? "QC passed" : "Pass QC"}
+                      </button>
+                      <button onClick={() => { if (!sends.length) onSendCopy(t.id); doAdvance(); }} disabled={!qcDone || !endo}
+                        title={!endo ? "Copy is not on file yet" : !qcDone ? "Pass QC first" : "Send the copy to the insurer and close the ticket"}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
+                        style={{ background: (!qcDone || !endo) ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: (!qcDone || !endo) ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: (!qcDone || !endo) ? "not-allowed" : "pointer" }}>
+                        Send to Insurer
+                      </button>
+                    </>
+                  ) : showAdvance && (
                     <button onClick={doAdvance} disabled={advBlocked} title={advBlocked ? advHint : undefined}
                       className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2.5"
                       style={{ background: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, color: C.white, borderColor: advBlocked ? "rgba(65,0,207,0.24)" : C.brand, fontSize: 13, fontWeight: 600, cursor: advBlocked ? "not-allowed" : "pointer" }}>
