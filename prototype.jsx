@@ -1658,7 +1658,11 @@ function PerfMeter({ score }) {
     </div>
   );
 }
-function ProgressCard({ title, value, status, score, sub, subTone, tip }) {
+/* `sub` / `subTone` are still accepted so call sites don't need to change,
+   but the caption is no longer rendered — the sparkline and performance meter
+   carry the status; helper text under the value read as clutter. Same across
+   Endorse / Claim / Placement Home. */
+function ProgressCard({ title, value, status, score, tip }) {
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
       <div className="flex items-start justify-between">
@@ -1674,7 +1678,6 @@ function ProgressCard({ title, value, status, score, sub, subTone, tip }) {
             <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{value}</span>
             <Indicator label={status} ind={STATUS_IND[status]} />
           </div>
-          <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: subTone }}>{sub}</div>
         </div>
         <div className="shrink-0"><Spark status={status} /></div>
       </div>
