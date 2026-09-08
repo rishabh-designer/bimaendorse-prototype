@@ -1655,7 +1655,7 @@ function PerfMeter({ score }) {
         ))}
       </div>
       <div className="mt-1.5 flex justify-between" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
-        <span>Poor</span><span>On Track</span><span>Well Done</span>
+        <span>Poor</span><span>Well Done</span>
       </div>
     </div>
   );
