@@ -5044,6 +5044,13 @@ function clMake(o, i) {
     ownerLog: [], audit: [], mail: [], requests: [], queries: [], uploads: {}, botLog: [], inbox: [],
     rejection: null, challenges: 0, dormant: null, closureReason: null, frozen: null,
     contest: null, pastContests: [], lateRepudiations: [],
+    /* PRD v2.2 §8 - settlement is a distinct value from assessedLoss. The bot
+       extracts no amount from the report; the CM negotiates and releases the
+       settlement figure once, which freezes it. Post-freeze insurer advice
+       routes to the CM tray via lateSettlements. */
+    settlement: null, settlementSrc: null, settlementAt: null,
+    settlementFrozen: false, settlementReleasedAt: null, settlementProof: null,
+    reportReleased: false, lateSettlements: [],
     chase: { reminders: 0, escalations: 0, events: [] },
   }, o, { status: f.status, contact: (o.contactName || "") + " · " + (o.contactMobile || "") });
 }
@@ -5052,9 +5059,9 @@ const CL_SEED = [
   { state: "S3", client: "Vertex Pharma Ltd", cm: "Shruthi", product: "Marine", insurer: "TATA AIG", policy: "MAR/2026/00655", dol: clAgo(96), loss: 320000, priority: "High", ageH: 52, stageH: 31, desc: "Consignment of API drums damaged in transit between Hyderabad and Ankleshwar. 6 of 40 drums breached.", cause: "Rough handling in transit", location: "NH-48, near Solapur", contactName: "Priya Nair", contactMobile: "9945022118", channel: "BimaKendra" },
   { state: "S4", client: "Vanguard Textiles Pvt Ltd", cm: "Mahendra", product: "Fire", insurer: "HDFC Ergo", policy: "FIR/2025/04417", dol: clAgo(30 * 24), loss: 2850000, priority: "Critical", ageH: 26 * 24, stageH: 9 * 24, desc: "Fire in the dyeing section spread to adjacent godown. Machinery and grey fabric stock affected.", cause: "Boiler overheating", location: "Survey 118, Pandesara, Surat 394221", contactName: "Amit Shah", contactMobile: "9825071144", channel: "RM Interface", claimNo: "HE/FIR/26/44120", escalated: true },
   { state: "S6", client: "Redwood Logistics Ltd", product: "MBD", insurer: "Bajaj", policy: "MBD/2026/00218", dol: clAgo(21 * 24), loss: 640000, priority: "Medium", ageH: 19 * 24, stageH: 3 * 24, desc: "Forklift hydraulic failure at the Chakan warehouse; mast assembly damaged beyond field repair.", cause: "Hydraulic ram failure", location: "Chakan MIDC Phase II, Pune", contactName: "Sunil Gowda", contactMobile: "9008433127", channel: "BimaKendra", claimNo: "BJ/MBD/26/00871", surveyor: { name: "K. Venkatesh", mobile: "98450 11902", visit: "Fri, 28 Aug" } },
-  { state: "S9", client: "Acme Manufacturing", cm: "Shruthi", product: "Marine", insurer: "ICICI Lombard", policy: "MAR/2026/00901", dol: clAgo(34 * 24), loss: 185000, priority: "Medium", ageH: 31 * 24, stageH: 2.6 * 24, desc: "Water ingress into a container of precision components at Nhava Sheva. Corrosion on 12 cartons.", cause: "Container seal failure", location: "JNPT Nhava Sheva", contactName: "Rajesh Kumar", contactMobile: "9833055221", channel: "Email", claimNo: "IL/MAR/26/33418", assessedLoss: 162000 },
-  { state: "S11", client: "Meridian Foods Pvt Ltd", product: "Fire", insurer: "New India", policy: "FIR/2025/03390", dol: clAgo(58 * 24), loss: 920000, priority: "High", ageH: 54 * 24, stageH: 5 * 24, desc: "Cold-store compressor fire; ammonia line damage and spoilage of stored produce.", cause: "Compressor motor failure", location: "Bidadi Industrial Area, Ramanagara", contactName: "Latha Rao", contactMobile: "9901240088", channel: "BimaKendra", claimNo: "NI/FIR/26/11204", assessedLoss: 874000, bank: { acc: "XXXXXX4471", ifsc: "SBIN0004432", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Instalment", n: 1, date: "18 Aug 2026", amt: 500000, utr: "UTR2608180114" }] },
-  { state: "S13", client: "Kaveri Steel Works", cm: "Amogh", product: "MBD", insurer: "TATA AIG", policy: "MBD/2025/00074", dol: clAgo(96 * 24), loss: 410000, priority: "Medium", ageH: 92 * 24, stageH: 11 * 24, desc: "Rolling-mill gearbox seizure during the night shift.", cause: "Lubrication failure", location: "Ginigera, Koppal", contactName: "Mahesh B", contactMobile: "9448012007", channel: "RM Interface", claimNo: "TA/MBD/25/98811", assessedLoss: 388000, bank: { acc: "XXXXXX9903", ifsc: "HDFC0001188", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Full and final", n: null, date: "12 Aug 2026", amt: 388000, utr: "UTR2608120441" }] },
+  { state: "S9", client: "Acme Manufacturing", cm: "Shruthi", product: "Marine", insurer: "ICICI Lombard", policy: "MAR/2026/00901", dol: clAgo(34 * 24), loss: 185000, priority: "Medium", ageH: 31 * 24, stageH: 2.6 * 24, desc: "Water ingress into a container of precision components at Nhava Sheva. Corrosion on 12 cartons.", cause: "Container seal failure", location: "JNPT Nhava Sheva", contactName: "Rajesh Kumar", contactMobile: "9833055221", channel: "Email", claimNo: "IL/MAR/26/33418", assessedLoss: 162000, settlement: 158000, settlementSrc: "bot", settlementFrozen: true, reportReleased: true },
+  { state: "S11", client: "Meridian Foods Pvt Ltd", product: "Fire", insurer: "New India", policy: "FIR/2025/03390", dol: clAgo(58 * 24), loss: 920000, priority: "High", ageH: 54 * 24, stageH: 5 * 24, desc: "Cold-store compressor fire; ammonia line damage and spoilage of stored produce.", cause: "Compressor motor failure", location: "Bidadi Industrial Area, Ramanagara", contactName: "Latha Rao", contactMobile: "9901240088", channel: "BimaKendra", claimNo: "NI/FIR/26/11204", assessedLoss: 874000, settlement: 820000, settlementSrc: "bot", settlementFrozen: true, reportReleased: true, bank: { acc: "XXXXXX4471", ifsc: "SBIN0004432", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Instalment", n: 1, date: "18 Aug 2026", amt: 500000, utr: "UTR2608180114" }] },
+  { state: "S13", client: "Kaveri Steel Works", cm: "Amogh", product: "MBD", insurer: "TATA AIG", policy: "MBD/2025/00074", dol: clAgo(96 * 24), loss: 410000, priority: "Medium", ageH: 92 * 24, stageH: 11 * 24, desc: "Rolling-mill gearbox seizure during the night shift.", cause: "Lubrication failure", location: "Ginigera, Koppal", contactName: "Mahesh B", contactMobile: "9448012007", channel: "RM Interface", claimNo: "TA/MBD/25/98811", assessedLoss: 388000, settlement: 388000, settlementSrc: "bot", settlementFrozen: true, reportReleased: true, bank: { acc: "XXXXXX9903", ifsc: "HDFC0001188", cheque: "cancelled-cheque.pdf" }, payments: [{ type: "Full and final", n: null, date: "12 Aug 2026", amt: 388000, utr: "UTR2608120441" }] },
   { state: "S1", client: "Northgate Advisory LLP", cm: "Mahendra", product: "PI", insurer: "HDFC Ergo", policy: "PI/2026/00214", dol: clAgo(11 * 24), loss: null, priority: "High", ageH: 9 * 24, stageH: 3, desc: "Legal notice received from a former client alleging negligent advice on a 2024 transaction structuring engagement. No quantum pleaded in the notice.", cause: "Alleged professional negligence", location: "Notice served at the registered office, Bengaluru", contactName: "Ashwin Rao", contactMobile: "9845011277", channel: "Email", claimant: "Trident Capital Partners" },
   { state: "R1", client: "Orchid Hospitality Pvt Ltd", cm: "Shruthi", product: "Fire", insurer: "New India", policy: "FIR/2025/02218", dol: clAgo(47 * 24), loss: 1180000, priority: "Critical", ageH: 44 * 24, stageH: 4 * 24, desc: "Fire in the kitchen extraction duct at the Whitefield property spread to the false ceiling of the banquet hall.", cause: "Grease build-up in the extraction duct ignited", location: "Whitefield Main Road, Bengaluru 560066", contactName: "Deepa Iyer", contactMobile: "9880114402", channel: "BimaKendra", claimNo: "NI/FIR/26/07734", admissibility: "Within policy terms" },
   { state: "S0", client: "Sharma Textiles", product: "Fire", insurer: "Digit", policy: "FIR/2026/01120", dol: clAgo(20), loss: null, priority: "High", ageH: 16, stageH: 16, desc: "Break-in and fire at the godown reported by email. Estimated loss figure not stated.", cause: "Under investigation", location: "Not stated", contactName: "Priya Sharma", contactMobile: "9811033221", channel: "Email", missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"] },
@@ -5090,6 +5097,15 @@ function makeCLTickets() {
     );
     rj.audit.sort((a, b) => b.at - a.at);
   }
+  /* Any seed already carrying a settlement was released before the state it
+     lives in — give the timestamps sensible defaults so the audit lines and
+     "released" chips render coherently. */
+  TICKETS.forEach((t) => {
+    if (t.settlement != null && t.settlementAt == null) {
+      t.settlementAt = t.stageAt - 2 * CL_DAY;
+      t.settlementReleasedAt = t.settlementAt;
+    }
+  });
   /* A ticket past its stage TAT has already been chased - seed the reminder count. */
   TICKETS.forEach((t) => {
     if (CL_FLOW[t.state].terminal) return;
@@ -6053,12 +6069,15 @@ function ClExtraPanels({ t, setTab }) {
       {t.admissibility && (
         <div className="mt-4"><ClNote tone={C.link} bg={C.waitSoft}>BimaKavach admissibility: <b>{t.admissibility}</b>. Never shown to the client.{t.admissibility === "Outside policy terms" ? ` ${CL_HEAD} notified; the claim proceeded to the insurer regardless.` : ""}</ClNote></div>
       )}
-      {t.assessedLoss && (
+      {(t.assessedLoss || t.settlement) && (
         <div className="mt-4 rounded-lg border p-3" style={{ borderColor: C.lineSoft }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Assessment</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Assessment &amp; settlement</div>
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>
             <span>Declared at intimation (immutable) <b style={{ color: C.figInk }}>{clInr(t.loss)}</b></span>
-            <span>Assessed loss <b style={{ color: C.figInk }}>{clInr(t.assessedLoss)}</b></span>
+            {t.assessedLoss ? <span>Assessed loss <b style={{ color: C.figInk }}>{clInr(t.assessedLoss)}</b></span> : null}
+            {t.settlement ? (
+              <span>Settlement {t.settlementFrozen ? "(frozen)" : "(draft)"} <b style={{ color: C.figInk }}>{clInr(t.settlement)}</b></span>
+            ) : null}
           </div>
         </div>
       )}
@@ -6379,7 +6398,7 @@ function ClSurvey({ t, act, setTab }) {
   const needsAction = t.state === "S5" || (["S6", "S8"].includes(t.state) && !t.report);
   return (
     <div className="flex flex-col gap-4">
-      <SectionTitle>Survey &amp; assessment</SectionTitle>
+      <SectionTitle>Survey &amp; Settlement</SectionTitle>
       {needsAction && <ClActionPanel t={t} act={act} setTab={setTab || (() => {})} />}
       {t.surveyor ? (
         <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
@@ -6404,17 +6423,87 @@ function ClSurvey({ t, act, setTab }) {
         <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           <div className="flex flex-wrap items-center gap-2">
             <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Assessment report</span>
-            <Indicator label={t.report.shared ? "Shared with client" : "Not yet shared"} ind={t.report.shared ? "success" : "caution"} />
+            <Indicator label={t.reportReleased ? "Released with settlement" : "TMS only · withheld from client"} ind={t.reportReleased ? "success" : "caution"} />
             <span className="flex-1" />
             <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.report.author} · {t.report.converted ? "generated from the mail body" : "the assessor's own PDF"}</span>
           </div>
-          {t.assessedLoss && <div className="mt-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>Net assessed loss: <b>{clInr(t.assessedLoss)}</b> {t.loss ? <span style={{ color: C.figTert }}>against {clInr(t.loss)} declared</span> : ""}</div>}
+          {t.assessedLoss ? (
+            <div className="mt-2" style={{ fontSize: 13, fontWeight: 500, color: C.figInk }}>Net assessed loss: <b>{clInr(t.assessedLoss)}</b> {t.loss ? <span style={{ color: C.figTert }}>against {clInr(t.loss)} declared</span> : ""}</div>
+          ) : (
+            <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>The bot files the report but extracts no amount (FR-8.5). Record the assessed loss below.</div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <SoftBtn onClick={() => clDownload(t.report.file, clDocPdf(t, "Assessment report"))}>Download report</SoftBtn>
-            {!t.report.shared && ["S6", "S8"].includes(t.state) && <Btn size="sm" onClick={() => act.shareReport(t.id)}>Share with client on BimaKendra</Btn>}
           </div>
-          {!t.report.shared && <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Recording the report did not advance the claim. Sharing it with the client starts consent.</p>}
         </div>
+      )}
+      {t.report && <ClSettlementPanel t={t} act={act} />}
+    </div>
+  );
+}
+
+/* PRD v2.2 §8 — CM sets the settlement figure and releases it. Release is
+   one-shot and freezes the value; post-freeze edits require an insurer proof
+   document (FR-8.6.3) and are audited with before/after values. */
+function ClSettlementPanel({ t, act }) {
+  const [figure, setFigure] = useState(String(t.settlement || t.assessedLoss || ""));
+  const [source, setSource] = useState("bot");
+  const [editing, setEditing] = useState(false);
+  const [newFig, setNewFig] = useState(String(t.settlement || ""));
+  const [proof, setProof] = useState("");
+  useEffect(() => { setFigure(String(t.settlement || t.assessedLoss || "")); setNewFig(String(t.settlement || "")); setEditing(false); setProof(""); }, [t.id]);
+
+  if (!t.settlementFrozen) {
+    const canRelease = ["S6", "S8"].includes(t.state);
+    return (
+      <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Settlement figure</div>
+        <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Separate from the assessed loss. Enter what the insurer will pay after excess and depreciation. Releasing freezes it and starts client consent.</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <ClInput label="Settlement amount" type="number" value={figure} onChange={setFigure} placeholder="0" />
+          <ClInput label="Source" value={source} onChange={setSource} options={["bot", "manual"]} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Btn size="sm" onClick={() => act.releaseSettlement(t.id, figure, source)} disabled={!canRelease}>Release settlement to client</Btn>
+          {!canRelease && <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert, alignSelf: "center" }}>Only available while the report is being reviewed (S38/Report Awaited).</span>}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.figInk }}>Settlement figure</span>
+        <Indicator label="Frozen" ind="success" />
+        <span className="flex-1" />
+        <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{t.settlementSrc === "bot" ? "Bot-extracted from insurer advice" : "CM-entered"}{t.settlementReleasedAt ? " · released " + clFdt(t.settlementReleasedAt) : ""}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline gap-3">
+        <span className="bk-num" style={{ fontSize: 22, fontWeight: 700, color: C.figInk }}>{clInr(t.settlement)}</span>
+        {t.assessedLoss && <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>against {clInr(t.assessedLoss)} assessed</span>}
+      </div>
+      {t.settlementProof && <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Last proof on file: <b style={{ color: C.figInk }}>{t.settlementProof}</b></div>}
+      {editing ? (
+        <div className="mt-3 flex flex-col gap-3 rounded-lg border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.canvas }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.figInk }}>Edit the frozen figure</div>
+          <p style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>An insurer proof document (revised advice, correction letter, endorsement) is mandatory. Change is audited with before/after values.</p>
+          <div className="flex flex-wrap gap-3">
+            <ClInput label="New settlement" type="number" value={newFig} onChange={setNewFig} placeholder="0" />
+            <ClInput label="Insurer proof document" value={proof} onChange={setProof} placeholder="e.g. revised-settlement-advice.pdf" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Btn size="sm" onClick={() => { act.editSettlement(t.id, newFig, proof); setEditing(false); }}>Save with proof</Btn>
+            <Btn variant="secondary" size="sm" onClick={() => { setEditing(false); setProof(""); setNewFig(String(t.settlement || "")); }}>Cancel</Btn>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Btn variant="secondary" size="sm" onClick={() => setEditing(true)}>Edit settlement (proof required)</Btn>
+          <SoftBtn onClick={() => act.settlementLateAdvice(t.id)}>Simulate: late settlement advice arrives</SoftBtn>
+        </div>
+      )}
+      {(t.lateSettlements || []).length > 0 && (
+        <div className="mt-3" style={{ fontSize: 12, fontWeight: 500, color: C.figHint }}>Late-advice guard has fired {(t.lateSettlements || []).length} time{(t.lateSettlements || []).length === 1 ? "" : "s"} on this ticket — see Ticket history.</div>
       )}
     </div>
   );
@@ -6423,15 +6512,18 @@ function ClSurvey({ t, act, setTab }) {
 /* ---------- Payment (C-6.1: only from S10) ---------- */
 function ClPayment({ t, act, setTab }) {
   const [acc, setAcc] = useState(""); const [ifsc, setIfsc] = useState("");
-  const base = t.assessedLoss || t.loss || 0;
+  /* PRD v2.2 FR-11.4 — payments reconcile against the released settlement,
+     not the assessed loss and not the client's declared estimate. */
+  const base = t.settlement || t.assessedLoss || t.loss || 0;
   const paid = t.payments.reduce((a, p) => a + p.amt, 0);
+  const label = t.settlement ? "Settlement (frozen)" : t.assessedLoss ? "Assessed loss" : "Client's declared estimate";
   return (
     <div className="flex flex-col gap-4">
       <SectionTitle>Payment</SectionTitle>
       {["S11", "S12"].includes(t.state) && <ClActionPanel t={t} act={act} setTab={setTab || (() => {})} />}
       {base > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border p-3" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-          <div><div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>Assessed loss</div><div className="bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{clInr(base)}</div></div>
+          <div><div style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{label}</div><div className="bk-num" style={{ fontSize: 18, fontWeight: 700, color: C.figInk }}>{clInr(base)}</div></div>
           <span className="flex-1" />
           <Indicator label={`${clInr(paid)} of ${clInr(base)} paid`} ind={paid >= base ? "success" : "caution"} big />
         </div>
@@ -6700,6 +6792,18 @@ function ClManage({ t, role, act, setTab }) {
   const owner = clOwner(t);
   const L = CL_LOOPS[clLoop(t)] || {};
   const canPark = !terminal && !t.dormant && owner === "Client";
+  /* PRD v2.2 FR-10.1 — withdrawal windows: (1) pre-BK-review S1/S2, and
+     (2) settlement released → consent (S9 only). Contest track (R1/R2/R3)
+     fully barred. Everything else is closed to withdrawal. */
+  const inContest = ["R1", "R2", "R3"].includes(t.state);
+  const withdrawableW1 = ["S1", "S2"].includes(t.state);
+  const withdrawableW2 = t.state === "S9" && t.settlementFrozen;
+  const canWithdraw = !terminal && !onRej && !inContest && (withdrawableW1 || withdrawableW2);
+  const withdrawReason = onRej || inContest
+    ? "Withdrawal is barred across the contest track (FR-10.1)."
+    : terminal ? "Already closed."
+    : t.state === "S9" && !t.settlementFrozen ? "Window 2 opens once the settlement figure is released to the client."
+    : "Outside a withdrawal window. The client can only withdraw pre-review, or after the settlement figure is released and before consent.";
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <ManageCard title="Reassign" available={!terminal} reason="A closed claim has no owner to move.">
@@ -6710,8 +6814,9 @@ function ClManage({ t, role, act, setTab }) {
         <div className="mt-3"><Btn size="sm" onClick={() => { if (!reassignWhy.trim()) return act.flash("Reassignment needs a reason."); act.reassign(t.id, reassignTo, reassignWhy.trim()); }}>Reassign</Btn></div>
       </ManageCard>
 
-      <ManageCard title="Mark as withdrawn" available={!terminal && !onRej} reason={onRej ? "Withdrawal is barred across the rejection track - the claim is already recorded as rejected." : "Already closed."}>
+      <ManageCard title="Mark as withdrawn" available={canWithdraw} reason={withdrawReason}>
         <ClInput label="Reason" value={withdrawWhy} onChange={setWithdrawWhy} placeholder="Why the client is withdrawing" />
+        <p className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{withdrawableW2 ? "Window 2 · settlement released, consent pending. Proof of the client's request should be filed in the vault." : "Window 1 · pre-review. The claim has not gone to the insurer yet."}</p>
         <div className="mt-3"><Btn size="sm" tone={C.semError} onClick={() => { if (!withdrawWhy.trim()) return act.flash("Withdrawal needs a reason."); act.withdraw(t.id, withdrawWhy.trim()); }}>Mark as withdrawn</Btn></div>
       </ManageCard>
 
@@ -7117,7 +7222,7 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     if (form === "admiss") { extra.admissibility = v.i1; detail = "Assessment: " + v.i1; if (v.i1 === "Outside policy terms") setTimeout(() => flash(`${CL_HEAD} notified. The claim proceeds to the insurer regardless.`), 0); }
     else if (form === "claimno") { extra.claimNo = v.i1.trim(); detail = "Claim number " + extra.claimNo; }
     else if (form === "surveyor") { extra.surveyor = { name: v.i1.trim(), mobile: clCleanMob(v.i2), visit: v.i3 ? clFdate(new Date(v.i3).getTime()) : "to be confirmed" }; detail = "Surveyor " + extra.surveyor.name + " appointed"; }
-    else if (form === "report") { extra.inspection = v.i0.trim(); extra.assessedLoss = Number(v.i1); extra.report = { source: v.i2, converted: v.i2 !== "Attached PDF", author: t0.surveyor ? "Surveyor" : t0.insurer, file: t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; detail = "Inspection recorded · assessed " + clInr(extra.assessedLoss) + " · arrived as " + v.i2; }
+    else if (form === "report") { extra.inspection = v.i0.trim(); extra.assessedLoss = Number(v.i1); extra.report = { source: v.i2, converted: v.i2 !== "Attached PDF", author: t0.surveyor ? "Surveyor" : t0.insurer, file: t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW }; extra.reportReleased = false; detail = "Inspection recorded · assessed " + clInr(extra.assessedLoss) + " · arrived as " + v.i2 + " · withheld from client by default (FR-8.5)"; }
     else if (form === "payment") { const type = v.i1, amt = Number(v.i2); const n = type.startsWith("Instalment") ? t0.payments.filter((p) => p.type.startsWith("Instalment")).length + 1 : null; extra.payments = [...t0.payments, { type, n, date: clFdate(CL_NOW), amt, utr: v.i3 || null }]; detail = type + " · " + clInr(amt); }
     if (t0.state === "S0") extra.missing = null;
     mut(id, (t) => { const t1 = clAudit({ ...t, ...extra }, f.act.label, detail + (note ? (detail ? " - " : "") + note : ""), actor(), roleName()); return stay ? t1 : clStep(t1, to); });
@@ -7129,10 +7234,13 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     if (s === "S3") { const cn = t0.insurer.split(" ")[0].slice(0, 2).toUpperCase() + "/" + t0.product.slice(0, 3).toUpperCase() + "/26/" + (10000 + Math.floor(Math.random() * 89999)); mut(id, (t) => clStep(clAudit({ ...t, claimNo: cn }, "Claim registration classified and extracted", "Insurer claim number: " + cn + " · 96% confidence, from " + poc, "Email bot"), "S4")); return flash("Bot advanced the claim to “Awaiting admissibility decision”."); }
     if (s === "S4") { mut(id, (t) => clStep(clAudit(t, "Admissibility decision classified and extracted", "Decision: Admitted · 94% confidence, from " + poc, "Email bot"), "BRANCH")); return flash("Bot recorded the insurer's acceptance and routed the claim. No human touched it."); }
     if (s === "S5") { const sv = CL_SURVEYORS[t0.id.charCodeAt(t0.id.length - 1) % CL_SURVEYORS.length]; const surveyor = { name: sv.name, firm: sv.firm, mobile: sv.mobile, visit: clFdate(CL_NOW + 3 * CL_DAY), source: "Bot-extracted from insurer mail" }; mut(id, (t) => clStep(clAudit({ ...t, surveyor }, "Surveyor appointment classified and extracted", "Surveyor " + sv.name + " (" + sv.firm + ") · 93% confidence, from " + poc, "Email bot"), "S6")); return flash("Bot advanced the claim to “Inspection & assessment report”."); }
-    if (s === "S6" || s === "S8") { const assessed = Math.round((t0.loss || 250000) * 0.88 / 1000) * 1000; const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW, shared: false }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection - assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, assessedLoss: assessed, report }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and extracted", "Assessed loss " + clInr(assessed) + " · arrived as " + (asPdf ? "attached PDF" : "email body"), "Email bot")); return flash("Report extracted. Share it with the client on the Survey tab to start consent."); }
+    /* PRD v2.2 FR-8.5 — the bot files the report but extracts NO amount.
+       The CM records the assessed loss on the Survey tab (surveyor route) or
+       negotiates the settlement figure directly (below-threshold route). */
+    if (s === "S6" || s === "S8") { const fromSurveyor = s === "S6"; const asPdf = fromSurveyor && (t0.id.charCodeAt(t0.id.length - 1) % 2 === 0); const report = { source: asPdf ? "Attached PDF" : "Email body", converted: !asPdf, author: fromSurveyor ? "Surveyor" : t0.insurer, file: asPdf ? "final-survey-report.pdf" : t0.id.toLowerCase() + "-assessment-report.pdf", at: CL_NOW }; const inspection = fromSurveyor ? "Damage consistent with the reported cause; salvage segregated and photographed" : "No site inspection - assessed internally by the insurer"; mut(id, (t) => clAudit({ ...t, inspection, report, reportReleased: false }, (fromSurveyor ? "Inspection & assessment report" : "Assessment report") + " classified and filed", "Document filed. No amount extracted; withheld from client by default (FR-8.5).", "Email bot")); return flash("Report filed. Record the assessed loss and release the settlement figure on the Survey & Settlement tab."); }
     /* R2 is now a Contest state — the insurer's reply comes in through
        contestInsurerMaintains / contestInsurerAccepts, not through `bot`. */
-    if (s === "S11") { mut(id, (t) => { const pay = { type: "Full and final", n: null, date: clFdate(CL_NOW), amt: t.assessedLoss || t.loss || 0, utr: "UTR" + String(CL_NOW).slice(2, 10), mode: "NEFT" }; return clStep(clAudit({ ...t, payments: [...t.payments, pay] }, "Payment confirmation classified and extracted", "Amount " + clInr(pay.amt) + " · UTR " + pay.utr + " · 97% confidence, from " + poc, "Email bot"), "S12"); }); return flash("Bot recorded the payment. Client now sees “Payment Released”."); }
+    if (s === "S11") { mut(id, (t) => { const pay = { type: "Full and final", n: null, date: clFdate(CL_NOW), amt: t.settlement || t.assessedLoss || t.loss || 0, utr: "UTR" + String(CL_NOW).slice(2, 10), mode: "NEFT" }; return clStep(clAudit({ ...t, payments: [...t.payments, pay] }, "Payment confirmation classified and extracted", "Amount " + clInr(pay.amt) + " · UTR " + pay.utr + " · 97% confidence, from " + poc, "Email bot"), "S12"); }); return flash("Bot recorded the payment. Client now sees “Payment Released”."); }
     return flash("No inbound mail is expected at this stage.");
   };
   /* ---- Contest handlers (PRD v2.2 §7) ----
@@ -7220,7 +7328,36 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     flash("Challenge forwarded to the insurer. They owe a fuller explanation.");
   };
   const acceptRej = (id) => { mut(id, (t) => clStep(clAudit(t, "Client accepted the rejection", "Closed with reason Rejection accepted. The client remains free to approach IRDAI or a court - the platform records that, it does not offer it.", t.client, "Client"), "RX", { closureReason: "Rejection accepted", subStatus: null })); flash("Closed as Rejection accepted."); };
-  const shareReport = (id) => { mut(id, (t) => clStep(clAudit({ ...t, report: { ...t.report, shared: true, sharedAt: CL_NOW } }, "Assessment report shared on BimaKendra", t.report.file + " · assessed loss " + clInr(t.assessedLoss), actor(), roleName()), "S9")); flash("Shared. The client can now consent or object - two rounds, same as a rejection."); };
+  /* PRD v2.2 §8 — settlement is a single figure the CM negotiates and
+     releases; release freezes it. Post-freeze edits need an insurer proof
+     document and are audited with before/after values. */
+  const releaseSettlement = (id, amount, source) => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return flash("Enter a positive settlement figure before releasing.");
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (!["S6", "S8"].includes(t0.state)) return flash("Settlement can only be released from Report Awaited (S38) or Survey Pending after the report is on file.");
+    if (!t0.report) return flash("The assessment report has to be on file before the settlement figure is released.");
+    mut(id, (t) => clStep(clAudit({ ...t, settlement: amt, settlementSrc: source || "manual", settlementAt: CL_NOW, settlementFrozen: true, settlementReleasedAt: CL_NOW, reportReleased: true }, "Settlement figure released to client", clInr(amt) + " · frozen · " + (source === "bot" ? "from insurer advice" : "CM-entered") + " · assessment report published on BimaKendra", actor(), roleName()), "S9"));
+    flash("Released. Figure is frozen and the client now sees " + clInr(amt) + " on BimaKendra.");
+  };
+  const editSettlement = (id, amount, proofName) => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return flash("Enter the new settlement figure.");
+    if (!String(proofName || "").trim()) return flash("An insurer proof document is required to change a frozen settlement (FR-8.6.3).");
+    const t0 = tickets.find((x) => x.id === id); if (!t0 || !t0.settlementFrozen) return;
+    const before = t0.settlement;
+    mut(id, (t) => clAudit({ ...t, settlement: amt, settlementSrc: "manual", settlementAt: CL_NOW, settlementProof: proofName.trim() }, "Settlement figure edited (proof-gated)", clInr(before) + " → " + clInr(amt) + " · proof: " + proofName.trim(), actor(), roleName()));
+    flash("Settlement updated to " + clInr(amt) + ". Proof on file: " + proofName.trim() + ".");
+  };
+  const settlementLateAdvice = (id) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    if (!t0.settlementFrozen) return flash("Late-advice guard only fires after the settlement figure is frozen.");
+    const poc = (CL_INSURERS[t0.insurer] || {}).poc || "claims@" + t0.insurer.toLowerCase().replace(/[^a-z]/g, "") + ".co.in";
+    mut(id, (t) => clAudit({ ...t, lateSettlements: [...(t.lateSettlements || []), { at: CL_NOW, from: poc }] }, "Guard rule fired · late settlement advice", "Settlement-advice mail arrived after release. Routed to CM tray; the frozen figure is unchanged (FR-8.6).", "Email bot", ""));
+    flash("Late advice routed to your tray. The frozen figure is untouched.");
+  };
+  /* Deprecated shim so any older reference doesn't crash; new UI uses releaseSettlement. */
+  const shareReport = (id) => releaseSettlement(id, tickets.find((x) => x.id === id)?.assessedLoss || 0, "manual");
   const ask = (id, q) => { mut(id, (t) => { const qid = "Q" + (t.queries.length + 1); return clAudit({ ...t, queries: [...t.queries, { id: qid, target: q.target, text: q.text, src: q.src, status: "open", at: CL_NOW, response: null }] }, "Query raised" + (q.target ? " on " + q.target : ""), q.text + " · on behalf of " + q.src, actor(), roleName()); }); flash("Sent to the client. They see it on their surface; the reminder cycle starts now."); };
   const answer = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "answered", response: "Sharing the requested detail from our records.", respondedAt: CL_NOW } : q)), audit: [{ at: CL_NOW, actor: t.client, role: "Client", what: "Client responded to a query", detail: "" }, ...t.audit] })); flash("Response recorded."); };
   const closeQuery = (id, qid) => { mut(id, (t) => ({ ...t, queries: t.queries.map((q) => (q.id === qid ? { ...q, status: "closed" } : q)) })); flash("Query closed."); };
@@ -7228,7 +7365,17 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const bank = (id, b) => { mut(id, (t) => clStep(clAudit({ ...t, bank: { acc: b.acc, ifsc: b.ifsc, cheque: "cancelled-cheque.pdf" } }, "Bank details recorded", "Recorded and sent to " + t.insurer, actor(), roleName()), "S11")); flash("Bank details recorded. Moved to Payment in Progress."); };
   const upload = (id, key, name) => { mut(id, (t) => { const q = t.queries.find((x) => x.status === "open" && x.target === key); return clAudit({ ...t, uploads: { ...t.uploads, [key]: { name, at: CL_NOW, by: actor() } }, queries: q ? t.queries.map((x) => (x.id === q.id ? { ...x, status: "answered", response: "Uploaded " + name } : x)) : t.queries }, "Document received: " + key, name, actor(), roleName()); }); flash("Uploaded " + name + "."); };
   const reassign = (id, cm, reason) => { mut(id, (t) => clAudit({ ...t, cm }, "Reassigned to " + cm, reason, actor(), roleName())); flash("Reassigned to " + cm + "."); };
-  const withdraw = (id, reason) => { mut(id, (t) => clStep(clAudit(t, "Marked as withdrawn", reason, actor(), roleName()), "SX", { closureReason: "Withdrawn", subStatus: null })); flash("Marked as withdrawn."); };
+  const withdraw = (id, reason) => {
+    const t0 = tickets.find((x) => x.id === id); if (!t0) return;
+    /* PRD v2.2 FR-10.1 — mirror the ClManage windowing so a caller cannot
+       bypass by hitting the API directly. */
+    const inContest = ["R1", "R2", "R3"].includes(t0.state);
+    const w1 = ["S1", "S2"].includes(t0.state);
+    const w2 = t0.state === "S9" && t0.settlementFrozen;
+    if (CL_FLOW[t0.state].terminal || clIsRej(t0) || inContest || !(w1 || w2)) return flash("Withdrawal is not available in this window (FR-10.1).");
+    mut(id, (t) => clStep(clAudit(t, "Marked as withdrawn", reason + (w2 ? " · Window 2 (post-release, pre-consent)" : " · Window 1 (pre-review)"), actor(), roleName()), "SX", { closureReason: "Withdrawn", subStatus: null }));
+    flash("Marked as withdrawn.");
+  };
   const park = (id, reason) => { mut(id, (t) => clAudit({ ...t, dormant: { sub: t.state === "S10" ? "Awaiting bank details" : "Client unresponsive", fromState: t.state, note: reason, at: CL_NOW } }, "Parked as dormant", reason + " · silent, no client notification", actor(), roleName())); flash("Parked as dormant - silently, with no client notification."); };
   const resume = (id, toState, reason) => { mut(id, (t) => clAudit({ ...t, dormant: null, state: toState, status: CL_FLOW[toState].status, stageAt: CL_NOW, chase: { reminders: 0, escalations: 0, events: [] } }, "Resumed from dormant", "Resumed at " + CL_FLOW[toState].label + " · " + reason, actor(), roleName())); flash("Resumed from dormant at " + CL_FLOW[toState].label + "."); };
   const sendReminder = (id) => {
@@ -7255,14 +7402,14 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     const dupe = tickets.find((t) => t.policy.toLowerCase() === d.policy.toLowerCase() && new Date(t.dol).toDateString() === new Date(d.dol).toDateString());
     const audit = [{ at: CL_NOW, actor: d.client, role: "Client", what: "Claim intimated via BimaKendra", detail: "All mandatory fields validated at submission" + (clLossOptional(d.product) && !d.loss ? ". No estimate declared - optional on " + clProductLabel(d.product) + ", so the insurer will assess internally." : "") }];
     if (dupe) audit.unshift({ at: CL_NOW, actor: "System", role: "Bot", what: "Duplicate flag raised", detail: "Same policy and date of loss as " + dupe.id + ". Routed to " + dupe.cm + ", who owns the original." });
-    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
+    const base = { id, client: d.client, product: d.product, insurer: d.insurer, policy: d.policy, dol: d.dol, loss: d.loss, priority: d.loss > 1000000 ? "Critical" : "Medium", cm: dupe ? dupe.cm : CL_ME, flagged: !!dupe, desc: d.desc, cause: d.cause, location: d.loc, contactName: d.cname, contactMobile: d.mob, channel: "BimaKendra", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads: {}, escalated: false, subStatus: null, closureReason: null, missing: null, createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S1", status: CL_FLOW.S1.status, contact: (d.cname || "") + " · " + (d.mob || ""), audit };
     setTickets((ts) => [base, ...ts]); setCreateOpen(false); setCreatePrefill(null); setOpenId(id); setView("ticket");
     flash(dupe ? "Created and flagged as a possible duplicate of " + dupe.id + ". Routed to " + dupe.cm + "." : "Created " + id + ". Two-business-hour initial response clock has started.");
   };
   const createFromMail = (m) => {
     const seq = nextSeq(), id = "CLM-" +seq; const uploads = {};
     m.att.forEach((a) => { uploads[a.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")] = { name: a, at: CL_NOW, by: actor() + " (from " + m.id + ")" }; });
-    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
+    const base = { id, client: m.cand || "New client - to be mapped", product: "Fire", insurer: "Bajaj", policy: "FIR/2026/0" + (1200 + (seq % 99)), dol: clAgo(30 * 24), loss: null, priority: "High", cm: CL_ME, flagged: false, desc: m.subject, cause: "To be established", location: "To be captured", contactName: (m.fromName || m.from).split(",")[0], contactMobile: "", channel: "Email", claimNo: null, surveyor: null, inspection: null, assessedLoss: null, bank: null, payments: [], admissibility: null, docs: {}, uploads, escalated: false, subStatus: null, closureReason: null, missing: ["Estimated Loss Amount", "Photos", "Location of loss: full address"], createdAt: CL_NOW, stageAt: CL_NOW, ownerLog: [], mail: [], requests: [], queries: [], botLog: [], inbox: [{ at: m.at, dir: "in", from: m.from, subj: m.subject, body: m.body, queueRef: m.id }], rejection: null, challenges: 0, dormant: null, frozen: null, contest: null, pastContests: [], lateRepudiations: [], settlement: null, settlementSrc: null, settlementAt: null, settlementFrozen: false, settlementReleasedAt: null, settlementProof: null, reportReleased: false, lateSettlements: [], chase: { reminders: 0, escalations: 0, events: [] }, state: "S0", status: CL_FLOW.S0.status, contact: "", audit: [{ at: CL_NOW, actor: actor(), role: roleName(), what: "Claim created from the manual review queue", detail: m.id + " · reason " + m.reason + " · the bot guessed " + m.guess + " at " + m.conf + "%" }] };
     setTickets((ts) => [base, ...ts]); setMrq((q) => q.filter((x) => x.id !== m.id)); setOpenId(id); setView("ticket");
     flash("Created " + id + " in Draft. The mail is on its trail and the FNOL chase has started.");
   };
@@ -7276,7 +7423,8 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const rejectMail = (id) => { const m = mrq.find((x) => x.id === id); setMrq((q) => q.filter((x) => x.id !== id)); flash("Rejected. A reasoned reply went to " + (m ? m.from : "the sender") + " - no ticket created."); };
 
   const act = { cmForm, bot, clientRun, shareReport, ask, answer, closeQuery, reopenQuery, bank, upload, reassign, withdraw, park, resume, sendReminder, escalate, createFromMail, linkMail, discardMail, rejectMail, flash,
-    contestRepudiate, contestRaiseRound, contestEscalateCH, contestRaiseCap, contestInsurerMaintains, contestInsurerAccepts, contestAccept, contestLateRepudiation };
+    contestRepudiate, contestRaiseRound, contestEscalateCH, contestRaiseCap, contestInsurerMaintains, contestInsurerAccepts, contestAccept, contestLateRepudiation,
+    releaseSettlement, editSettlement, settlementLateAdvice };
   const current = tickets.find((t) => t.id === openId);
   /* The order the ticket pager walks - the same urgency order the queues use. */
   const pagerList = useMemo(() => clVisible(tickets, role).slice().sort((a, b) => {
