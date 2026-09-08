@@ -3683,17 +3683,21 @@ function Detail({ t, user, onAdvance, onAttachCopy, onChase, onQuery, onAnswer, 
                 const shown = thread.filter(matches).filter(inThread);
                 return (
                 <div className="space-y-4">
-                  <SectionTitle right={q ? <MiniTag>{shown.length} of {thread.length}</MiniTag> : null}>Mail Trail</SectionTitle>
-                  {threads.length > 1 && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <ThreadTab label={`All (${thread.length})`} on={mailThread === "all"} onClick={() => setMailThread("all")} />
-                      {threads.map((thr, i) => (
-                        <ThreadTab key={thr.key} label={`Thread ${i + 1} (${thr.items.length})`}
-                          title={thr.subject} on={mailThread === thr.key}
-                          onClick={() => setMailThread(thr.key)} />
-                      ))}
+                  <SectionTitle right={
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {q && <MiniTag>{shown.length} of {thread.length}</MiniTag>}
+                      {threads.length > 1 && (
+                        <>
+                          <ThreadTab label={`All (${thread.length})`} on={mailThread === "all"} onClick={() => setMailThread("all")} />
+                          {threads.map((thr, i) => (
+                            <ThreadTab key={thr.key} label={`Thread ${i + 1} (${thr.items.length})`}
+                              title={thr.subject} on={mailThread === thr.key}
+                              onClick={() => setMailThread(thr.key)} />
+                          ))}
+                        </>
+                      )}
                     </div>
-                  )}
+                  }>Mail Trail</SectionTitle>
                   <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
                     style={{ borderColor: C.subtle, background: C.white }}>
                     <Search size={14} style={{ color: C.figTert }} />
