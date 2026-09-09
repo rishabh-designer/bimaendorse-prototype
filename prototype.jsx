@@ -12977,19 +12977,15 @@ function PlBimaNetraDrawer({ c, onClose, onClick }) {
       style={{ width: 720, maxWidth: "100%", background: NETRA_T.cardBg, borderLeft: `1px solid ${NETRA_T.cardBorder}`,
         boxShadow: "-16px 0 40px rgba(10,10,10,0.16)", fontFamily: FONT }}>
 
-      {/* Chrome — BimaNetra badge + close */}
+      {/* Chrome — matches the banner wordmark treatment: pure typography,
+          "Bima" in ink + "Netra™" in orange. No icon. */}
       <header className="flex items-center justify-between px-5 py-4"
         style={{ borderBottom: `1px solid ${NETRA_T.cardBorder}`, background: "linear-gradient(180deg, #FFFFFF 0%, #FFF6ED 100%)" }}>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center rounded-lg" style={{ width: 28, height: 28, background: "#FF7700" }}>
-            <Sparkles size={14} color="#fff" />
-          </span>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: NETRA_T.ink, lineHeight: 1.1 }}>
-              <span>Bima</span><span style={{ color: "#FF7700" }}>Netra™</span>
-            </div>
-            <div style={{ fontSize: 11, fontWeight: 500, color: NETRA_T.muted, marginTop: 2 }}>A.I Underwrites · You take the Action</div>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: NETRA_T.ink, lineHeight: 1.1, letterSpacing: 0 }}>
+            <span>Bima</span><span style={{ color: "#FF7700" }}>Netra™</span>
           </div>
+          <div style={{ fontSize: 11, fontWeight: 500, color: NETRA_T.muted, marginTop: 3 }}>A.I Underwrites · You take the Action</div>
         </div>
         <button onClick={onClose} className="bk-iconctrl flex items-center justify-center rounded-lg border"
           style={{ width: 28, height: 28, borderColor: NETRA_T.cardBorder, color: NETRA_T.muted }}><X size={14} /></button>
