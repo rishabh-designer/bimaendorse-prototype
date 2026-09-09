@@ -10784,10 +10784,10 @@ function plNextAction(c) {
   if (c.stage === "negotiation") {
     const latest = c.negotiations[c.negotiations.length - 1];
     const pending = plLiveQuotes(c).filter((q) => !q.decision);
-    if (latest && latest.status === "draft") return { label: "Send the negotiation request", tab: "negotiation", tone: "purple" };
+    if (latest && latest.status === "draft") return { label: "Send the negotiation request", tab: "quotes", tone: "purple" };
     if (pending.length) return { label: `Review revised quote from ${PL_INSURERS[pending[0].insurerId].name}`, tab: "quotes", tone: "purple" };
     if (latest && latest.status === "open" && latest.items.every((it) => it.status === "awaiting"))
-      return { label: latest.final ? "Awaiting final revision from insurer" : "Awaiting revised quote from insurer", tab: "negotiation", tone: "neutral" };
+      return { label: latest.final ? "Awaiting final revision from insurer" : "Awaiting revised quote from insurer", tab: "quotes", tone: "neutral" };
     return { label: latest && latest.final ? "Record the client decision" : "Request final revision or record the client decision", tab: latest && latest.final ? "qcr" : "negotiation", tone: "purple" };
   }
   return null;
@@ -12325,7 +12325,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
     { id: "market", label: "Insurer Threads" },
     { id: "quotes", label: "Quotes" },
     { id: "qcr", label: "QCR" },
-    { id: "negotiation", label: "Negotiation" },
     { id: "mail", label: "Mail Trail" },
     { id: "activity", label: "Ticket History" },
   ];
@@ -12452,7 +12451,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "market" && <PlMarketTab c={c} api={api} goTo={setTab} />}
           {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
           {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTab} />}
-          {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
           {tab === "mail" && <PlMailTab c={c} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
@@ -13196,7 +13194,7 @@ function PlInboxScreen({ cases, onOpen }) {
     plLiveQuotes(c).filter((q) => !q.decision).forEach((q) =>
       items.push({ c, group: "quote", type: "New quote received", source: PL_INSURERS[q.insurerId].name, at: q.receivedAt, cta: "Review quote", tab: "quotes" }));
     c.negotiations.forEach((n) => (n.asks || []).forEach((a) => {
-      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "-", cta: "Open negotiation", tab: "negotiation" });
+      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "-", cta: "Open negotiation", tab: "quotes" });
     }));
   });
 
