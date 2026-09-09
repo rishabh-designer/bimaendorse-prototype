@@ -11743,7 +11743,7 @@ function PlMultiPicker({ value, options, placeholder = "Select", onChange, width
       {open && (
         <MenuCard right={right}>
           {norm.map((o) => (
-            <MenuOpt key={o.value} label={o.label} on={set.has(o.value)}
+            <PlMultiOpt key={o.value} label={o.label} on={set.has(o.value)}
               onClick={() => toggle(o.value)} />
           ))}
         </MenuCard>
@@ -11751,6 +11751,24 @@ function PlMultiPicker({ value, options, placeholder = "Select", onChange, width
     </div>
   );
 }
+
+/* Multi-select row — a lucide checkbox square on the left so a multi-picker
+   is visibly different from a single-select (which keeps the trailing green
+   CheckCircle2 via MenuOpt). Same padding/font as MenuOpt so both row kinds
+   sit alongside cleanly if a menu ever mixes them. */
+const PlMultiOpt = ({ label, on, onClick }) => (
+  <button type="button" onClick={onClick}
+    className="bk-opt flex w-full items-center gap-2.5 rounded-lg px-2 py-3 text-left"
+    style={{ fontSize: 16, fontWeight: 500, color: C.figHint, background: on ? C.brandBg : "transparent", lineHeight: 1 }}>
+    <span className="flex items-center justify-center rounded shrink-0" style={{
+      width: 15, height: 15,
+      background: on ? PL_T.purple : PL_T.card,
+      border: `1px solid ${on ? PL_T.purple : PL_T.borderStrong}` }}>
+      {on && <Check size={11} color="#fff" strokeWidth={3} />}
+    </span>
+    <span className="truncate">{label}</span>
+  </button>
+);
 
 function PlMenuPicker({ value, options, placeholder = "Select", onChange, width = 200, disabled = false, right = false }) {
   const [open, setOpen] = useState(false);
@@ -14040,8 +14058,11 @@ function PlDocumentsCard({ c }) {
     { id: "external", label: "External", n: external.length },
   ];
 
+  /* Outer "Documents" title now lives on PlTabHeader (via PlDocumentsTab),
+     so this card carries only the internal/external sub-tab strip and the
+     list. No wrapping PlSection — the tab header is the section header. */
   return (
-    <PlSection icon={ShieldCheck} title="Documents" badge={<PlChip size="xs" mono>{internal.length + external.length}</PlChip>}>
+    <PlCard>
       <div className="flex items-center gap-1 mb-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
         {tabs.map((t) => {
           const on = tab === t.id;
@@ -14080,7 +14101,7 @@ function PlDocumentsCard({ c }) {
           ))}
         </div>
       )}
-    </PlSection>
+    </PlCard>
   );
 }
 
