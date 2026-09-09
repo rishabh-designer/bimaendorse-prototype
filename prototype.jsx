@@ -14409,11 +14409,8 @@ function PlMarketTab({ c, api, goTo }) {
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Insurer threads</div>
           <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-            Independent per insurer. A clarification, decline or held clock on one thread changes nothing on the others.
+            Independent per insurer. A clarification, decline or held clock on one thread changes nothing on the others. Adding a market happens on the Insurers tab, before RFQ float.
           </div>
-        </div>
-        <div className="flex gap-2">
-          <PlBtn size="sm" onClick={() => setAddOpen(true)}>Approach another market</PlBtn>
         </div>
       </div>
 
@@ -14534,7 +14531,6 @@ function PlMarketTab({ c, api, goTo }) {
                         <PlBtn size="sm" variant="primary" onClick={() => goTo("quotes")}>Open quote</PlBtn>
                       )}
                       <PlBtn size="sm" onClick={() => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
-                      <PlBtn size="sm" onClick={() => setAddOpen(true)}>Approach another insurer</PlBtn>
                     </div>
 
                     <PlSimBlock title="Simulate insurer response">
@@ -15150,7 +15146,16 @@ function PlQcrTab({ c, api, goTo }) {
 
       {early && <PlEarlyReleaseModal c={c} api={api} onClose={() => setEarly(false)} />}
       {send && <PlSendQcrModal c={c} qcr={draft} api={api} onClose={() => setSend(false)} />}
-      {outcome && <PlOutcomeModal c={c} kind={outcome} api={api} onClose={() => setOutcome(null)} />}
+      {outcome && (
+        <PlOutcomeModal c={c} kind={outcome} api={api} onClose={() => {
+          /* Negotiation / more quotes / RFQ V2 all reopen insurer selection —
+             route the user back to the Insurers tab so the restart is
+             obvious. Terminal outcomes (quote_selected, lost,
+             unable_to_place, cancelled_inactivity) stay put. */
+          if (["negotiation", "more_quotes", "rfq_v2"].includes(outcome)) goTo("insurers");
+          setOutcome(null);
+        }} />
+      )}
     </div>
   );
 }
