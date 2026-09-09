@@ -5495,7 +5495,8 @@ const PORTAL_USERS = {
   },
   "himani@bimakavach.com": {
     name: "Himani", first: "Himani", role: "Placement Head",
-    envs: ["BimaPlacement"],   /* the admin over BimaPlacement */
+    avatar: "/himani.webp", envs: ["BimaPlacement"],   /* the admin over BimaPlacement */
+    greeting: "નમસ્તે, હિમાની",
   },
   "jaishri@bimakavach.com": {
     name: "Jaishree", first: "Jaishree", role: "Payment Ops Executive",
@@ -11892,6 +11893,8 @@ function PlSlaCell({ sla, wide = false }) {
    the case model (SLA state) - no invented placement intelligence. */
 function PlHomeScreen({ cases, onOpen, setNav, user }) {
   const [range, setRange] = useState("Last Week");
+  const isHead = plIsAdmin(user);
+  const [scope, setScope] = useState(isHead ? "team" : "mine");
   const active = cases.filter((c) => c.stage !== "closed");
   const slaOf = (c) => plCurrentSla(c);
 
@@ -11996,14 +11999,26 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
   const prog = PROG[range] || PROG["Last Week"];
   const pie = prog.segments.filter((s) => s.hrs >= 0.25);
 
+  /* Escalated to You — mirrors the BimaEndorse Head view. In Placement the
+     nearest analog to a stage-reminder ladder is a breached Placement-owned
+     SLA: an internal clock that has actually run out on the executive's desk.
+     External waits (insurer / RM) never count against the desk, per H4. */
+  const escalated = isHead && scope === "team"
+    ? active
+        .map((c) => ({ c, s: slaOf(c) }))
+        .filter((x) => x.s && !x.s.external && x.s.breached)
+        .sort((a, b) => (b.s.remaining ?? 0) - (a.s.remaining ?? 0))
+        .map((x) => x.c)
+    : [];
+
   return (
     <div className="space-y-6">
-      <Greeting user={user} />
+      <Greeting user={user} right={isHead ? <ScopeSwitch value={scope} onChange={setScope} /> : null} />
 
-      {/* Your Desk - count-cards that route into My Cases. */}
+      {/* Your Desk - count-cards that route into My Cases. Copy flips on Team. */}
       <div>
         <div className="mb-4 flex items-center gap-3">
-          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Desk</h2>
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Desk" : "Your Desk"}</h2>
         </div>
         <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {cards.map((c, i) => (
@@ -12012,13 +12027,62 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
         </div>
       </div>
 
+      {isHead && scope === "team" && (
+        <>
+          <div style={{ height: 1, background: C.subtle }} aria-hidden />
+          <div>
+            <h2 className="mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
+            <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+              <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+                <span className="flex-1">Case</span>
+                <span className="hidden w-32 md:block">Owner</span>
+                <span className="hidden w-28 sm:block">Owed by</span>
+                <span className="w-28 text-right">SLA breached</span>
+              </div>
+              {escalated.length === 0 ? (
+                <div className="px-4 py-6 text-center" style={{ fontSize: 13, fontWeight: 500, color: C.figTert }}>Nothing escalated to you right now.</div>
+              ) : escalated.map((c) => {
+                const s = slaOf(c);
+                const owe = /insurer/i.test(s?.owner || "") ? "Insurer" : /(RM|Client)/i.test(s?.owner || "") ? "RM / Client" : "Placement";
+                const overBy = Math.max(0, -(s?.remaining ?? 0));
+                const hrs = overBy >= 60 ? `${Math.round(overBy / 60)} Hrs. over` : `${overBy} Mins. over`;
+                const days = overBy >= 60 * 24 ? `${Math.round(overBy / (60 * 24))} Days over` : hrs;
+                return (
+                  <button key={c.id} onClick={() => onOpen && onOpen(c.id)}
+                    className="bk-item flex w-full items-center gap-3 px-3 py-3 text-left"
+                    style={{ borderBottom: `0.5px solid ${C.lineSoft}`, cursor: "pointer" }}>
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="flex items-center gap-2">
+                        <span className="bk-num" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{c.id}</span>
+                        <Indicator label="Escalated" ind="error" outline />
+                      </span>
+                      <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{s?.label || s?.id} · {c.meta?.client || c.client}</span>
+                    </span>
+                    <span className="hidden w-32 shrink-0 md:block truncate" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Bhupendra Singh</span>
+                    <span className="hidden w-28 shrink-0 sm:flex">
+                      <Indicator label={owe} ind={owe === "Insurer" ? "caution" : owe === "RM / Client" ? "info" : "brand"} outline />
+                    </span>
+                    <span className="w-28 shrink-0 text-right bk-num" style={{ fontSize: 12, fontWeight: 500, color: C.semError }}>
+                      {days}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3" style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figTert }}>
+              Escalation fires when a Placement-owned SLA has run out. External waits on the insurer or the RM don't count against the desk (H4); the case keeps its executive.
+            </p>
+          </div>
+        </>
+      )}
+
       <div style={{ height: 1, background: C.subtle }} aria-hidden />
 
       {/* Your Progress - two metric cards over a case-time donut; the range
           controller morphs the whole block (keyed reveal), like the sister envs. */}
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Your Progress</h2>
+          <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Progress" : "Your Progress"}</h2>
           <RangePills value={range} onChange={setRange} />
         </div>
         <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-4">
