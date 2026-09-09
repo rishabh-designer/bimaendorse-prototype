@@ -11119,7 +11119,7 @@ const PL_MONO = FONT;
 const PL_T = {
   bg: C.canvas, bgDeep: C.canvas,
   card: C.white, cardAlt: "#FAFAFB", cardSunk: C.canvas,
-  strip: C.brandBg, stripLine: C.brand200,
+  strip: "#EEF4FF", stripLine: "#B9D1FF",
   border: C.subtle, borderStrong: C.line,
   ink: C.figInk, ink2: C.figHint, ink3: C.figTert,
   purple: C.brand, purpleDeep: C.brand600, purpleSoft: C.brandBg, purpleLine: C.brand200,
@@ -11314,11 +11314,24 @@ function PlMono({ children, size = 12, color = PL_T.ink2, weight = 500 }) {
   return <span className="bk-num" style={{ fontFamily: PL_MONO, fontSize: size, color, fontWeight: weight }}>{children}</span>;
 }
 
-function PlKV({ k, v, mono = false }) {
+/* Insurer wordmark lookup that tolerates the `PL_INSURERS[id].name` spelling
+   drift against the shared INSURER_LOGO map (e.g., "HDFC ERGO" vs
+   "HDFC Ergo"). Returns the data URL or null. */
+const plInsurerLogo = (name) => {
+  if (!name) return null;
+  if (INSURER_LOGO[name]) return INSURER_LOGO[name];
+  const norm = String(name).toLowerCase();
+  const hit = Object.keys(INSURER_LOGO).find((k) => k.toLowerCase() === norm);
+  return hit ? INSURER_LOGO[hit] : null;
+};
+function PlKV({ k, v, mono = false, img = null }) {
   return (
     <div>
       <PlLabel>{k}</PlLabel>
-      <div className="mt-0.5" style={{ fontSize: 13, color: PL_T.ink, fontWeight: 500, fontFamily: mono ? PL_MONO : FONT }}>{v}</div>
+      <div className="mt-0.5 flex items-center gap-2" style={{ fontSize: 13, color: PL_T.ink, fontWeight: 500, fontFamily: mono ? PL_MONO : FONT }}>
+        {img && <img src={img} alt="" className="shrink-0" style={{ height: 16, width: "auto" }} />}
+        <span className="min-w-0 truncate">{v}</span>
+      </div>
     </div>
   );
 }
@@ -11512,7 +11525,7 @@ function PlSlaChip({ hours, paused, pauseReason, stopped }) {
 /* Usable-quote meter. Encodes the rule directly: distinct insurers, not quote count. */
 function PlUsableMeter({ count, target = 3, compact = false }) {
   const pips = Array.from({ length: Math.max(target, count) });
-  return (
+  const row = (
     <div className="inline-flex items-center gap-2">
       <span className="flex items-center gap-1">
         {pips.map((_, i) => (
@@ -11527,7 +11540,13 @@ function PlUsableMeter({ count, target = 3, compact = false }) {
       <span style={{ fontFamily: PL_MONO, fontSize: compact ? 11 : 11.5, color: count >= target ? PL_T.green : PL_T.ink2, fontWeight: 600 }}>
         {count}/{target}
       </span>
-      {!compact && <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>usable · distinct insurers</span>}
+    </div>
+  );
+  if (compact) return row;
+  return (
+    <div>
+      {row}
+      <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>usable · distinct insurers</div>
     </div>
   );
 }
@@ -12241,7 +12260,7 @@ function PlRightRail({ c, api, goTo }) {
         <PlCard style={{ borderColor: PL_TONES[PL_OUTCOME[c.outcome.type].tone].line }}>
           <PlChip tone={PL_OUTCOME[c.outcome.type].tone} dot>{PL_OUTCOME[c.outcome.type].label}</PlChip>
           <div className="mt-2.5 space-y-1.5">
-            {c.outcome.insurerId && <PlKV k="Selected insurer" v={PL_INSURERS[c.outcome.insurerId].name} />}
+            {c.outcome.insurerId && <PlKV k="Selected insurer" v={PL_INSURERS[c.outcome.insurerId].name} img={plInsurerLogo(PL_INSURERS[c.outcome.insurerId].name)} />}
             {c.outcome.insurerId && (() => {
               const q = c.quotes.filter((x) => x.insurerId === c.outcome.insurerId && x.decision === "usable").slice(-1)[0];
               return q ? <PlKV k="Selected quote" v={`Quote V${q.version}`} mono /> : null;
