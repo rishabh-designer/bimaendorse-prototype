@@ -11618,28 +11618,32 @@ function PlDivider({ vertical = false }) {
 
 function PlModal({ title, subtitle, children, onClose, footer, wide = false, size }) {
   const width = size === "xl" ? 1000 : wide ? 860 : 560;
-  return (
+  /* Portal to document.body so PlModal centers on the viewport instead of
+     nesting under the app shell's `my-8` gutter — matches Endorse's
+     ModalShell and both Placement drawers. */
+  return createPortal(
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-      style={{ background: "rgba(28,27,31,0.42)" }} onClick={onClose}>
-      <div className="bk-modal rounded-2xl border shadow-2xl my-8"
-        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, width, maxWidth: "100%" }}
+      style={{ background: PL_T.scrim }} onClick={onClose}>
+      <div className="bk-modal rounded-2xl shadow-2xl my-8"
+        style={{ background: PL_T.card, width, maxWidth: "100%" }}
         onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: PL_T.ink }}>{title}</div>
-            {subtitle && <div className="mt-0.5" style={{ fontSize: 12, color: PL_T.ink3 }}>{subtitle}</div>}
+        <div className="flex items-start justify-between gap-3 px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <div className="min-w-0">
+            <div style={{ fontSize: 18, fontWeight: 600, color: PL_T.purple, letterSpacing: "-0.1px" }}>{title}</div>
+            {subtitle && <div className="mt-0.5" style={{ fontSize: 13, color: PL_T.ink3 }}>{subtitle}</div>}
           </div>
-          <button onClick={onClose} className="rounded-md p-1" style={{ color: PL_T.ink3 }}><X size={16} /></button>
+          <PlIconBtn icon={X} onClick={onClose} title="Close" />
         </div>
         <div className="px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-3.5 rounded-b-2xl"
-            style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+          <div className="flex items-center justify-end gap-2 px-5 py-4 rounded-b-2xl"
+            style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -12909,7 +12913,7 @@ function PlBimaNetraCard({ c }) {
 function PlBimaNetraLightbox({ c, onClose }) {
   return (
     <div className="bk-scrim fixed inset-0 z-50 flex justify-end"
-      style={{ background: "rgba(28,29,31,0.55)", fontFamily: FONT }} onClick={onClose}>
+      style={{ background: PL_T.scrim, fontFamily: FONT }} onClick={onClose}>
       <PlBimaNetraDrawer c={c} onClose={onClose} onClick={(e) => e.stopPropagation()} />
     </div>
   );
@@ -13662,7 +13666,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
   const codes = Object.keys(PL_PRODUCTS);
   return (
     <div className="bk-scrim fixed inset-0 z-50 flex justify-end"
-      style={{ background: "rgba(28,29,31,0.55)", fontFamily: FONT }} onClick={onClose}>
+      style={{ background: PL_T.scrim, fontFamily: FONT }} onClick={onClose}>
       <div className="bk-modal flex h-full flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}
         style={{ width: 560, maxWidth: "100%", background: C.white, borderLeft: `1px solid ${PL_T.border}`,
           boxShadow: "-16px 0 40px rgba(28,29,31,0.16)" }}>
@@ -13671,8 +13675,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.4, textTransform: "uppercase" }}>Insurer Master · edit</div>
             <div className="mt-0.5 truncate" style={{ fontSize: 18, fontWeight: 600, color: PL_T.ink }}>{insurer.name}</div>
           </div>
-          <button onClick={onClose} className="bk-iconctrl flex items-center justify-center rounded-lg border"
-            style={{ width: 28, height: 28, borderColor: PL_T.border, color: PL_T.ink3 }}><X size={14} /></button>
+          <PlIconBtn icon={X} onClick={onClose} title="Close" />
         </header>
 
         <div className="scroll-slim flex-1 overflow-y-auto p-5 space-y-5">
@@ -13762,10 +13765,8 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
 
         <footer className="flex items-center justify-end gap-2 px-5 py-4"
           style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
-          <button onClick={onClose} className="rounded-xl border"
-            style={{ padding: "8px 16px", borderColor: PL_T.border, background: C.white, fontSize: 13, fontWeight: 500, color: PL_T.ink2, cursor: "pointer" }}>Cancel</button>
-          <button onClick={commit} className="rounded-xl"
-            style={{ padding: "8px 16px", background: PL_T.purple, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save changes</button>
+          <PlBtn variant="default" size="md" onClick={onClose}>Cancel</PlBtn>
+          <PlBtn variant="primary" size="md" onClick={commit}>Save changes</PlBtn>
         </footer>
       </div>
     </div>
