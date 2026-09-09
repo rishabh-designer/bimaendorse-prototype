@@ -12287,7 +12287,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   const TABS = [
     { id: "overview", label: "Overview" },
     { id: "rfq", label: "RFQ" },
-    { id: "summary", label: "RFQ Summary" },
     { id: "strategy", label: "Case Strategy" },
     { id: "docs", label: "Documents" },
     { id: "insurers", label: "Insurers" },
@@ -12392,7 +12391,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
         <div className="flex-1 min-w-0">
           {tab === "overview" && <PlOverviewTab c={c} />}
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
-          {tab === "summary" && <div className="space-y-3"><PlRfqSummaryCard c={c} /></div>}
           {tab === "strategy" && <div className="space-y-3"><PlCaseStrategyCard c={c} /></div>}
           {tab === "docs" && <div className="space-y-3"><PlDocumentsCard c={c} /></div>}
           {tab === "insurers" && <PlInsurersTab c={c} api={api} />}
@@ -13230,10 +13228,10 @@ function PlSection({ icon: Icon, title, badge, children }) {
   );
 }
 
-function PlRfqSummaryCard({ c }) {
+function PlRfqSummaryCard({ c, inline = false }) {
   const rfq = plActiveRfqOf(c);
-  return (
-    <PlSection icon={FileText} title="RFQ Summary">
+  const body = (
+    <>
       <div className="space-y-2">
         <PlKV k="Source" v="RM Portal - web form" />
         <PlKV k="Submitted by" v={c.client.rm} />
@@ -13246,8 +13244,10 @@ function PlRfqSummaryCard({ c }) {
           <span style={{ fontSize: 11.5, color: PL_T.ink2, fontStyle: "italic", lineHeight: 1.5 }}>“{rfq.rmNote}”</span>
         </div>
       )}
-    </PlSection>
+    </>
   );
+  if (inline) return <div className="px-3.5 py-3.5">{body}</div>;
+  return <PlSection icon={FileText} title="RFQ Summary">{body}</PlSection>;
 }
 
 function PlCaseStrategyCard({ c }) {
@@ -13380,6 +13380,24 @@ function PlDocumentsCard({ c }) {
   );
 }
 
+function PlRfqSummaryAccordion({ c }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ background: PL_T.card, borderColor: PL_T.border }}>
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-3.5 py-3 text-left">
+        <FileText size={14} style={{ color: PL_T.purpleDeep }} className="shrink-0" />
+        <span className="flex-1" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>RFQ Summary</span>
+        <ChevronDown size={14} style={{ color: PL_T.ink3, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {open && (
+        <div style={{ borderTop: `1px solid ${PL_T.border}` }}>
+          <PlRfqSummaryCard c={c} inline />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlRfqTab({ c, api }) {
   const rfq = plActiveRfqOf(c);
   const [cls, setCls] = useState(rfq.classification.confirmed || rfq.classification.suggested);
@@ -13391,6 +13409,7 @@ function PlRfqTab({ c, api }) {
 
   return (
     <div className="space-y-3">
+      <PlRfqSummaryAccordion c={c} />
       {c.rfqs.length > 1 && (
         <PlCard alt>
           <div className="flex items-center gap-3">
