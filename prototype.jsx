@@ -9716,6 +9716,48 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
 
 const PL_ME = { name: "Ananya Rao", role: "Placement Manager", initials: "AR" };
 
+/* The placement bench under Himani. Two executives so the Head view actually
+   reads with visible ownership variety; deterministic assignment keeps the
+   split stable across renders. `plExecOf(c)` is the single source. */
+const PL_EXECS = {
+  bhupendra: { key: "bhupendra", name: "Bhupendra Singh", first: "Bhupendra", avatar: "/bhupendra.webp", initials: "BS" },
+  shubh:     { key: "shubh",     name: "Shubh Patel",     first: "Shubh",     avatar: "/Shubh.webp",     initials: "SP" },
+};
+const plExecOf = (c) => {
+  const n = parseInt(String(c.id).replace(/[^0-9]/g, "") || "0", 10);
+  return n % 3 === 2 ? PL_EXECS.shubh : PL_EXECS.bhupendra;
+};
+
+/* receivedAt is stored as "25 Aug, 09:40" (year implied, past). Parse it into
+   a real Date so Ticket Age and Newest/Oldest sorts can read off wall clock.
+   If the parsed month is ahead of NOW's month the case must belong to the
+   previous year — subtract one. */
+const PL_MONTHS = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+function plParseReceived(s) {
+  if (!s) return null;
+  const m = /^\s*(\d{1,2})\s+([A-Za-z]{3})(?:,\s*(\d{1,2}):(\d{2}))?/.exec(s);
+  if (!m) return null;
+  const now = new Date();
+  const day = parseInt(m[1], 10);
+  const mon = PL_MONTHS[m[2]];
+  if (mon == null) return null;
+  const hh = m[3] ? parseInt(m[3], 10) : 10, mm = m[4] ? parseInt(m[4], 10) : 0;
+  let year = now.getFullYear();
+  const candidate = new Date(year, mon, day, hh, mm);
+  if (candidate > now) year -= 1;
+  return new Date(year, mon, day, hh, mm);
+}
+function plAgeDays(c) {
+  const d = plParseReceived(c.receivedAt);
+  if (!d) return 0;
+  const ms = Date.now() - d.getTime();
+  return Math.max(0, Math.round(ms / (24 * 60 * 60 * 1000)));
+}
+function plFmtAge(c) {
+  const d = plAgeDays(c);
+  return d === 0 ? "Today" : `${d} ${d === 1 ? "Day" : "Days"}`;
+}
+
 /* nav-key → breadcrumb label. Kept alongside PL_ME so the shell has a single
    source for the top-strip label per screen. */
 const PL_NAV_LABEL = {
@@ -10552,7 +10594,9 @@ const plStageLabel = (c) => c.outcome ? PL_OUTCOME[c.outcome.type].label : PL_ST
 /* Flex column widths for the My-Cases table - same idiom as Endorse COLS. */
 const PCOLS = {
   id: { w: 96 }, stage: { w: 150 }, type: { w: 92 }, urg: { w: 92 },
+  age: { w: 96, pl: 12 },
   client: { w: 150, pl: 8 }, product: { w: 150 }, sla: { w: 130 }, usable: { w: 66 },
+  owner: { w: 148, pl: 8 },
 };
 
 const PL_TSTAT = {
@@ -11693,7 +11737,8 @@ const PL_QTABS = [
   { id: "all", label: "All Cases" },
 ];
 
-function PlQueueScreen({ cases, onOpen }) {
+function PlQueueScreen({ cases, onOpen, user }) {
+  const isHead = plIsAdmin(user);
   const [tab, setTab] = useState("mine");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("urgency");
@@ -11736,12 +11781,9 @@ function PlQueueScreen({ cases, onOpen }) {
   const URG_RANK = { High: 0, Medium: 1, Low: 2 };
   const slaVal = (c) => { const s = plCurrentSla(c); if (!s) return Infinity; if (s.external) return 1e9; return s.remaining ?? 1e8; };
   const PL_SORTS = {
-    urgency:  { label: "Urgency",       fn: (a, b) => ((URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9)) || (slaVal(a) - slaVal(b)) },
-    sla:      { label: "Current SLA",   fn: (a, b) => slaVal(a) - slaVal(b) },
-    stage:    { label: "Stage",         fn: (a, b) => (PL_STAGE[a.stage]?.step ?? 9) - (PL_STAGE[b.stage]?.step ?? 9) },
-    id:       { label: "Case ID",       fn: (a, b) => a.id.localeCompare(b.id) },
-    client:   { label: "Client",        fn: (a, b) => a.client.name.localeCompare(b.client.name) },
-    usable:   { label: "Usable quotes", fn: (a, b) => plUsableCount(b) - plUsableCount(a) },
+    urgency: { label: "Urgency",      fn: (a, b) => ((URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9)) || (slaVal(a) - slaVal(b)) },
+    oldest:  { label: "Oldest First", fn: (a, b) => plAgeDays(b) - plAgeDays(a) },
+    newest:  { label: "Newest First", fn: (a, b) => plAgeDays(a) - plAgeDays(b) },
   };
   const sortedRows = rows.slice().sort(PL_SORTS[sort].fn);
   const filtered = fStage.size || fType.size || fUrg.size || fProduct.size;
@@ -11814,13 +11856,14 @@ function PlQueueScreen({ cases, onOpen }) {
           <span style={cell(PCOLS.urg)}>
             <HeaderFilter id="pl-urg" label="Urgency" options={URG_OPTS} selected={fUrg} setSelected={setFUrg} {...hf} />
           </span>
+          <span style={cell(PCOLS.age, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Ticket Age</span>
           <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Client</span>
           <span style={cell(PCOLS.product)}>
             <HeaderFilter id="pl-product" label="Product" options={PRODUCT_OPTS} selected={fProduct} setSelected={setFProduct} right {...hf} />
           </span>
           <span style={cell(PCOLS.sla, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Current SLA</span>
           <span style={cell(PCOLS.usable, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Usable</span>
-          <span style={dueCell}>Pending action</span>
+          {isHead && <span style={cell(PCOLS.owner, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Owner</span>}
         </div>
         {sortedRows.length ? sortedRows.map((c, i) => {
           const sla = plCurrentSla(c);
@@ -11836,20 +11879,22 @@ function PlQueueScreen({ cases, onOpen }) {
                 <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
                 <span className="flex" style={cell(PCOLS.type)}><Indicator label={c.meta.caseType} ind="neutral" /></span>
                 <span className="flex" style={cell(PCOLS.urg)}><Indicator label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} /></span>
+                <span className="bk-num truncate" style={cell(PCOLS.age, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{plFmtAge(c)}</span>
                 <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{clientShort(c)}</span>
                 <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
                 <span style={cell(PCOLS.sla)}><PlSlaCell sla={sla} /></span>
                 <span className="flex" style={cell(PCOLS.usable)}>
                   <PlUsableMeter count={uc} compact />
                 </span>
-                <span style={dueCell}>
-                  {na ? (
-                    <span className="inline-flex items-start gap-1.5">
-                      <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: PL_TONES[na.tone].fg, marginTop: 6 }} />
-                      <span style={{ fontSize: 14, fontWeight: 500, color: C.figInk, lineHeight: 1.3 }}>{na.label}</span>
+                {isHead && (() => {
+                  const ex = plExecOf(c);
+                  return (
+                    <span className="flex items-center gap-2 truncate" style={cell(PCOLS.owner)} title={ex.name}>
+                      <img src={ex.avatar} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 22, height: 22, border: `0.5px solid ${C.subtle}` }} />
+                      <span className="truncate" style={{ fontSize: 13, fontWeight: 600, color: C.figHint }}>{ex.first}</span>
                     </span>
-                  ) : <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{c.outcome ? PL_OUTCOME[c.outcome.type].label : "-"}</span>}
-                </span>
+                  );
+                })()}
               </button>
               {!last && <div style={{ height: 1, background: C.lineSoft }} />}
             </div>
@@ -16104,7 +16149,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
             </div>
             {openCase
               ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
-              : nav === "cases" ? <PlQueueScreen cases={cases} onOpen={setOpenId} />
+              : nav === "cases" ? <PlQueueScreen cases={cases} onOpen={setOpenId} user={user} />
               : nav === "manual" ? <PlManualScreen cases={cases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
               : (
                 <div className="px-6 py-6">
