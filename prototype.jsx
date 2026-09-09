@@ -10579,6 +10579,23 @@ const PL_STAGE = {
 };
 const PL_RAIL = ["RFQ", "Insurers", "Insurer Threads", "Quotes", "QCR", "RM Decision"];
 
+/* The four-phase workflow band that sits above the stage list on Overview.
+   Six phases so a placement person can read the case's arc at a glance,
+   with each PL_STAGE mapped onto exactly one. Kept alongside PL_STAGE so
+   the mapping stays a single source. */
+const PL_PHASES = ["Ticket Intake", "RFQ Verification", "Insurer Selection", "RFQ Placement", "Quote & QCR Generation", "Ticket Closure"];
+const PL_STAGE_PHASE = {
+  rfq_review:        1,
+  awaiting_rm:       1,
+  insurer_selection: 2,
+  market:            3,
+  quote_review:      4,
+  qcr_draft:         4,
+  qcr_released:      4,
+  negotiation:       4,
+  closed:            5,
+};
+
 const PL_OUTCOME = {
   quote_selected: { label: "Quote Selected", tone: "green" },
   lost: { label: "Lost - Client Not Proceeding", tone: "red" },
@@ -12206,6 +12223,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   const uc = plUsableCount(c);
 
   const TABS = [
+    { id: "overview", label: "Overview" },
     { id: "rfq", label: "RFQ" },
     { id: "summary", label: "RFQ Summary" },
     { id: "strategy", label: "Case Strategy" },
@@ -12279,7 +12297,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           </div>
         </div>
 
-        <div className="mb-2 flex justify-end"><PlStageRail stage={c.stage} outcome={c.outcome} /></div>
       </div>
       <TabBar tabs={TABS.map((t) => [t.id, t.label])} tab={tab} setTab={setTab} />
       <div className="mb-4" style={{ borderBottom: `1px solid ${PL_T.border}` }} />
@@ -12289,6 +12306,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             envs' SlaCard placement. Constant across tabs. */}
         <PlRightRail c={c} api={api} goTo={setTab} />
         <div className="flex-1 min-w-0">
+          {tab === "overview" && <PlOverviewTab c={c} />}
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
           {tab === "summary" && <div className="space-y-3"><PlRfqSummaryCard c={c} /></div>}
           {tab === "strategy" && <div className="space-y-3"><PlCaseStrategyCard c={c} /></div>}
@@ -12302,6 +12320,61 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Overview's phase strip. Reads the same PL_STAGE_PHASE mapping as the rest
+   of the workspace so it agrees with the pill rail and the stage list. */
+function PlPhaseBar({ c }) {
+  const at = c.outcome ? PL_PHASES.length - 1 : (PL_STAGE_PHASE[c.stage] ?? 0);
+  const sla = plCurrentSla(c);
+  const behind = sla && !sla.external && sla.breached;
+  return (
+    <div className="flex gap-3">
+      {PL_PHASES.map((p, i) => {
+        const done = i < at, current = i === at;
+        const tone = current ? (behind ? IND.error.dot : IND.caution.dot) : done ? IND.success.dot : C.subtle;
+        const fill = current ? 55 : done ? 100 : 0;
+        return (
+          <div key={p} className="min-w-0 flex-1">
+            <div style={{ height: 3, borderRadius: 999, background: C.subtle, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${fill}%`, borderRadius: 999, background: tone }} />
+            </div>
+            <div className="mt-2 truncate" title={p} style={{ fontSize: 13.5, fontWeight: current ? 600 : 500, color: current ? C.figInk : C.figHint }}>{p}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Overview tab body. Mirrors the BimaEndorse Overview card so a Placement
+   case reads with the same top-of-page vocabulary: a title + Ticket Age on
+   the right, the six-phase strip, then the pill rail as "Workflow Stages". */
+function PlOverviewTab({ c }) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 style={{ fontSize: 18, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Ticket Workflow</h3>
+        <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+          Ticket Age: <span className="bk-num" style={{ color: C.figInk }}>{plFmtAge(c)}</span>
+        </span>
+      </div>
+      <PlPhaseBar c={c} />
+      <section className="rounded-2xl border p-4" style={{ borderColor: PL_T.border, background: PL_T.card }}>
+        <div className="mb-3 flex items-center gap-2">
+          <ListChecks size={14} style={{ color: PL_T.orange }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: PL_T.ink }}>Workflow Stages</span>
+          <span className="rounded-md px-1.5 py-0.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}`, fontSize: 11, fontWeight: 500, color: PL_T.ink2 }}>
+            {PL_RAIL.length} stages
+          </span>
+        </div>
+        <PlStageRail stage={c.stage} outcome={c.outcome} />
+        <p className="mt-3" style={{ fontSize: 12, color: PL_T.ink3, lineHeight: 1.5 }}>
+          The pill rail is the case's position along the six placement stages, from RFQ intake through to the RM decision. The exact status chip in the header says what is happening; this says where.
+        </p>
+      </section>
     </div>
   );
 }
