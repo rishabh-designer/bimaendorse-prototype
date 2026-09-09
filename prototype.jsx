@@ -5396,10 +5396,17 @@ const LOGO_BAJAJ = "data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPS
 /* The internal tools reachable from the shared admin login. Only BimaEndorse is
    built; anything else renders an "under construction" page. Each entry drives
    its wordmark lockup (Bima + a tinted suffix) and whether an app sits behind it. */
+/* Per-env colour lockup (Figma nodes 1526:31476 / 31644 / 31731). `bg` is the
+   page ground (a subtle wash of the env accent, replacing the neutral canvas);
+   `activeBg` + `activeFg` are the highlighted nav item in that env. Sidebar
+   inherits `bg` — no separate fill, no divider. */
 const TOOLS = {
-  BimaEndorse:   { split: ["Bima", "Endorse"],   color: C.accent, built: true },
-  BimaClaim:     { split: ["Bima", "Claim"],     color: C.brand,  built: true },   /* Claim = Primary 500 (#4100CF), not Info */
-  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true },   /* Placement = Info (#1458D2) - Placement Manager Workbench */
+  BimaEndorse:   { split: ["Bima", "Endorse"],   color: C.accent, built: true,
+                   bg: "#FFF6ED", activeBg: "#FFE9D3", activeFg: C.accent },
+  BimaClaim:     { split: ["Bima", "Claim"],     color: C.brand,  built: true,   /* Claim = Primary 500 (#4100CF), not Info */
+                   bg: "#F4F1FF", activeBg: "#E8E2FF", activeFg: C.brand },
+  BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true,   /* Placement = Info (#1458D2) - Placement Manager Workbench */
+                   bg: "#EEF4FF", activeBg: "#DDE8FF", activeFg: C.link },
 };
 
 /* Presence shown as a 6px dot beside the name on the sidebar profile card
@@ -5812,9 +5819,15 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
     return () => { document.removeEventListener("mousedown", away); window.removeEventListener("resize", close); };
   }, [envOpen]);
   const row = collapsed ? "justify-center" : "gap-2";
+  /* Env-tinted active-nav lookup (Figma 1526:31476 / 31644 / 31731). Sidebar
+     itself is transparent — inherits the page-tint background from the shell,
+     no separate fill and no right divider. */
+  const toolMeta = TOOLS[tool] || {};
+  const navActiveBg = toolMeta.activeBg || C.subtle;
+  const navActiveFg = toolMeta.activeFg || C.figInk;
   return (
-    <aside className="relative flex h-full shrink-0 flex-col justify-between border-r"
-      style={{ width: collapsed ? 92 : 237, background: C.canvas, borderColor: C.lineSoft, transition: "width .2s ease-out" }}>
+    <aside className="relative flex h-full shrink-0 flex-col justify-between"
+      style={{ width: collapsed ? 92 : 237, background: "transparent", transition: "width .2s ease-out" }}>
 
       <div className={`flex min-h-0 flex-1 flex-col gap-3 overflow-hidden py-7 ${collapsed ? "items-center px-7" : "items-end pl-8 pr-3"}`}>
 
@@ -5887,8 +5900,8 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
                     style={{ ...stagger(i),
                       width: collapsed ? 36 : undefined, height: collapsed ? 36 : undefined,
                       padding: collapsed ? 0 : "6px 8px",
-                      background: on ? C.subtle : "transparent",
-                      color: off ? "rgba(169,172,177,0.48)" : on ? C.figInk : C.figHint,
+                      background: on ? navActiveBg : "transparent",
+                      color: off ? "rgba(169,172,177,0.48)" : on ? navActiveFg : C.figHint,
                       cursor: off ? "not-allowed" : "pointer" }}>
                     <span className="relative shrink-0">
                       <Icon size={collapsed ? 20 : 24} className="shrink-0" />
@@ -8993,11 +9006,12 @@ function ClaimsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const CRUMBS = ({ home: [{ label: "Home" }], list: [{ label: "My claims" }], ticket: [{ label: "My claims", onClick: toList }, { label: openId || "" }], review: [{ label: "Manual review queue" }], reports: [{ label: "Reports" }] }[view]) || [{ label: "Home" }];
 
   return (
-    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+    <div className="h-screen overflow-hidden p-3" style={{ background: TOOLS.BimaClaim.bg, color: C.ink, fontFamily: FONT }}>
       <style>{GLOBAL_CSS}</style>
-      <div className="flex h-full w-full overflow-hidden rounded-2xl border" style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+      <div className="flex h-full w-full overflow-hidden">
         <Sidebar view={view} go={go} mails={mrq} openId={openId} openTicket={openTicket} collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)} tool="BimaClaim" nav={CL_NAV} identity={identity} envs={user?.envs} onSwitchEnv={setEnv} />
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex flex-1 flex-col overflow-hidden border"
+          style={{ borderRadius: 24, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
           <div className="shrink-0 px-6 py-4">
             <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
               <TicketPager id={openId} list={pagerList} onOpen={openTicket} />
@@ -9508,10 +9522,9 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
     [tickets, scope]);
 
   return (
-    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+    <div className="h-screen overflow-hidden p-3" style={{ background: TOOLS.BimaEndorse.bg, color: C.ink, fontFamily: FONT }}>
       <style>{GLOBAL_CSS}</style>
-      <div className="flex h-full w-full overflow-hidden rounded-2xl border"
-        style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+      <div className="flex h-full w-full overflow-hidden">
 
         <Sidebar view={view} go={go} mails={mails} openId={openId} openTicket={openTicket}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
@@ -9525,7 +9538,8 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
           })}
           identity={user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined} />
 
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex flex-1 flex-col overflow-hidden border"
+          style={{ borderRadius: 24, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
           {/* Fixed top nav - the sunken breadcrumb card; 16px above and below it. */}
           <div className="shrink-0 px-6 py-4">
             <Breadcrumb segments={CRUMBS} right={view === "ticket" ? (
@@ -14796,14 +14810,14 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
     : undefined;
 
   return (
-    <div className="h-screen overflow-hidden p-3" style={{ background: C.canvas, color: C.ink, fontFamily: FONT }}>
+    <div className="h-screen overflow-hidden p-3" style={{ background: TOOLS.BimaPlacement.bg, color: C.ink, fontFamily: FONT }}>
       <style>{GLOBAL_CSS}</style>
-      <div className="relative flex h-full w-full overflow-hidden rounded-2xl border"
-        style={{ borderRadius: 20, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+      <div className="relative flex h-full w-full overflow-hidden">
         <Sidebar view={openCase ? "ticket" : navAllowed(nav) ? nav : "cases"} go={go} mails={[]} openId={openId} openTicket={(id) => setOpenId(id)}
           collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => setSearchOpen(true)}
           nav={navItems} listKey="cases" tool="BimaPlacement" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex flex-1 flex-col overflow-hidden border"
+          style={{ borderRadius: 24, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
           <div className="scroll-slim min-h-0 flex-1 overflow-y-auto pb-6">
             <div className="px-6 pt-4">
               <Breadcrumb
