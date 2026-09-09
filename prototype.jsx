@@ -13826,73 +13826,10 @@ function PlRfqTab({ c, api }) {
         </PlCard>
       )}
 
-      {/* classification */}
-      <PlCard style={rfq.classification.flagged && !rfq.classification.confirmed ? { borderColor: PL_T.orangeLine } : {}}>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Risk classification</span>
-              {rfq.classification.flagged && !rfq.classification.confirmed
-                ? <PlChip tone="orange" dot>Needs your confirmation</PlChip>
-                : <PlChip tone="green" dot>Confirmed</PlChip>}
-            </div>
-            <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
-              Classification decides which insurers are eligible. The system suggests; you decide.
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <div className="rounded-lg border p-3" style={{ borderColor: PL_T.border, background: PL_T.cardSunk }}>
-            <PlLabel>Entered by RM</PlLabel>
-            <div className="mt-1" style={{ fontSize: 12.5, fontWeight: 500 }}>{rfq.classification.rmEntered}</div>
-          </div>
-          <div className="rounded-lg border p-3" style={{ borderColor: rfq.classification.flagged ? PL_T.orangeLine : PL_T.border, background: rfq.classification.flagged ? PL_T.orangeSoft : PL_T.cardSunk }}>
-            <PlLabel>System suggests</PlLabel>
-            <div className="mt-1" style={{ fontSize: 12.5, fontWeight: 500 }}>{rfq.classification.suggested}</div>
-          </div>
-        </div>
-
-        {rfq.classification.basis.length > 0 && (
-          <div className="mt-3">
-            <PlLabel>Why the system suggests this</PlLabel>
-            <ul className="mt-1.5 space-y-1">
-              {rfq.classification.basis.map((b, i) => (
-                <li key={i} className="flex gap-2" style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45 }}>
-                  <span style={{ color: PL_T.ink3 }}>-</span>{b}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {rfq.classification.impact && (
-          <PlCallout tone="purple" className="mt-3 flex gap-2">
-            <Info size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, color: PL_T.purpleDeep, lineHeight: 1.45 }}>{rfq.classification.impact}</span>
-          </PlCallout>
-        )}
-
-        {editable && !rfq.classification.confirmed ? (
-          <div className="mt-3 flex items-end gap-2" style={{ paddingTop: 12, borderTop: `1px solid ${PL_T.border}` }}>
-            <div className="flex-1">
-              <PlLabel>Confirm classification for this case</PlLabel>
-              <div className="mt-1"><PlSelect value={cls} onChange={setCls} options={PL_CLASSES} /></div>
-            </div>
-            <PlBtn variant="primary" icon={Check}
-              onClick={() => { api.confirmClassification(c.id, cls, cls !== rfq.classification.rmEntered); api.say("Classification confirmed and logged"); }}>
-              Confirm classification
-            </PlBtn>
-          </div>
-        ) : rfq.classification.confirmed ? (
-          <div className="mt-3 flex items-center gap-2" style={{ paddingTop: 12, borderTop: `1px solid ${PL_T.border}` }}>
-            <Check size={13} color={PL_T.green} />
-            <span style={{ fontSize: 12.5, color: PL_T.ink }}>Confirmed as <b style={{ fontWeight: 600 }}>{rfq.classification.confirmed}</b></span>
-            {rfq.classification.confirmed !== rfq.classification.rmEntered &&
-              <PlChip tone="orange" size="xs">Corrected from RM entry</PlChip>}
-          </div>
-        ) : null}
-      </PlCard>
+      {/* Risk classification card intentionally suppressed across BimaPlacement
+          per product ask (2026-09-10). Model state stays intact — the
+          classification is still confirmed in the seed and read by the RFQ
+          gate logic; only the surface is gone. */}
 
       {/* product sections */}
       {rfq.sections.map((s) => (
