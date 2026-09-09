@@ -12398,8 +12398,11 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
         })()}
 
 
+        {/* Ikkat divider matches BimaEndorse's ticket-detail rhythm — sits
+            between the case header and the tab bar. */}
+        <div className="bk-rule my-5" aria-hidden />
       </div>
-      <TabBar tabs={TABS.map((t) => [t.id, t.label])} tab={tab} setTab={setTab} />
+      <TabBar tabs={TABS.map((t) => [t.id, t.label, false, na?.tab === t.id])} tab={tab} setTab={setTab} />
       <div className="mb-4" style={{ borderBottom: `1px solid ${PL_T.border}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
