@@ -41,6 +41,9 @@ const C = {
   figDisabled: "rgba(169,172,177,0.48)",
   /* label/semantic - the countdown colours in Stage due */
   semError: "#CF0000", semCaution: "#B38F0A",
+  /* Overlay tint behind every modal and drawer, brand-neutral so it reads
+     identically across Endorse and Placement. Routed via C.scrim / PL_T.scrim. */
+  scrim: "rgba(28,29,31,0.45)",
 };
 
 /* ------------------------------------------------------------------ *
@@ -11328,6 +11331,7 @@ const PL_T = {
   blue: C.link, blueSoft: "#E8F1FA", blueLine: "#C3DAF0",
   amber: "#8A6D1F", amberSoft: "#FDF6DC", amberLine: "#EFE0A8",
   navActive: C.brandBg, navSelected: C.brandBg, navHover: C.canvas, navLine: C.lineSoft,
+  scrim: C.scrim,
 };
 
 const PL_TONES = {
@@ -11342,7 +11346,7 @@ const PL_TONES = {
 
 /* ---------------------------------- primitives --------------------------------- */
 
-function PlChip({ tone = "neutral", children, dot = false, mono = false, size = "sm", dashed = false }) {
+function PlChip({ tone = "neutral", children, dot = false, mono = false, size = "sm", dashed = false, leading = null }) {
   const c = PL_TONES[tone] || PL_TONES.neutral;
   return (
     <span
@@ -11354,6 +11358,7 @@ function PlChip({ tone = "neutral", children, dot = false, mono = false, size = 
         fontFamily: mono ? PL_MONO : FONT, letterSpacing: mono ? 0.2 : 0,
       }}
     >
+      {leading}
       {dot && <span className="rounded-full" style={{ width: 6, height: 6, background: c.fg }} />}
       {children}
     </span>
@@ -11362,8 +11367,20 @@ function PlChip({ tone = "neutral", children, dot = false, mono = false, size = 
 
 /* A small round avatar. Falls back to an initial-in-a-tinted-circle when no
    photo is on file — matches the Figma header stack (1536:31841). */
-function PlAvatar({ src, name, size = 22, tone = "neutral" }) {
+function PlAvatar({ src, name, size = 22, tone = "neutral", icon: IconEl }) {
   const border = `0.5px solid ${PL_T.border}`;
+  /* Icon variant — tone-filled circle with a lucide glyph in white. Used for
+     non-human owners (Insurer, System) where a monogram would misrepresent
+     the actor. Overrides `src`/`name`. */
+  if (IconEl) {
+    const bgTone = ({ purple: PL_T.purple, blue: PL_T.blue, green: PL_T.green, orange: PL_T.orange, red: PL_T.red }[tone]) || PL_T.purple;
+    return (
+      <span className="inline-flex items-center justify-center rounded-full shrink-0" title={name}
+        style={{ width: size, height: size, background: bgTone, verticalAlign: "middle" }}>
+        <IconEl size={Math.round(size * 0.6)} color="#fff" />
+      </span>
+    );
+  }
   if (src) {
     return (
       <img src={src} alt="" title={name}
@@ -11430,6 +11447,18 @@ function PlBtn({ variant = "default", size = "md", onClick, disabled, children, 
     >
       {Icon && <Icon size={size === "sm" ? 12 : 13.5} strokeWidth={2.1} />}
       {children}
+    </button>
+  );
+}
+
+/* 28×28 bordered icon button — extracted from the drawer/modal close pattern
+   so every close X across Placement shares one hit target and border style. */
+function PlIconBtn({ icon: Icon, onClick, title, size = 28 }) {
+  return (
+    <button onClick={onClick} title={title} type="button"
+      className="pl-focus inline-flex items-center justify-center rounded-lg border shrink-0"
+      style={{ width: size, height: size, borderColor: PL_T.border, background: PL_T.card, color: PL_T.ink3, cursor: "pointer" }}>
+      <Icon size={size >= 24 ? 14 : 12} />
     </button>
   );
 }
@@ -12390,12 +12419,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
                   {c.id === "PC-1026" && (
-                    <span className="inline-flex items-center gap-1 rounded-full"
-                      style={{ padding: "3px 8px", background: "#FFF6ED", border: "0.5px solid #FFD2A8",
-                        fontSize: 11.5, fontWeight: 500, color: "#FF7700" }}>
-                      <IconStarCheck size={12} color="#FF7700" />
+                    <PlChip tone="orange" leading={<IconStarCheck size={11} color={PL_T.orange} />}>
                       Exclusive Mandate
-                    </span>
+                    </PlChip>
                   )}
                   <Indicator big status size={16}
                     ind={PL_STATUS_IND[statusTone] || "info"}
@@ -12499,20 +12525,7 @@ function PlInsuranceContactTab({ c, api, sub, setSub, goTo }) {
     <div className="space-y-5">
       <PlTabHeader title="Insurance Contact"
         meta={`${c.threads.length} ${c.threads.length === 1 ? "thread" : "threads"} · ${plUsableCount(c)} usable`} />
-      <div className="flex items-center gap-2">
-        {subs.map((s) => {
-          const on = sub === s.id;
-          return (
-            <button key={s.id} onClick={() => setSub(s.id)}
-              className={`rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
-              style={{ padding: "6px 12px", border: `0.5px solid ${on ? PL_T.purple : PL_T.border}`,
-                background: on ? PL_T.purple : PL_T.card, color: on ? "#fff" : PL_T.ink2,
-                fontSize: 13, fontWeight: 550, cursor: "pointer" }}>
-              {s.label}
-            </button>
-          );
-        })}
-      </div>
+      <PlSubTabs items={subs} value={sub} onChange={setSub} />
       {sub === "insurers" && <PlInsurersTab c={c} api={api} />}
       {sub === "market"   && <PlMarketTab   c={c} api={api} goTo={goTo} />}
     </div>
@@ -12559,6 +12572,31 @@ function PlTabHeader({ title, meta }) {
   );
 }
 
+/* Sub-tab pill row that sits directly under PlTabHeader on tabs that split
+   into multiple sub-views (Insurance Contact = Insurer + Insurer Threads).
+   Two states: on = brand fill, off = ghost with border. Centralised so the
+   next tab that needs sub-views picks the same shape without hand-rolling. */
+function PlSubTabs({ items, value, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      {items.map((it) => {
+        const on = value === it.id;
+        return (
+          <button key={it.id} type="button" onClick={() => onChange(it.id)}
+            className="pl-focus rounded-full leading-none transition-colors"
+            style={{ padding: "6px 12px",
+              border: `1px solid ${on ? PL_T.purple : PL_T.border}`,
+              background: on ? PL_T.purple : PL_T.card,
+              color: on ? "#fff" : PL_T.ink2,
+              fontSize: 12.5, fontWeight: 550, cursor: "pointer" }}>
+            {it.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /* Overview tab body (Figma 1536:35308). Mirrors the BimaEndorse Overview
    card: Ticket Workflow title on the left, Ticket Age on the right, the
    six-phase bar underneath, and a Workflow Stages accordion whose rows
@@ -12584,9 +12622,7 @@ function PlOverviewTab({ c }) {
         <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
           <ListChecks size={14} style={{ color: PL_T.orange }} className="shrink-0" />
           <span style={{ fontSize: 13.5, fontWeight: 600, color: PL_T.ink }}>Workflow Stages</span>
-          <span className="rounded-md px-1.5 py-0.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}`, fontSize: 11, fontWeight: 500, color: PL_T.ink2 }}>
-            {PL_WORKFLOW_ROWS.length} stages
-          </span>
+          <PlChip size="xs">{PL_WORKFLOW_ROWS.length} stages</PlChip>
           <span className="flex-1" />
           {open ? <X size={14} style={{ color: PL_T.ink3 }} /> : <ChevronDown size={14} style={{ color: PL_T.ink3 }} />}
         </button>
@@ -12730,10 +12766,7 @@ function PlTicketStageTimeline({ c }) {
         {sla && (
           <span className="flex items-center gap-1.5" title={`${sla.id} - ${sla.target}`}>
             {isInsurerOwner ? (
-              <span className="flex shrink-0 items-center justify-center rounded-full"
-                style={{ width: 20, height: 20, background: PL_T.purple, color: "#fff" }}>
-                <IconShieldPlus size={12} color="#fff" />
-              </span>
+              <PlAvatar tone="purple" icon={IconShieldPlus} name="Insurer" size={20} />
             ) : isRmOwner ? (
               <PlAvatar name={c.client.rm} tone="blue" size={20} />
             ) : (
@@ -13168,34 +13201,32 @@ function PlRightRail({ c, api, goTo }) {
           logo below. Shows only when the mandate was raised in-session
           (byAvatar set); seeded mandates render only via PlCaseStrategyCard. */}
       {c.meta?.mandate?.byAvatar && !c.outcome && (
-        <div style={{
-          background: "linear-gradient(180deg, #FFFFFF 50%, #FFF6ED 100%)",
-          border: "0.5px solid #FFD2A8",
+        <PlCard style={{
+          background: `linear-gradient(180deg, ${C.white} 50%, ${PL_T.orangeSoft} 100%)`,
+          borderColor: PL_T.orangeLine,
           borderRadius: 16,
           padding: "14px 16px",
         }}>
           <div className="flex items-center justify-between" style={{ height: 20 }}>
-            <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: "#6F7378", lineHeight: "14.4px" }}>
-              <IconStarCheck size={12} color="#FF7700" />
+            <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: "14.4px" }}>
+              <IconStarCheck size={12} color={PL_T.orange} />
               Update
             </span>
             <span className="flex items-center" style={{ gap: 6 }}>
-              <span className="overflow-hidden rounded-full shrink-0" style={{ width: 20, height: 20, background: "#1C1D1F" }}>
-                <img src={c.meta.mandate.byAvatar} alt="" className="block object-cover" style={{ width: "100%", height: "100%" }} />
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "#1C1D1F", lineHeight: "18px" }}>{c.meta.mandate.by}</span>
+              <PlAvatar src={c.meta.mandate.byAvatar} name={c.meta.mandate.by} size={20} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink, lineHeight: "18px" }}>{c.meta.mandate.by}</span>
             </span>
           </div>
           <div style={{ paddingTop: 4 }}>
-            <div style={{ fontSize: 18, fontWeight: 600, lineHeight: "21.6px", color: "#FF7700" }}>Exclusive Mandate Available</div>
+            <div style={{ fontSize: 18, fontWeight: 600, lineHeight: "21.6px", color: PL_T.orange }}>Exclusive Mandate Available</div>
           </div>
           <div className="flex flex-col" style={{ paddingTop: 8, gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#6F7378", lineHeight: 1 }}>Preferred Insurer:</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1 }}>Preferred Insurer:</span>
             {c.meta.mandate.preferredInsurerId === "bajaj"
               ? <img src={LOGO_BAJAJ} alt="Bajaj Allianz" style={{ height: 24, width: 51.333, display: "block" }} />
               : <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[c.meta.mandate.preferredInsurerId]?.name || "-"}</span>}
           </div>
-        </div>
+        </PlCard>
       )}
 
       {c.outcome && (
