@@ -12458,7 +12458,8 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "overview" && <PlOverviewTab c={c} />}
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
           {tab === "strategy" && (
-            <div className="flex min-h-full flex-col gap-4">
+            <div className="flex min-h-full flex-col gap-5">
+              <PlTabHeader title="Client 360" meta="Syncing" />
               <div className="flex flex-col items-center justify-center rounded-2xl border p-10 text-center"
                 style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white, minHeight: 320 }}>
                 <span className="flex items-center justify-center rounded-full" style={{ width: 44, height: 44, background: C.brandBg, color: C.brand }}>
@@ -12473,7 +12474,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
               </div>
             </div>
           )}
-          {tab === "docs" && <div className="space-y-3"><PlDocumentsCard c={c} /></div>}
+          {tab === "docs" && <PlDocumentsTab c={c} />}
           {tab === "contact" && <PlInsuranceContactTab c={c} api={api} sub={contactSub} setSub={setContactSub} goTo={setTabRouted} />}
           {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
           {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTabRouted} />}
@@ -12496,12 +12497,8 @@ function PlInsuranceContactTab({ c, api, sub, setSub, goTo }) {
   ];
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 style={{ fontSize: 20, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Insurance Contact</h3>
-        <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
-          {c.threads.length} {c.threads.length === 1 ? "thread" : "threads"} · {plUsableCount(c)} usable
-        </span>
-      </div>
+      <PlTabHeader title="Insurance Contact"
+        meta={`${c.threads.length} ${c.threads.length === 1 ? "thread" : "threads"} · ${plUsableCount(c)} usable`} />
       <div className="flex items-center gap-2">
         {subs.map((s) => {
           const on = sub === s.id;
@@ -12547,6 +12544,21 @@ function PlPhaseBar({ c }) {
   );
 }
 
+/* Shared tab title header — every case-workspace tab renders one right under
+   the tab bar so BimaPlacement matches BimaEndorse's rhythm. `title` reads
+   as the tab's page title; `meta` sits on the right (counts, versions,
+   etc.). Kept as a helper so a redesign only touches one place. */
+function PlTabHeader({ title, meta }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h3 style={{ fontSize: 20, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>{title}</h3>
+      {meta != null && (
+        <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{meta}</span>
+      )}
+    </div>
+  );
+}
+
 /* Overview tab body (Figma 1536:35308). Mirrors the BimaEndorse Overview
    card: Ticket Workflow title on the left, Ticket Age on the right, the
    six-phase bar underneath, and a Workflow Stages accordion whose rows
@@ -12563,12 +12575,8 @@ function PlOverviewTab({ c }) {
   const actorTone = (actor) => actor === "BimaKavach" ? "purple" : actor === "Insurer" ? "blue" : actor === "RM" ? "green" : "neutral";
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 style={{ fontSize: 20, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Ticket Workflow</h3>
-        <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
-          Ticket Age: <span className="bk-num" style={{ color: C.figInk, fontWeight: 600 }}>{plFmtAge(c)}</span>
-        </span>
-      </div>
+      <PlTabHeader title="Ticket Workflow"
+        meta={<>Ticket Age: <span className="bk-num" style={{ color: C.figInk, fontWeight: 600 }}>{plFmtAge(c)}</span></>} />
 
       <PlPhaseBar c={c} />
 
@@ -13952,6 +13960,20 @@ function PlCaseStrategyCard({ c }) {
   );
 }
 
+/* Tab wrapper — renders the shared header, then the internal Documents card. */
+function PlDocumentsTab({ c }) {
+  const internalN = 2 + c.products.length;
+  const externalN = (c.quotes || []).length + (c.qcrs || []).length;
+  const total = internalN + externalN;
+  return (
+    <div className="space-y-5">
+      <PlTabHeader title="Documents"
+        meta={`${total} ${total === 1 ? "document" : "documents"} · ${internalN} internal · ${externalN} external`} />
+      <PlDocumentsCard c={c} />
+    </div>
+  );
+}
+
 function PlDocumentsCard({ c }) {
   const [tab, setTab] = useState("internal");
 
@@ -14060,9 +14082,11 @@ function PlRfqTab({ c, api }) {
      Auto-treat the classification as confirmed for the validation gate —
      the only remaining precondition is that all material gaps are closed. */
   const canValidate = unresolvedMaterial.length === 0 && c.stage === "rfq_review";
+  const rfqMeta = `V${c.activeRfq} of ${c.rfqs.length} · ${rfq.sections.length} ${rfq.sections.length === 1 ? "product" : "products"}`;
 
   return (
     <div className="space-y-3">
+      <PlTabHeader title="Request for Quotation" meta={rfqMeta} />
       <PlRfqSummaryAccordion c={c} />
       {c.rfqs.length > 1 && (
         <PlCard alt>
@@ -14858,10 +14882,19 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
 function PlQuotesTab({ c, api }) {
   const all = c.quotes.filter((q) => q.rfqV === c.activeRfq);
   const [sel, setSel] = useState(all.find((q) => !q.decision)?.id || all[0]?.id || null);
+  const usable = all.filter((x) => x.decision === "usable").length;
+  const quotesMeta = all.length === 0
+    ? "No quotes yet"
+    : `${all.length} ${all.length === 1 ? "quote" : "quotes"} on RFQ V${c.activeRfq} · ${usable} usable`;
 
   if (all.length === 0)
-    return <PlEmpty icon={FileText} title="No quotes yet"
-      body="Quotes appear here as insurers respond. Each one needs your decision before it can count toward the QCR threshold." />;
+    return (
+      <div className="space-y-5">
+        <PlTabHeader title="Quotes" meta={quotesMeta} />
+        <PlEmpty icon={FileText} title="No quotes yet"
+          body="Quotes appear here as insurers respond. Each one needs your decision before it can count toward the QCR threshold." />
+      </div>
+    );
 
   const q = all.find((x) => x.id === sel) || all[0];
   const byInsurer = c.panel.selected.filter((id) => all.some((x) => x.insurerId === id));
@@ -14876,7 +14909,8 @@ function PlQuotesTab({ c, api }) {
   });
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <PlTabHeader title="Quotes" meta={quotesMeta} />
 
       {/* insurer-quote tabs - one pill per quote, segmented and scrollable */}
       <div className="flex flex-wrap items-center gap-1.5">
@@ -15161,9 +15195,13 @@ function PlQcrTab({ c, api, goTo }) {
   const [send, setSend] = useState(false);
   const [outcome, setOutcome] = useState(null);
   const lateQuotes = plLiveQuotes(c).filter((q) => !q.decision && released && q.receivedAt >= (released.releasedAt || ""));
+  const qcrMeta = released ? `V${released.v} released to RM`
+    : draft ? `V${draft.v} draft · awaiting release`
+    : `${plUsableCount(c)} of ${PL_THRESHOLD} usable quotes`;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <PlTabHeader title="Quote Comparison Report" meta={qcrMeta} />
       {/* progress toward threshold */}
       {!draft && !released && (
         <PlCard>
@@ -15911,10 +15949,13 @@ function PlMailTab({ c }) {
       </span>
     );
   };
+  const totalMails = threads.reduce((n, t) => n + t.mails.length, 0);
   return (
     <div className="space-y-4">
+      <PlTabHeader title="Mail Trail"
+        meta={`${totalMails} ${totalMails === 1 ? "message" : "messages"} · ${threads.length} threads`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 style={{ fontSize: 18, fontWeight: 600, color: PL_T.ink, letterSpacing: -0.2 }}>Mail Trail</h3>
+        <span />
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {threads.map((t) => (
             <button key={t.key} type="button" onClick={() => setActive(t.key)} title={t.short}
@@ -15976,10 +16017,14 @@ function PlActivityTab({ c }) {
   const [f, setF] = useState("all");
   const kinds = [["all", "Everything"], ["PM", "You"], ["Insurer", "Insurers"], ["RM", "RM"], ["System", "System"]];
   const rows = [...c.audit].reverse().filter((a) => f === "all" || a.actorType === f);
+  const total = (c.audit || []).length;
   return (
-    <PlCard pad={false}>
+    <div className="space-y-4">
+      <PlTabHeader title="Ticket History"
+        meta={`${total} ${total === 1 ? "event" : "events"}`} />
+      <PlCard pad={false}>
       <div className="flex items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-        <PlLabel>Ticket History</PlLabel>
+        <PlLabel>Filter</PlLabel>
         <span className="flex-1" />
         {kinds.map(([id, label]) => (
           <button key={id} onClick={() => setF(id)} className="rounded-lg px-2.5 py-1 border"
@@ -16000,7 +16045,8 @@ function PlActivityTab({ c }) {
           <PlChip size="xs">{a.actor}</PlChip>
         </div>
       ))}
-    </PlCard>
+      </PlCard>
+    </div>
   );
 }
 
