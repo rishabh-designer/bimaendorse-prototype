@@ -9722,11 +9722,28 @@ const PL_ME = { name: "Ananya Rao", role: "Placement Manager", initials: "AR" };
 const PL_EXECS = {
   bhupendra: { key: "bhupendra", name: "Bhupendra Singh", first: "Bhupendra", avatar: "/bhupendra.webp", initials: "BS" },
   shubh:     { key: "shubh",     name: "Shubh Patel",     first: "Shubh",     avatar: "/Shubh.webp",     initials: "SP" },
+  himani:    { key: "himani",    name: "Himani",          first: "Himani",    avatar: "/himani.webp",    initials: "H"  },
 };
+/* Three cases are permanently escalated to the Placement Head (Himani): their
+   internal SLA has run out and the ladder is exhausted. See PL_CASE_META for
+   the seeded breach clocks and each case's audit trail for the handover event. */
+const PL_HEAD_ESCALATED_IDS = new Set(["PC-1024", "PC-1028", "PC-1029"]);
 const plExecOf = (c) => {
+  if (PL_HEAD_ESCALATED_IDS.has(c.id)) return PL_EXECS.himani;
   const n = parseInt(String(c.id).replace(/[^0-9]/g, "") || "0", 10);
   return n % 3 === 2 ? PL_EXECS.shubh : PL_EXECS.bhupendra;
 };
+
+/* Scope-aware visibility for the Placement pool. The executive never sees
+   Himani-owned (escalated) cases anywhere in the app; Himani in the "Me"
+   scope sees only her escalated cases; Himani in "Team" sees the full pool.
+   Layered on top of any screen's own tab / filter logic. */
+function plVisibleCases(cases, user, scope) {
+  const isHimani = user?.first === "Himani" || user?.role === "Placement Head";
+  if (!isHimani) return cases.filter((c) => plExecOf(c).key !== "himani");
+  if (scope === "mine") return cases.filter((c) => plExecOf(c).key === "himani");
+  return cases;
+}
 
 /* receivedAt is stored as "25 Aug, 09:40" (year implied, past). Parse it into
    a real Date so Ticket Age and Newest/Oldest sorts can read off wall clock.
@@ -9988,6 +10005,9 @@ const PL_SEED = [
       plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
       plAu("25 Aug, 09:41", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
       plAu("25 Aug, 09:41", "System", "System", "Classification flagged for review", "RM entry differs from suggested classification"),
+      plAu("27 Aug, 15:20", "System", "System", "SLA breached", "RFQ classification still unconfirmed · material gaps unresolved"),
+      plAu("28 Aug, 10:00", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
+      plAu("28 Aug, 10:00", "System", "System", "Escalated to Placement Head", "SLA-P1 ladder exhausted · owner reassigned to Himani (Placement Head)"),
     ],
   },
 
@@ -10261,6 +10281,9 @@ const PL_SEED_C = [
       plAu("21 Aug, 16:31", "System", "System", "Draft QCR V1 generated", "3 quotes included"),
       plAu("22 Aug, 10:15", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Priya Nair · version locked"),
       plAu("25 Aug, 11:20", "Universal Sompo", "Insurer", "Quote received after QCR release", "Not included in QCR V1"),
+      plAu("29 Aug, 12:15", "System", "System", "SLA breached", "QCR V2 decision pending on the late Universal Sompo quote"),
+      plAu("30 Aug, 09:30", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
+      plAu("30 Aug, 09:30", "System", "System", "Escalated to Placement Head", "SLA-P1 ladder exhausted · owner reassigned to Himani (Placement Head)"),
     ],
   },
 
@@ -10311,6 +10334,9 @@ const PL_SEED_C = [
       plAu("22 Aug, 14:30", "HDFC ERGO", "Insurer", "Revised quote received", "v2 · co-pay removed, premium reduced"),
       plAu("23 Aug, 09:40", "Ananya Rao", "PM", "Negotiation round 1 closed", "1 improved · 1 declined"),
       plAu("25 Aug, 11:00", "Ananya Rao", "PM", "Negotiation round 2 opened", "2 insurer asks"),
+      plAu("29 Aug, 14:40", "System", "System", "SLA breached", "Negotiation round 2 open · no insurer response chased in over 96 Hrs."),
+      plAu("30 Aug, 11:15", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
+      plAu("30 Aug, 11:15", "System", "System", "Escalated to Placement Head", "SLA-P1 ladder exhausted · owner reassigned to Himani (Placement Head)"),
     ],
   },
 
@@ -10539,7 +10565,7 @@ const PL_SEED_C = [
 /* Case type, mandates and Target Premium (decision support only).
    Small/Big renewal banding is deliberately out of scope for this prototype. */
 const PL_CASE_META = {
-  "PC-1024": { slaLeftMins: 47, caseType: "Renewal", urgency: "Medium", targetPremium: 7800000, mandate: null, incumbent: "Star Health" },
+  "PC-1024": { slaLeftMins: -420, caseType: "Renewal", urgency: "Medium", targetPremium: 7800000, mandate: null, incumbent: "Star Health" },
   "PC-1025": { slaLeftMins: 96, caseType: "Fresh", urgency: "Medium", targetPremium: 4200000, mandate: null, incumbent: null },
   /* PC-1026: hard-coded Exclusive Mandate demo case. The RM (Aman Kulkarni)
      has raised an Exclusive Placement Mandate with Bajaj as preferred
@@ -10553,8 +10579,8 @@ const PL_CASE_META = {
       by: "Aman Kulkarni", byAvatar: AVATAR_SHUBH, preferredInsurerId: "bajaj", at: "16 Aug, 09:00" },
     incumbent: "New India" },
   "PC-1027": { slaLeftMins: 92, caseType: "Renewal", urgency: "Medium", targetPremium: 11500000, mandate: null, incumbent: "HDFC Ergo" },
-  "PC-1028": { slaLeftMins: 1240, caseType: "Rollover", urgency: "Medium", targetPremium: 2400000, mandate: { type: "Incumbent Approach Mandate", ref: "MND-1028-A", note: "Client authority on file to approach the incumbent." }, incumbent: "Universal Sompo" },
-  "PC-1029": { slaLeftMins: 74, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
+  "PC-1028": { slaLeftMins: -600, caseType: "Rollover", urgency: "Medium", targetPremium: 2400000, mandate: { type: "Incumbent Approach Mandate", ref: "MND-1028-A", note: "Client authority on file to approach the incumbent." }, incumbent: "Universal Sompo" },
+  "PC-1029": { slaLeftMins: -240, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
   "PC-1030": { slaLeftMins: null, caseType: "Fresh", urgency: "High", targetPremium: 1800000, mandate: null, incumbent: null },
   "PC-1032": { slaLeftMins: 55, caseType: "Fresh", urgency: "Medium", targetPremium: 2900000, mandate: null, incumbent: null },
   "PC-1033": { slaLeftMins: 48, caseType: "Fresh", urgency: "Medium", targetPremium: 450000, mandate: null, incumbent: null },
@@ -12045,11 +12071,15 @@ function PlSlaCell({ sla, wide = false }) {
 /* Home - mirrors the sister environments: a greeting, a desk of count-cards that
    route into My Cases, and a progress dashboard. Every number is read live off
    the case model (SLA state) - no invented placement intelligence. */
-function PlHomeScreen({ cases, onOpen, setNav, user }) {
+function PlHomeScreen({ cases, onOpen, setNav, user, scope, setScope }) {
   const [range, setRange] = useState("Last Week");
   const isHead = plIsAdmin(user);
-  const [scope, setScope] = useState(isHead ? "team" : "mine");
-  const active = cases.filter((c) => c.stage !== "closed");
+  /* Home receives the raw pool + scope from PlacementApp; the visible slice
+     (Bhupendra never sees escalated, Himani's Me only sees escalated) is
+     derived here so desk counts + Escalated to You read off the same list
+     as the queue. */
+  const visible = plVisibleCases(cases, user, scope);
+  const active = visible.filter((c) => c.stage !== "closed");
   const slaOf = (c) => plCurrentSla(c);
 
   /* Five desk buckets, all case counts, each routing into My Cases. Sequence
@@ -12105,8 +12135,8 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
   /* Multi-mandate: clients who raised more than one RFQ (typically driven by a
      requirement change mid-flight). Faster QCR: releases sent below the usual
      3-quote threshold, using the early-release exception path. */
-  const multiRfq = cases.filter((c) => (c.rfqs?.length || 0) > 1).length;
-  const earlyQcrs = cases.reduce(
+  const multiRfq = visible.filter((c) => (c.rfqs?.length || 0) > 1).length;
+  const earlyQcrs = visible.reduce(
     (n, c) => n + (c.qcrs || []).filter((q) => q.status === "released" && q.earlyRelease && (q.earlyRelease.count ?? 3) < 3).length,
     0,
   );
@@ -12121,7 +12151,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
       count: active.length,
       closure: { value: `${onTrack}/${active.length}`, status: closureStatus, score: closureScore, sub: overdue.length ? `${overdue.length} overdue right now` : "None overdue - on top of it", subTone: overdue.length ? C.semCaution : green },
       turn: { value: `${Math.round(medUsed * 100)}%`, status: turnStatus, score: turnScore, sub: `${Math.round(medUsed * 100)}% of the current SLA target used (median)`, subTone: turnStatus === "Poor" ? C.semCaution : green },
-      multi: { value: `${multiRfq}/${cases.length}`, sub: `${multiRfq} of ${cases.length} clients raised more than one RFQ` },
+      multi: { value: `${multiRfq}/${visible.length}`, sub: `${multiRfq} of ${visible.length} clients raised more than one RFQ` },
       early: { value: `${earlyQcrs}`, sub: `${earlyQcrs} QCR${earlyQcrs === 1 ? "" : "s"} sent below the 3-quote threshold` },
       segments,
     },
@@ -12156,8 +12186,11 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
   /* Escalated to You — mirrors the BimaEndorse Head view. In Placement the
      nearest analog to a stage-reminder ladder is a breached Placement-owned
      SLA: an internal clock that has actually run out on the executive's desk.
-     External waits (insurer / RM) never count against the desk, per H4. */
-  const escalated = isHead && scope === "team"
+     External waits (insurer / RM) never count against the desk, per H4.
+     Shown for Himani in both scopes: on Team it's the whole desk's breaches,
+     on Me it's the same three cases her queue already lists — reads as a
+     head's escalation summary rather than a duplicate. */
+  const escalated = isHead
     ? active
         .map((c) => ({ c, s: slaOf(c) }))
         .filter((x) => x.s && !x.s.external && x.s.breached)
@@ -12181,7 +12214,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
         </div>
       </div>
 
-      {isHead && scope === "team" && (
+      {isHead && (
         <>
           <div style={{ height: 1, background: C.subtle }} aria-hidden />
           <div>
@@ -12201,6 +12234,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
                 const overBy = Math.max(0, -(s?.remaining ?? 0));
                 const hrs = overBy >= 60 ? `${Math.round(overBy / 60)} Hrs. over` : `${overBy} Mins. over`;
                 const days = overBy >= 60 * 24 ? `${Math.round(overBy / (60 * 24))} Days over` : hrs;
+                const ownerName = plExecOf(c).name;
                 return (
                   <button key={c.id} onClick={() => onOpen && onOpen(c.id)}
                     className="bk-item flex w-full items-center gap-3 px-3 py-3 text-left"
@@ -12210,9 +12244,9 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
                         <span className="bk-num" style={{ fontSize: 13, fontWeight: 700, color: C.figInk }}>{c.id}</span>
                         <Indicator label="Escalated" ind="error" outline />
                       </span>
-                      <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{s?.label || s?.id} · {c.meta?.client || c.client}</span>
+                      <span className="truncate" style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>{s?.label || s?.id} · {c.client?.name || c.id}</span>
                     </span>
-                    <span className="hidden w-32 shrink-0 md:block truncate" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Bhupendra Singh</span>
+                    <span className="hidden w-32 shrink-0 md:block truncate" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{ownerName}</span>
                     <span className="hidden w-28 shrink-0 sm:flex">
                       <Indicator label={owe} ind={owe === "Insurer" ? "caution" : owe === "RM / Client" ? "info" : "brand"} outline />
                     </span>
@@ -16711,6 +16745,13 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   /* Executive never lands on an admin-only screen even via a stale nav key. */
   const navAllowed = (n) => navItems.some((x) => x[0] === n);
 
+  /* Scope lives at the app level so the Home switcher, the queue, the search
+     modal and every other screen filter off the same pool. Himani lands on
+     Team by default; an executive has no switcher, so scope is fixed. */
+  const isHead = plIsAdmin(user);
+  const [scope, setScope] = useState(isHead ? "team" : "mine");
+  const visibleCases = useMemo(() => plVisibleCases(cases, user, scope), [cases, user, scope]);
+
   const say = (msg, tone = "green") => { setToast({ msg, tone }); setTimeout(() => setToast(null), 3400); };
   const api = useMemo(() => makePlacementApi(setCases, say), []);   // stable across renders
 
@@ -16736,19 +16777,19 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
                 segments={openCase
                   ? [{ label: "My Cases", onClick: () => { setOpenId(null); setOpenTab(null); } }, { label: openCase.id }]
                   : [{ label: PL_NAV_LABEL[nav] || "Home" }]}
-                right={openCase && <TicketPager id={openCase.id} list={cases.filter((c) => c.stage !== "closed" || c.id === openCase.id)} onOpen={setOpenId} />}
+                right={openCase && <TicketPager id={openCase.id} list={visibleCases.filter((c) => c.stage !== "closed" || c.id === openCase.id)} onOpen={setOpenId} />}
               />
             </div>
             {openCase
               ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
-              : nav === "cases" ? <PlQueueScreen cases={cases} onOpen={setOpenId} user={user} />
-              : nav === "manual" ? <PlManualScreen cases={cases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
+              : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} />
+              : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
               : (
                 <div className="px-6 py-6">
-                  {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} user={user} />
-                    : nav === "inbox" ? <PlInboxScreen cases={cases} onOpen={openCaseAt} />
+                  {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} user={user} scope={scope} setScope={setScope} />
+                    : nav === "inbox" ? <PlInboxScreen cases={visibleCases} onOpen={openCaseAt} />
                       : (nav === "master" && navAllowed("master")) ? <PlMasterScreen role={role} />
-                        : <PlReportsScreen cases={cases} />}
+                        : <PlReportsScreen cases={visibleCases} />}
                 </div>
               )}
           </div>
@@ -16766,7 +16807,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
       </div>
 
       <PlSearchModal open={searchOpen} onClose={() => setSearchOpen(false)}
-        cases={cases} onOpen={(id) => { setSearchOpen(false); openCaseAt(id); }} />
+        cases={visibleCases} onOpen={(id) => { setSearchOpen(false); openCaseAt(id); }} />
     </div>
   );
 }
