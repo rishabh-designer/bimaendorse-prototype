@@ -2372,7 +2372,7 @@ const COLS = {
   req:    { w: 250 },
   team:   { w: 110, pl: 8 },
 };
-const cell = (c, extra) => ({ width: c.w, flex: "0 1 auto", minWidth: 0,
+const cell = (c, extra) => ({ width: c.w, flex: c.grow ? `1 1 ${c.w}px` : "0 1 auto", minWidth: 0,
   paddingLeft: c.pl, paddingRight: c.pr, ...extra });
 const dueCell = { flex: "1 1 0", minWidth: 130 };
 
@@ -10628,7 +10628,7 @@ const plStageLabel = (c) => c.outcome ? PL_OUTCOME[c.outcome.type].label : PL_ST
 const PCOLS = {
   id: { w: 96 }, stage: { w: 150 }, type: { w: 92 }, urg: { w: 92 },
   age: { w: 96, pl: 12 },
-  client: { w: 150, pl: 8 }, product: { w: 150 }, sla: { w: 130 }, usable: { w: 66 },
+  client: { w: 160, pl: 8, grow: true }, product: { w: 180, grow: true }, sla: { w: 130 }, usable: { w: 66 },
   owner: { w: 148, pl: 8 },
 };
 
