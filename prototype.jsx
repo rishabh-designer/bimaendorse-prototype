@@ -11830,7 +11830,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
   const isHead = plIsAdmin(user);
   const [tab, setTab] = useState("mine");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState("urgency");
+  const [sort, setSort] = useState("oldest");
   const [openKey, setOpenKey] = useState(null);
   const [fStage, setFStage] = useState(new Set());
   const [fType, setFType] = useState(new Set());
@@ -11870,9 +11870,8 @@ function PlQueueScreen({ cases, onOpen, user }) {
   const URG_RANK = { High: 0, Medium: 1, Low: 2 };
   const slaVal = (c) => { const s = plCurrentSla(c); if (!s) return Infinity; if (s.external) return 1e9; return s.remaining ?? 1e8; };
   const PL_SORTS = {
-    urgency: { label: "Urgency",      fn: (a, b) => ((URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9)) || (slaVal(a) - slaVal(b)) },
-    oldest:  { label: "Oldest First", fn: (a, b) => plAgeDays(b) - plAgeDays(a) },
-    newest:  { label: "Newest First", fn: (a, b) => plAgeDays(a) - plAgeDays(b) },
+    oldest: { label: "Oldest First", fn: (a, b) => plAgeDays(b) - plAgeDays(a) },
+    newest: { label: "Newest First", fn: (a, b) => plAgeDays(a) - plAgeDays(b) },
   };
   const sortedRows = rows.slice().sort(PL_SORTS[sort].fn);
   const filtered = fStage.size || fType.size || fUrg.size || fProduct.size;
@@ -12327,7 +12326,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                     </span>
                   )}
                   <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
-                  {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
+                  {/* Priority chips intentionally suppressed across BimaPlacement per product ask (2026-09-10). */}
                 </div>
                 {/* Row 2: the four people on the case, inline with icons + avatars. */}
                 <div className="mt-3 flex items-center gap-x-6 gap-y-2 flex-wrap" style={{ fontSize: 14, color: PL_T.ink2, fontWeight: 500 }}>
@@ -13614,7 +13613,6 @@ function PlCaseStrategyCard({ c }) {
       badge={m.mandate ? <PlChip size="xs" tone="green">Mandate</PlChip> : null}>
       <div className="grid grid-cols-2 gap-2.5">
         <PlSlot k="Case type" v={m.caseType} />
-        <PlSlot k="Urgency" v={m.urgency} tone={m.urgency === "High" ? "orange" : undefined} />
       </div>
 
       <div className="mt-3 pt-3 space-y-2" style={{ borderTop: `1px solid ${PL_T.border}` }}>
@@ -15804,7 +15802,6 @@ function PlSearchCard({ c, q, onOpen }) {
       <div className="mt-2 truncate" style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink }}><Highlight text={product} q={q} /></div>
       <div className="mt-2 flex flex-wrap items-center gap-1">
         <PlChip>{c.meta.caseType}</PlChip>
-        <PlChip tone={c.meta.urgency === "High" ? "orange" : "neutral"}>{c.meta.urgency}</PlChip>
       </div>
       <div className="mt-4 flex items-center gap-1">
         <Clock size={14} className="shrink-0" style={{ color: PL_T.ink3 }} />
