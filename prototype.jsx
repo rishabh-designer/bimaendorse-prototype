@@ -15933,7 +15933,7 @@ const plNavFor = (u) => [
   ["home", "Home", HeartHandshake],
   ["cases", "My Cases", ListChecks],
   ["manual", "Manual Review", SquareDashedMousePointer],
-  ...(plIsAdmin(u) ? [["master", "Insurer Master", Building2]] : []),
+  ["master", "Insurer Master", Building2],
   ["reports", "Reports", TextSearch],
 ];
 
@@ -16760,7 +16760,10 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [openId, setOpenId] = useState(null);
   const [openTab, setOpenTab] = useState(null);
   const [reviewDone, setReviewDone] = useState({});
-  const [role, setRole] = useState("Placement Manager");
+  /* Role drives the Insurer Master's read/write affordance:
+     - Himani (Placement Head) → editable
+     - Bhupendra + everyone else → read-only view */
+  const [role, setRole] = useState(plIsAdmin(user) ? "Placement Head" : "Placement Manager");
   const [toast, setToast] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const navItems = useMemo(() => plNavFor(user), [user]);
