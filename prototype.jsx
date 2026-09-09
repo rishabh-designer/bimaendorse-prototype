@@ -5491,6 +5491,7 @@ const PORTAL_USERS = {
   "bhupendra.solanki@bimakavach.com": {
     name: "Bhupendra Singh", first: "Bhupendra", role: "Placement Executive",
     avatar: "/bhupendra.webp", envs: ["BimaPlacement"],
+    greeting: "નમસ્તે, ભૂપેન્દ્ર",
   },
   "himani@bimakavach.com": {
     name: "Himani", first: "Himani", role: "Placement Head",
