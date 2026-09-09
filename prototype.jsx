@@ -12377,6 +12377,12 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                     <PlAvatar src={pm.avatar} name={pmName} size={22} />
                     <span>Placement Manager: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{pmName}</b></span>
                   </span>
+                  {c.meta?.targetPremium != null && (
+                    <span className="inline-flex items-center gap-2">
+                      <IconBanknoteCheck size={16} color={PL_T.ink} />
+                      <span>Target Premium: <b style={{ color: PL_T.ink, fontWeight: 600, fontFamily: PL_MONO }}>{plInrL(c.meta.targetPremium)}</b></span>
+                    </span>
+                  )}
                 </div>
               </div>
               {/* Right cluster: caseType pill + participant stack, above Contact RM. */}
@@ -12391,33 +12397,6 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           );
         })()}
 
-        <div className="rounded-2xl mb-4 flex items-stretch"
-          style={{ background: PL_T.strip, border: `1px solid ${PL_T.stripLine}` }}>
-          <div className="px-4 py-3" style={{ width: 210 }}>
-            <PlLabel>Current SLA</PlLabel>
-            {sla ? (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink, marginTop: 2 }}>{sla.short}</div>
-                <div className="mt-0.5"><PlSlaCell sla={sla} wide /></div>
-                <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 2 }}>Owner: {sla.owner} · {sla.target}</div>
-              </>
-            ) : <div style={{ fontSize: 13, fontWeight: 650, color: PL_T.ink3, marginTop: 2 }}>Stopped</div>}
-          </div>
-          <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 160 }}>
-            <PlLabel>Usable quotes</PlLabel>
-            <div className="mt-1.5"><PlUsableMeter count={uc} /></div>
-          </div>
-          <div className="px-4 py-3" style={{ borderLeft: `1px solid ${PL_T.stripLine}`, width: 150 }}>
-            <PlLabel>Insurers approached</PlLabel>
-            <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>{c.threads.length}</div>
-          </div>
-          <div className="px-4 py-3 flex-1" style={{ borderLeft: `1px solid ${PL_T.stripLine}` }}>
-            <PlLabel>Target premium</PlLabel>
-            <div style={{ fontSize: 18, fontWeight: 650, color: PL_T.ink, fontFamily: PL_MONO, marginTop: 2 }}>
-              {c.meta.targetPremium ? plInrL(c.meta.targetPremium) : "-"}
-            </div>
-          </div>
-        </div>
 
       </div>
       <TabBar tabs={TABS.map((t) => [t.id, t.label])} tab={tab} setTab={setTab} />
@@ -12712,6 +12691,20 @@ function PlTicketStageTimeline({ c }) {
    ships here). Inlined verbatim from lucide.dev/icons/star-check so the
    Exclusive Mandate badge on PC-1026 uses the exact glyph the design asks
    for — a five-pointed star wrapped around a tick. */
+function IconBanknoteCheck({ size = 16, color = "currentColor", strokeWidth = 2, style, ...rest }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+      style={style} {...rest}>
+      <path d="M13 18H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7" />
+      <path d="M18 12a2 2 0 0 0-2 2v.5" />
+      <path d="M6 12h.01" />
+      <circle cx="9" cy="11" r="2" />
+      <path d="m16 19 2 2 4-4" />
+    </svg>
+  );
+}
+
 function IconStarCheck({ size = 12, color = "#FF7700", strokeWidth = 2, style, ...rest }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
@@ -14678,16 +14671,6 @@ function PlQuotesTab({ c, api }) {
 
   return (
     <div className="space-y-3">
-      {/* case-level usable meter + one-liner - kept out of the tab row so the
-          rule is visible even when the active quote's card is scrolled */}
-      <PlCard alt>
-        <div className="flex items-center gap-3">
-          <PlUsableMeter count={plUsableCount(c)} />
-          <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.45 }} className="flex-1 min-w-0">
-            A quote counts only once you mark it usable, and only one quote per insurer counts. Revisions replace, they do not add.
-          </div>
-        </div>
-      </PlCard>
 
       {/* insurer-quote tabs - one pill per quote, segmented and scrollable */}
       <div className="flex flex-wrap items-center gap-1.5">
