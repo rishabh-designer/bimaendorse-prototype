@@ -11960,7 +11960,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
               <button onClick={() => onOpen(c.id)} className="bk-item pl-row-hover flex w-full items-center rounded-xl px-2 py-3 text-left" style={stagger(i)}>
                 <span className="bk-num truncate inline-flex items-center gap-1" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
                   {c.id}
-                  {c.id === "PC-1026" && <BadgeCheck size={12} style={{ color: PL_T.purple }} aria-label="Exclusive Mandate" />}
+                  {c.id === "PC-1026" && <IconStarCheck size={12} color="#FF7700" aria-label="Exclusive Mandate" />}
                   {c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
                 </span>
                 <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
@@ -12320,9 +12320,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
                   {c.id === "PC-1026" && (
                     <span className="inline-flex items-center gap-1 rounded-full"
-                      style={{ padding: "3px 8px", background: PL_T.purpleSoft, border: `0.5px solid ${PL_T.purpleLine}`,
-                        fontSize: 11.5, fontWeight: 500, color: PL_T.purple }}>
-                      <BadgeCheck size={12} />
+                      style={{ padding: "3px 8px", background: "#FFF6ED", border: "0.5px solid #FFD2A8",
+                        fontSize: 11.5, fontWeight: 500, color: "#FF7700" }}>
+                      <IconStarCheck size={12} color="#FF7700" />
                       Exclusive Mandate
                     </span>
                   )}
@@ -12664,6 +12664,21 @@ function PlTicketStageTimeline({ c }) {
    and, on the next line, "You take the Action". Bottom-right CTA opens a
    drawer inside a scrim lightbox. The card is compact enough to sit
    comfortably between Next Action and the Simulate block. */
+/* lucide's `StarCheck` icon (added in v0.510+; not present in v0.469 that
+   ships here). Inlined verbatim from lucide.dev/icons/star-check so the
+   Exclusive Mandate badge on PC-1026 uses the exact glyph the design asks
+   for — a five-pointed star wrapped around a tick. */
+function IconStarCheck({ size = 12, color = "#FF7700", strokeWidth = 2, style, ...rest }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+      style={style} {...rest}>
+      <path d="M8.34 17.13 5 20l1.87-6.86A2 2 0 0 0 6.18 11L2 8.55l6.4-.55a2 2 0 0 0 1.68-1.13L12 2l1.92 4.87A2 2 0 0 0 15.6 8l6.4.55-4.18 2.44a2 2 0 0 0-.69 2.14L18.35 18" />
+      <path d="m14 17 2 2 4-4" />
+    </svg>
+  );
+}
+
 function PlBimaNetraCard({ c }) {
   const [open, setOpen] = useState(false);
   return (
@@ -13026,7 +13041,10 @@ function PlRightRail({ c, api, goTo }) {
           padding: "14px 16px",
         }}>
           <div className="flex items-center justify-between" style={{ height: 20 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#6F7378", lineHeight: "14.4px" }}>Update</span>
+            <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: "#6F7378", lineHeight: "14.4px" }}>
+              <IconStarCheck size={12} color="#FF7700" />
+              Update
+            </span>
             <span className="flex items-center" style={{ gap: 6 }}>
               <span className="overflow-hidden rounded-full shrink-0" style={{ width: 20, height: 20, background: "#1C1D1F" }}>
                 <img src={c.meta.mandate.byAvatar} alt="" className="block object-cover" style={{ width: "100%", height: "100%" }} />
