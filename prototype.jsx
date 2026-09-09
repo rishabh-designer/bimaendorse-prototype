@@ -11932,9 +11932,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
           <span style={cell(PCOLS.type)}>
             <HeaderFilter id="pl-type" label="Type" options={TYPE_OPTS} selected={fType} setSelected={setFType} {...hf} />
           </span>
-          <span style={cell(PCOLS.urg)}>
-            <HeaderFilter id="pl-urg" label="Urgency" options={URG_OPTS} selected={fUrg} setSelected={setFUrg} {...hf} />
-          </span>
           <span style={cell(PCOLS.age, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Ticket Age</span>
           <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Client</span>
           <span style={cell(PCOLS.product)}>
@@ -11957,7 +11954,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
                 </span>
                 <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
                 <span className="flex" style={cell(PCOLS.type)}><Indicator label={c.meta.caseType} ind="neutral" /></span>
-                <span className="flex" style={cell(PCOLS.urg)}><Indicator label={c.meta.urgency} ind={c.meta.urgency === "High" ? "caution" : "neutral"} /></span>
                 <span className="bk-num truncate" style={cell(PCOLS.age, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{plFmtAge(c)}</span>
                 <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{clientShort(c)}</span>
                 <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
