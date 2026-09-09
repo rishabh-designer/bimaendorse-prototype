@@ -1313,6 +1313,8 @@ const MenuCard = ({ children, right, wide, up }) => {
     boxShadow: "0 2px 16px rgba(169,172,177,0.24)",
     position: "fixed",
     zIndex: 1000,
+    fontFamily: FONT,   /* portaled to document.body → outside the app shell's font wrapper, so re-declare */
+    color: C.figInk,
   };
   if (rect) {
     const vw = window.innerWidth;
