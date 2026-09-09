@@ -10584,6 +10584,22 @@ const PL_RAIL = ["RFQ", "Insurers", "Insurer Threads", "Quotes", "QCR", "RM Deci
    with each PL_STAGE mapped onto exactly one. Kept alongside PL_STAGE so
    the mapping stays a single source. */
 const PL_PHASES = ["Ticket Intake", "RFQ Verification", "Insurer Selection", "RFQ Placement", "Quote & QCR Generation", "Ticket Closure"];
+
+/* Fictitious SLA rows for the Overview → Workflow Stages accordion. Each row
+   is one placement stage rendered in the same layout BimaEndorse uses: label
+   on the left, actor chip in the middle, duration on the right, a checkbox
+   that flips to done / in-progress / next based on the current stage step.
+   `step` maps to PL_STAGE.step so the row status can be derived. */
+const PL_WORKFLOW_ROWS = [
+  { key: "created",    label: "Case created",             step: -1, actor: "system",     sla: 5,  unit: "Min" },
+  { key: "rfq",        label: "RFQ under verification",   step: 0,  actor: "BimaKavach", sla: 4,  unit: "BH"  },
+  { key: "insurers",   label: "Insurers selected",        step: 1,  actor: "BimaKavach", sla: 1,  unit: "BH"  },
+  { key: "market",     label: "RFQ floated to insurers",  step: 2,  actor: "Insurer",    sla: 3,  unit: "WD"  },
+  { key: "quotes",     label: "Quotes reviewed",          step: 3,  actor: "BimaKavach", sla: 1,  unit: "BH"  },
+  { key: "qcr",        label: "QCR released to RM",       step: 4,  actor: "BimaKavach", sla: 15, unit: "Min" },
+  { key: "decision",   label: "RM decision",              step: 5,  actor: "RM",         sla: 2,  unit: "BH"  },
+  { key: "closed",     label: "Case closed",              step: 6,  actor: "system",     sla: 15, unit: "Min" },
+];
 const PL_STAGE_PHASE = {
   rfq_review:        1,
   awaiting_rm:       1,
@@ -12417,31 +12433,93 @@ function PlPhaseBar({ c }) {
   );
 }
 
-/* Overview tab body. Mirrors the BimaEndorse Overview card so a Placement
-   case reads with the same top-of-page vocabulary: a title + Ticket Age on
-   the right, the six-phase strip, then the pill rail as "Workflow Stages". */
+/* Overview tab body (Figma 1536:35308). Mirrors the BimaEndorse Overview
+   card: Ticket Workflow title on the left, Ticket Age on the right, the
+   six-phase bar underneath, and a Workflow Stages accordion whose rows
+   render one placement stage each with the fictitious SLA from
+   PL_WORKFLOW_ROWS. */
 function PlOverviewTab({ c }) {
+  const [open, setOpen] = useState(true);
+  const currentStep = c.outcome ? 6 : (PL_STAGE[c.stage]?.step ?? 0);
+  const rows = PL_WORKFLOW_ROWS.map((r) => {
+    const done = r.step < currentStep;
+    const now = r.step === currentStep;
+    return { ...r, done, now };
+  });
+  const actorTone = (actor) => actor === "BimaKavach" ? "purple" : actor === "Insurer" ? "blue" : actor === "RM" ? "green" : "neutral";
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
-        <h3 style={{ fontSize: 18, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Ticket Workflow</h3>
+        <h3 style={{ fontSize: 20, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Ticket Workflow</h3>
         <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
-          Ticket Age: <span className="bk-num" style={{ color: C.figInk }}>{plFmtAge(c)}</span>
+          Ticket Age: <span className="bk-num" style={{ color: C.figInk, fontWeight: 600 }}>{plFmtAge(c)}</span>
         </span>
       </div>
+
       <PlPhaseBar c={c} />
-      <section className="rounded-2xl border p-4" style={{ borderColor: PL_T.border, background: PL_T.card }}>
-        <div className="mb-3 flex items-center gap-2">
-          <ListChecks size={14} style={{ color: PL_T.orange }} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: PL_T.ink }}>Workflow Stages</span>
+
+      <section className="rounded-2xl border overflow-hidden" style={{ borderColor: PL_T.border, background: PL_T.card }}>
+        <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
+          <ListChecks size={14} style={{ color: PL_T.orange }} className="shrink-0" />
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: PL_T.ink }}>Workflow Stages</span>
           <span className="rounded-md px-1.5 py-0.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}`, fontSize: 11, fontWeight: 500, color: PL_T.ink2 }}>
-            {PL_RAIL.length} stages
+            {PL_WORKFLOW_ROWS.length} stages
           </span>
-        </div>
-        <PlStageRail stage={c.stage} outcome={c.outcome} />
-        <p className="mt-3" style={{ fontSize: 12, color: PL_T.ink3, lineHeight: 1.5 }}>
-          The pill rail is the case's position along the six placement stages, from RFQ intake through to the RM decision. The exact status chip in the header says what is happening; this says where.
-        </p>
+          <span className="flex-1" />
+          {open ? <X size={14} style={{ color: PL_T.ink3 }} /> : <ChevronDown size={14} style={{ color: PL_T.ink3 }} />}
+        </button>
+        {open && (
+          <div className="px-3 pb-3 pt-1" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+            <div className="relative pt-3">
+              {rows.map((r, i) => {
+                const bg = r.done ? PL_T.cardSunk : r.now ? PL_T.purpleSoft : PL_T.card;
+                const border = r.done ? PL_T.border : r.now ? PL_T.purpleLine : PL_T.border;
+                const labelColor = PL_T.ink;
+                return (
+                  <div key={r.key} className="relative flex items-center gap-3" style={{ paddingBottom: i === rows.length - 1 ? 0 : 12 }}>
+                    {/* Left mini-badge */}
+                    <div className="relative shrink-0">
+                      <div className="flex items-center justify-center rounded-lg border"
+                        style={{ width: 26, height: 26, borderWidth: 0.5,
+                          borderColor: r.now ? PL_T.purpleLine : PL_T.border,
+                          background: r.now ? PL_T.purpleSoft : PL_T.cardSunk }}>
+                        {r.done
+                          ? <CheckCircle2 size={12} style={{ color: PL_T.purple }} />
+                          : r.now
+                            ? <span className="rounded-full" style={{ width: 8, height: 8, background: PL_T.purple }} />
+                            : <span className="rounded-full" style={{ width: 8, height: 8, background: PL_T.ink3, opacity: 0.35 }} />}
+                      </div>
+                      {i !== rows.length - 1 && (
+                        <span className="absolute left-1/2" style={{ top: 30, height: 12, width: 0, borderLeft: `1px dashed ${PL_T.border}`, transform: "translateX(-0.5px)" }} />
+                      )}
+                    </div>
+                    {/* Row body */}
+                    <div className="flex flex-1 min-w-0 items-center justify-between gap-3 rounded-lg border" style={{ padding: "10px 12px", background: bg, borderColor: border, borderWidth: 0.5 }}>
+                      <span className="truncate" style={{ fontSize: 14, fontWeight: r.now ? 600 : 500, color: labelColor, textDecoration: r.done ? "line-through" : "none" }}>{r.label}</span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <PlChip tone={actorTone(r.actor)} size="xs">{r.actor}</PlChip>
+                        <span className="inline-flex items-center gap-1.5">
+                          {r.now && <span style={{ fontSize: 11, fontWeight: 600, color: PL_T.purple, letterSpacing: 0.4 }}>LIVE</span>}
+                          <span className="rounded-full" style={{ width: 3, height: 3, background: r.now ? PL_T.purple : PL_T.ink3 }} />
+                          <span className="bk-num" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3 }}>{r.sla} {r.unit}</span>
+                        </span>
+                        <span className="flex items-center justify-center rounded" style={{ width: 16, height: 16, borderWidth: 0.5, borderStyle: "solid",
+                          borderColor: r.done || r.now ? PL_T.purple : PL_T.border,
+                          background: r.done ? PL_T.purple : r.now ? PL_T.purple : PL_T.card }}>
+                          {r.done && <Check size={11} strokeWidth={3} style={{ color: "#fff" }} />}
+                          {r.now && !r.done && <Minus size={11} strokeWidth={3} style={{ color: "#fff" }} />}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 px-1" style={{ fontSize: 12, color: PL_T.ink3, lineHeight: 1.5 }}>
+              The middle chip is the actor owning each stage; the right figure is the fictitious SLA target (BH = business hours, WD = working days, Min = minutes). A tick means the stage has closed; a dash means it is live now.
+            </p>
+          </div>
+        )}
       </section>
     </div>
   );
