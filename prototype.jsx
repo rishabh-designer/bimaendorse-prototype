@@ -9713,7 +9713,17 @@ const PL_CONTACTS = {
   oriental: { branch: "Delhi - RO 2", status: "Do Not Float", primary: "B. K. Saxena", alternates: ["B. K. Saxena"], senior: "R. P. Gupta" },
   united: { branch: "Chennai - RO", status: "Active", primary: "P. Ravi Kumar", alternates: ["P. Ravi Kumar", "Anitha Rajan"], senior: "T. S. Narayanan" },
 };
-const plPocOf = (c, id) => (c.pocs && c.pocs[id]) || PL_CONTACTS[id].primary;
+/* Every consumer historically read a single POC per (case, insurer). The
+   picker is now multi-select, so storage is an array. plPocOf keeps its
+   old contract (the first / primary name) for display sites that just
+   want one; plPocsOf returns the whole selection. */
+const plPocsOf = (c, id) => {
+  const raw = c.pocs && c.pocs[id];
+  if (Array.isArray(raw) && raw.length) return raw;
+  if (typeof raw === "string" && raw) return [raw];
+  return [PL_CONTACTS[id].primary];
+};
+const plPocOf = (c, id) => plPocsOf(c, id)[0];
 /* Per-case branch model - see plan for PC-1034. `insurerBranches` names every
    branch this case is authorised to route to; `branchPicks` records the PM's
    selection. Both keys are optional; when absent the tab falls back to the
@@ -10801,10 +10811,14 @@ function makePlacementApi(setCases, say = () => {}) {
       if (c.panel.locked) {
         out = {
           ...out, stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
-          threads: [...c.threads, {
-            insurerId, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
-            events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk - market added after initial float`)], clarifications: [],
-          }],
+          threads: [
+            ...c.threads,
+            ...plPocsOf(c, insurerId).map((poc) => ({
+              insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
+              events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name} — market added after initial float`)],
+              clarifications: [],
+            })),
+          ],
           rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: "Approached another insurer" } : c.rmMoreQuotes,
         };
         out = withLog(out, PL_ME.name, "PM", "Additional insurer approached", `${PL_INSURERS[insurerId].name} · new independent thread on RFQ V${c.activeRfq}`);
@@ -10813,19 +10827,30 @@ function makePlacementApi(setCases, say = () => {}) {
     }),
 
     floatRfq: (id) => patch(id, (c) => {
-      const threads = c.panel.selected.map((insurerId) => ({
-        insurerId, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false,
-        followUps: 0, followUpsActive: true,
-        events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to underwriting desk`)], clarifications: [],
-      }));
+      /* One thread per (insurer × selected POC). Two POCs at ICICI ⇒ two
+         independent ICICI threads, each targeting a different underwriter,
+         so downstream quotes come back in parallel. */
+      const threads = c.panel.selected.flatMap((insurerId) => {
+        const pocs = plPocsOf(c, insurerId);
+        return pocs.map((poc) => ({
+          insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false,
+          followUps: 0, followUpsActive: true,
+          events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name}`)],
+          clarifications: [],
+        }));
+      });
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : { ...r, status: "floated", floatedAt: plStamp() });
       return withLog({ ...c, threads, rfqs, panel: { ...c.panel, locked: true }, stage: "market" },
         PL_ME.name, "PM", `RFQ V${c.activeRfq} floated`, `${threads.length} independent insurer threads created`);
     }),
 
-    setPoc: (id, insurerId, poc) => patch(id, (c) => withLog(
-      { ...c, pocs: { ...(c.pocs || {}), [insurerId]: poc } },
-      PL_ME.name, "PM", "Insurer contact changed", `${PL_INSURERS[insurerId].name} → ${poc}`)),
+    setPoc: (id, insurerId, poc) => patch(id, (c) => {
+      const arr = Array.isArray(poc) ? poc : (poc ? [poc] : []);
+      const detail = arr.length ? `${PL_INSURERS[insurerId].name} → ${arr.join(", ")}` : PL_INSURERS[insurerId].name;
+      return withLog(
+        { ...c, pocs: { ...(c.pocs || {}), [insurerId]: arr } },
+        PL_ME.name, "PM", "Insurer contact changed", detail);
+    }),
 
     setBranch: (id, insurerId, branch) => patch(id, (c) => withLog(
       { ...c, branchPicks: { ...(c.branchPicks || {}), [insurerId]: branch } },
@@ -11424,6 +11449,56 @@ function PlSelect({ value, onChange, options }) {
    list and the native <select> chrome reads as out-of-language. Options accept
    plain strings or { value, label } objects; the empty string is treated as
    the placeholder and omitted from the menu. */
+/* Multi-select variant of PlMenuPicker — same open-and-tick pattern but
+   the value is an array. Trigger shows a comma-joined summary or "n
+   selected" once we're past three. Used for cases where more than one
+   choice is valid at the same time (e.g., a case can float to multiple
+   POCs at the same insurer). Options accept plain strings or
+   { value, label } objects. */
+function PlMultiPicker({ value, options, placeholder = "Select", onChange, width = 200, disabled = false, right = false }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (!e.target.closest("[data-plmenu]")) setOpen(false); };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [open]);
+  const norm = options
+    .map((o) => (typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value }))
+    .filter((o) => o.value !== "" && o.value != null);
+  const set = new Set(value || []);
+  const toggle = (v) => {
+    const next = new Set(set);
+    next.has(v) ? next.delete(v) : next.add(v);
+    onChange([...next]);
+  };
+  const summary = !set.size ? placeholder
+    : set.size <= 2 ? [...set].join(", ")
+    : `${set.size} selected`;
+  return (
+    <div className="relative" data-plmenu style={{ width }}>
+      <button type="button" onClick={() => !disabled && setOpen((v) => !v)} disabled={disabled}
+        className="pl-focus flex w-full items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 transition-colors outline-none"
+        style={{ borderColor: open ? PL_T.purple : PL_T.borderStrong,
+          background: disabled ? PL_T.cardSunk : PL_T.card,
+          fontSize: 12.5, color: set.size ? PL_T.ink : PL_T.ink3, fontWeight: set.size ? 550 : 500,
+          cursor: disabled ? "not-allowed" : "pointer" }}>
+        <span className="truncate text-left">{summary}</span>
+        <ChevronDown size={13} color={PL_T.ink3}
+          style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", flexShrink: 0 }} />
+      </button>
+      {open && (
+        <MenuCard right={right}>
+          {norm.map((o) => (
+            <MenuOpt key={o.value} label={o.label} on={set.has(o.value)}
+              onClick={() => toggle(o.value)} />
+          ))}
+        </MenuCard>
+      )}
+    </div>
+  );
+}
+
 function PlMenuPicker({ value, options, placeholder = "Select", onChange, width = 200, disabled = false, right = false }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -13278,7 +13353,8 @@ function PlInsurersTab({ c, api }) {
               <div className="shrink-0" style={{ width: 168 }}>
                 <PlLabel>Primary POC</PlLabel>
                 <div className="mt-1">
-                  <PlSelect value={plPocOf(c, r.id)} onChange={(v) => api.setPoc(c.id, r.id, v)} options={PL_CONTACTS[r.id].alternates} />
+                  <PlMultiPicker value={plPocsOf(c, r.id)} onChange={(v) => api.setPoc(c.id, r.id, v)}
+                    options={PL_CONTACTS[r.id].alternates} width={168} />
                 </div>
                 {(c.insurerBranches?.[r.id]?.length || 0) > 1
                   ? <div className="mt-1"><PlMenuPicker value={plBranchOf(c, r.id)} onChange={(v) => api.setBranch(c.id, r.id, v)} options={c.insurerBranches[r.id]} width={168} right /></div>
@@ -13300,7 +13376,8 @@ function PlInsurersTab({ c, api }) {
             <div className="shrink-0" style={{ width: 168 }}>
               <PlLabel>Primary POC</PlLabel>
               <div className="mt-1">
-                <PlSelect value={plPocOf(c, id)} onChange={(v) => api.setPoc(c.id, id, v)} options={PL_CONTACTS[id].alternates} />
+                <PlMultiPicker value={plPocsOf(c, id)} onChange={(v) => api.setPoc(c.id, id, v)}
+                  options={PL_CONTACTS[id].alternates} width={168} />
               </div>
               {(c.insurerBranches?.[id]?.length || 0) > 1
                 ? <div className="mt-1"><PlMenuPicker value={plBranchOf(c, id)} onChange={(v) => api.setBranch(c.id, id, v)} options={c.insurerBranches[id]} width={168} right /></div>
@@ -14762,21 +14839,36 @@ function PlMailTab({ c }) {
   /* Union of everyone we've named on this case — the ongoing insurer
      threads AND the shortlist Salvi selected on the panel (even if we
      haven't floated to them yet, so the pill shows with a 0 count). */
-  const threadedIds = (c.threads || []).map((t) => t.insurerId);
-  const selectedIds = (c.panel?.selected || []).filter((id) => !threadedIds.includes(id));
-  const allInsurerIds = [...threadedIds, ...selectedIds];
+  /* One pill per (insurer × POC). A case can float to more than one POC
+     at the same insurer, so we key each thread by "<insurerId>::<poc>";
+     labels append the POC's first name to keep sibling pills apart. Cases
+     Salvi has shortlisted on the panel but hasn't floated to still get
+     placeholder pills with a 0 count — one per selected POC. */
+  const insurerThreadPills = (c.threads || []).map((t) => {
+    const ins = PL_INSURERS[t.insurerId];
+    const poc = t.poc || plPocOf(c, t.insurerId);
+    return {
+      key: `${t.insurerId}::${poc}`,
+      label: `${(ins?.name || t.insurerId).split(" ")[0]}${poc ? ` · ${poc.split(" ")[0]}` : ""}`,
+      short: `${ins?.name || t.insurerId}${poc ? ` — ${poc}` : ""}`,
+      mails: plMailsForThread(c, t),
+    };
+  });
+  const threadedIds = new Set((c.threads || []).map((t) => t.insurerId));
+  const shortlistOnly = (c.panel?.selected || []).filter((id) => !threadedIds.has(id));
+  const shortlistPills = shortlistOnly.flatMap((insurerId) => {
+    const ins = PL_INSURERS[insurerId];
+    return plPocsOf(c, insurerId).map((poc) => ({
+      key: `${insurerId}::${poc}`,
+      label: `${(ins?.name || insurerId).split(" ")[0]}${poc ? ` · ${poc.split(" ")[0]}` : ""}`,
+      short: `${ins?.name || insurerId}${poc ? ` — ${poc}` : ""}`,
+      mails: [],
+    }));
+  });
   const threads = [
     { key: "rm", label: "RM", short: "RM · RFQ & QCR", mails: plMailsForThread(c, { events: rfqEvents }) },
-    ...allInsurerIds.map((insurerId) => {
-      const ins = PL_INSURERS[insurerId];
-      const t = (c.threads || []).find((x) => x.insurerId === insurerId) || { events: [], insurerId };
-      return {
-        key: insurerId,
-        label: (ins?.name || insurerId).split(" ")[0],
-        short: ins?.name || insurerId,
-        mails: plMailsForThread(c, t),
-      };
-    }),
+    ...insurerThreadPills,
+    ...shortlistPills,
   ];
   const activeThread = threads.find((t) => t.key === active) || threads[0];
   const query = q.trim().toLowerCase();
