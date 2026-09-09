@@ -11938,7 +11938,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
             <HeaderFilter id="pl-product" label="Product" options={PRODUCT_OPTS} selected={fProduct} setSelected={setFProduct} right {...hf} />
           </span>
           <span style={cell(PCOLS.sla, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Current SLA</span>
-          <span style={cell(PCOLS.usable, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Usable</span>
           {isHead && <span style={cell(PCOLS.owner, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Owner</span>}
         </div>
         {sortedRows.length ? sortedRows.map((c, i) => {
@@ -11958,9 +11957,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
                 <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{clientShort(c)}</span>
                 <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
                 <span style={cell(PCOLS.sla)}><PlSlaCell sla={sla} /></span>
-                <span className="flex" style={cell(PCOLS.usable)}>
-                  <PlUsableMeter count={uc} compact />
-                </span>
                 {isHead && (() => {
                   const ex = plExecOf(c);
                   return (
