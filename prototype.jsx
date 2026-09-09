@@ -11956,7 +11956,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
                 <span className="bk-num truncate" style={cell(PCOLS.age, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{plFmtAge(c)}</span>
                 <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 500, color: "#1C1C1C" })}>{clientShort(c)}</span>
                 <span className="truncate" style={cell(PCOLS.product, { fontSize: 14, fontWeight: 500, color: C.figInk })}>{productLabel(c)}</span>
-                <span style={cell(PCOLS.sla)}><PlSlaCell sla={sla} /></span>
+                <span style={cell(PCOLS.sla)}><PlStageDue sla={sla} /></span>
                 {isHead && (() => {
                   const ex = plExecOf(c);
                   return (
@@ -11982,6 +11982,31 @@ function PlQueueScreen({ cases, onOpen, user }) {
 
 /* One SLA, the one attached to what the case is waiting on. External owners are
    shown as "awaiting", never as a Placement breach. */
+/* Queue "Current SLA" cell — mirrors BimaEndorse StageDue: number + unit +
+   "left" / "over", colour ramp by state, plain 14/500 (no icon, no mono).
+   External waits still read as "On hold" so a case waiting on the RM or an
+   insurer never looks like a Placement breach (contract H4). Closed / no
+   clock reads "Closed" in muted ink. */
+function plFmtDurMins(mins) {
+  const a = Math.abs(Math.round(mins || 0));
+  const hours = a / 60;
+  return fmtDur(hours);
+}
+function PlStageDue({ sla }) {
+  const base = { fontSize: 14, fontWeight: 500 };
+  if (!sla)         return <span style={{ ...base, color: C.figHint }}>Closed</span>;
+  if (sla.external) return <span className="bk-num" style={{ ...base, color: C.figHint }}>On hold</span>;
+  const late = !!sla.breached;
+  const risk = !late && sla.remaining != null && sla.remaining <= 60;
+  const color = late ? C.semError : risk ? C.semCaution : C.figInk;
+  const label = sla.remaining == null ? "—" : late ? `${plFmtDurMins(sla.remaining)} over` : `${plFmtDurMins(sla.remaining)} left`;
+  return (
+    <p className="leading-snug" style={base}>
+      <span className="bk-num" style={{ color }}>{label}</span>
+    </p>
+  );
+}
+
 function PlSlaCell({ sla, wide = false }) {
   if (!sla) return <span style={{ fontSize: 11.5, color: PL_T.ink3 }}>Stopped</span>;
   if (sla.external) {
