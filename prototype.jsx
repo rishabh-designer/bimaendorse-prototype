@@ -12446,7 +12446,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
       <div className="flex gap-4 items-start px-6 pb-8">
         {/* The action rail sits on the LEFT of every tab, matching the sister
             envs' SlaCard placement. Constant across tabs. */}
-        <PlRightRail c={c} api={api} goTo={setTab} />
+        <PlRightRail c={c} api={api} goTo={setTabRouted} />
         <div className="flex-1 min-w-0">
           {tab === "overview" && <PlOverviewTab c={c} />}
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
