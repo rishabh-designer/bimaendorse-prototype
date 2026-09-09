@@ -12608,22 +12608,18 @@ function PlTicketStageTimeline({ c }) {
       ? `${plFmtH(Math.abs(remH))} over`
       : `${plFmtH(remH)} left`;
 
+  /* Owner rendering:
+     - Insurer-owned SLAs → ShieldPlus icon inside the purple circle,
+       label "Insurer" so the pill reads uniformly regardless of which
+       insurer is holding the clock.
+     - RM / Client-owned → RM's real name + a blue initial avatar.
+     - Placement-owned (Placement Manager / System / RM + Placement)
+       → the case's assigned executive's real photo + first name. */
   const owner = sla ? sla.owner : "";
-  const ownerShort = (
-    { "Placement Manager": "You",
-      "System / PM": "System",
-      "Insurers / Placement": "Insurers",
-      "RM / Client": "Client",
-      "Insurer": "Insurer",
-      "RM + Placement": "RM" }[owner] || owner
-  );
-  const ownerInitials = owner
-    .split(/[\s/+&]+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const isInsurerOwner = /insurer/i.test(owner);
+  const isRmOwner = !isInsurerOwner && /(RM|Client)/i.test(owner);
+  const ex = plExecOf(c);
+  const ownerName = isInsurerOwner ? "Insurer" : isRmOwner ? c.client.rm : ex.name;
 
   const usedPct = breached ? 100 : Math.max(0, Math.min(100, (usedMins / Math.max(1, totalMins)) * 100));
   const leftPct = Math.max(0, 100 - usedPct);
@@ -12641,12 +12637,17 @@ function PlTicketStageTimeline({ c }) {
         </span>
         {sla && (
           <span className="flex items-center gap-1.5" title={`${sla.id} - ${sla.target}`}>
-            <span className="flex shrink-0 items-center justify-center rounded-full"
-              style={{ width: 20, height: 20, background: PL_T.purple, color: "#fff",
-                fontFamily: PL_MONO, fontStyle: "italic", fontSize: 11, fontWeight: 600, lineHeight: 1 }}>
-              {ownerInitials || "•"}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>{ownerShort}</span>
+            {isInsurerOwner ? (
+              <span className="flex shrink-0 items-center justify-center rounded-full"
+                style={{ width: 20, height: 20, background: PL_T.purple, color: "#fff" }}>
+                <IconShieldPlus size={12} color="#fff" />
+              </span>
+            ) : isRmOwner ? (
+              <PlAvatar name={c.client.rm} tone="blue" size={20} />
+            ) : (
+              <PlAvatar src={ex.avatar} name={ex.name} size={20} />
+            )}
+            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>{ownerName}</span>
           </span>
         )}
       </div>
@@ -12691,6 +12692,22 @@ function PlTicketStageTimeline({ c }) {
    ships here). Inlined verbatim from lucide.dev/icons/star-check so the
    Exclusive Mandate badge on PC-1026 uses the exact glyph the design asks
    for — a five-pointed star wrapped around a tick. */
+/* lucide's `shield-plus` — inlined verbatim from lucide.dev/icons/shield-plus
+   because v0.469 (shipped here) doesn't ship it. Used inside the purple
+   owner circle in Ticket Stage Timeline when the current SLA belongs to an
+   insurer. */
+function IconShieldPlus({ size = 12, color = "currentColor", strokeWidth = 2, style, ...rest }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+      style={style} {...rest}>
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="M9 12h6" />
+      <path d="M12 9v6" />
+    </svg>
+  );
+}
+
 function IconBanknoteCheck({ size = 16, color = "currentColor", strokeWidth = 2, style, ...rest }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
