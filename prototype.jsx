@@ -12020,21 +12020,21 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
   const active = cases.filter((c) => c.stage !== "closed");
   const slaOf = (c) => plCurrentSla(c);
 
-  /* Six desk buckets, all case counts, each routing into My Cases. */
-  const highPri = active.filter((c) => c.meta.urgency === "High");
-  const slaRisk = active.filter((c) => { const s = slaOf(c); return s && !s.external && (s.remaining ?? 9999) < 60; });
-  const needsYou = active.filter((c) => { const s = slaOf(c); return s && !s.external; });
-  const awaitInsurer = active.filter((c) => { const s = slaOf(c); return s && s.external && /insurer/i.test(s.owner || ""); });
-  const awaitRm = active.filter((c) => { const s = slaOf(c); return s && s.external && /(RM|Client)/i.test(s.owner || ""); });
-  const quotesReview = active.filter((c) => plLiveQuotes(c).some((q) => !q.decision));
+  /* Five desk buckets, all case counts, each routing into My Cases. Sequence
+     mirrors the BimaEndorse desk: waiting-on rows first, then the two urgency
+     buckets. */
+  const awaitInsurer  = active.filter((c) => { const s = slaOf(c); return s && s.external && /insurer/i.test(s.owner || ""); });
+  const awaitRm       = active.filter((c) => { const s = slaOf(c); return s && s.external && /(RM|Client)/i.test(s.owner || ""); });
+  const quotesReview  = active.filter((c) => plLiveQuotes(c).some((q) => !q.decision));
+  const dueToday      = active.filter((c) => { const s = slaOf(c); return s && !s.external && (s.remaining ?? 9999) >= 0 && (s.remaining ?? 9999) < 8 * 60; });
+  const overdueDesk   = active.filter((c) => { const s = slaOf(c); return s && !s.external && s.breached; });
 
   const cards = [
-    { count: highPri.length, tint: "#FFECEC", pills: [{ label: "High priority", ind: "caution" }] },
-    { count: slaRisk.length, tint: "#FFECEC", pills: [{ label: "SLA risk", ind: "error" }] },
-    { count: needsYou.length, tint: "#EDE6FF", pills: [{ label: "Needs your action", ind: "brand" }] },
-    { count: awaitInsurer.length, tint: "#FFF6E0", pills: [{ label: "Insurer response", ind: "caution" }] },
-    { count: awaitRm.length, tint: "#E9F1FF", pills: [{ label: "RM / client response", ind: "info" }] },
-    { count: quotesReview.length, tint: "#E9FBF0", pills: [{ label: "Quotes to review", ind: "success" }] },
+    { count: awaitInsurer.length,  tint: "#FFF6E0", pills: [{ label: "Insurer Response",   ind: "caution" }] },
+    { count: awaitRm.length,       tint: "#E9F1FF", pills: [{ label: "RM Response",        ind: "info" }] },
+    { count: quotesReview.length,  tint: "#E9FBF0", pills: [{ label: "Quotes to Review",   ind: "success" }] },
+    { count: dueToday.length,      tint: "#FFF7DA", pills: [{ label: "Due Today",          ind: "caution" }] },
+    { count: overdueDesk.length,   tint: "#FFECEC", pills: [{ label: "Overdue",            ind: "error" }] },
   ];
 
   /* Cases On Track - active cases not in a Placement-owned breach (external
@@ -12142,7 +12142,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
         <div className="mb-4 flex items-center gap-3">
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Desk" : "Your Desk"}</h2>
         </div>
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {cards.map((c, i) => (
             <DeskCard key={i} count={c.count} noun="Case" tint={c.tint} pills={c.pills} onOpen={() => setNav("cases")} />
           ))}
