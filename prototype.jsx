@@ -12310,7 +12310,29 @@ function PlHomeScreen({ cases, onOpen, setNav, user, scope, setScope }) {
 
 function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   const na = plNextAction(c);
-  const [tab, setTab] = useState(initialTab || (na ? na.tab : "rfq"));
+  /* Insurers + Insurer Threads are now nested under one "Insurance Contact"
+     tab. `tab` still holds the top-level tab id; when it's "contact",
+     `contactSub` picks the inner tab. `setTabRouted` intercepts legacy
+     `setTab("insurers"|"market")` calls (from `plNextAction`,
+     `PlOutcomeModal`, etc) so those still land users in the right place.
+
+     TO REVERT: restore the "insurers" and "market" entries in TABS below,
+     re-add the two matching `tab === "insurers"` / `tab === "market"`
+     render branches, drop `<PlInsuranceContactTab>` and the contactSub
+     state + `setTabRouted` wrapper. Underlying `PlInsurersTab` and
+     `PlMarketTab` components are untouched. */
+  const routeToContactSub = (t) => t === "market" ? "market" : "insurers";
+  const initialTop = initialTab === "insurers" || initialTab === "market"
+    ? "contact"
+    : initialTab || (na ? (na.tab === "insurers" || na.tab === "market" ? "contact" : na.tab) : "rfq");
+  const [tab, setTab] = useState(initialTop);
+  const [contactSub, setContactSub] = useState(
+    initialTab === "market" || (!initialTab && na?.tab === "market") ? "market" : "insurers"
+  );
+  const setTabRouted = (t) => {
+    if (t === "insurers" || t === "market") { setContactSub(routeToContactSub(t)); setTab("contact"); return; }
+    setTab(t);
+  };
   const rfq = plActiveRfqOf(c);
   const st = plCaseStatus(c);
   const sla = plCurrentSla(c);
@@ -12321,8 +12343,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
     { id: "rfq", label: "RFQ" },
     { id: "strategy", label: "Client 360" },
     { id: "docs", label: "Documents" },
-    { id: "insurers", label: "Insurers" },
-    { id: "market", label: "Insurer Threads" },
+    { id: "contact", label: "Insurance Contact" },
     { id: "quotes", label: "Quotes" },
     { id: "qcr", label: "QCR" },
     { id: "mail", label: "Mail Trail" },
@@ -12402,7 +12423,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             between the case header and the tab bar. */}
         <div className="bk-rule my-5" aria-hidden />
       </div>
-      <TabBar tabs={TABS.map((t) => [t.id, t.label, false, na?.tab === t.id])} tab={tab} setTab={setTab} />
+      <TabBar tabs={TABS.map((t) => [t.id, t.label, false,
+          t.id === "contact" ? (na?.tab === "insurers" || na?.tab === "market") : na?.tab === t.id])}
+        tab={tab} setTab={setTabRouted} />
       <div className="mb-4" style={{ borderBottom: `1px solid ${PL_T.border}` }} />
 
       <div className="flex gap-4 items-start px-6 pb-8">
@@ -12429,14 +12452,50 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
             </div>
           )}
           {tab === "docs" && <div className="space-y-3"><PlDocumentsCard c={c} /></div>}
-          {tab === "insurers" && <PlInsurersTab c={c} api={api} />}
-          {tab === "market" && <PlMarketTab c={c} api={api} goTo={setTab} />}
+          {tab === "contact" && <PlInsuranceContactTab c={c} api={api} sub={contactSub} setSub={setContactSub} goTo={setTabRouted} />}
           {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
-          {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTab} />}
+          {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTabRouted} />}
           {tab === "mail" && <PlMailTab c={c} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* Insurance Contact wrapper — Ticket-Workflow-style title, then a sub-tab
+   bar switching between the panel view (`PlInsurersTab`) and the running
+   threads (`PlMarketTab`). Bodies are unchanged; this is pure composition
+   so a revert only needs to drop the wrapper. */
+function PlInsuranceContactTab({ c, api, sub, setSub, goTo }) {
+  const subs = [
+    { id: "insurers", label: "Insurer" },
+    { id: "market",   label: "Insurer Threads" },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 style={{ fontSize: 20, fontWeight: 600, color: C.figInk, letterSpacing: "-0.2px" }}>Insurance Contact</h3>
+        <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+          {c.threads.length} {c.threads.length === 1 ? "thread" : "threads"} · {plUsableCount(c)} usable
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        {subs.map((s) => {
+          const on = sub === s.id;
+          return (
+            <button key={s.id} onClick={() => setSub(s.id)}
+              className={`rounded-full leading-none transition-colors ${on ? "" : "bk-pill"}`}
+              style={{ padding: "6px 12px", border: `0.5px solid ${on ? PL_T.purple : PL_T.border}`,
+                background: on ? PL_T.purple : PL_T.card, color: on ? "#fff" : PL_T.ink2,
+                fontSize: 13, fontWeight: 550, cursor: "pointer" }}>
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+      {sub === "insurers" && <PlInsurersTab c={c} api={api} />}
+      {sub === "market"   && <PlMarketTab   c={c} api={api} goTo={goTo} />}
     </div>
   );
 }
