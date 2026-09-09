@@ -12211,7 +12211,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
           <h2 style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>{scope === "team" ? "Your Team's Progress" : "Your Progress"}</h2>
           <RangePills value={range} onChange={setRange} />
         </div>
-        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-4">
+        <div key={range} className="bk-reveal grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="flex flex-col gap-4">
             <ProgressCard title="Cases On Track" value={prog.closure.value} status={prog.closure.status} score={prog.closure.score}
               sub={prog.closure.sub} subTone={prog.closure.subTone}
@@ -12219,34 +12219,6 @@ function PlHomeScreen({ cases, onOpen, setNav, user }) {
             <ProgressCard title="Median SLA Used" value={prog.turn.value} status={prog.turn.status} score={prog.turn.score}
               sub={prog.turn.sub} subTone={prog.turn.subTone}
               tip="Median share of the live Placement-owned SLA clock already spent; lower is faster." />
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-1.5">
-                  <FileText size={14} style={{ color: C.figHint }} />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Multi-mandate quotes</span>
-                </div>
-                <InfoTip tip="Clients who raised more than one RFQ - typically driven by a requirement change or renegotiated structure mid-flight." />
-              </div>
-              <div className="mt-3">
-                <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.multi.value}</span>
-                <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figHint, lineHeight: 1.5 }}>{prog.multi.sub}</div>
-              </div>
-            </div>
-            <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-1.5">
-                  <FileText size={14} style={{ color: C.figHint }} />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>Faster QCR sent</span>
-                </div>
-                <InfoTip tip="QCRs you released early - using the exception path with fewer than 3 usable quotes on file - to unblock the client sooner." />
-              </div>
-              <div className="mt-3">
-                <span className="bk-num" style={{ fontSize: 20, fontWeight: 700, color: C.figInk, lineHeight: 1 }}>{prog.early.value}</span>
-                <div className="mt-2" style={{ fontSize: 12, fontWeight: 500, color: C.figHint, lineHeight: 1.5 }}>{prog.early.sub}</div>
-              </div>
-            </div>
           </div>
           <div className="rounded-xl border p-5 lg:col-span-2" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
             <div className="flex items-start justify-between">
