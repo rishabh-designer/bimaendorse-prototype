@@ -12637,6 +12637,140 @@ function PlTicketStageTimeline({ c }) {
   );
 }
 
+/* BimaNetra AI feature card (Figma 1551:37729). White → cream vertical
+   gradient, 0.5px orange border, 12px radius. Header row: "BimaNetra™"
+   with the second half tinted orange, plus a "New Feature" info-blue chip
+   on the right. Body headline pairs an orange "A.I" with "Underwrites"
+   and, on the next line, "You take the Action". Bottom-right CTA opens a
+   drawer inside a scrim lightbox. The card is compact enough to sit
+   comfortably between Next Action and the Simulate block. */
+function PlBimaNetraCard({ c }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div style={{
+        background: "linear-gradient(180deg, #FFFFFF 60%, #FFF6ED 100%)",
+        border: "0.5px solid #FF7700", borderRadius: 12, padding: 16,
+        position: "relative", overflow: "hidden",
+      }}>
+        {/* Subtle radial glow to hint at the shader-based visual in Figma. */}
+        <div aria-hidden style={{ position: "absolute", right: -60, top: -40, width: 200, height: 200, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(255,150,60,0.22) 0%, rgba(255,246,237,0) 65%)", pointerEvents: "none" }} />
+
+        <div className="flex items-center justify-between relative">
+          <span style={{ fontSize: 16, fontWeight: 500, lineHeight: 1, letterSpacing: 0 }}>
+            <span style={{ color: PL_T.ink }}>Bima</span>
+            <span style={{ color: "#FF7700" }}>Netra™</span>
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-lg border"
+            style={{ padding: "3px 6px", borderColor: PL_T.blueLine, background: PL_T.card }}>
+            <span className="rounded-full" style={{ width: 4, height: 4, background: PL_T.blue }} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>New Feature</span>
+          </span>
+        </div>
+
+        <div className="mt-6 relative" style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: PL_T.ink, letterSpacing: "-0.2px" }}>
+          <div><span style={{ color: "#FF7700" }}>A.I</span> Underwrites</div>
+          <div>You take the Action</div>
+        </div>
+
+        <div className="mt-4 flex justify-end relative">
+          <button onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border"
+            style={{ padding: "10px 16px", borderColor: PL_T.border, background: PL_T.card,
+              fontSize: 14, fontWeight: 600, color: "#FF7700", cursor: "pointer" }}>
+            <span>Activate BimaNetra</span>
+            <Sparkles size={14} style={{ color: "#FF7700" }} />
+          </button>
+        </div>
+      </div>
+
+      {open && createPortal(<PlBimaNetraLightbox c={c} onClose={() => setOpen(false)} />, document.body)}
+    </>
+  );
+}
+
+/* Lightbox scrim (Figma 1553:44234) with a right-side drawer inside it
+   (1553:44447). Click the scrim or the close cross to dismiss. */
+function PlBimaNetraLightbox({ c, onClose }) {
+  return (
+    <div className="bk-scrim fixed inset-0 z-50 flex justify-end"
+      style={{ background: "rgba(28,29,31,0.55)", fontFamily: FONT }} onClick={onClose}>
+      <PlBimaNetraDrawer c={c} onClose={onClose} onClick={(e) => e.stopPropagation()} />
+    </div>
+  );
+}
+
+function PlBimaNetraDrawer({ c, onClose, onClick }) {
+  const primary = PL_PRODUCTS[c.products[0]] || c.products[0];
+  return (
+    <div onClick={onClick} className="bk-modal flex h-full flex-col overflow-hidden"
+      style={{ width: 480, maxWidth: "100%", background: PL_T.card, borderLeft: `1px solid ${PL_T.border}`,
+        boxShadow: "-16px 0 40px rgba(28,29,31,0.16)" }}>
+      {/* Header */}
+      <header className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: `1px solid ${PL_T.border}`, background: "linear-gradient(180deg, #FFFFFF 0%, #FFF6ED 100%)" }}>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center justify-center rounded-lg"
+            style={{ width: 28, height: 28, background: "#FF7700" }}>
+            <Sparkles size={14} color="#fff" />
+          </span>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: PL_T.ink, lineHeight: 1.1 }}>
+              <span>Bima</span><span style={{ color: "#FF7700" }}>Netra™</span>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: PL_T.ink3, marginTop: 2 }}>A.I Underwrites · You take the Action</div>
+          </div>
+        </div>
+        <button onClick={onClose} className="bk-iconctrl flex items-center justify-center rounded-lg border"
+          style={{ width: 28, height: 28, borderColor: PL_T.border, color: PL_T.ink3 }}><X size={14} /></button>
+      </header>
+
+      {/* Body */}
+      <div className="scroll-slim flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="rounded-xl border p-4" style={{ borderColor: "#FFD2A8", background: "linear-gradient(180deg, #FFFFFF 60%, #FFF6ED 100%)" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#FF7700", letterSpacing: 0.4, textTransform: "uppercase" }}>Preview · {c.id}</div>
+          <p className="mt-2" style={{ fontSize: 13.5, fontWeight: 500, color: PL_T.ink, lineHeight: 1.5 }}>
+            BimaNetra reads the RFQ, matches it against your insurer master and the last 12 months of quote outcomes, and hands you a shortlist with rationale. You still send, still decide — nothing goes to the market on its own.
+          </p>
+        </div>
+
+        <div className="rounded-xl border p-4" style={{ borderColor: PL_T.border, background: PL_T.card }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink, letterSpacing: 0.2, textTransform: "uppercase" }}>What Netra proposes for this case</div>
+          <ul className="mt-3 space-y-2.5" style={{ fontSize: 13, fontWeight: 500, color: PL_T.ink, lineHeight: 1.5 }}>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
+              <span>Suggested insurers for <b>{primary}</b> based on this year's win-rate on {c.meta?.caseType || "Fresh"} cases.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
+              <span>Sample RFQ email tailored to each insurer's underwriter — copy, edit, or send as is.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
+              <span>Flags any material gap in the RFQ that would slow a quote (missing loss history, unclear cover, etc).</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="rounded-xl border px-4 py-3" style={{ borderColor: PL_T.border, background: PL_T.cardSunk }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink2, letterSpacing: 0.2, textTransform: "uppercase" }}>Guard-rails</div>
+          <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1.5 }}>
+            Netra never floats an RFQ, sends a quote, or closes a case. Every action stays your call — Netra just does the reading so you don't have to.
+          </p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-end gap-2 px-5 py-4"
+        style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
+        <button onClick={onClose} className="rounded-xl border" style={{ padding: "8px 16px", borderColor: PL_T.border, background: PL_T.card, fontSize: 13, fontWeight: 500, color: PL_T.ink2 }}>Maybe later</button>
+        <button onClick={onClose} className="rounded-xl" style={{ padding: "8px 16px", background: "#FF7700", color: "#fff", fontSize: 13, fontWeight: 600 }}>Activate for this case</button>
+      </footer>
+    </div>
+  );
+}
+
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
   return (
@@ -12650,6 +12784,8 @@ function PlRightRail({ c, api, goTo }) {
           <div className="mt-2.5"><PlBtn variant="primary" size="sm" full onClick={() => goTo(na.tab)} icon={ArrowRight}>Go there</PlBtn></div>
         </PlCard>
       )}
+
+      <PlBimaNetraCard c={c} />
 
       {/* Prototype-only: stand in for the RM raising an Exclusive Placement
           Mandate. Hidden once a mandate is on file or the case has closed. */}
