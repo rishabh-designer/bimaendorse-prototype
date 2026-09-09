@@ -14655,57 +14655,132 @@ function PlFinalRevisionModal({ c, api, onClose }) {
 
 /* Mail Trail — pill toggle across every conversation on the case. The RFQ
    pill collects everything with the RM or QCR (the "internal" thread), and
-   there's one pill per insurer whose thread the market floated to. Same
-   row shape either way: timestamp, text, optional detail, actor chip. */
+   there's one pill per insurer whose thread the market floated to. Rich
+   mail cards, same as BimaEndorse — avatar mark, sender + email, subject,
+   body, search across everything on the tab. */
+function plMailFrom(actor, actorType, ins) {
+  if (actorType === "System") return "bot@bimakavach.com";
+  if (actorType === "Insurer" && ins) return `underwriting@${(ins.name || "insurer").toLowerCase().replace(/[^a-z]+/g, "")}.com`;
+  if (actorType === "RM") return `rm@bimakavach.com`;
+  if (actorType === "PM") return `${(actor || "salvi").toLowerCase().split(" ")[0]}@bimakavach.com`;
+  return `${(actor || "team").toLowerCase().replace(/[^a-z0-9]+/g, ".")}@bimakavach.com`;
+}
+function plMailsForThread(c, thread) {
+  const insurer = thread.insurerId ? PL_INSURERS[thread.insurerId] : null;
+  const products = c.products.map((p) => PL_PRODUCTS[p] || p).join(" · ");
+  return (thread.events || []).map((ev) => {
+    const outbound = ev.actorType === "PM" || (ev.actorType === "System" && /sent|floated|follow-up/i.test(ev.event));
+    const subject = insurer
+      ? `${c.id} · ${insurer.name} · ${products}`
+      : `${c.id} · ${c.client.name} · RFQ / QCR`;
+    return {
+      at: ev.at,
+      actor: ev.actor,
+      actorType: ev.actorType,
+      dir: outbound ? "out" : "in",
+      who: plMailFrom(ev.actor, ev.actorType, insurer),
+      to: outbound ? plMailFrom(insurer ? "Insurer" : "RM", insurer ? "Insurer" : "RM", insurer) : null,
+      name: ev.actorType === "Insurer" ? (insurer?.name || "Insurer") : ev.actor,
+      subject,
+      body: ev.detail ? `${ev.event}\n\n${ev.detail}` : ev.event,
+      att: 0,
+    };
+  });
+}
 function PlMailTab({ c }) {
-  const insurerThreads = (c.threads || []).map((t) => ({
-    key: t.insurerId,
-    label: (PL_INSURERS[t.insurerId]?.name || t.insurerId).split(" ")[0],
-    fullLabel: PL_INSURERS[t.insurerId]?.name || t.insurerId,
-    events: t.events || [],
-    count: (t.events || []).length,
-  }));
-  const rfqEvents = (c.audit || []).filter((a) => a.actorType !== "Insurer");
-  const rfqPill = { key: "rfq", label: "RFQ · RM & QCR", fullLabel: "RFQ · RM & QCR",
-    events: rfqEvents.map((a) => ({ at: a.at, actor: a.actor, actorType: a.actorType, event: a.event, detail: a.detail })), count: rfqEvents.length };
-  const threads = [rfqPill, ...insurerThreads];
   const [active, setActive] = useState("rfq");
-  const activeThread = threads.find((t) => t.key === active) || rfqPill;
-  const rows = [...(activeThread.events || [])].reverse();
-  const dot = (kind) => kind === "PM" ? PL_T.purple : kind === "Insurer" ? PL_T.blue : kind === "RM" ? PL_T.orange : PL_T.borderStrong;
+  const [q, setQ] = useState("");
+  const rfqEvents = (c.audit || []).filter((a) => a.actorType !== "Insurer");
+  const threads = [
+    { key: "rfq", label: "RFQ · RM & QCR", short: "RFQ · RM & QCR", mails: plMailsForThread(c, { events: rfqEvents }) },
+    ...(c.threads || []).map((t) => {
+      const ins = PL_INSURERS[t.insurerId];
+      return {
+        key: t.insurerId,
+        label: (ins?.name || t.insurerId).split(" ")[0],
+        short: ins?.name || t.insurerId,
+        mails: plMailsForThread(c, t),
+      };
+    }),
+  ];
+  const activeThread = threads.find((t) => t.key === active) || threads[0];
+  const query = q.trim().toLowerCase();
+  const shown = (activeThread.mails || []).filter((m) => {
+    if (!query) return true;
+    return [m.subject, m.body, m.name, m.who, m.to].filter(Boolean).join(" ").toLowerCase().includes(query);
+  });
+  const Mark = ({ name, kind }) => {
+    const bg = kind === "in" && /Insurer|Lombard|Ergo|Bajaj|Tata|AIG|New India|Digit|SBI|Chola|Reliance|Liberty|Care|Star|Sompo|Oriental/.test(name)
+      ? PL_T.blueSoft
+      : kind === "out" ? PL_T.purpleSoft
+      : PL_T.greenSoft;
+    const fg = bg === PL_T.blueSoft ? PL_T.blue : bg === PL_T.purpleSoft ? PL_T.purple : PL_T.green;
+    const ch = (name || "?").trim()[0]?.toUpperCase() || "?";
+    return (
+      <span className="flex shrink-0 items-center justify-center"
+        style={{ width: 40, height: 40, borderRadius: 999, background: bg, color: fg, fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: "italic", fontSize: 16, fontWeight: 600 }}>
+        {ch}
+      </span>
+    );
+  };
   return (
-    <PlCard pad={false}>
-      <div className="flex flex-wrap items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-        <PlLabel>Mail Trail</PlLabel>
-        <span className="flex-1" />
-        {threads.map((t) => (
-          <button key={t.key} onClick={() => setActive(t.key)} title={t.fullLabel}
-            className="whitespace-nowrap rounded-full border px-3 py-1"
-            style={{ fontSize: 11.5, fontWeight: active === t.key ? 600 : 500,
-              background: active === t.key ? PL_T.card : "transparent",
-              borderColor: active === t.key ? PL_T.borderStrong : "transparent",
-              color: active === t.key ? PL_T.ink : PL_T.ink2 }}>
-            {t.label} <span style={{ color: PL_T.ink3, fontWeight: 500 }}>· {t.count}</span>
-          </button>
-        ))}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 style={{ fontSize: 18, fontWeight: 600, color: PL_T.ink, letterSpacing: -0.2 }}>Mail Trail</h3>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {threads.map((t) => (
+            <button key={t.key} type="button" onClick={() => setActive(t.key)} title={t.short}
+              className="whitespace-nowrap rounded-full border px-3 py-1"
+              style={{ fontSize: 12, fontWeight: 600,
+                background: active === t.key ? PL_T.purple : PL_T.card,
+                color: active === t.key ? "#fff" : PL_T.ink2,
+                borderColor: active === t.key ? PL_T.purple : PL_T.border,
+                cursor: "pointer" }}>
+              {t.label} ({t.mails.length})
+            </button>
+          ))}
+        </div>
       </div>
-      {rows.length ? rows.map((a, i) => (
-        <div key={i} className="flex items-start gap-3 px-4 py-2.5" style={{ borderBottom: i < rows.length - 1 ? `1px solid ${PL_T.border}` : "none" }}>
-          <PlMono size={10.5} color={PL_T.ink3}>{a.at}</PlMono>
-          <span className="rounded-full shrink-0 mt-1.5"
-            style={{ width: 5, height: 5, background: dot(a.actorType) }} />
-          <div className="flex-1 min-w-0">
-            <div style={{ fontSize: 12, color: PL_T.ink, fontWeight: 500 }}>{a.event}</div>
-            {a.detail && <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.4 }}>{a.detail}</div>}
+      <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
+        style={{ borderColor: PL_T.border, background: PL_T.card }}>
+        <Search size={14} style={{ color: PL_T.ink3 }} />
+        <input value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Search sender, subject, body or attachment name"
+          className="min-w-0 flex-1 bg-transparent outline-none"
+          style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink }} />
+        {q && (
+          <button onClick={() => setQ("")} title="Clear search"
+            className="shrink-0 rounded-md p-0.5" style={{ color: PL_T.ink2 }}>
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      <div>
+        {shown.length ? shown.map((m, i) => (
+          <div key={i}>
+            <div className="flex items-start gap-3">
+              <Mark name={m.name} kind={m.dir} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span style={{ fontSize: 14, fontWeight: 600, color: PL_T.ink }}>{m.name}</span>
+                  <span className="shrink-0" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, fontFamily: PL_MONO }}>{m.at}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: PL_T.ink3 }}>
+                  {m.dir === "out" ? `to ${m.to}` : m.who}
+                </div>
+                <div className="mt-2" style={{ fontSize: 14, fontWeight: 600, color: PL_T.ink }}>{m.subject}</div>
+                <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: PL_T.ink }}>{m.body}</div>
+              </div>
+            </div>
+            {i < shown.length - 1 && <div className="my-4" style={{ height: 1, background: PL_T.border, opacity: 0.6 }} aria-hidden />}
           </div>
-          <PlChip size="xs">{a.actor}</PlChip>
-        </div>
-      )) : (
-        <div className="px-4 py-8 text-center" style={{ fontSize: 12, color: PL_T.ink3 }}>
-          No messages yet on this thread.
-        </div>
-      )}
-    </PlCard>
+        )) : (
+          <div className="px-4 py-8 text-center" style={{ fontSize: 13, color: PL_T.ink3 }}>
+            {query ? `No mail matches "${q}".` : "Nothing on this thread yet."}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
