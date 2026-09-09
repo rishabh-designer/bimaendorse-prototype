@@ -11855,7 +11855,6 @@ const PL_QTABS = [
 function PlQueueScreen({ cases, onOpen, user }) {
   const isHead = plIsAdmin(user);
   const [tab, setTab] = useState("mine");
-  const [q, setQ] = useState("");
   const [sort, setSort] = useState("oldest");
   const [openKey, setOpenKey] = useState(null);
   const [fStage, setFStage] = useState(new Set());
@@ -11880,7 +11879,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
 
   const pool = tab === "mine" ? active : tab === "action" ? needsYou : tab === "sla" ? atRisk : cases;
   const rows = pool
-    .filter((c) => !q || (c.id + c.client.name + c.products.join(" ")).toLowerCase().includes(q.toLowerCase()))
     .filter((c) => !fStage.size    || fStage.has(c.stage))
     .filter((c) => !fType.size     || fType.has(c.meta.caseType))
     .filter((c) => !fUrg.size      || fUrg.has(c.meta.urgency))
@@ -11934,7 +11932,6 @@ function PlQueueScreen({ cases, onOpen, user }) {
         } />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <PlSearchField value={q} onChange={setQ} placeholder="Search cases…" size="md" width={240} onClear={() => setQ("")} />
         <div className="relative" data-menu style={{ minWidth: 187 }}>
           <button onClick={() => setOpenKey(openKey === "sort" ? null : "sort")}
             className="flex w-full items-center gap-1 p-3"
