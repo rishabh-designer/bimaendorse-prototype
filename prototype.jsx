@@ -12701,70 +12701,264 @@ function PlBimaNetraLightbox({ c, onClose }) {
   );
 }
 
+/* Palette + shorthands for the verbatim Figma content (node 1553:44464).
+   Design uses neutral greys + green/amber score colours; not the placement
+   purple/orange system, so tokens are inline here. */
+const NETRA_T = {
+  cardBg: "#FFFFFF",
+  cardBorder: "#E5E5E5",
+  ink: "#0A0A0A",
+  muted: "#737373",
+  greenTitle: "#008235",
+  amberTitle: "#BB4D00",
+  linkBlue: "#155DFC",
+  autoApproveBg: "#00A63E",
+  greyChipBg: "#F3F4F6",
+  greyChipInk: "#4A5565",
+  goodChipBg: "#DCFCE7",
+  goodChipInk: "#026630",
+  warnChipBg: "#FEF3C6",
+  warnChipInk: "#973C00",
+  barTrack: "#F5F5F5",
+  goodBar: "#00C950",
+  warnBar: "#FFB900",
+  sourceBg: "rgba(245,245,245,0.4)",
+  sourceInk: "rgba(10,10,10,0.8)",
+};
+
+function NetraGauge() {
+  /* 89.8 / 100 semicircle gauge. Two arcs: full track (grey) + fill (green
+     from 0 → 89.8%). SVG viewBox 100×60. */
+  const value = 89.8, max = 100;
+  const pct = Math.max(0, Math.min(1, value / max));
+  const startX = 8, endX = 92, y = 52, r = 42;
+  const angle = Math.PI * pct;
+  const midX = 50 - Math.cos(angle) * r;
+  const midY = y - Math.sin(angle) * r;
+  const large = 0;
+  return (
+    <div style={{ width: 110, height: 68, position: "relative" }}>
+      <svg viewBox="0 0 100 60" width={110} height={68} style={{ display: "block" }}>
+        <path d={`M ${startX} ${y} A ${r} ${r} 0 0 1 ${endX} ${y}`} fill="none" stroke={NETRA_T.barTrack} strokeWidth="6" strokeLinecap="round" />
+        <path d={`M ${startX} ${y} A ${r} ${r} 0 ${large} 1 ${midX.toFixed(2)} ${midY.toFixed(2)}`} fill="none" stroke={NETRA_T.goodBar} strokeWidth="6" strokeLinecap="round" />
+      </svg>
+      <div className="absolute left-0 right-0 flex flex-col items-center" style={{ bottom: 4 }}>
+        <span style={{ fontSize: 24, fontWeight: 700, color: NETRA_T.ink, lineHeight: 1, letterSpacing: -0.4 }}>89.8</span>
+        <span style={{ fontSize: 8, fontWeight: 400, color: NETRA_T.muted, lineHeight: 1.1, marginTop: 1 }}>/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+function NetraChip({ children, bg, ink, weight = 500 }) {
+  return (
+    <span className="inline-flex items-center rounded-full"
+      style={{ padding: "2px 10px", background: bg, color: ink, fontSize: 10, fontWeight: weight, lineHeight: 1.4 }}>
+      {children}
+    </span>
+  );
+}
+
+function NetraScoreChip({ score }) {
+  const good = score >= 7;
+  return (
+    <span className="inline-flex items-center justify-center rounded-full"
+      style={{ padding: "1px 5px", background: good ? NETRA_T.goodChipBg : NETRA_T.warnChipBg,
+        color: good ? NETRA_T.goodChipInk : NETRA_T.warnChipInk, fontSize: 10, fontWeight: 600, lineHeight: 1.4 }}>
+      {score}/10
+    </span>
+  );
+}
+
+function NetraSourceLine({ children }) {
+  return (
+    <div className="rounded" style={{ background: NETRA_T.sourceBg, padding: "3px 5px", marginTop: 4 }}>
+      <span style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.sourceInk, lineHeight: 1.5 }}>{children}</span>
+    </div>
+  );
+}
+
+function NetraBar({ score }) {
+  const good = score >= 7;
+  return (
+    <div className="mt-1.5 rounded-full overflow-hidden" style={{ background: NETRA_T.barTrack, height: 4 }}>
+      <div style={{ height: "100%", width: `${(score / 10) * 100}%`, background: good ? NETRA_T.goodBar : NETRA_T.warnBar }} />
+    </div>
+  );
+}
+
+function NetraRow({ label, desc, edit, weight, score, source, last }) {
+  return (
+    <div style={{ padding: 8, borderBottom: last ? "none" : `0.6px solid ${NETRA_T.cardBorder}` }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div style={{ fontSize: 10, fontWeight: 500, color: NETRA_T.ink, lineHeight: 1.4 }}>{label}</div>
+          <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, lineHeight: 1.45, marginTop: 1 }}>{desc}</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {edit && <a style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.linkBlue, textDecoration: "underline" }}>Edit</a>}
+          <span style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted }}>{weight}</span>
+          <NetraScoreChip score={score} />
+        </div>
+      </div>
+      <NetraBar score={score} />
+      <NetraSourceLine>{source}</NetraSourceLine>
+    </div>
+  );
+}
+
+function NetraGroup({ title, avg, rows }) {
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between px-1 pb-2">
+        <span style={{ fontSize: 12, fontWeight: 600, color: NETRA_T.ink }}>{title}</span>
+        <NetraChip bg={NETRA_T.goodChipBg} ink={NETRA_T.goodChipInk} weight={600}>{avg} avg</NetraChip>
+      </div>
+      <div className="rounded-md" style={{ border: `0.6px solid ${NETRA_T.cardBorder}` }}>
+        {rows.map((r, i) => <NetraRow key={i} {...r} last={i === rows.length - 1} />)}
+      </div>
+    </div>
+  );
+}
+
 function PlBimaNetraDrawer({ c, onClose, onClick }) {
-  const primary = PL_PRODUCTS[c.products[0]] || c.products[0];
   return (
     <div onClick={onClick} className="bk-modal flex h-full flex-col overflow-hidden"
-      style={{ width: 480, maxWidth: "100%", background: PL_T.card, borderLeft: `1px solid ${PL_T.border}`,
-        boxShadow: "-16px 0 40px rgba(28,29,31,0.16)" }}>
-      {/* Header */}
+      style={{ width: 720, maxWidth: "100%", background: NETRA_T.cardBg, borderLeft: `1px solid ${NETRA_T.cardBorder}`,
+        boxShadow: "-16px 0 40px rgba(10,10,10,0.16)", fontFamily: `-apple-system, "SF Pro", "Helvetica Neue", Arial, sans-serif` }}>
+
+      {/* Chrome — BimaNetra badge + close */}
       <header className="flex items-center justify-between px-5 py-4"
-        style={{ borderBottom: `1px solid ${PL_T.border}`, background: "linear-gradient(180deg, #FFFFFF 0%, #FFF6ED 100%)" }}>
+        style={{ borderBottom: `1px solid ${NETRA_T.cardBorder}`, background: "linear-gradient(180deg, #FFFFFF 0%, #FFF6ED 100%)" }}>
         <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center rounded-lg"
-            style={{ width: 28, height: 28, background: "#FF7700" }}>
+          <span className="flex items-center justify-center rounded-lg" style={{ width: 28, height: 28, background: "#FF7700" }}>
             <Sparkles size={14} color="#fff" />
           </span>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: PL_T.ink, lineHeight: 1.1 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: NETRA_T.ink, lineHeight: 1.1 }}>
               <span>Bima</span><span style={{ color: "#FF7700" }}>Netra™</span>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 500, color: PL_T.ink3, marginTop: 2 }}>A.I Underwrites · You take the Action</div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: NETRA_T.muted, marginTop: 2 }}>A.I Underwrites · You take the Action</div>
           </div>
         </div>
         <button onClick={onClose} className="bk-iconctrl flex items-center justify-center rounded-lg border"
-          style={{ width: 28, height: 28, borderColor: PL_T.border, color: PL_T.ink3 }}><X size={14} /></button>
+          style={{ width: 28, height: 28, borderColor: NETRA_T.cardBorder, color: NETRA_T.muted }}><X size={14} /></button>
       </header>
 
-      {/* Body */}
-      <div className="scroll-slim flex-1 overflow-y-auto p-5 space-y-4">
-        <div className="rounded-xl border p-4" style={{ borderColor: "#FFD2A8", background: "linear-gradient(180deg, #FFFFFF 60%, #FFF6ED 100%)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#FF7700", letterSpacing: 0.4, textTransform: "uppercase" }}>Preview · {c.id}</div>
-          <p className="mt-2" style={{ fontSize: 13.5, fontWeight: 500, color: PL_T.ink, lineHeight: 1.5 }}>
-            BimaNetra reads the RFQ, matches it against your insurer master and the last 12 months of quote outcomes, and hands you a shortlist with rationale. You still send, still decide — nothing goes to the market on its own.
-          </p>
-        </div>
+      {/* Body — verbatim Figma 1553:44464 */}
+      <div className="scroll-slim flex-1 overflow-y-auto" style={{ padding: 16, background: "#FAFAFA" }}>
 
-        <div className="rounded-xl border p-4" style={{ borderColor: PL_T.border, background: PL_T.card }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink, letterSpacing: 0.2, textTransform: "uppercase" }}>What Netra proposes for this case</div>
-          <ul className="mt-3 space-y-2.5" style={{ fontSize: 13, fontWeight: 500, color: PL_T.ink, lineHeight: 1.5 }}>
-            <li className="flex items-start gap-2">
-              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
-              <span>Suggested insurers for <b>{primary}</b> based on this year's win-rate on {c.meta?.caseType || "Fresh"} cases.</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
-              <span>Sample RFQ email tailored to each insurer's underwriter — copy, edit, or send as is.</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle2 size={14} color="#FF7700" className="mt-0.5 shrink-0" />
-              <span>Flags any material gap in the RFQ that would slow a quote (missing loss history, unclear cover, etc).</span>
-            </li>
-          </ul>
-        </div>
+        {/* 2.1 Score Header Card */}
+        <section className="rounded-lg" style={{ background: NETRA_T.cardBg, border: `0.6px solid ${NETRA_T.cardBorder}`,
+          boxShadow: "0 1px 1px rgba(0,0,0,0.06)", padding: 16 }}>
+          <div className="flex items-start" style={{ gap: 16 }}>
+            <div className="shrink-0"><NetraGauge /></div>
 
-        <div className="rounded-xl border px-4 py-3" style={{ borderColor: PL_T.border, background: PL_T.cardSunk }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink2, letterSpacing: 0.2, textTransform: "uppercase" }}>Guard-rails</div>
-          <p className="mt-1" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1.5 }}>
-            Netra never floats an RFQ, sends a quote, or closes a case. Every action stays your call — Netra just does the reading so you don't have to.
-          </p>
-        </div>
+            <div className="min-w-0 flex-1">
+              <h2 style={{ fontSize: 14, fontWeight: 600, color: NETRA_T.ink, lineHeight: 1.2 }}>TRAMPOLINE TECH PRIVATE LIMITED</h2>
+              <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, marginTop: 2 }}>IT & Software Services · 13.8 yrs old</div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <NetraChip bg={NETRA_T.autoApproveBg} ink="#FFFFFF" weight={500}>Auto-Approve</NetraChip>
+                <span className="inline-flex items-center rounded-full" style={{ padding: "2px 5px", background: NETRA_T.greyChipBg, color: NETRA_T.greyChipInk, fontSize: 10, fontWeight: 500 }}>
+                  ＝ 0 vs 11 Aug
+                </span>
+              </div>
+              <p style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.ink, lineHeight: 1.5, marginTop: 8 }}>
+                The score of 89.8 clears the auto-approve threshold of 75 with no red flags.
+              </p>
+              <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, marginTop: 4 }}>
+                Evaluated 8/11/2026, 10:46:19 PM · Data: Probe (MCA records)
+              </div>
+            </div>
+
+            <div className="shrink-0 grid" style={{ gridTemplateColumns: "auto auto", columnGap: 16, rowGap: 6 }}>
+              {[
+                ["Turnover", "₹28.5 Cr"],
+                ["Net Worth", "₹8.5 Cr"],
+                ["Paid-up Capital", "₹33.6 L"],
+                ["Board Size", "2"],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted }}>{k}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: NETRA_T.ink, marginTop: 1 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 2.2 Highlights row */}
+        <section className="mt-4 grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div className="rounded-lg" style={{ background: NETRA_T.cardBg, border: `0.6px solid ${NETRA_T.cardBorder}`,
+            boxShadow: "0 1px 1px rgba(0,0,0,0.06)", padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: NETRA_T.greenTitle }}>Working in their favour</div>
+            {[
+              { l: "Revenue Trend",         b: "[Source: MCA P&L revenue via Probe42] · Turnover ₹28.5 Cr · YoY growth 45.6% → >20% → 10/10" },
+              { l: "Debt-to-Equity Ratio",  b: "[Source: MCA balance sheet via Probe42] · Borrowings / Equity = D/E 0.00 · Net worth ₹8.5 Cr · D/E 0.00 → <0.5 → 10/10" },
+              { l: "Director Track Record", b: "[Source: MCA director network + RBI defaulter list via Probe42] · 2 directors: RAVI KUPPUSWAMI POONDI, SUDARSAN RAVI · No adverse records · Score: 10/10" },
+            ].map((it, i) => (
+              <div key={i} style={{ paddingTop: i === 0 ? 8 : 6 }}>
+                <div style={{ fontSize: 10, fontWeight: 500, color: NETRA_T.ink }}>{it.l}</div>
+                <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, lineHeight: 1.45, marginTop: 1 }}>{it.b}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-lg" style={{ background: NETRA_T.cardBg, border: `0.6px solid ${NETRA_T.cardBorder}`,
+            boxShadow: "0 1px 1px rgba(0,0,0,0.06)", padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: NETRA_T.amberTitle }}>Holding the score back</div>
+            {[
+              { l: "Related Party Transactions", d: "−3.5 pts", b: "[Source: MCA related_party_transactions via Probe42] · High volume of related-party transactions (4-10, disclosed) · 4-10 disclosed=5 · Score: 5/10" },
+              { l: "Board Independence",         d: "−2.9 pts", b: "[Source: MCA director designations via Probe42] · 0 of 2 directors independent (0%) · Company type: Private (independent directors optional) · Score: 5/10" },
+              { l: "Cash Flow Health",           d: "−2.1 pts", b: "[Source: MCA P&L operating_profit trends via Probe42] · Operating profit positive and stable (within ±10%) · stable=8 · Score: 8/10" },
+            ].map((it, i) => (
+              <div key={i} style={{ paddingTop: i === 0 ? 8 : 6 }}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span style={{ fontSize: 10, fontWeight: 500, color: NETRA_T.ink }}>{it.l}</span>
+                  <span style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted }}>{it.d}</span>
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, lineHeight: 1.45, marginTop: 1 }}>{it.b}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 2.3 What drove this score */}
+        <section className="mt-4 rounded-lg" style={{ background: NETRA_T.cardBg, border: `0.6px solid ${NETRA_T.cardBorder}`,
+          boxShadow: "0 1px 1px rgba(0,0,0,0.06)", padding: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: NETRA_T.ink, paddingBottom: 6 }}>What drove this score</div>
+
+          <NetraGroup title="Financial Health" avg="9/10" rows={[
+            { label: "Revenue Trend",        desc: "Whether revenue is growing or shrinking year-over-year",       edit: true,  weight: "8% of total", score: 10, source: "[Source: MCA P&L revenue via Probe42] · Turnover ₹28.5 Cr · YoY growth 45.6% → >20% → 10/10" },
+            { label: "Debt-to-Equity Ratio", desc: "How much the company owes relative to what it owns",           edit: true,  weight: "8% of total", score: 10, source: "[Source: MCA balance sheet via Probe42] · Borrowings / Equity = D/E 0.00 · Net worth ₹8.5 Cr · D/E 0.00 → <0.5 → 10/10" },
+            { label: "Credit Risk Score",    desc: "Overall creditworthiness, derived from ratings and balance sheet", edit: true, weight: "7% of total", score: 8,  source: "[Source: Probe42 credit_ratings + defaulter_list + balance sheet] · No external rating — derived from balance sheet; Baseline: 7; D/E 0.00 (<0.5, low leverage) → +1 = 8; Final CPS: 8/10; No defaulter records found · CPS 8/10 → Parameter score: 8/10" },
+            { label: "Cash Flow Health",     desc: "Whether day-to-day operations make or lose money",             edit: false, weight: "9% of total", score: 8,  source: "[Source: MCA P&L operating_profit trends via Probe42] · Operating profit positive and stable (within ±10%) · stable=8 · Score: 8/10" },
+          ]} />
+
+          <NetraGroup title="Governance & Directors" avg="7.5/10" rows={[
+            { label: "Director Track Record",     desc: "Past failures or defaults linked to the directors", edit: false, weight: "8% of total", score: 10, source: "[Source: MCA director network + RBI defaulter list via Probe42] · 2 directors: RAVI KUPPUSWAMI POONDI, SUDARSAN RAVI · No adverse records · Score: 10/10" },
+            { label: "Director Churn",            desc: "How often directors have joined or left recently",  edit: false, weight: "5% of total", score: 10, source: "[Source: MCA DIR-12 filings via Probe42] · 0 changes in 24 months → 0 changes → 10/10" },
+            { label: "Board Independence",        desc: "Whether the board has independent oversight",       edit: false, weight: "5% of total", score: 5,  source: "[Source: MCA director designations via Probe42] · 0 of 2 directors independent (0%) · Company type: Private (independent directors optional) · Score: 5/10" },
+            { label: "Related Party Transactions", desc: "Dealings with entities connected to the promoters", edit: false, weight: "6% of total", score: 5,  source: "[Source: MCA related_party_transactions via Probe42] · High volume of related-party transactions (4-10, disclosed) · 4-10 disclosed=5 · Score: 5/10" },
+          ]} />
+
+          <NetraGroup title="Compliance & Legal" avg="10/10" rows={[
+            { label: "Compliance Score",   desc: "Timeliness of statutory MCA and GST filings",     edit: true,  weight: "5% of total", score: 10, source: "[Source: MCA active_compliance + GST portal + auditor report via Probe42] · MCA: all filings on time · GST: all filings on time · Auditor: D R DOSHI & CO · Score: 10/10" },
+            { label: "Litigation History", desc: "Court cases involving the company",                edit: false, weight: "7% of total", score: 10, source: "[Source: MCA legal_history via Probe42] · No cases filed against the company on record · Only cases where the company is the respondent are counted · Score: 10/10" },
+            { label: "Regulatory Actions", desc: "Penalties or actions by SEBI, RBI, or MCA",        edit: false, weight: "7% of total", score: 10, source: "[Source: MCA legal_history + struckoff248_details via Probe42] · No regulatory actions by SEBI, RBI, or MCA on record · Score: 10/10" },
+          ]} />
+
+          <NetraGroup title="Company & Industry" avg="10/10" rows={[
+            { label: "Company Age",         desc: "How long the company has been operating",  edit: false, weight: "5% of total", score: 10, source: "[Source: MCA incorporation date via Probe42] · Incorporated Oct 2012 · 13.8 years → >10 yrs → 10/10" },
+            { label: "Industry Risk Class", desc: "How risky this industry is for claims",    edit: true,  weight: "5% of total", score: 10, source: "[Source: NIC code from MCA / principal_business_activities via Probe42] · NIC 62 · Classified as low-risk for D&O exposure · Risk mapping: low=10, medium-low=8, medium=6, medium-high=4, high=2 · Score: 10/10" },
+          ]} />
+        </section>
       </div>
 
       {/* Footer */}
       <footer className="flex items-center justify-end gap-2 px-5 py-4"
-        style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
-        <button onClick={onClose} className="rounded-xl border" style={{ padding: "8px 16px", borderColor: PL_T.border, background: PL_T.card, fontSize: 13, fontWeight: 500, color: PL_T.ink2 }}>Maybe later</button>
+        style={{ borderTop: `1px solid ${NETRA_T.cardBorder}`, background: "#F5F5F5" }}>
+        <button onClick={onClose} className="rounded-xl border" style={{ padding: "8px 16px", borderColor: NETRA_T.cardBorder, background: NETRA_T.cardBg, fontSize: 13, fontWeight: 500, color: NETRA_T.muted }}>Maybe later</button>
         <button onClick={onClose} className="rounded-xl" style={{ padding: "8px 16px", background: "#FF7700", color: "#fff", fontSize: 13, fontWeight: 600 }}>Activate for this case</button>
       </footer>
     </div>
