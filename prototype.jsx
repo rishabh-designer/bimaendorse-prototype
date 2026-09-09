@@ -12214,7 +12214,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user, scope, setScope }) {
         </div>
       </div>
 
-      {isHead && (
+      {isHead && scope === "team" && (
         <>
           <div style={{ height: 1, background: C.subtle }} aria-hidden />
           <div>
