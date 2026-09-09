@@ -10541,7 +10541,17 @@ const PL_SEED_C = [
 const PL_CASE_META = {
   "PC-1024": { slaLeftMins: 47, caseType: "Renewal", urgency: "Medium", targetPremium: 7800000, mandate: null, incumbent: "Star Health" },
   "PC-1025": { slaLeftMins: 96, caseType: "Fresh", urgency: "Medium", targetPremium: 4200000, mandate: null, incumbent: null },
-  "PC-1026": { slaLeftMins: -38, caseType: "Renewal", urgency: "High", targetPremium: 3100000, mandate: null, incumbent: "New India" },
+  /* PC-1026: hard-coded Exclusive Mandate demo case. The RM (Aman Kulkarni)
+     has raised an Exclusive Placement Mandate with Bajaj as preferred
+     insurer — this mandate is seeded (not simulator-driven) so the
+     Exclusive Mandate badge, queue-row icon, and rail banner always show
+     on this ticket regardless of session state. Do NOT strip on a
+     "remove from all tickets" pass — PC-1026 is a persistent demo. */
+  "PC-1026": { slaLeftMins: -38, caseType: "Renewal", urgency: "High", targetPremium: 3100000,
+    mandate: { type: "Exclusive Placement Mandate", ref: "MND-1026-E",
+      note: "RM raised an Exclusive Placement Mandate on the strength of your recommendation.",
+      by: "Aman Kulkarni", byAvatar: AVATAR_SHUBH, preferredInsurerId: "bajaj", at: "16 Aug, 09:00" },
+    incumbent: "New India" },
   "PC-1027": { slaLeftMins: 92, caseType: "Renewal", urgency: "Medium", targetPremium: 11500000, mandate: null, incumbent: "HDFC Ergo" },
   "PC-1028": { slaLeftMins: 1240, caseType: "Rollover", urgency: "Medium", targetPremium: 2400000, mandate: { type: "Incumbent Approach Mandate", ref: "MND-1028-A", note: "Client authority on file to approach the incumbent." }, incumbent: "Universal Sompo" },
   "PC-1029": { slaLeftMins: 74, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
@@ -11948,8 +11958,10 @@ function PlQueueScreen({ cases, onOpen, user }) {
           return (
             <div key={c.id}>
               <button onClick={() => onOpen(c.id)} className="bk-item pl-row-hover flex w-full items-center rounded-xl px-2 py-3 text-left" style={stagger(i)}>
-                <span className="bk-num truncate" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
-                  {c.id}{c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
+                <span className="bk-num truncate inline-flex items-center gap-1" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
+                  {c.id}
+                  {c.id === "PC-1026" && <BadgeCheck size={12} style={{ color: PL_T.purple }} aria-label="Exclusive Mandate" />}
+                  {c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
                 </span>
                 <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
                 <span className="flex" style={cell(PCOLS.type)}><Indicator label={c.meta.caseType} ind="neutral" /></span>
@@ -12306,6 +12318,14 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                 {/* Row 1: PC-XXXX + status pill (Figma 1536:31841) */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
+                  {c.id === "PC-1026" && (
+                    <span className="inline-flex items-center gap-1 rounded-full"
+                      style={{ padding: "3px 8px", background: PL_T.purpleSoft, border: `0.5px solid ${PL_T.purpleLine}`,
+                        fontSize: 11.5, fontWeight: 500, color: PL_T.purple }}>
+                      <BadgeCheck size={12} />
+                      Exclusive Mandate
+                    </span>
+                  )}
                   <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
                   {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
                 </div>
