@@ -12975,7 +12975,7 @@ function PlBimaNetraDrawer({ c, onClose, onClick }) {
   return (
     <div onClick={onClick} className="bk-modal flex h-full flex-col overflow-hidden"
       style={{ width: 720, maxWidth: "100%", background: NETRA_T.cardBg, borderLeft: `1px solid ${NETRA_T.cardBorder}`,
-        boxShadow: "-16px 0 40px rgba(10,10,10,0.16)", fontFamily: `-apple-system, "SF Pro", "Helvetica Neue", Arial, sans-serif` }}>
+        boxShadow: "-16px 0 40px rgba(10,10,10,0.16)", fontFamily: FONT }}>
 
       {/* Chrome — BimaNetra badge + close */}
       <header className="flex items-center justify-between px-5 py-4"
