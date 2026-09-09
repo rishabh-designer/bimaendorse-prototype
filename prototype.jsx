@@ -34,7 +34,10 @@ const C = {
   brand200: "#EDE6FF", brandBg: "#F4F1FF",
   cream: "#FFF6ED",   /* brand-secondary-subtle - V001.1 used it as the page ground; unused here */
   accent: "#FF7700", greet: "#9082B3",
-  figInk: "#1C1D1F", figHint: "#6F7378", figTert: "#A9ACB1", figPlaceholder: "#BEC2C6",
+  /* Body-text ramp: primary ink, secondary hint, then the two "muted" tokens
+     collapsed onto the same secondary grey so tertiary text never appears —
+     kept as separate names so existing sites don't need to relabel. */
+  figInk: "#1C1D1F", figHint: "#6F7378", figTert: "#6F7378", figPlaceholder: "#6F7378",
   figDisabled: "rgba(169,172,177,0.48)",
   /* label/semantic - the countdown colours in Stage due */
   semError: "#CF0000", semCaution: "#B38F0A",
@@ -12143,7 +12146,7 @@ function PlRightRail({ c, api, goTo }) {
           padding: "14px 16px",
         }}>
           <div className="flex items-center justify-between" style={{ height: 20 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#A9ACB1", lineHeight: "14.4px" }}>Update</span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#6F7378", lineHeight: "14.4px" }}>Update</span>
             <span className="flex items-center" style={{ gap: 6 }}>
               <span className="overflow-hidden rounded-full shrink-0" style={{ width: 20, height: 20, background: "#1C1D1F" }}>
                 <img src={c.meta.mandate.byAvatar} alt="" className="block object-cover" style={{ width: "100%", height: "100%" }} />
