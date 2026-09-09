@@ -11913,7 +11913,8 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
     { id: "quotes", label: "Quotes" },
     { id: "qcr", label: "QCR" },
     { id: "negotiation", label: "Negotiation" },
-    { id: "activity", label: "Case History" },
+    { id: "mail", label: "Mail Trail" },
+    { id: "activity", label: "Ticket History" },
   ];
 
   const statusTone = c.outcome ? PL_OUTCOME[c.outcome.type].tone
@@ -11995,6 +11996,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           {tab === "quotes" && <PlQuotesTab c={c} api={api} />}
           {tab === "qcr" && <PlQcrTab c={c} api={api} goTo={setTab} />}
           {tab === "negotiation" && <PlNegotiationTab c={c} api={api} />}
+          {tab === "mail" && <PlMailTab c={c} />}
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
       </div>
@@ -14651,6 +14653,62 @@ function PlFinalRevisionModal({ c, api, onClose }) {
   );
 }
 
+/* Mail Trail — pill toggle across every conversation on the case. The RFQ
+   pill collects everything with the RM or QCR (the "internal" thread), and
+   there's one pill per insurer whose thread the market floated to. Same
+   row shape either way: timestamp, text, optional detail, actor chip. */
+function PlMailTab({ c }) {
+  const insurerThreads = (c.threads || []).map((t) => ({
+    key: t.insurerId,
+    label: (PL_INSURERS[t.insurerId]?.name || t.insurerId).split(" ")[0],
+    fullLabel: PL_INSURERS[t.insurerId]?.name || t.insurerId,
+    events: t.events || [],
+    count: (t.events || []).length,
+  }));
+  const rfqEvents = (c.audit || []).filter((a) => a.actorType !== "Insurer");
+  const rfqPill = { key: "rfq", label: "RFQ · RM & QCR", fullLabel: "RFQ · RM & QCR",
+    events: rfqEvents.map((a) => ({ at: a.at, actor: a.actor, actorType: a.actorType, event: a.event, detail: a.detail })), count: rfqEvents.length };
+  const threads = [rfqPill, ...insurerThreads];
+  const [active, setActive] = useState("rfq");
+  const activeThread = threads.find((t) => t.key === active) || rfqPill;
+  const rows = [...(activeThread.events || [])].reverse();
+  const dot = (kind) => kind === "PM" ? PL_T.purple : kind === "Insurer" ? PL_T.blue : kind === "RM" ? PL_T.orange : PL_T.borderStrong;
+  return (
+    <PlCard pad={false}>
+      <div className="flex flex-wrap items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+        <PlLabel>Mail Trail</PlLabel>
+        <span className="flex-1" />
+        {threads.map((t) => (
+          <button key={t.key} onClick={() => setActive(t.key)} title={t.fullLabel}
+            className="whitespace-nowrap rounded-full border px-3 py-1"
+            style={{ fontSize: 11.5, fontWeight: active === t.key ? 600 : 500,
+              background: active === t.key ? PL_T.card : "transparent",
+              borderColor: active === t.key ? PL_T.borderStrong : "transparent",
+              color: active === t.key ? PL_T.ink : PL_T.ink2 }}>
+            {t.label} <span style={{ color: PL_T.ink3, fontWeight: 500 }}>· {t.count}</span>
+          </button>
+        ))}
+      </div>
+      {rows.length ? rows.map((a, i) => (
+        <div key={i} className="flex items-start gap-3 px-4 py-2.5" style={{ borderBottom: i < rows.length - 1 ? `1px solid ${PL_T.border}` : "none" }}>
+          <PlMono size={10.5} color={PL_T.ink3}>{a.at}</PlMono>
+          <span className="rounded-full shrink-0 mt-1.5"
+            style={{ width: 5, height: 5, background: dot(a.actorType) }} />
+          <div className="flex-1 min-w-0">
+            <div style={{ fontSize: 12, color: PL_T.ink, fontWeight: 500 }}>{a.event}</div>
+            {a.detail && <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.4 }}>{a.detail}</div>}
+          </div>
+          <PlChip size="xs">{a.actor}</PlChip>
+        </div>
+      )) : (
+        <div className="px-4 py-8 text-center" style={{ fontSize: 12, color: PL_T.ink3 }}>
+          No messages yet on this thread.
+        </div>
+      )}
+    </PlCard>
+  );
+}
+
 function PlActivityTab({ c }) {
   const [f, setF] = useState("all");
   const kinds = [["all", "Everything"], ["PM", "You"], ["Insurer", "Insurers"], ["RM", "RM"], ["System", "System"]];
@@ -14658,7 +14716,7 @@ function PlActivityTab({ c }) {
   return (
     <PlCard pad={false}>
       <div className="flex items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-        <PlLabel>Audit trail</PlLabel>
+        <PlLabel>Ticket History</PlLabel>
         <span className="flex-1" />
         {kinds.map(([id, label]) => (
           <button key={id} onClick={() => setF(id)} className="rounded-lg px-2.5 py-1 border"
