@@ -12875,7 +12875,6 @@ function NetraRow({ label, desc, edit, weight, score, source, last }) {
           <div style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted, lineHeight: 1.45, marginTop: 1 }}>{desc}</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {edit && <a style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.linkBlue, textDecoration: "underline" }}>Edit</a>}
           <span style={{ fontSize: 10, fontWeight: 400, color: NETRA_T.muted }}>{weight}</span>
           <NetraScoreChip score={score} />
         </div>
