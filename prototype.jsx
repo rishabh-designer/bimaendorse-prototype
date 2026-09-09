@@ -10758,7 +10758,9 @@ function plNextAction(c) {
   if (c.stage === "closed") return null;
   const r = plActiveRfqOf(c);
   if (c.stage === "rfq_review") {
-    if (r.classification.flagged && !r.classification.confirmed) return { label: "Confirm risk classification", tab: "rfq", tone: "orange" };
+    /* Risk classification UI was removed from the RFQ tab — treat any
+       flagged classification as confirmed for the next-action derivation
+       so users never get pointed at a nonexistent card. */
     if (r.missing.some((m) => !m.resolved)) return { label: "Request missing information from RM", tab: "rfq", tone: "orange" };
     return { label: "Validate RFQ and move to insurer selection", tab: "rfq", tone: "purple" };
   }
@@ -13865,7 +13867,11 @@ function PlRfqTab({ c, api }) {
   const [rmOpen, setRmOpen] = useState(false);
   const editable = c.stage === "rfq_review";
   const unresolvedMaterial = rfq.missing.filter((m) => !m.resolved && m.material);
-  const canValidate = !!rfq.classification.confirmed && unresolvedMaterial.length === 0 && c.stage === "rfq_review";
+  /* The Risk Classification card was removed from the RFQ tab earlier, so
+     `classification.confirmed` can no longer be flipped from the UI.
+     Auto-treat the classification as confirmed for the validation gate —
+     the only remaining precondition is that all material gaps are closed. */
+  const canValidate = unresolvedMaterial.length === 0 && c.stage === "rfq_review";
 
   return (
     <div className="space-y-3">
@@ -13984,9 +13990,9 @@ function PlRfqTab({ c, api }) {
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 600 }}>Validate RFQ V{c.activeRfq}</div>
               <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-                {canValidate ? "Classification confirmed and no material gaps remain."
-                  : !rfq.classification.confirmed ? "Confirm the risk classification first."
-                    : `${unresolvedMaterial.length} material gap(s) still open.`}
+                {canValidate
+                  ? "No material gaps remain."
+                  : `${unresolvedMaterial.length} material gap(s) still open.`}
               </div>
             </div>
             <PlBtn variant="primary" disabled={!canValidate} icon={ArrowRight}
