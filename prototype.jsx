@@ -1338,7 +1338,7 @@ const MenuCard = ({ children, right, wide, up }) => {
     }
   }
   const card = (
-    <div className="scroll-slim max-h-80 overflow-y-auto rounded-2xl border px-2 py-3" style={style}>
+    <div data-menu className="scroll-slim max-h-80 overflow-y-auto rounded-2xl border px-2 py-3" style={style}>
       {children}
     </div>
   );
@@ -11902,13 +11902,14 @@ function PlQueueScreen({ cases, onOpen, user }) {
   const sortedRows = rows.slice().sort(PL_SORTS[sort].fn);
   const filtered = fStage.size || fType.size || fUrg.size || fProduct.size;
 
-  /* Options come from the visible pool (post-tab, pre-column-filter), so a
-     filter drops the values that no longer exist. */
+  /* Options derive from the currently RENDERED rows so a filter's dropdown
+     shows exactly what the user is looking at. "All" in each menu resets
+     that dimension so a chained filter can always be unwound. */
   const uniq = (list) => [...new Set(list)].filter(Boolean);
-  const STAGE_OPTS   = uniq(pool.map((c) => c.stage)).map((v) => ({ value: v, label: plStageLabel({ stage: v }) })).sort((a, b) => (PL_STAGE[a.value]?.step ?? 9) - (PL_STAGE[b.value]?.step ?? 9));
-  const TYPE_OPTS    = uniq(pool.map((c) => c.meta.caseType)).map((v) => ({ value: v, label: v })).sort((a, b) => a.label.localeCompare(b.label));
-  const URG_OPTS     = ["High", "Medium", "Low"].filter((u) => pool.some((c) => c.meta.urgency === u)).map((v) => ({ value: v, label: v }));
-  const PRODUCT_OPTS = uniq(pool.flatMap((c) => c.products)).map((v) => ({ value: v, label: PL_PRODUCTS[v] || v })).sort((a, b) => a.label.localeCompare(b.label));
+  const STAGE_OPTS   = uniq(rows.map((c) => c.stage)).map((v) => ({ value: v, label: plStageLabel({ stage: v }) })).sort((a, b) => (PL_STAGE[a.value]?.step ?? 9) - (PL_STAGE[b.value]?.step ?? 9));
+  const TYPE_OPTS    = uniq(rows.map((c) => c.meta.caseType)).map((v) => ({ value: v, label: v })).sort((a, b) => a.label.localeCompare(b.label));
+  const URG_OPTS     = ["High", "Medium", "Low"].filter((u) => rows.some((c) => c.meta.urgency === u)).map((v) => ({ value: v, label: v }));
+  const PRODUCT_OPTS = uniq(rows.flatMap((c) => c.products)).map((v) => ({ value: v, label: PL_PRODUCTS[v] || v })).sort((a, b) => a.label.localeCompare(b.label));
 
   const hf = { openKey, setOpenKey };
 
