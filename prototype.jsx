@@ -13502,9 +13502,22 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
 
 function PlMasterScreen({ role = "Placement Manager" }) {
   const [q, setQ] = useState("");
+  /* Session-local copy of PL_INSURERS + PL_CONTACTS so Himani's edits
+     persist while she's in the tab; a nav-away resets the state to seed. */
+  const [insurers, setInsurers] = useState(() => JSON.parse(JSON.stringify(PL_INSURERS)));
+  const [contacts, setContacts] = useState(() => JSON.parse(JSON.stringify(PL_CONTACTS)));
+  const [editRow, setEditRow] = useState(null);
+  const [toast, setToast] = useState(null);
   const canEdit = role === "Placement Head";
-  const rows = Object.entries(PL_INSURERS).filter(([k, v]) => !q || v.name.toLowerCase().includes(q.toLowerCase()));
+  const rows = Object.entries(insurers).filter(([k, v]) => !q || v.name.toLowerCase().includes(q.toLowerCase()));
   const tone = { Active: "green", Inactive: "neutral", "Do Not Float": "red" };
+  const flash = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2400); };
+  const saveInsurer = (k, patch) => {
+    setInsurers((s) => ({ ...s, [k]: { ...s[k], ...patch.insurer } }));
+    setContacts((s) => ({ ...s, [k]: { ...s[k], ...patch.contact } }));
+    flash(`${patch.insurer.name || insurers[k].name} saved.`);
+    setEditRow(null);
+  };
   return (
     <div>
       <PageHead
@@ -13533,7 +13546,7 @@ function PlMasterScreen({ role = "Placement Manager" }) {
           </thead>
           <tbody>
             {rows.map(([k, v]) => {
-              const ct = PL_CONTACTS[k];
+              const ct = contacts[k];
               return (
                 <tr key={k} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
                   <td className="px-3.5 py-3">
@@ -13547,13 +13560,168 @@ function PlMasterScreen({ role = "Placement Manager" }) {
                   <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.primary}</td>
                   <td className="px-3.5 py-3" style={{ fontSize: 12, color: PL_T.ink2 }}>{ct.senior}</td>
                   <td className="px-3.5 py-3"><PlChip size="xs" tone={tone[ct.status]} dot>{ct.status}</PlChip></td>
-                  {canEdit && <td className="px-3.5 py-3"><PlBtn size="sm" variant="ghost">Edit</PlBtn></td>}
+                  {canEdit && <td className="px-3.5 py-3"><PlBtn size="sm" variant="ghost" onClick={() => setEditRow(k)}>Edit</PlBtn></td>}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </PlCard>
+
+      {editRow && createPortal(
+        <PlInsurerEditDrawer
+          k={editRow}
+          insurer={insurers[editRow]}
+          contact={contacts[editRow]}
+          onClose={() => setEditRow(null)}
+          onSave={(patch) => saveInsurer(editRow, patch)}
+        />, document.body
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 rounded-xl border px-4 py-2.5 shadow-lg"
+          style={{ transform: "translateX(-50%)", background: C.white, borderColor: PL_T.greenLine, fontFamily: FONT }}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={14} color={PL_T.green} />
+            <span style={{ fontSize: 12.5, color: C.figInk, fontWeight: 500 }}>{toast}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Insurer Master edit drawer — right-hand sheet inside a scrim. Reads the
+   full insurer record (name / appetite / sectors / note) and its contact
+   block (branch, primary, senior, status), holds every field in local
+   state, and hands a merged patch back on Save. Appetite is a multi-
+   select tile grid over the PL_PRODUCTS master. */
+function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
+  const [name, setName] = useState(insurer.name);
+  const [sectors, setSectors] = useState(insurer.sectors || "");
+  const [note, setNote] = useState(insurer.note || "");
+  const [appetite, setAppetite] = useState(() => new Set(insurer.appetite || []));
+  const [branch, setBranch] = useState(contact.branch || "");
+  const [primary, setPrimary] = useState(contact.primary || "");
+  const [senior, setSenior] = useState(contact.senior || "");
+  const [status, setStatus] = useState(contact.status || "Active");
+  const toggleApp = (code) => setAppetite((s) => {
+    const next = new Set(s); next.has(code) ? next.delete(code) : next.add(code); return next;
+  });
+  const commit = () => onSave({
+    insurer: { name, sectors, note, appetite: [...appetite] },
+    contact: { branch, primary, senior, status },
+  });
+  const statusTones = { Active: "green", Inactive: "neutral", "Do Not Float": "red" };
+  const codes = Object.keys(PL_PRODUCTS);
+  return (
+    <div className="bk-scrim fixed inset-0 z-50 flex justify-end"
+      style={{ background: "rgba(28,29,31,0.55)", fontFamily: FONT }} onClick={onClose}>
+      <div className="bk-modal flex h-full flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}
+        style={{ width: 560, maxWidth: "100%", background: C.white, borderLeft: `1px solid ${PL_T.border}`,
+          boxShadow: "-16px 0 40px rgba(28,29,31,0.16)" }}>
+        <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+          <div className="min-w-0">
+            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.4, textTransform: "uppercase" }}>Insurer Master · edit</div>
+            <div className="mt-0.5 truncate" style={{ fontSize: 18, fontWeight: 600, color: PL_T.ink }}>{insurer.name}</div>
+          </div>
+          <button onClick={onClose} className="bk-iconctrl flex items-center justify-center rounded-lg border"
+            style={{ width: 28, height: 28, borderColor: PL_T.border, color: PL_T.ink3 }}><X size={14} /></button>
+        </header>
+
+        <div className="scroll-slim flex-1 overflow-y-auto p-5 space-y-5">
+          <section>
+            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>Insurer</div>
+            <label className="block">
+              <FieldLabel>Insurer name</FieldLabel>
+              <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
+            </label>
+            <label className="mt-3 block">
+              <FieldLabel>Sectors written</FieldLabel>
+              <input value={sectors} onChange={(e) => setSectors(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
+            </label>
+            <label className="mt-3 block">
+              <FieldLabel>Underwriter note</FieldLabel>
+              <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4, minHeight: 68, resize: "vertical" }} />
+            </label>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase" }}>Appetite · products written</div>
+              <span style={{ fontSize: 11, color: PL_T.ink3 }}>{appetite.size} selected</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {codes.map((code) => {
+                const on = appetite.has(code);
+                return (
+                  <button key={code} type="button" onClick={() => toggleApp(code)}
+                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left"
+                    style={{ background: on ? PL_T.purpleSoft : C.white,
+                      borderColor: on ? PL_T.purple : PL_T.border,
+                      cursor: "pointer" }}>
+                    <span className="flex items-center justify-center rounded shrink-0" style={{
+                      width: 16, height: 16,
+                      background: on ? PL_T.purple : C.white,
+                      border: `1px solid ${on ? PL_T.purple : PL_T.borderStrong}` }}>
+                      {on && <Check size={11} color="#fff" strokeWidth={3} />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{code}</span>
+                      <span className="block truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>{PL_PRODUCTS[code]}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section>
+            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>Routing & POC</div>
+            <label className="block">
+              <FieldLabel>Branch / geography</FieldLabel>
+              <input value={branch} onChange={(e) => setBranch(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
+            </label>
+            <div className="grid grid-cols-1 gap-3 mt-3">
+              <label className="block">
+                <FieldLabel>Primary POC</FieldLabel>
+                <input value={primary} onChange={(e) => setPrimary(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
+              </label>
+              <label className="block">
+                <FieldLabel>Senior / escalation POC</FieldLabel>
+                <input value={senior} onChange={(e) => setSenior(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
+              </label>
+            </div>
+            <div className="mt-3">
+              <FieldLabel>Status</FieldLabel>
+              <div className="mt-1.5 flex items-center gap-2">
+                {["Active", "Inactive", "Do Not Float"].map((s) => {
+                  const on = status === s;
+                  return (
+                    <button key={s} type="button" onClick={() => setStatus(s)}
+                      className="inline-flex items-center gap-1.5 rounded-full"
+                      style={{ padding: "5px 10px", background: on ? PL_TONES[statusTones[s]].bg : C.white,
+                        border: `1px solid ${on ? PL_TONES[statusTones[s]].line : PL_T.border}`,
+                        color: on ? PL_TONES[statusTones[s]].fg : PL_T.ink2,
+                        fontSize: 11.5, fontWeight: on ? 600 : 500, cursor: "pointer" }}>
+                      <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[statusTones[s]].fg }} />
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <footer className="flex items-center justify-end gap-2 px-5 py-4"
+          style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
+          <button onClick={onClose} className="rounded-xl border"
+            style={{ padding: "8px 16px", borderColor: PL_T.border, background: C.white, fontSize: 13, fontWeight: 500, color: PL_T.ink2, cursor: "pointer" }}>Cancel</button>
+          <button onClick={commit} className="rounded-xl"
+            style={{ padding: "8px 16px", background: PL_T.purple, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save changes</button>
+        </footer>
+      </div>
     </div>
   );
 }
