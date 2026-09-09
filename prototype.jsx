@@ -3942,7 +3942,7 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
   const dotFor = (k) => !!un[k] || nextTab === k;
   const TABS_T = [
     ["overview", "Overview", false, dotFor("overview")],
-    ["company", "Company Profile", false, dotFor("company")],
+    ["company", "Client 360", false, dotFor("company")],
     ["docs", "Document Vault", false, dotFor("docs")],
     ["queries", "Client Channel", false, dotFor("queries")],
     ["mail", "Mail Trail", false, dotFor("mail")],
@@ -4254,10 +4254,10 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
                     <Building2 size={20} />
                   </span>
                   <p className="mt-4" style={{ fontSize: 16, fontWeight: 600, color: C.figInk }}>
-                    Company Profile is syncing info from Client 360
+                    Client 360 is syncing…
                   </p>
                   <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert, maxWidth: 420, lineHeight: 1.5 }}>
-                    Nothing on this tab yet — the sync pulls the customer's registered details, servicing manager and policy summary from Client 360 and lands them here.
+                    Company 360 is taking some time to load. Kindly wait till you receive an update.
                   </p>
                 </div>
               </div>
@@ -12319,7 +12319,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   const TABS = [
     { id: "overview", label: "Overview" },
     { id: "rfq", label: "RFQ" },
-    { id: "strategy", label: "Case Strategy" },
+    { id: "strategy", label: "Client 360" },
     { id: "docs", label: "Documents" },
     { id: "insurers", label: "Insurers" },
     { id: "market", label: "Insurer Threads" },
@@ -12431,7 +12431,22 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
         <div className="flex-1 min-w-0">
           {tab === "overview" && <PlOverviewTab c={c} />}
           {tab === "rfq" && <PlRfqTab c={c} api={api} />}
-          {tab === "strategy" && <div className="space-y-3"><PlCaseStrategyCard c={c} /></div>}
+          {tab === "strategy" && (
+            <div className="flex min-h-full flex-col gap-4">
+              <div className="flex flex-col items-center justify-center rounded-2xl border p-10 text-center"
+                style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white, minHeight: 320 }}>
+                <span className="flex items-center justify-center rounded-full" style={{ width: 44, height: 44, background: C.brandBg, color: C.brand }}>
+                  <Building2 size={20} />
+                </span>
+                <p className="mt-4" style={{ fontSize: 16, fontWeight: 600, color: C.figInk }}>
+                  Client 360 is syncing…
+                </p>
+                <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figTert, maxWidth: 420, lineHeight: 1.5 }}>
+                  Company 360 is taking some time to load. Kindly wait till you receive an update.
+                </p>
+              </div>
+            </div>
+          )}
           {tab === "docs" && <div className="space-y-3"><PlDocumentsCard c={c} /></div>}
           {tab === "insurers" && <PlInsurersTab c={c} api={api} />}
           {tab === "market" && <PlMarketTab c={c} api={api} goTo={setTab} />}
