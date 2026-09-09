@@ -1519,7 +1519,40 @@ function Panel({ title, count, hint, children, action }) {
     </section>
   );
 }
-const Empty = ({ children }) => <div className="px-3 py-8 text-center text-sm" style={{ color: C.figTert }}>{children}</div>;
+/* Shared card shell for the Endorse side — mirrors PlCard's contract so the
+   two envs render cards from the same shape. `pad` toggles the inner p-4;
+   `alt` uses the canvas ground for sunken variants. Any bespoke tone
+   (Next-Action warm-cream, breach red) still passes through `style`. */
+function Card({ children, pad = true, className = "", style = {}, alt = false }) {
+  return (
+    <div className={`rounded-xl border ${pad ? "p-4" : ""} ${className}`}
+      style={{ background: alt ? C.canvas : C.white, borderColor: C.subtle, borderWidth: "0.5px", ...style }}>
+      {children}
+    </div>
+  );
+}
+
+/* Empty grows into PlEmpty's contract: pass `title`/`body`/`icon`/`action` for
+   the rich centered panel, or pass raw `children` to keep the legacy one-line
+   text (every existing caller still works). Rich mode is preferred going
+   forward — it is the shape the two envs now share. */
+const Empty = ({ children, icon: Icon, title, body, action, className = "" }) => {
+  if (title) {
+    return (
+      <div className={`flex flex-col items-center justify-center py-16 text-center ${className}`}>
+        {Icon && (
+          <div className="rounded-xl border p-3 mb-3" style={{ borderColor: C.subtle, background: C.canvas }}>
+            <Icon size={18} color={C.figTert} />
+          </div>
+        )}
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>{title}</div>
+        {body && <div className="mt-1 max-w-sm" style={{ fontSize: 12.5, color: C.figTert }}>{body}</div>}
+        {action && <div className="mt-4">{action}</div>}
+      </div>
+    );
+  }
+  return <div className="px-3 py-8 text-center text-sm" style={{ color: C.figTert }}>{children}</div>;
+};
 
 /* Home - Figma 874:83640. Two blocks: Your Desk counts what is waiting and
    links into a pre-set My Tickets; Priority Cases pages the hot ones three at a
@@ -1781,7 +1814,7 @@ function PerfMeter({ score }) {
    Endorse / Claim / Placement Home. */
 function ProgressCard({ title, value, status, score, tip }) {
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
+    <Card>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-1.5">
           <FileText size={14} style={{ color: C.figHint }} />
@@ -1802,7 +1835,7 @@ function ProgressCard({ title, value, status, score, tip }) {
         </div>
         <div className="mt-2"><PerfMeter score={score} /></div>
       </div>
-    </div>
+    </Card>
   );
 }
 /* Ticket Time Distribution - a donut of hours held by each player (Figma
@@ -2568,8 +2601,11 @@ function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children,
 
 const FIELD = { background: C.white, border: `0.5px solid ${C.line}`, borderRadius: 10,
   padding: "10px 12px", fontSize: 14, fontWeight: 500, color: C.figInk, outline: "none" };
-const FieldLabel = ({ children }) => (
-  <span className="block" style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{children}</span>
+/* Field label voice unified with Placement's PlLabel — UPPERCASE, 10/600,
+   0.7 letter-spacing, secondary-hint color. One label voice across the file. */
+const FieldLabel = ({ children, className = "" }) => (
+  <span className={`block uppercase ${className}`}
+    style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.7, color: C.figHint }}>{children}</span>
 );
 /* A tinted note that says what the action will do before it is taken. */
 const Note = ({ icon: Icon, tone, bg, children }) => (
@@ -4070,7 +4106,7 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
               ? `Copy passed QC and sent to ${t.client}. Awaiting their confirmation on the portal.`
               : (NEXT_ACTION_COPY[t.stage] || advLabel || (simulate ? simulate.label : ""));
             return (
-              <div className="rounded-xl border p-4" style={{ background: "#FDF2E1", borderColor: "#F2DBBE" }}>
+              <Card style={{ background: C.warnSoft, borderColor: "#F2DBBE" }}>
                 <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
                 <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 600, color: C.figInk, lineHeight: 1.35 }}>{copy}</div>
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the audit trail"
@@ -4106,16 +4142,16 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
                     </button>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })()}
           {!readOnly(t) && !advLabel && !simulate && (
-            <div className="rounded-xl border p-4" style={{ background: C.canvas, borderColor: C.subtle }}>
+            <Card alt>
               <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
               <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figHint, lineHeight: 1.35 }}>
                 Waiting on {st.owner || "the counterparty"}. Nothing on your desk right now.
               </div>
-            </div>
+            </Card>
           )}
         </div>
 
