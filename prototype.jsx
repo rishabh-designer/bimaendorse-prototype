@@ -16038,27 +16038,16 @@ function PlMailTab({ c }) {
       </span>
     );
   };
-  const totalMails = threads.reduce((n, t) => n + t.mails.length, 0);
   return (
     <div className="space-y-4">
-      <PlTabHeader title="Mail Trail"
-        meta={`${totalMails} ${totalMails === 1 ? "message" : "messages"} · ${threads.length} threads`} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span />
+      <PlTabHeader title="Mail Trail" meta={
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {threads.map((t) => (
-            <button key={t.key} type="button" onClick={() => setActive(t.key)} title={t.short}
-              className="whitespace-nowrap rounded-full border px-3 py-1"
-              style={{ fontSize: 12, fontWeight: 600,
-                background: active === t.key ? PL_T.purple : PL_T.card,
-                color: active === t.key ? "#fff" : PL_T.ink2,
-                borderColor: active === t.key ? PL_T.purple : PL_T.border,
-                cursor: "pointer" }}>
-              {t.label} ({t.mails.length})
-            </button>
+            <ThreadTab key={t.key} label={`${t.label} (${t.mails.length})`}
+              title={t.short} on={active === t.key} onClick={() => setActive(t.key)} />
           ))}
         </div>
-      </div>
+      } />
       <div className="flex items-center gap-2 rounded-lg border px-3 py-2"
         style={{ borderColor: PL_T.border, background: PL_T.card }}>
         <Search size={14} style={{ color: PL_T.ink3 }} />
@@ -16090,7 +16079,7 @@ function PlMailTab({ c }) {
                 <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: PL_T.ink }}>{m.body}</div>
               </div>
             </div>
-            {i < shown.length - 1 && <div className="my-4" style={{ height: 1, background: PL_T.border, opacity: 0.6 }} aria-hidden />}
+            {i < shown.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
           </div>
         )) : (
           <div className="px-4 py-8 text-center" style={{ fontSize: 13, color: PL_T.ink3 }}>
