@@ -5496,7 +5496,7 @@ const PORTAL_USERS = {
     greeting: "નમસ્તે, ભૂપેન્દ્ર",
   },
   "himani@bimakavach.com": {
-    name: "Himani", first: "Himani", role: "Placement Head",
+    name: "Himani Doshi", first: "Himani", role: "Placement Head",
     avatar: "/himani.webp", envs: ["BimaPlacement"],   /* the admin over BimaPlacement */
     greeting: "નમસ્તે, હિમાની",
   },
@@ -11298,6 +11298,52 @@ function PlChip({ tone = "neutral", children, dot = false, mono = false, size = 
   );
 }
 
+/* A small round avatar. Falls back to an initial-in-a-tinted-circle when no
+   photo is on file — matches the Figma header stack (1536:31841). */
+function PlAvatar({ src, name, size = 22, tone = "neutral" }) {
+  const border = `0.5px solid ${PL_T.border}`;
+  if (src) {
+    return (
+      <img src={src} alt="" title={name}
+        style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border, background: PL_T.card, display: "inline-block" }} />
+    );
+  }
+  const initial = (name || "?").trim().charAt(0).toUpperCase();
+  const bg = ({ purple: PL_T.purpleSoft, blue: PL_T.blueSoft, green: PL_T.greenSoft, orange: PL_T.orangeSoft, neutral: PL_T.cardSunk }[tone]) || PL_T.cardSunk;
+  const fg = ({ purple: PL_T.purple,     blue: PL_T.blue,     green: PL_T.green,     orange: PL_T.orange,     neutral: PL_T.ink2 }[tone])   || PL_T.ink2;
+  return (
+    <span className="inline-flex items-center justify-center rounded-full" title={name}
+      style={{ width: size, height: size, background: bg, border, verticalAlign: "middle" }}>
+      <span style={{ fontSize: Math.round(size * 0.55), fontWeight: 600, color: fg, fontFamily: SERIF, fontStyle: "italic", lineHeight: 1 }}>{initial}</span>
+    </span>
+  );
+}
+
+/* The overlapping participant stack (Executive · PM · RM · Client SPOC). */
+function PlAvatarStack({ participants, size = 22 }) {
+  return (
+    <span className="inline-flex items-center">
+      {participants.map((p, i) => (
+        <span key={i} style={{ marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: participants.length - i }}>
+          <PlAvatar src={p.src} name={p.name} tone={p.tone} size={size} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/* Which people are on this case — used by the header stack. */
+function plParticipantsOf(c) {
+  const ex = plExecOf(c);
+  const pm = PORTAL_USERS["himani@bimakavach.com"] || {};
+  return [
+    { src: ex.avatar,  name: ex.name,     tone: "neutral" },
+    { src: pm.avatar,  name: pm.name,     tone: "neutral" },
+    { src: null,       name: c.client.rm, tone: "blue" },
+    { src: null,       name: (c.client.spoc || "").split(",")[0], tone: "green" },
+  ];
+}
+
 function PlBtn({ variant = "default", size = "md", onClick, disabled, children, icon: Icon, full, title }) {
   const base = {
     primary: { bg: PL_T.purple, fg: "#fff", bd: PL_T.purple },
@@ -12245,29 +12291,51 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
   return (
     <div>
       <div className="px-6 pt-5">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span style={{ fontSize: 24, fontWeight: 650, letterSpacing: -0.5, color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
-              <span style={{ fontSize: 20, color: PL_T.ink3, fontWeight: 300 }}>·</span>
-              <h1 style={{ fontSize: 20, fontWeight: 650, letterSpacing: -0.3, color: PL_T.ink }}>{c.client.name}</h1>
+        {(() => {
+          const pm = PORTAL_USERS["himani@bimakavach.com"] || {};
+          const pmName = pm.name || "Himani Doshi";
+          const parts = plParticipantsOf(c);
+          const products = c.products.map((p) => PL_PRODUCTS[p] || p).join(" · ");
+          return (
+            <div className="mb-4 flex items-start justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                {/* Row 1: PC-XXXX + status pill (Figma 1536:31841) */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
+                  <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
+                  {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
+                </div>
+                {/* Row 2: the four people on the case, inline with icons + avatars. */}
+                <div className="mt-3 flex items-center gap-x-6 gap-y-2 flex-wrap" style={{ fontSize: 14, color: PL_T.ink2, fontWeight: 500 }}>
+                  <span className="inline-flex items-center gap-2">
+                    <User size={16} style={{ color: PL_T.ink }} />
+                    <span style={{ color: PL_T.ink }}>{c.client.name}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <Briefcase size={16} style={{ color: PL_T.ink }} />
+                    <span style={{ color: PL_T.ink2 }}>{products}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <PlAvatar name={c.client.rm} tone="blue" size={22} />
+                    <span>RM: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{c.client.rm}</b></span>
+                  </span>
+                  <span className="inline-flex items-center gap-2">
+                    <PlAvatar src={pm.avatar} name={pmName} size={22} />
+                    <span>Placement Manager: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{pmName}</b></span>
+                  </span>
+                </div>
+              </div>
+              {/* Right cluster: caseType pill + participant stack, above Contact RM. */}
+              <div className="flex flex-col items-end gap-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <PlChip tone={c.meta.caseType === "Renewal" ? "purple" : "blue"} dot>{c.meta.caseType}</PlChip>
+                  <PlAvatarStack participants={parts} size={22} />
+                </div>
+                <PlBtn size="sm">Contact RM</PlBtn>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap mt-2">
-              <PlChip>{c.meta.caseType}</PlChip>
-              {c.products.map((p) => <PlChip key={p}>{PL_PRODUCTS[p] || p}</PlChip>)}
-              <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
-              {c.meta.urgency === "High" && <PlChip tone="orange" dot>High priority</PlChip>}
-              {c.demo && <PlChip tone="green">Happy Path Demo</PlChip>}
-            </div>
-            <div className="flex items-center gap-2 mt-2.5 flex-wrap" style={{ fontSize: 12, color: PL_T.ink3 }}>
-              <span>RM <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{c.client.rm}</b></span><PlDivider vertical />
-              <span>Placement Manager <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{PL_ME.name}</b></span><PlDivider vertical />
-              <span>Renewal <b style={{ color: PL_T.ink2, fontWeight: 600 }}>{c.renewal}</b></span><PlDivider vertical />
-              <span>RFQ <b style={{ color: PL_T.ink2, fontWeight: 600, fontFamily: PL_MONO }}>V{c.activeRfq}</b></span>
-            </div>
-          </div>
-          <PlBtn size="sm">Contact RM</PlBtn>
-        </div>
+          );
+        })()}
 
         <div className="rounded-2xl mb-4 flex items-stretch"
           style={{ background: PL_T.strip, border: `1px solid ${PL_T.stripLine}` }}>
