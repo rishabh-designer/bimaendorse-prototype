@@ -12369,6 +12369,11 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
     : /Clarification|Awaiting RM/.test(st.internal) ? "orange"
     : /Release|QCR/.test(st.internal) ? "purple"
     : /Review/.test(st.internal) ? "amber" : "blue";
+  /* Header status pill uses the shared Indicator (big) so BimaPlacement matches
+     BimaEndorse & BimaClaim's ticket header rhythm. Map Placement tones onto
+     Indicator's IND palette. */
+  const PL_STATUS_IND = { blue: "info", purple: "brand", amber: "caution",
+    orange: "caution", red: "error", green: "success", neutral: "neutral" };
 
   return (
     <div>
@@ -12392,7 +12397,9 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                       Exclusive Mandate
                     </span>
                   )}
-                  <PlChip tone={statusTone} dot>{c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal}</PlChip>
+                  <Indicator big status size={16}
+                    ind={PL_STATUS_IND[statusTone] || "info"}
+                    label={c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal} />
                   {/* Priority chips intentionally suppressed across BimaPlacement per product ask (2026-09-10). */}
                 </div>
                 {/* Row 2: the four people on the case, inline with icons + avatars. */}
