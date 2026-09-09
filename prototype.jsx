@@ -11551,7 +11551,22 @@ const PL_QTABS = [
 function PlQueueScreen({ cases, onOpen }) {
   const [tab, setTab] = useState("mine");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState({ key: null, dir: "asc" });
+  const [sort, setSort] = useState("urgency");
+  const [openKey, setOpenKey] = useState(null);
+  const [fStage, setFStage] = useState(new Set());
+  const [fType, setFType] = useState(new Set());
+  const [fUrg, setFUrg] = useState(new Set());
+  const [fProduct, setFProduct] = useState(new Set());
+
+  /* One menu open at a time; click-away and Escape close it. */
+  useEffect(() => {
+    if (!openKey) return;
+    const away = (e) => { if (!e.target.closest("[data-menu]")) setOpenKey(null); };
+    const esc = (e) => { if (e.key === "Escape") setOpenKey(null); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [openKey]);
 
   const active = cases.filter((c) => c.stage !== "closed");
   const needsYou = active.filter((c) => { const s = plCurrentSla(c); return s && !s.external; });
@@ -11559,38 +11574,42 @@ function PlQueueScreen({ cases, onOpen }) {
   const awaitingReview = active.reduce((n, c) => n + plLiveQuotes(c).filter((x) => !x.decision).length, 0);
 
   const pool = tab === "mine" ? active : tab === "action" ? needsYou : tab === "sla" ? atRisk : cases;
-  const rows = pool.filter((c) => !q || (c.id + c.client.name + c.products.join(" ")).toLowerCase().includes(q.toLowerCase()));
+  const rows = pool
+    .filter((c) => !q || (c.id + c.client.name + c.products.join(" ")).toLowerCase().includes(q.toLowerCase()))
+    .filter((c) => !fStage.size    || fStage.has(c.stage))
+    .filter((c) => !fType.size     || fType.has(c.meta.caseType))
+    .filter((c) => !fUrg.size      || fUrg.has(c.meta.urgency))
+    .filter((c) => !fProduct.size  || c.products.some((p) => fProduct.has(p)));
   const counts = { mine: active.length, action: needsYou.length, sla: atRisk.length, all: cases.length };
 
-  const head = { fontSize: 14, fontWeight: 600, color: "#1C1C1C" };
   /* Row summary shows the primary product in full - never a code, never clubbed.
      The full product mix stays visible on the case (header chips, RFQ sections). */
   const productLabel = (c) => PL_PRODUCTS[c.products[0]] || c.products[0];
   const clientShort = (c) => c.client.name.replace(/ (Pvt Ltd|Ltd|LLP)$/, "");
 
-  /* Sortable columns - same arrow-toggle idiom as the sister My Tickets / My
-     Claims tables. An externally-owned SLA sorts to the end (it isn't ours). */
+  /* Sort menu — matches the sister BimaEndorse pattern (single-select). */
   const URG_RANK = { High: 0, Medium: 1, Low: 2 };
   const slaVal = (c) => { const s = plCurrentSla(c); if (!s) return Infinity; if (s.external) return 1e9; return s.remaining ?? 1e8; };
-  const CMP = {
-    id: (a, b) => a.id.localeCompare(b.id),
-    stage: (a, b) => (PL_STAGE[a.stage]?.step ?? 9) - (PL_STAGE[b.stage]?.step ?? 9),
-    type: (a, b) => a.meta.caseType.localeCompare(b.meta.caseType),
-    urg: (a, b) => (URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9),
-    client: (a, b) => a.client.name.localeCompare(b.client.name),
-    product: (a, b) => productLabel(a).localeCompare(productLabel(b)),
-    sla: (a, b) => slaVal(a) - slaVal(b),
-    usable: (a, b) => plUsableCount(a) - plUsableCount(b),
+  const PL_SORTS = {
+    urgency:  { label: "Urgency",       fn: (a, b) => ((URG_RANK[a.meta.urgency] ?? 9) - (URG_RANK[b.meta.urgency] ?? 9)) || (slaVal(a) - slaVal(b)) },
+    sla:      { label: "Current SLA",   fn: (a, b) => slaVal(a) - slaVal(b) },
+    stage:    { label: "Stage",         fn: (a, b) => (PL_STAGE[a.stage]?.step ?? 9) - (PL_STAGE[b.stage]?.step ?? 9) },
+    id:       { label: "Case ID",       fn: (a, b) => a.id.localeCompare(b.id) },
+    client:   { label: "Client",        fn: (a, b) => a.client.name.localeCompare(b.client.name) },
+    usable:   { label: "Usable quotes", fn: (a, b) => plUsableCount(b) - plUsableCount(a) },
   };
-  const dir = sort.dir === "asc" ? 1 : -1;
-  const sortedRows = sort.key && CMP[sort.key] ? rows.slice().sort((a, b) => CMP[sort.key](a, b) * dir) : rows;
-  const sortBy = (k) => setSort((s) => (s.key === k ? { key: k, dir: s.dir === "asc" ? "desc" : "asc" } : { key: k, dir: "asc" }));
-  const PlSortHead = ({ label, k, style, trunc }) => (
-    <button onClick={() => sortBy(k)} className="flex min-w-0 items-center gap-1 text-left" style={style} title={`Sort by ${label.toLowerCase()}`}>
-      <span className={trunc ? "truncate" : ""} style={{ fontSize: 14, fontWeight: 600, color: sort.key === k ? C.brand : "#1C1C1C" }}>{label}</span>
-      {sort.key === k && (sort.dir === "asc" ? <ChevronUp size={13} className="shrink-0" style={{ color: C.brand }} /> : <ChevronDown size={13} className="shrink-0" style={{ color: C.brand }} />)}
-    </button>
-  );
+  const sortedRows = rows.slice().sort(PL_SORTS[sort].fn);
+  const filtered = fStage.size || fType.size || fUrg.size || fProduct.size;
+
+  /* Options come from the visible pool (post-tab, pre-column-filter), so a
+     filter drops the values that no longer exist. */
+  const uniq = (list) => [...new Set(list)].filter(Boolean);
+  const STAGE_OPTS   = uniq(pool.map((c) => c.stage)).map((v) => ({ value: v, label: plStageLabel({ stage: v }) })).sort((a, b) => (PL_STAGE[a.value]?.step ?? 9) - (PL_STAGE[b.value]?.step ?? 9));
+  const TYPE_OPTS    = uniq(pool.map((c) => c.meta.caseType)).map((v) => ({ value: v, label: v })).sort((a, b) => a.label.localeCompare(b.label));
+  const URG_OPTS     = ["High", "Medium", "Low"].filter((u) => pool.some((c) => c.meta.urgency === u)).map((v) => ({ value: v, label: v }));
+  const PRODUCT_OPTS = uniq(pool.flatMap((c) => c.products)).map((v) => ({ value: v, label: PL_PRODUCTS[v] || v })).sort((a, b) => a.label.localeCompare(b.label));
+
+  const hf = { openKey, setOpenKey };
 
   return (
     <div className="px-6 py-6 space-y-4">
@@ -11612,20 +11631,50 @@ function PlQueueScreen({ cases, onOpen }) {
           </div>
         } />
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <PlSearchField value={q} onChange={setQ} placeholder="Search cases…" size="md" width={240} onClear={() => setQ("")} />
+        <div className="relative" data-menu style={{ minWidth: 187 }}>
+          <button onClick={() => setOpenKey(openKey === "sort" ? null : "sort")}
+            className="flex w-full items-center gap-1 p-3"
+            style={{ background: openKey === "sort" ? "rgba(65,0,207,0.02)" : C.white, borderBottom: `1px solid ${C.brand}` }}>
+            <span className="flex-1 whitespace-nowrap text-left" style={{ fontSize: 16, fontWeight: 500, color: C.brand, lineHeight: 1 }}>
+              Sort by: {PL_SORTS[sort].label}
+            </span>
+            <span className="flex shrink-0 items-center gap-2" style={{ color: C.figHint }}>
+              {openKey === "sort" ? <X size={16} /> : <ChevronDown size={16} />}
+              <span style={{ width: 1, height: 16, background: C.line }} />
+              <ArrowDownWideNarrow size={16} style={{ color: C.figInk }} />
+            </span>
+          </button>
+          {openKey === "sort" && (
+            <MenuCard right>
+              {Object.keys(PL_SORTS).map((k) => (
+                <MenuOpt key={k} label={PL_SORTS[k].label} on={sort === k}
+                  onClick={() => { setSort(k); setOpenKey(null); }} />
+              ))}
+            </MenuCard>
+          )}
+        </div>
       </div>
 
       <section className="flex flex-col gap-1">
         <div className="flex items-center rounded-xl px-2 py-3" style={{ background: C.canvas }}>
-          <PlSortHead label="Case ID" k="id" style={cell(PCOLS.id)} />
-          <PlSortHead label="Stage" k="stage" style={cell(PCOLS.stage)} />
-          <PlSortHead label="Type" k="type" style={cell(PCOLS.type)} />
-          <PlSortHead label="Urgency" k="urg" style={cell(PCOLS.urg)} />
-          <PlSortHead label="Client" k="client" style={cell(PCOLS.client)} trunc />
-          <PlSortHead label="Product" k="product" style={cell(PCOLS.product)} trunc />
-          <PlSortHead label="Current SLA" k="sla" style={cell(PCOLS.sla)} />
-          <PlSortHead label="Usable" k="usable" style={cell(PCOLS.usable)} />
+          <span style={cell(PCOLS.id, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Case ID</span>
+          <span style={cell(PCOLS.stage)}>
+            <HeaderFilter id="pl-stage" label="Stage" options={STAGE_OPTS} selected={fStage} setSelected={setFStage} {...hf} />
+          </span>
+          <span style={cell(PCOLS.type)}>
+            <HeaderFilter id="pl-type" label="Type" options={TYPE_OPTS} selected={fType} setSelected={setFType} {...hf} />
+          </span>
+          <span style={cell(PCOLS.urg)}>
+            <HeaderFilter id="pl-urg" label="Urgency" options={URG_OPTS} selected={fUrg} setSelected={setFUrg} {...hf} />
+          </span>
+          <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Client</span>
+          <span style={cell(PCOLS.product)}>
+            <HeaderFilter id="pl-product" label="Product" options={PRODUCT_OPTS} selected={fProduct} setSelected={setFProduct} right {...hf} />
+          </span>
+          <span style={cell(PCOLS.sla, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Current SLA</span>
+          <span style={cell(PCOLS.usable, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Usable</span>
           <span style={dueCell}>Pending action</span>
         </div>
         {sortedRows.length ? sortedRows.map((c, i) => {
