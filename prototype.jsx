@@ -5407,6 +5407,8 @@ const TOOLS = {
                    bg: "#F4F1FF", activeBg: "#E8E2FF", activeFg: C.brand },
   BimaPlacement: { split: ["Bima", "Placement"], color: C.link,   built: true,   /* Placement = Info (#1458D2) - Placement Manager Workbench */
                    bg: "#EEF4FF", activeBg: "#DDE8FF", activeFg: C.link },
+  BimaOps:       { split: ["Bima", "Ops"],       color: "#007B00", built: true,  /* Ops = Semantic Success — Payment Ops + Policy Issuance workbench */
+                   bg: "#ECFBEA", activeBg: "#D4F5CF", activeFg: "#007B00" },
 };
 
 /* Presence shown as a 6px dot beside the name on the sidebar profile card
@@ -5446,6 +5448,10 @@ const PORTAL_USERS = {
   "himani@bimakavach.com": {
     name: "Himani", first: "Himani", role: "Placement Head",
     envs: ["BimaPlacement"],   /* the admin over BimaPlacement */
+  },
+  "jaishri@bimakavach.com": {
+    name: "Jaishree", first: "Jaishree", role: "Payment Ops Executive",
+    avatar: "/Jaishree.webp", envs: ["BimaOps"],   /* BimaOps — payment support + policy issuance workbench */
   },
 };
 const PORTAL_PASSWORD = "pass-word";
@@ -5659,8 +5665,8 @@ const readRoute = () => { try { return routeOf(window.location.pathname); } catc
    The code is short and non-identifying (a letter per admin, a letter per tool),
    so a reload restores who is signed in and which tool they entered, while every
    ticket / mail mutation re-seeds from scratch (that state is never persisted). */
-const SESS_USER = { n: "nanditha.p@bimakavach.com", r: "ruksana.khan@bimakavach.com", u: "umesh.bagri@bimakavach.com", s: "salvi@bimakavach.com", h: "himani@bimakavach.com" };
-const SESS_ENV  = { e: "BimaEndorse", c: "BimaClaim", p: "BimaPlacement" };
+const SESS_USER = { n: "nanditha.p@bimakavach.com", r: "ruksana.khan@bimakavach.com", u: "umesh.bagri@bimakavach.com", s: "salvi@bimakavach.com", h: "himani@bimakavach.com", j: "jaishri@bimakavach.com" };
+const SESS_ENV  = { e: "BimaEndorse", c: "BimaClaim", p: "BimaPlacement", o: "BimaOps" };
 const emailOf   = (u) => Object.keys(PORTAL_USERS).find((k) => PORTAL_USERS[k] === u) || "";
 const codeOf    = (m, v) => Object.keys(m).find((k) => m[k] === v) || "";
 const sessHash  = (u, env) => { const uc = codeOf(SESS_USER, emailOf(u)), ec = codeOf(SESS_ENV, env); return uc && ec ? `#s=${uc}${ec}` : ""; };
@@ -14786,6 +14792,67 @@ const plNavFor = (u) => [
   ["reports", "Reports", TextSearch],
 ];
 
+/* BimaOps shell — Jaishri's Payment Ops + Policy Issuance workbench
+   (Figma 1526:30910). Bare shell for now: same primitives as the other
+   envs, green wash + Home / My Tickets / Manual Review / Reports nav, and
+   an empty white panel. The full workbench (payment-support and
+   policy-issuance workstreams) lives in ../BimaOps/OPS-WO~4.JSX and folds
+   in incrementally. */
+const OPS_NAV = [
+  ["home", "Home", HeartHandshake],
+  ["list", "My Tickets", ListChecks],
+  ["review", "Manual Review", SquareDashedMousePointer, true],
+  ["reports", "Reports", TextSearch, true],
+];
+function OpsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
+  const [nav, setNav] = useState("home");
+  const identity = user ? { name: user.name, role: user.role, avatar: user.avatar, status: user.status } : undefined;
+  const first = user?.first || "Jaishree";
+  return (
+    <div className="h-screen overflow-hidden p-3" style={{ background: TOOLS.BimaOps.bg, color: C.ink, fontFamily: FONT }}>
+      <style>{GLOBAL_CSS}</style>
+      <div className="flex h-full w-full overflow-hidden">
+        <Sidebar view={nav} go={setNav} mails={[]} openId={null} openTicket={() => {}}
+          collapsed={collapsed} setCollapsed={setCollapsed} onSignOut={onSignOut} onSearch={() => {}}
+          nav={OPS_NAV} tool="BimaOps" envs={user?.envs} onSwitchEnv={setEnv} identity={identity} />
+        <main className="flex flex-1 flex-col overflow-hidden border"
+          style={{ borderRadius: 24, background: C.white, borderColor: C.lineSoft, boxShadow: "0 2px 8px rgba(28,27,31,0.06)" }}>
+          <div className="shrink-0 px-6 py-4">
+            <Breadcrumb segments={[{ label: nav === "home" ? "Home" : nav === "list" ? "My Tickets" : nav === "review" ? "Manual Review" : "Reports" }]} />
+          </div>
+          <div className="scroll-slim min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+            {nav === "home" ? (
+              <div className="space-y-4">
+                <div>
+                  <h2 style={{ fontSize: 24, fontWeight: 600, color: TOOLS.BimaOps.activeFg }}>Welcome back, {first}.</h2>
+                  <p className="mt-1" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+                    Payment Ops + Policy Issuance workbench. The rest of the shell is being folded in from the standalone prototype.
+                  </p>
+                </div>
+                <div className="rounded-xl p-6" style={{ background: TOOLS.BimaOps.bg, border: `0.5px solid ${TOOLS.BimaOps.activeBg}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: TOOLS.BimaOps.activeFg, letterSpacing: 0.4, textTransform: "uppercase" }}>Coming next</div>
+                  <ul className="mt-2 space-y-1.5" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+                    <li>· PAY tickets (Payment Support) — one 60 BM clock, three sources (RM interface + Bima Sahayak endorsement + insurer).</li>
+                    <li>· ISS tickets (Policy Issuance) — draft prep → send → insurer verification → final document receipt.</li>
+                    <li>· Workstream gate by persona (Jaishri = PAY; Amogh = ISS).</li>
+                    <li>· Same phase bar / next-action card / tab red-dot conventions as BimaEndorse.</li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[400px] items-center justify-center">
+                <div className="text-center" style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>
+                  {nav === "list" ? "The PAY / ISS ticket queue lives here." : nav === "review" ? "Manual Review lands here." : "Reports arrive here."}
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
 function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [cases, setCases] = useState(() => PL_ALL_CASES.map(plSeedSla));
   const [nav, setNav] = useState("home");   /* land on Home at login */
@@ -14894,6 +14961,12 @@ export default function App() {
   /* Placement - the third built environment (Placement Manager Workbench). */
   if (env === "BimaPlacement") {
     return <PlacementApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
+  }
+
+  /* Ops - Jaishri's Payment Ops + Policy Issuance workbench. Shell only for
+     now (Figma 1526:30910); the full workbench lives in the reference file. */
+  if (env === "BimaOps") {
+    return <OpsApp user={user} onSignOut={() => setAuthed(false)} setEnv={setEnv} collapsed={collapsed} setCollapsed={setCollapsed} />;
   }
 
   /* Any other tool the session entered that isn't built: the real shell,
