@@ -11871,6 +11871,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
   const [fType, setFType] = useState(new Set());
   const [fUrg, setFUrg] = useState(new Set());
   const [fProduct, setFProduct] = useState(new Set());
+  const [fClient, setFClient] = useState(new Set());
 
   /* One menu open at a time; click-away and Escape close it. */
   useEffect(() => {
@@ -11892,7 +11893,8 @@ function PlQueueScreen({ cases, onOpen, user }) {
     .filter((c) => !fStage.size    || fStage.has(c.stage))
     .filter((c) => !fType.size     || fType.has(c.meta.caseType))
     .filter((c) => !fUrg.size      || fUrg.has(c.meta.urgency))
-    .filter((c) => !fProduct.size  || c.products.some((p) => fProduct.has(p)));
+    .filter((c) => !fProduct.size  || c.products.some((p) => fProduct.has(p)))
+    .filter((c) => !fClient.size   || fClient.has(c.client.name));
   const counts = { mine: active.length, action: needsYou.length, sla: atRisk.length, all: cases.length };
 
   /* Row summary shows the primary product in full - never a code, never clubbed.
@@ -11908,7 +11910,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
     newest: { label: "Newest First", fn: (a, b) => plAgeDays(a) - plAgeDays(b) },
   };
   const sortedRows = rows.slice().sort(PL_SORTS[sort].fn);
-  const filtered = fStage.size || fType.size || fUrg.size || fProduct.size;
+  const filtered = fStage.size || fType.size || fUrg.size || fProduct.size || fClient.size;
 
   /* Options derive from the currently RENDERED rows so a filter's dropdown
      shows exactly what the user is looking at. "All" in each menu resets
@@ -11918,6 +11920,7 @@ function PlQueueScreen({ cases, onOpen, user }) {
   const TYPE_OPTS    = uniq(rows.map((c) => c.meta.caseType)).map((v) => ({ value: v, label: v })).sort((a, b) => a.label.localeCompare(b.label));
   const URG_OPTS     = ["High", "Medium", "Low"].filter((u) => rows.some((c) => c.meta.urgency === u)).map((v) => ({ value: v, label: v }));
   const PRODUCT_OPTS = uniq(rows.flatMap((c) => c.products)).map((v) => ({ value: v, label: PL_PRODUCTS[v] || v })).sort((a, b) => a.label.localeCompare(b.label));
+  const CLIENT_OPTS  = uniq(rows.map((c) => c.client.name)).map((v) => ({ value: v, label: v })).sort((a, b) => a.label.localeCompare(b.label));
 
   const hf = { openKey, setOpenKey };
 
@@ -11976,7 +11979,9 @@ function PlQueueScreen({ cases, onOpen, user }) {
             <HeaderFilter id="pl-type" label="Type" options={TYPE_OPTS} selected={fType} setSelected={setFType} {...hf} />
           </span>
           <span style={cell(PCOLS.age, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Ticket Age</span>
-          <span className="truncate" style={cell(PCOLS.client, { fontSize: 14, fontWeight: 600, color: "#1C1C1C" })}>Client</span>
+          <span style={cell(PCOLS.client)}>
+            <HeaderFilter id="pl-client" label="Client" options={CLIENT_OPTS} selected={fClient} setSelected={setFClient} {...hf} />
+          </span>
           <span style={cell(PCOLS.product)}>
             <HeaderFilter id="pl-product" label="Product" options={PRODUCT_OPTS} selected={fProduct} setSelected={setFProduct} right {...hf} />
           </span>
