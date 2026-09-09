@@ -14688,17 +14688,24 @@ function plMailsForThread(c, thread) {
   });
 }
 function PlMailTab({ c }) {
-  const [active, setActive] = useState("rfq");
+  const [active, setActive] = useState("rm");
   const [q, setQ] = useState("");
   const rfqEvents = (c.audit || []).filter((a) => a.actorType !== "Insurer");
+  /* Union of everyone we've named on this case — the ongoing insurer
+     threads AND the shortlist Salvi selected on the panel (even if we
+     haven't floated to them yet, so the pill shows with a 0 count). */
+  const threadedIds = (c.threads || []).map((t) => t.insurerId);
+  const selectedIds = (c.panel?.selected || []).filter((id) => !threadedIds.includes(id));
+  const allInsurerIds = [...threadedIds, ...selectedIds];
   const threads = [
-    { key: "rfq", label: "RFQ · RM & QCR", short: "RFQ · RM & QCR", mails: plMailsForThread(c, { events: rfqEvents }) },
-    ...(c.threads || []).map((t) => {
-      const ins = PL_INSURERS[t.insurerId];
+    { key: "rm", label: "RM", short: "RM · RFQ & QCR", mails: plMailsForThread(c, { events: rfqEvents }) },
+    ...allInsurerIds.map((insurerId) => {
+      const ins = PL_INSURERS[insurerId];
+      const t = (c.threads || []).find((x) => x.insurerId === insurerId) || { events: [], insurerId };
       return {
-        key: t.insurerId,
-        label: (ins?.name || t.insurerId).split(" ")[0],
-        short: ins?.name || t.insurerId,
+        key: insurerId,
+        label: (ins?.name || insurerId).split(" ")[0],
+        short: ins?.name || insurerId,
         mails: plMailsForThread(c, t),
       };
     }),
