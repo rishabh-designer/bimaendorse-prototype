@@ -13032,13 +13032,6 @@ function PlBimaNetraDrawer({ c, onClose, onClick }) {
           ]} />
         </section>
       </div>
-
-      {/* Footer */}
-      <footer className="flex items-center justify-end gap-2 px-5 py-4"
-        style={{ borderTop: `1px solid ${NETRA_T.cardBorder}`, background: "#F5F5F5" }}>
-        <button onClick={onClose} className="rounded-xl border" style={{ padding: "8px 16px", borderColor: NETRA_T.cardBorder, background: NETRA_T.cardBg, fontSize: 13, fontWeight: 500, color: NETRA_T.muted }}>Maybe later</button>
-        <button onClick={onClose} className="rounded-xl" style={{ padding: "8px 16px", background: "#FF7700", color: "#fff", fontSize: 13, fontWeight: 600 }}>Activate for this case</button>
-      </footer>
     </div>
   );
 }
