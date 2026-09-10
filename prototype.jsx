@@ -11984,27 +11984,38 @@ function makePlacementApi(setCases, say = () => {}) {
   const withLog = (c, actor, type, event, detail = "") =>
     ({ ...c, audit: [...c.audit, plAu(plStamp(), actor, type, event, detail)] });
 
-  return {
-    say,
+  /* §4 · Shared batch-create body. Called by both createCases and the
+     thin createCase wrapper. Given the current cs and the intake d,
+     computes ids (or uses d.ids) and returns the new cs with N cases
+     prepended. */
+  const _doBatchCreate = (cs, d) => {
+    const products = d.products || [];
+    if (products.length === 0) return cs;
+    const startNums = cs.map((c) => parseInt(String(c.id).replace(/[^0-9]/g, ""), 10)).filter((n) => !isNaN(n));
+    const startN = (startNums.length ? Math.max(...startNums) : 1000) + 1;
+    const ids = (d.ids && d.ids.length === products.length)
+      ? d.ids
+      : products.map((_, i) => `PC-${startN + i}`);
+    if (ids.some((id) => cs.some((x) => x.id === id))) return cs;
+    const at = plStamp();
+    const owner = d.owner === "himani" ? "himani" : "bhupendra";
+    const source = d.source || {};
+    const attach = [
+      source.file ? source.file.name : null,
+      source.link ? `RFQ link ${source.link.url}` : null,
+    ].filter(Boolean).join(" · ");
+    const isBatch = products.length > 1;
 
-    /* §7 manual ticket. Builds a fresh case shell in `rfq_review`, marks
-       insurerPick "master" so §9 lets it pick from the full Insurer
-       Master, and audits the create + assign. Runs through
-       plReconcileSla so the case joins SLA-02 with the seed clock. */
-    createCase: (d) => setCases((cs) => {
-      if (cs.some((x) => x.id === d.id)) return cs;
-      /* §1 · Single-product invariant. createCase now expects `d.products`
-         to hold exactly one code. The multi-product intake path belongs
-         to `createCases`, which fans one call to createCase per code. */
-      if (!d.products || d.products.length !== 1) return cs;
-      const at = plStamp();
-      const owner = d.owner === "himani" ? "himani" : "bhupendra";
-      const source = d.source || {};
-      const tmpl = plRfqTemplatesOf(d.products).join(" · ");
-      const attach = [
-        source.file ? source.file.name : null,
-        source.link ? `RFQ link ${source.link.url}` : null,
-      ].filter(Boolean).join(" · ");
+    const built = products.map((code, i) => {
+      const id = ids[i];
+      const others = ids.filter((_, j) => j !== i);
+      const tmpl = plRfqTemplatesOf([code]).join(" · ");
+      const linkedTickets = isBatch
+        ? others.map((oid) => ({ id: oid, reason: "Same RFQ" }))
+        : [];
+      const auditDetail =
+        `RFQ V1 · ${attach || "no attachment recorded"} · ${tmpl}` +
+        (isBatch ? ` · one of ${products.length} tickets from this RFQ (${others.join(", ")})` : "");
       const rfq0 = {
         v: 1, status: "in_review", createdAt: at,
         validatedAt: null, floatedAt: null,
@@ -12013,7 +12024,7 @@ function makePlacementApi(setCases, say = () => {}) {
         classification: { rmEntered: "", suggested: "", flagged: false, confirmed: "Not classified", basis: [], impact: "" },
       };
       const c = {
-        id: d.id,
+        id,
         stage: "rfq_review",
         outcome: null,
         createdVia: "manual",
@@ -12030,7 +12041,7 @@ function makePlacementApi(setCases, say = () => {}) {
           spoc: d.client.spoc || "",
           rm: PL_CONFIG.universalRm,
         },
-        products: [...d.products],
+        products: [code],
         receivedAt: at,
         renewal: d.renewal || "",
         activeRfq: 1,
@@ -12044,10 +12055,8 @@ function makePlacementApi(setCases, say = () => {}) {
         qcrs: [],
         tasks: [{ text: "Review the RFQ and mail the RM for any gaps", by: PL_ME.name, at }],
         audit: [
-          plAu(at, PL_ME.name, "PM", "Case created manually",
-            `RFQ V1 · ${attach || "no attachment recorded"} · ${tmpl}`),
-          plAu(at, "System", "System", "Case assigned",
-            `Owner ${PL_EXECS[owner]?.name || owner}`),
+          plAu(at, PL_ME.name, "PM", "Case created manually", auditDetail),
+          plAu(at, "System", "System", "Case assigned", `Owner ${PL_EXECS[owner]?.name || owner}`),
         ],
         meta: {
           caseType: d.meta.caseType,
@@ -12057,10 +12066,36 @@ function makePlacementApi(setCases, say = () => {}) {
           incumbent: d.meta.incumbent || null,
           slaLeftMins: PL_SLA_MASTER["SLA-02"].mins,
         },
+        linkedTickets,
+        mandateRequests: [],
       };
-      const seeded = plSeedSla(plReconcileSla(c));
-      say(`${d.id} created`, "green");
-      return [seeded, ...cs];
+      return plSeedSla(plReconcileSla(c));
+    });
+
+    if (isBatch) say(`${products.length} tickets created: ${ids.join(", ")}`, "green");
+    else         say(`${ids[0]} created`, "green");
+    return [...built, ...cs];
+  };
+
+  return {
+    say,
+
+    /* §4 · Batch intake — one case per selected product type. Ids come
+       from d.ids (precomputed by PlCreateCaseModal so the modal can
+       preview them). All cases share the exact same RFQ source (same
+       Excel blob and/or same link URL); each case gets its own id,
+       single-product code, seed audit and default meta, plus
+       linkedTickets pointing at every OTHER new id when the batch has
+       more than one. api.createCase (below) is a thin wrapper. */
+    createCases: (d) => setCases((cs) => _doBatchCreate(cs, d)),
+
+    /* §7 manual ticket — thin wrapper around createCases so both entry
+       points share one implementation. Rejects a d.products that
+       doesn't hold exactly one code; batches go through createCases.
+       A caller-supplied d.id becomes the single-element d.ids. */
+    createCase: (d) => setCases((cs) => {
+      if (!d.products || d.products.length !== 1) return cs;
+      return _doBatchCreate(cs, { ...d, ids: d.id ? [d.id] : d.ids });
     }),
 
     confirmClassification: (id, value, changed) => patch(id, (c) => {
@@ -13153,10 +13188,11 @@ function PlMenuPicker({ value, options, placeholder = "Select", onChange, width 
    Everything is stored on the case; nothing is read from the RFQ. */
 function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
   const isHead = plIsAdmin(user);
-  const nextId = useMemo(() => {
+  /* Preview the next N ids at any moment. `products.length` decides
+     how many tickets the batch will produce. */
+  const nextStart = useMemo(() => {
     const nums = cases.map((c) => parseInt(String(c.id).replace(/[^0-9]/g, ""), 10)).filter((n) => !isNaN(n));
-    const n = (nums.length ? Math.max(...nums) : 1000) + 1;
-    return `PC-${n}`;
+    return (nums.length ? Math.max(...nums) : 1000) + 1;
   }, [cases]);
 
   const [file, setFile] = useState(null);
@@ -13196,7 +13232,18 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
     { value: "himani",    label: `${PL_EXECS.himani.name} (you)` },
   ];
 
-  const templateHint = products.length ? plRfqTemplatesOf(products).join(" · ") : "";
+  /* Derived batch preview: one row per selected product type with the
+     id it will land on and the template name for the summary sub-line. */
+  const batchPreview = useMemo(() => products.map((code, i) => ({
+    id: `PC-${nextStart + i}`,
+    code,
+    short: plProductType(code).short || code,
+    template: plProductType(code).template,
+  })), [products, nextStart]);
+  const batchIds = batchPreview.map((r) => r.id);
+  const nBatch = batchPreview.length;
+  const isBatch = nBatch > 1;
+  const templateHint = batchPreview.map((r) => r.template).join(" · ");
 
   const asDdMonYyyy = (iso) => {
     if (!iso) return "";
@@ -13211,8 +13258,8 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
     const source = {};
     if (file) source.file = { name: file.name, size: plFileSize(file.size), by: PL_ME.name, at: plStamp(), blob: file.blob };
     if (link.trim()) source.link = { url: link.trim(), at: plStamp() };
-    api.createCase({
-      id: nextId,
+    api.createCases({
+      ids: batchIds,
       products,
       client: {
         name: name.trim(),
@@ -13230,7 +13277,7 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
       source,
       createdByName: PL_ME.name,
     });
-    onCreated && onCreated(nextId);
+    onCreated && onCreated(batchIds[0]);
   };
 
   const Fld = ({ lbl, children }) => (
@@ -13241,10 +13288,16 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
   );
 
   return (
-    <PlModal wide title="Create ticket" subtitle={`${nextId} · manual ticket`} onClose={onClose}
+    <PlModal wide title="Create ticket"
+      subtitle={isBatch
+        ? `${batchIds[0]} - ${batchIds[batchIds.length - 1]} · ${nBatch} manual tickets`
+        : `${batchIds[0] || `PC-${nextStart}`} · manual ticket`}
+      onClose={onClose}
       footer={<>
         <PlBtn variant="ghost" onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" onClick={submit} disabled={!canSubmit}>Create ticket</PlBtn>
+        <PlBtn variant="primary" onClick={submit} disabled={!canSubmit}>
+          {isBatch ? `Create ${nBatch} tickets` : "Create ticket"}
+        </PlBtn>
       </>}>
       <div className="space-y-4">
         {/* RFQ (top) — Excel + link, at least one required. */}
@@ -13279,11 +13332,23 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
             <div className="mt-1">
               <PlMultiPicker value={products} options={productOpts} onChange={setProducts} width="100%" placeholder="Pick one or more product types" />
             </div>
-            {templateHint && (
+            {isBatch ? (
+              <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>
+                <div>
+                  {nBatch} tickets will be created, one per product type:{" "}
+                  <span style={{ color: PL_T.ink2, fontWeight: 550 }}>
+                    {batchPreview.map((r, i) => (
+                      <span key={r.id}>{i > 0 ? ", " : ""}{r.id} {r.short}</span>
+                    ))}
+                  </span>
+                </div>
+                <div>RFQ templates: <span style={{ color: PL_T.ink2, fontWeight: 550 }}>{templateHint}</span></div>
+              </div>
+            ) : templateHint ? (
               <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
                 RFQ template: <span style={{ color: PL_T.ink2, fontWeight: 550 }}>{templateHint}</span>
               </div>
-            )}
+            ) : null}
           </div>
           <Fld lbl="Business type">
             <PlMenuPicker value={caseType} options={businessOpts} onChange={setCaseType} width="100%" placeholder="Fresh / Renewal / Rollover" />
