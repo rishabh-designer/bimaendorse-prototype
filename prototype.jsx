@@ -16611,13 +16611,10 @@ function PlQuotesTab({ c, api }) {
 /* §12 - verification workspace. Document on the left, extracted values on the
    right, and the decision at the bottom. Received is not the same as usable. */
 function PlQuoteWorkspace({ c, q, api }) {
-  const [edit, setEdit] = useState(null);
-  const [draft, setDraft] = useState("");
   const [modal, setModal] = useState(null);
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const gaps = plGapsOf(q);
-  const corr = plCorrected(q);
   const premium = q.fields.find((f) => f.key === "premium");
   const dead = q.decision === "superseded";
   const pages = 4;
@@ -16646,120 +16643,52 @@ function PlQuoteWorkspace({ c, q, api }) {
               : <PlChip tone="purple" dot>Awaiting your decision</PlChip>}
         </div>
 
-        <div className="flex items-start" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          {/* left - the original document */}
-          <div style={{ width: 340, borderRight: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
-            <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-              <FileText size={12} color={PL_T.ink3} />
-              <span className="truncate" style={{ fontSize: 11, color: PL_T.ink2, fontWeight: 550 }}>{q.doc}</span>
-              <span className="flex-1" />
-              <button onClick={() => setZoom((z) => Math.max(60, z - 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>−</button>
-              <PlMono size={10} color={PL_T.ink3}>{zoom}%</PlMono>
-              <button onClick={() => setZoom((z) => Math.min(160, z + 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>+</button>
-            </div>
+        <div style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardSunk }}>
+          <div className="flex items-center gap-1.5 px-3 py-2" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <FileText size={12} color={PL_T.ink3} />
+            <span className="truncate" style={{ fontSize: 11, color: PL_T.ink2, fontWeight: 550 }}>{q.doc}</span>
+            <span className="flex-1" />
+            <button onClick={() => setZoom((z) => Math.max(60, z - 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>−</button>
+            <PlMono size={10} color={PL_T.ink3}>{zoom}%</PlMono>
+            <button onClick={() => setZoom((z) => Math.min(160, z + 20))} style={{ fontSize: 13, color: PL_T.ink3, width: 16 }}>+</button>
+          </div>
 
-            <div className="px-4 py-4">
-              <div className="rounded-lg mx-auto px-4 py-5"
-                style={{ background: PL_T.card, border: `1px solid ${PL_T.border}`, width: `${zoom}%`, maxWidth: "100%", minHeight: 300 }}>
-                <PlLabel size="md">{PL_INSURERS[q.insurerId].name}</PlLabel>
-                <div style={{ fontSize: 12.5, fontWeight: 650, marginTop: 4 }}>Quotation - {PL_PRODUCTS[q.product]}</div>
-                <div style={{ fontSize: 10.5, color: PL_T.ink3 }}>{c.client.name} · page {page} of {pages}</div>
-                <div className="mt-3 space-y-1.5">
-                  {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).length === 0 && (
-                    <div style={{ fontSize: 10.5, color: PL_T.ink3, fontStyle: "italic" }}>
-                      No extracted values sit on this page. Terms and conditions continue.
-                    </div>
-                  )}
-                  {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).map((f) => {
-                    const blank = String(f.value ?? "").trim() === "";
-                    return (
-                      <div key={f.key} className="rounded px-2 py-1"
-                        style={{ background: blank ? PL_T.redSoft : f.confidence === "low" ? PL_T.orangeSoft : "transparent",
-                          border: `1px solid ${blank ? PL_T.redLine : f.confidence === "low" ? PL_T.orangeLine : "transparent"}` }}>
-                        <div style={{ fontSize: 9.5, color: PL_T.ink3 }}>{f.label}</div>
-                        <div style={{ fontSize: 11, color: blank ? PL_T.red : PL_T.ink, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
-                          {blank ? "- left blank in the document -" : plFmtVal({ ...f, value: f.extracted !== undefined ? f.extracted : f.value })}
-                        </div>
+          <div className="px-6 py-6">
+            <div className="rounded-lg mx-auto px-8 py-8"
+              style={{ background: PL_T.card, border: `1px solid ${PL_T.border}`, width: `${zoom}%`, maxWidth: 780, minHeight: 520 }}>
+              <PlLabel size="md">{PL_INSURERS[q.insurerId].name}</PlLabel>
+              <div style={{ fontSize: 15, fontWeight: 650, marginTop: 4 }}>Quotation - {PL_PRODUCTS[q.product]}</div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{c.client.name} · page {page} of {pages}</div>
+              <div className="mt-5 space-y-2">
+                {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).length === 0 && (
+                  <div style={{ fontSize: 11.5, color: PL_T.ink3, fontStyle: "italic" }}>
+                    No extracted values sit on this page. Terms and conditions continue.
+                  </div>
+                )}
+                {q.fields.filter((f) => (f.page || "p.1") === `p.${page}`).map((f) => {
+                  const blank = String(f.value ?? "").trim() === "";
+                  return (
+                    <div key={f.key} className="rounded px-3 py-1.5"
+                      style={{ background: blank ? PL_T.redSoft : f.confidence === "low" ? PL_T.orangeSoft : "transparent",
+                        border: `1px solid ${blank ? PL_T.redLine : f.confidence === "low" ? PL_T.orangeLine : "transparent"}` }}>
+                      <div style={{ fontSize: 10.5, color: PL_T.ink3 }}>{f.label}</div>
+                      <div style={{ fontSize: 12.5, color: blank ? PL_T.red : PL_T.ink, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
+                        {blank ? "- left blank in the document -" : plFmtVal({ ...f, value: f.extracted !== undefined ? f.extracted : f.value })}
                       </div>
-                    );
-                  })}
-                </div>
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="rounded mt-1.5" style={{ height: 5, background: PL_T.cardSunk, width: `${94 - i * 7}%` }} />
-                ))}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 pb-3">
-              <PlBtn size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Prev</PlBtn>
-              <PlMono size={11} color={PL_T.ink3}>{page} / {pages}</PlMono>
-              <PlBtn size="sm" disabled={page === pages} onClick={() => setPage((p) => p + 1)}>Next</PlBtn>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="rounded mt-2" style={{ height: 6, background: PL_T.cardSunk, width: `${94 - i * 7}%` }} />
+              ))}
             </div>
           </div>
 
-          {/* right - what was extracted, and what you changed */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 px-4 py-2" style={{ background: PL_T.cardAlt, borderBottom: `1px solid ${PL_T.border}` }}>
-              <PlLabel>Extracted quote information</PlLabel>
-              {corr.length > 0 && <PlChip size="xs" tone="purple">{corr.length} corrected by you</PlChip>}
-              <span className="flex-1" />
-              <PlMono size={10.5} color={PL_T.ink3}>original document retained</PlMono>
-            </div>
-
-            <table className="w-full" style={{ borderCollapse: "collapse" }}>
-              <tbody>
-                {q.fields.map((f) => {
-                  const blank = String(f.value ?? "").trim() === "";
-                  const editing = edit === f.key;
-                  const suspect = f.confidence === "low" && !f.correctedBy;
-                  return (
-                    <tr key={f.key} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                      <td className="px-4 py-2" style={{ width: 176, verticalAlign: "top" }}>
-                        <span style={{ fontSize: 12, color: PL_T.ink2 }}>{f.label}</span>
-                        {f.required && <span style={{ fontSize: 10, color: PL_T.ink3 }}> *</span>}
-                        {f.page && <div><PlMono size={9.5} color={PL_T.ink3}>{f.page}</PlMono></div>}
-                      </td>
-                      <td className="px-4 py-2" style={{ verticalAlign: "top" }}>
-                        {editing ? (
-                          <div className="flex items-center gap-1.5">
-                            <PlInput value={draft} onChange={setDraft} kind={f.kind === "money" ? "money" : "text"} />
-                            <PlBtn size="sm" variant="primary" onClick={() => {
-                              api.editField(c.id, q.id, f.key, f.kind === "money" ? Number(draft.replace(/[^\d]/g, "")) || draft : draft);
-                              api.say("Correction saved - the extracted value is kept"); setEdit(null);
-                            }}>Save</PlBtn>
-                            <PlBtn size="sm" variant="ghost" onClick={() => setEdit(null)}>Cancel</PlBtn>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-2">
-                            <span className="flex-1">
-                              <span className="flex items-center gap-1.5">
-                                {suspect && <AlertTriangle size={12} color={PL_T.orange} />}
-                                <span style={{ fontSize: 12.5, color: blank ? PL_T.red : suspect ? PL_T.orange : PL_T.ink,
-                                  fontWeight: 500, fontFamily: f.kind === "money" ? PL_MONO : FONT }}>
-                                  {blank ? "Missing from document" : plFmtVal(f)}
-                                </span>
-                              </span>
-                              {suspect && <span className="block" style={{ fontSize: 10.5, color: PL_T.orange }}>Potential extraction issue - check the document</span>}
-                              {f.correctedBy && (
-                                <span className="block" style={{ fontSize: 10.5, color: PL_T.ink3 }}>
-                                  Extracted: {f.kind === "money" ? plInr(f.extracted) : (String(f.extracted).trim() || "blank")} · corrected by {f.correctedBy}
-                                </span>
-                              )}
-                            </span>
-                            {f.correctedBy && <PlChip tone="purple" size="xs">Corrected</PlChip>}
-                            {!dead && (
-                              <button onClick={() => { setEdit(f.key); setDraft(String(f.value ?? "")); }} style={{ color: PL_T.ink3 }}>
-                                <Pencil size={12} />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="flex items-center justify-center gap-2 pb-4">
+            <PlBtn size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Prev</PlBtn>
+            <PlMono size={11} color={PL_T.ink3}>{page} / {pages}</PlMono>
+            <PlBtn size="sm" disabled={page === pages} onClick={() => setPage((p) => p + 1)}>Next</PlBtn>
           </div>
         </div>
 
