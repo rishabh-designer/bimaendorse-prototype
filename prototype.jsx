@@ -12655,6 +12655,51 @@ function PlSubTabs({ items, value, onChange }) {
   );
 }
 
+/* Actor mark for the Workflow Stages accordion — matches Endorse's
+   StageList right-cluster (small monogram avatar + wordmark). `BimaKavach`
+   reads as the two-tone wordmark ("Bima" ink + "Kavach" brand purple);
+   Insurer as a purple ShieldPlus circle; RM as a blue-tinted initial;
+   `system` as a hint-grey monogram. Keeps the pattern in one place so
+   every accordion row speaks the same voice. */
+function PlActorMark({ actor }) {
+  if (actor === "Insurer") {
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <PlAvatar tone="purple" icon={IconShieldPlus} name="Insurer" size={16} />
+        <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>Insurer</span>
+      </span>
+    );
+  }
+  if (actor === "BimaKavach") {
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <span className="flex shrink-0 items-center justify-center rounded-full"
+          style={{ width: 16, height: 16, background: PL_T.ink, color: "#fff",
+            fontFamily: SERIF, fontStyle: "italic", fontSize: 10, lineHeight: 1 }}>B</span>
+        <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500 }}>
+          <span style={{ color: PL_T.ink }}>Bima</span><span style={{ color: PL_T.purple }}>Kavach</span>
+        </span>
+      </span>
+    );
+  }
+  if (actor === "RM") {
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <PlAvatar tone="blue" name="RM" size={16} />
+        <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>RM</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <span className="flex shrink-0 items-center justify-center rounded-full"
+        style={{ width: 16, height: 16, background: PL_T.ink3, color: "#fff",
+          fontFamily: SERIF, fontStyle: "italic", fontSize: 10, lineHeight: 1 }}>S</span>
+      <span className="whitespace-nowrap" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink }}>System</span>
+    </span>
+  );
+}
+
 /* Overview tab body (Figma 1536:35308). Mirrors the BimaEndorse Overview
    card: Ticket Workflow title on the left, Ticket Age on the right, the
    six-phase bar underneath, and a Workflow Stages accordion whose rows
@@ -12668,7 +12713,6 @@ function PlOverviewTab({ c }) {
     const now = r.step === currentStep;
     return { ...r, done, now };
   });
-  const actorTone = (actor) => actor === "BimaKavach" ? "purple" : actor === "Insurer" ? "blue" : actor === "RM" ? "green" : "neutral";
   return (
     <div className="space-y-5">
       <PlTabHeader title="Ticket Workflow"
@@ -12713,7 +12757,7 @@ function PlOverviewTab({ c }) {
                     <div className="flex flex-1 min-w-0 items-center justify-between gap-3 rounded-lg border" style={{ padding: "10px 12px", background: bg, borderColor: border, borderWidth: 0.5 }}>
                       <span className="truncate" style={{ fontSize: 14, fontWeight: r.now ? 600 : 500, color: labelColor, textDecoration: r.done ? "line-through" : "none" }}>{r.label}</span>
                       <div className="flex items-center gap-3 shrink-0">
-                        <PlChip tone={actorTone(r.actor)} size="xs">{r.actor}</PlChip>
+                        <PlActorMark actor={r.actor} />
                         <span className="inline-flex items-center gap-1.5">
                           {r.now && <span style={{ fontSize: 11, fontWeight: 600, color: PL_T.purple, letterSpacing: 0.4 }}>LIVE</span>}
                           <span className="rounded-full" style={{ width: 3, height: 3, background: r.now ? PL_T.purple : PL_T.ink3 }} />
