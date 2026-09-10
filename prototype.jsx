@@ -11778,6 +11778,126 @@ function plTargetFlag(c, premium) {
   return premium <= t ? { label: "Target Met", tone: "green" } : { label: "Above Target", tone: "orange" };
 }
 
+/* §3 · Parse an RM mail into intake fields + missing labels.
+   Returns `{ fields, missing, notes }`. Fields mirror what
+   PlCreateCaseModal collects: product codes, business name,
+   business type, industry type, target premium (optional),
+   RFQ source, SPOC, urgency, incumbent, RM. Missing is an
+   ordered list of the four required intake fields (Product
+   type, Business name, Business type, Industry type) plus
+   "RFQ Excel or link" when no attachment or link is present. */
+/* §3.3 · Three canned RM mails for the "Simulate RM RFQ mail" block. */
+const PL_RM_MAIL_PRESETS = [
+  {
+    id: "IN-RFQ-101",
+    label: "Mail with target premium",
+    from: "Shubh Bangar",
+    receivedAt: "11 Sep, 10:15",
+    subject: "RFQ - Sunrise Textiles Pvt Ltd - Fire factory",
+    body: "Business name: Sunrise Textiles Pvt Ltd\nBusiness type: Rollover\nIndustry: Manufacturing\nTarget premium: ₹12 L\nFire RFQ for our plant attached.",
+    attachments: [{ name: "Sunrise_Fire_RFQ.xlsx", size: "48 KB" }],
+  },
+  {
+    id: "IN-RFQ-102",
+    label: "Mail without target premium",
+    from: "Shubh Bangar",
+    receivedAt: "11 Sep, 11:20",
+    subject: "RFQ - Crescent Hospitality LLP - GMC",
+    body: "Business name: Crescent Hospitality LLP\nFresh - new policy\nIndustry: Others\nRFQ link: https://rm.bimakavach.com/rfq/draft/crescent-gmc",
+    attachments: [],
+  },
+  {
+    id: "IN-RFQ-103",
+    label: "Mail missing fields",
+    from: "Shubh Bangar",
+    receivedAt: "11 Sep, 12:05",
+    subject: "RFQ - Aarav Traders - Marine open cover",
+    body: "Please quote Marine Open for Aarav Traders.",
+    attachments: [{ name: "Aarav_Marine_RFQ.xlsx", size: "39 KB" }],
+  },
+];
+
+function plParseRfqMail(mail) {
+  const body = String(mail.body || "");
+  const subject = String(mail.subject || "");
+  const attachments = mail.attachments || [];
+  const attachNames = attachments.map((a) => a.name || "").join(" ");
+  const notes = [];
+
+  const searchText = `${subject} ${body} ${attachNames}`;
+  const productCodes = plMatchProductTypes(searchText);
+  const uniqCodes = [...new Set(productCodes)];
+  const hasBothFires = uniqCodes.includes("FIRE_FACTORY") && uniqCodes.includes("FIRE_STOCK");
+  const products = hasBothFires ? [] : uniqCodes.filter((c) => c !== "FIRE_FACTORY" || !hasBothFires);
+  if (hasBothFires) notes.push("Fire: factory/plant or warehouse/godown not stated");
+
+  const readField = (regex) => {
+    const m = body.match(regex);
+    return m ? m[1].trim() : "";
+  };
+  let name = readField(/(?:^|\n)\s*(?:Business name|Client)\s*:\s*(.+?)(?:\r?\n|$)/i);
+  if (!name) {
+    const s = subject.match(/RFQ\s*[-–]\s*(.+?)(?:\s+[-–].*)?$/i);
+    if (s) name = s[1].trim();
+  }
+  const businessTypeRaw = (subject + " " + body).toLowerCase();
+  let businessType = "";
+  if (/\brollover\b|other co\.?\s*renewal/i.test(businessTypeRaw)) businessType = "Rollover";
+  else if (/\brenewal\b|our\s*renewal/i.test(businessTypeRaw)) businessType = "Renewal";
+  else if (/\bfresh\b|new\s*policy/i.test(businessTypeRaw)) businessType = "Fresh";
+
+  const industryRaw = readField(/(?:^|\n)\s*Industry\s*:\s*(.+?)(?:\r?\n|$)/i);
+  let industryType = "";
+  if (industryRaw) {
+    const lower = industryRaw.toLowerCase();
+    const match = (PL_INDUSTRY_TYPES || []).find((v) =>
+      v.value.toLowerCase() === lower || v.value.toLowerCase().replace(/[^a-z0-9]/g, "") === lower.replace(/[^a-z0-9]/g, ""));
+    if (match) industryType = match.value;
+    else industryType = industryRaw;
+  }
+
+  const targetRaw = readField(/(?:^|\n)\s*(?:Target premium|Target|Budget)\s*:\s*(.+?)(?:\r?\n|$)/i);
+  let targetPremium = null;
+  if (targetRaw) {
+    targetPremium = plNormTargetPremium(targetRaw);
+    if (targetPremium == null) notes.push("Target premium in mail not understood - left blank");
+  }
+
+  const accept = (PL_CONFIG && PL_CONFIG.rfqUpload && PL_CONFIG.rfqUpload.accept) || [".xlsx", ".xls"];
+  const acceptSet = new Set(accept.map((s) => s.toLowerCase()));
+  const okAttach = attachments.find((a) => {
+    const dot = (a.name || "").toLowerCase().lastIndexOf(".");
+    return dot >= 0 && acceptSet.has((a.name || "").slice(dot).toLowerCase());
+  });
+  const linkMatch = body.match(/https?:\/\/\S+/);
+  const source = {};
+  if (okAttach) source.file = { name: okAttach.name, size: okAttach.size || "", by: mail.from, at: mail.receivedAt };
+  if (linkMatch) source.link = { url: linkMatch[0], at: mail.receivedAt };
+
+  const spoc = readField(/(?:^|\n)\s*SPOC\s*:\s*(.+?)(?:\r?\n|$)/i);
+  const urgency = readField(/(?:^|\n)\s*Urgency\s*:\s*(.+?)(?:\r?\n|$)/i) || "Medium";
+  const incumbentRaw = readField(/(?:^|\n)\s*Incumbent\s*:\s*(.+?)(?:\r?\n|$)/i);
+  const incumbent = incumbentRaw
+    ? (Object.entries(PL_INSURERS).find(([_, v]) => v.name.toLowerCase() === incumbentRaw.toLowerCase())?.[0] || null)
+    : null;
+  const renewal = readField(/(?:^|\n)\s*Renewal date\s*:\s*(.+?)(?:\r?\n|$)/i);
+
+  const fields = {
+    products, name, businessType, industryType, targetPremium,
+    source, spoc, urgency, incumbent, renewal,
+    rm: mail.from,
+  };
+
+  const missing = [];
+  if (products.length === 0) missing.push("Product type");
+  if (!name) missing.push("Business name");
+  if (!businessType) missing.push("Business type");
+  if (!industryType) missing.push("Industry type");
+  if (!source.file && !source.link) missing.push("RFQ Excel or link");
+
+  return { fields, missing, notes };
+}
+
 /* §1 · Target Premium normaliser. Accepts null / undefined / ""
    → null, numbers > 0 → Math.round, strings with common Indian
    currency shorthand ("₹78 L", "1.2 Cr", "78,00,000"). Anything
@@ -12002,7 +12122,7 @@ function usePlCopycatRunner(cases, api) {
   }, [cases, api]);
 }
 
-function makePlacementApi(setCases, say = () => {}) {
+function makePlacementApi(setCases, say = () => {}, setRfqMailLog = () => {}) {
   const patch = (id, fn) => setCases((cs) => cs.map((c) => (c.id === id ? plReconcileSla(fn(c)) : c)));
   const withLog = (c, actor, type, event, detail = "") =>
     ({ ...c, audit: [...c.audit, plAu(plStamp(), actor, type, event, detail)] });
@@ -12119,6 +12239,97 @@ function makePlacementApi(setCases, say = () => {}) {
     createCase: (d) => setCases((cs) => {
       if (!d.products || d.products.length !== 1) return cs;
       return _doBatchCreate(cs, { ...d, ids: d.id ? [d.id] : d.ids });
+    }),
+
+    /* §3 · Ingest an RM RFQ mail. Parses the mail, and either creates
+       one manual ticket per product type (routing straight through
+       _doBatchCreate so linking + audit match the manual flow) or
+       drops the mail into plRfqMailLog with an auto-reply naming the
+       missing fields. Target premium is optional throughout — its
+       absence never appears in the missing list. Every processed
+       mail — success or auto-reply — is logged. */
+    ingestRmMail: (mail) => setCases((cs) => {
+      const rmFirst = String(mail.from || "the RM").split(/[\s@,]/)[0] || "the RM";
+      const receivedAt = mail.receivedAt || plStamp();
+
+      // Guard against re-ingesting the same mail id.
+      const alreadyProcessed = (existing) => existing.some((r) => r.mailId === mail.id);
+
+      const parsed = plParseRfqMail(mail);
+      const { fields, missing, notes } = parsed;
+
+      if (missing.length > 0) {
+        setRfqMailLog((existing) => alreadyProcessed(existing) ? existing : [{
+          mailId: mail.id,
+          from: mail.from,
+          receivedAt,
+          subject: mail.subject || "",
+          outcome: "auto_replied",
+          missing,
+          notes,
+          reply: `Hi ${rmFirst}, we couldn't create a placement ticket from your mail "${mail.subject || ""}". Please reply with: ${missing.join(", ")}. Target premium is optional.`,
+        }, ...existing]);
+        say(`Auto-reply sent to ${rmFirst}: missing ${missing.join(", ")}`);
+        return cs;
+      }
+
+      // Compute new ids up front so the mail-log row can hold them.
+      const startNums = cs.map((c) => parseInt(String(c.id).replace(/[^0-9]/g, ""), 10)).filter((n) => !isNaN(n));
+      const startN = (startNums.length ? Math.max(...startNums) : 1000) + 1;
+      const ids = fields.products.map((_, i) => `PC-${startN + i}`);
+
+      const attach = [
+        fields.source.file ? fields.source.file.name : null,
+        fields.source.link ? `RFQ link ${fields.source.link.url}` : null,
+      ].filter(Boolean).join(" · ");
+      const suffix = [fields.targetPremium == null ? "target premium not provided" : null, ...notes]
+        .filter(Boolean).join(" · ");
+      const auditTail = ` · ${mail.id} · from ${mail.from} · ${mail.subject || ""}` +
+        (suffix ? ` · ${suffix}` : "");
+
+      const d = {
+        ids,
+        products: fields.products,
+        client: { name: fields.name, industryType: fields.industryType, spoc: fields.spoc },
+        meta: {
+          caseType: fields.businessType,
+          urgency: fields.urgency || "Medium",
+          targetPremium: fields.targetPremium,
+          incumbent: fields.incumbent || null,
+        },
+        renewal: fields.renewal || "",
+        owner: "bhupendra",
+        source: fields.source,
+        createdByName: mail.from,
+        createdVia: "rm_mail",
+      };
+
+      const next = _doBatchCreate(cs, d);
+      // Stamp the additional audit entries + createdVia on the just-created cases.
+      const newIdSet = new Set(ids);
+      const stamped = next.map((c) => {
+        if (!newIdSet.has(c.id)) return c;
+        return {
+          ...c,
+          createdVia: "rm_mail",
+          audit: [
+            plAu(c.receivedAt, "System", "System", "Case created from RM mail", auditTail),
+            ...c.audit,
+          ],
+        };
+      });
+
+      setRfqMailLog((existing) => alreadyProcessed(existing) ? existing : [{
+        mailId: mail.id,
+        from: mail.from,
+        receivedAt,
+        subject: mail.subject || "",
+        outcome: "ticket_created",
+        caseIds: ids,
+        notes,
+      }, ...existing]);
+      say(`${ids.join(", ")} created from ${rmFirst}'s mail`);
+      return stamped;
     }),
 
     /* §2 · Target premium — add / update / remove on open cases.
@@ -13589,7 +13800,7 @@ const PL_QTABS = [
   { id: "all", label: "All Cases" },
 ];
 
-function PlQueueScreen({ cases, onOpen, user, onCreate }) {
+function PlQueueScreen({ cases, onOpen, user, onCreate, api, rfqMailLog = [] }) {
   const isHead = plIsAdmin(user);
   const [tab, setTab] = useState("mine");
   const [sort, setSort] = useState("oldest");
@@ -13753,6 +13964,21 @@ function PlQueueScreen({ cases, onOpen, user, onCreate }) {
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs" style={{ color: C.figTert }}>
         <span><span className="bk-num">{rows.length}</span> of <span className="bk-num">{cases.length}</span> cases</span>
       </div>
+
+      {api && (
+        <PlSimBlock title="Simulate RM RFQ mail">
+          {PL_RM_MAIL_PRESETS.map((p) => {
+            const already = rfqMailLog.some((r) => r.mailId === p.id);
+            return (
+              <PlSimBtn key={p.id} disabled={already}
+                title={already ? "Already processed" : ""}
+                onClick={() => api.ingestRmMail(p)}>
+                {p.label}
+              </PlSimBtn>
+            );
+          })}
+        </PlSimBlock>
+      )}
     </div>
   );
 }
@@ -14410,12 +14636,17 @@ function PlOverviewTab({ c }) {
   const currentStep = c.outcome ? 6 : (PL_STAGE[c.stage]?.step ?? 0);
   /* §15 · Manual tickets are created by a PM under the BimaKavach banner
      (Bhupendra or Himani), so the "Case created" actor reads BimaKavach
-     rather than "system". RM-Interface tickets keep the system actor. */
+     rather than "system". RM-Interface tickets keep the system actor.
+     §3 · RM-mail tickets are created by the ingest bot — actor reads
+     "Email Bot". */
   const isManual = c.createdVia === "manual";
+  const isRmMail = c.createdVia === "rm_mail";
   const rows = PL_WORKFLOW_ROWS.map((r) => {
     const done = r.step < currentStep;
     const now = r.step === currentStep;
-    const actor = r.key === "created" && isManual ? "BimaKavach" : r.actor;
+    const actor = r.key === "created"
+      ? (isManual ? "BimaKavach" : isRmMail ? "Email Bot" : r.actor)
+      : r.actor;
     const { sla, unit } = plWorkflowTarget(r);
     return { ...r, actor, sla, unit, done, now };
   });
@@ -15274,7 +15505,7 @@ const PL_UNMATCHED = [
     why: "Case and thread reference are strong, but the sender is not a contact on the Insurer Master. Held here rather than applied.", tone: "amber" },
 ];
 
-function PlManualScreen({ cases, onOpen, done, setDone, api }) {
+function PlManualScreen({ cases, onOpen, done, setDone, api, rfqMailLog = [] }) {
   const [tab, setTab] = useState("mine");
   const [pick, setPick] = useState({});
   const [map, setMap] = useState({});
@@ -15343,6 +15574,7 @@ function PlManualScreen({ cases, onOpen, done, setDone, api }) {
   const pillTabs = [
     { id: "mine", label: "My reviews", n: PL_MY_REVIEWS.filter((r) => !done[r.id]).length },
     { id: "unmatched", label: "Unmatched", n: PL_UNMATCHED.filter((r) => !done[r.id]).length },
+    { id: "rfq_mails", label: "RFQ mails", n: rfqMailLog.length },
   ];
   return (
     <div className="px-6 py-6">
@@ -15472,6 +15704,57 @@ function PlManualScreen({ cases, onOpen, done, setDone, api }) {
             </PlCard>
           ))}
         </div>
+      )}
+
+      {tab === "rfq_mails" && (
+        rfqMailLog.length === 0 ? (
+          <PlEmpty icon={Mail} title="No RFQ mails processed yet"
+            body="Every RM RFQ mail api.ingestRmMail processes lands here — successful ones with the case id they created, and auto-replied ones with the missing fields and the reply text." />
+        ) : (
+          <div className="space-y-3">
+            {rfqMailLog.map((r) => (
+              <PlCard key={r.mailId} pad={false}>
+                <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+                  <PlChip size="xs" tone={r.outcome === "ticket_created" ? "green" : "orange"} dot>
+                    {r.outcome === "ticket_created" ? "Ticket created" : "Auto-replied"}
+                  </PlChip>
+                  <PlMono size={10.5} color={PL_T.ink3}>{r.mailId}</PlMono>
+                  <span className="flex-1" />
+                  <PlMono size={10.5} color={PL_T.ink3}>{r.receivedAt}</PlMono>
+                </div>
+                <div className="px-4 py-3">
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>{r.subject}</div>
+                  <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>from {r.from} · {r.receivedAt}</div>
+
+                  {r.outcome === "ticket_created" && (
+                    <div className="mt-2 flex items-center gap-2" style={{ fontSize: 12, color: PL_T.ink2 }}>
+                      <Check size={13} color={PL_T.green} />
+                      <span>Created:</span>
+                      {(r.caseIds || []).map((id, i) => (
+                        <button key={id} type="button" onClick={() => onOpen && onOpen(id)}
+                          style={{ color: PL_T.purple, fontFamily: PL_MONO, fontWeight: 600, textDecoration: "underline", cursor: "pointer" }}>
+                          {id}{i < r.caseIds.length - 1 ? "," : ""}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {r.outcome === "auto_replied" && (
+                    <>
+                      <div className="mt-2 flex items-center gap-2" style={{ fontSize: 12, color: PL_T.ink3 }}>
+                        <Info size={12} style={{ marginTop: 2, flexShrink: 0 }} />
+                        <span>Missing: <b style={{ color: PL_T.orange }}>{(r.missing || []).join(", ")}</b></span>
+                      </div>
+                      <div className="mt-2 rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+                        <span style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.reply}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </PlCard>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -15851,12 +16134,15 @@ function PlSection({ icon: Icon, title, badge, children }) {
 function PlRfqSummaryCard({ c, inline = false }) {
   const rfq = plActiveRfqOf(c);
   const manual = c.createdVia === "manual";
-  const sourceLabel = manual ? "Manual ticket" : "RM Interface™";
-  const submittedBy = manual ? (c.createdBy || PL_EXECS.bhupendra.name) : c.client.rm;
-  const submittedAvatar = manual
-    ? (PL_EXECS.bhupendra.name === submittedBy ? PL_EXECS.bhupendra.avatar
-        : PL_EXECS.himani.name === submittedBy ? PL_EXECS.himani.avatar : null)
-    : plRmAvatar(c.client.rm);
+  const rmMail = c.createdVia === "rm_mail";
+  const sourceLabel = rmMail ? "RM mail" : manual ? "Manual ticket" : "RM Interface™";
+  const submittedBy = rmMail ? c.client.rm : (manual ? (c.createdBy || PL_EXECS.bhupendra.name) : c.client.rm);
+  const submittedAvatar = rmMail
+    ? plRmAvatar(c.client.rm)
+    : manual
+      ? (PL_EXECS.bhupendra.name === submittedBy ? PL_EXECS.bhupendra.avatar
+          : PL_EXECS.himani.name === submittedBy ? PL_EXECS.himani.avatar : null)
+      : plRmAvatar(c.client.rm);
   const btMeta = PL_BUSINESS_TYPES.find((b) => b.value === c.meta.caseType);
   const businessTypeText = btMeta ? `${btMeta.value} - ${btMeta.meaning}` : (c.meta.caseType || "-");
   const templates = plRfqTemplatesOf(c.products || []).join(" · ") || "-";
@@ -16823,10 +17109,16 @@ function PlSimBlock({ title, children }) {
   );
 }
 
-function PlSimBtn({ onClick, children }) {
+function PlSimBtn({ onClick, children, disabled, title }) {
   return (
-    <button onClick={onClick} className="rounded-lg px-2.5 py-1"
-      style={{ background: PL_T.card, border: `1px dashed ${PL_T.amberLine}`, color: PL_T.amber, fontSize: 11.5, fontWeight: 550 }}>
+    <button onClick={onClick} disabled={disabled} title={title} className="rounded-lg px-2.5 py-1"
+      style={{
+        background: disabled ? PL_T.cardSunk : PL_T.card,
+        border: `1px dashed ${PL_T.amberLine}`,
+        color: disabled ? PL_T.ink3 : PL_T.amber,
+        fontSize: 11.5, fontWeight: 550,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}>
       {children}
     </button>
   );
@@ -19401,6 +19693,10 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [toast, setToast] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  /* §3 · Log of every RM mail api.ingestRmMail processes, newest first.
+     Rows are either { outcome: "ticket_created", caseIds } or
+     { outcome: "auto_replied", missing, reply, notes }. */
+  const [rfqMailLog, setRfqMailLog] = useState([]);
   const navItems = useMemo(() => plNavFor(user), [user]);
   /* Executive never lands on an admin-only screen even via a stale nav key. */
   const navAllowed = (n) => navItems.some((x) => x[0] === n);
@@ -19413,7 +19709,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const visibleCases = useMemo(() => plVisibleCases(cases, user, scope), [cases, user, scope]);
 
   const say = (msg, tone = "green") => { setToast({ msg, tone }); setTimeout(() => setToast(null), 3400); };
-  const api = useMemo(() => makePlacementApi(setCases, say), []);   // stable across renders
+  const api = useMemo(() => makePlacementApi(setCases, say, setRfqMailLog), []);   // stable across renders
 
   /* §12 · Copycat runner — the only code that talks to the adapter.
      Reads queued QCRs off `cases` and moves them through the
@@ -19458,8 +19754,8 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
                   initialTab={openTab} cases={cases}
                   onOpen={(id) => openCaseAt(id)}
                   onBack={() => { setOpenId(null); setOpenTab(null); }} />
-              : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} onCreate={() => setCreateOpen(true)} />
-              : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} api={api} />
+              : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} onCreate={() => setCreateOpen(true)} api={api} rfqMailLog={rfqMailLog} />
+              : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} api={api} rfqMailLog={rfqMailLog} />
               : (
                 <div className="px-6 py-6">
                   {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} user={user} scope={scope} setScope={setScope} />
