@@ -1696,6 +1696,20 @@ const Tip = ({ children, down, w }) => (
       borderRight: "6px solid transparent", borderTop: `7px solid ${C.subtle}` }} />}
   </span>
 );
+/* Hover wrapper for a meta-row entry (value + icon/logo) — shows a styled
+   Tip below the entry naming the field. Same recessed tooltip Claims uses on
+   its meta row; shared so Endorse and Placement can adopt it too. */
+function MetaHover({ label, children, className = "" }) {
+  const [over, setOver] = useState(false);
+  return (
+    <span className={`relative inline-flex items-center gap-1.5 ${className}`}
+      onMouseEnter={() => setOver(true)} onMouseLeave={() => setOver(false)}>
+      {children}
+      {over && <Tip down>{label}</Tip>}
+    </span>
+  );
+}
+
 /* Info glyph with the same styled hover tooltip the avatars use (not a native
    title). Shared by the progress cards and the time-distribution widgets across
    both BimaEndorse and BimaClaim. */
@@ -3999,13 +4013,13 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
      insurer's wordmark, then the owner's photograph. Anything not on file
      falls back to a glyph rather than a stand-in logo. */
   const meta = [
-    { text: t.client, icon: User },
-    { text: t.policy, icon: FileText, num: true },
-    { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24 },
-    { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22 },
+    { text: t.client, icon: User, label: "Client" },
+    { text: t.policy, icon: FileText, num: true, label: "Policy number" },
+    { text: t.product, icon: Layers, img: PRODUCT_ICON[t.product], imgH: 24, label: "Product" },
+    { text: t.insurer, icon: ShieldCheck, img: INSURER_LOGO[t.insurer], imgH: 22, label: "Insurer" },
     /* Team-scope viewers (Umesh looking at his team's tickets) get an extra
        chip naming who owns this ticket. */
-    ...(scope === "team" ? [{ text: `Owner: ${t.owner}`, icon: User }] : []),
+    ...(scope === "team" ? [{ text: `Owner: ${t.owner}`, icon: User, label: "Ticket owner" }] : []),
   ];
 
   /* Row chrome shared by Captured at intake and the Document Vault. */
@@ -4078,15 +4092,16 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
       {/* a 0.5px hairline separates the identity row from the contract meta */}
       <div className="my-4" style={{ height: 0.5, background: C.subtle }} aria-hidden />
 
-      {/* meta row: client · policy · product · insurer */}
+      {/* meta row: client · policy · product · insurer — each entry carries a
+          hover Tip naming the field, matching the ClMetaItem pattern in Claims. */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {meta.map((m) => (
-          <span key={m.text} title={m.title} className="flex items-center gap-1.5">
+          <MetaHover key={m.text} label={m.label || m.text}>
             <span className={m.num ? "bk-num" : ""} style={{ fontSize: 14, fontWeight: 500, color: C.figHint }}>{m.text}</span>
             {m.img
               ? <img src={m.img} alt="" className="shrink-0" style={{ height: m.imgH, width: "auto" }} />
               : <m.icon size={16} style={{ color: C.figInk }} className="shrink-0" />}
-          </span>
+          </MetaHover>
         ))}
       </div>
 
@@ -12513,29 +12528,31 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                     label={c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal} />
                   {/* Priority chips intentionally suppressed across BimaPlacement per product ask (2026-09-10). */}
                 </div>
-                {/* Row 2: the four people on the case, inline with icons + avatars. */}
+                {/* Row 2: the four people on the case, inline with icons + avatars.
+                    Each entry hover-reveals a Tip naming the field — matches the
+                    Claims meta-row pattern. */}
                 <div className="mt-3 flex items-center gap-x-6 gap-y-2 flex-wrap" style={{ fontSize: 14, color: PL_T.ink2, fontWeight: 500 }}>
-                  <span className="inline-flex items-center gap-2">
+                  <MetaHover label="Client" className="gap-2">
                     <User size={16} style={{ color: PL_T.ink }} />
                     <span style={{ color: PL_T.ink }}>{c.client.name}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-2">
+                  </MetaHover>
+                  <MetaHover label="Product" className="gap-2">
                     <Briefcase size={16} style={{ color: PL_T.ink }} />
                     <span style={{ color: PL_T.ink2 }}>{products}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-2">
+                  </MetaHover>
+                  <MetaHover label="Relationship Manager" className="gap-2">
                     <PlAvatar name={c.client.rm} tone="blue" size={22} />
                     <span>RM: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{c.client.rm}</b></span>
-                  </span>
-                  <span className="inline-flex items-center gap-2">
+                  </MetaHover>
+                  <MetaHover label="Placement Manager" className="gap-2">
                     <PlAvatar src={pm.avatar} name={pmName} size={22} />
                     <span>Placement Manager: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{pmName}</b></span>
-                  </span>
+                  </MetaHover>
                   {c.meta?.targetPremium != null && (
-                    <span className="inline-flex items-center gap-2">
+                    <MetaHover label="Target Premium" className="gap-2">
                       <IconBanknoteCheck size={16} color={PL_T.ink} />
                       <span>Target Premium: <b style={{ color: PL_T.ink, fontWeight: 600, fontFamily: PL_MONO }}>{plInrL(c.meta.targetPremium)}</b></span>
-                    </span>
+                    </MetaHover>
                   )}
                 </div>
               </div>
