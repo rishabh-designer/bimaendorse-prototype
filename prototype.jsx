@@ -11085,16 +11085,33 @@ const PL_PHASES = ["Ticket Intake", "RFQ Verification", "Insurer Selection", "RF
    on the left, actor chip in the middle, duration on the right, a checkbox
    that flips to done / in-progress / next based on the current stage step.
    `step` maps to PL_STAGE.step so the row status can be derived. */
+/* §15 · Every workflow row that has a matching SLA in PL_SLA_MASTER
+   carries its slaId, and plWorkflowTarget reads the {sla, unit} pair
+   straight off the master. "Case created" and "Case closed" have no
+   master row, so they keep their local numbers. */
 const PL_WORKFLOW_ROWS = [
   { key: "created",    label: "Case created",             step: -1, actor: "system",     sla: 5,  unit: "Min" },
-  { key: "rfq",        label: "RFQ under verification",   step: 0,  actor: "BimaKavach", sla: 4,  unit: "BH"  },
-  { key: "insurers",   label: "Insurers selected",        step: 1,  actor: "BimaKavach", sla: 1,  unit: "BH"  },
-  { key: "market",     label: "RFQ floated to insurers",  step: 2,  actor: "Insurer",    sla: 3,  unit: "WD"  },
-  { key: "quotes",     label: "Quotes reviewed",          step: 3,  actor: "BimaKavach", sla: 1,  unit: "BH"  },
-  { key: "qcr",        label: "QCR released to RM",       step: 4,  actor: "BimaKavach", sla: 15, unit: "Min" },
-  { key: "decision",   label: "RM decision",              step: 5,  actor: "RM",         sla: 2,  unit: "BH"  },
+  { key: "rfq",        label: "RFQ under verification",   step: 0,  actor: "BimaKavach", slaId: "SLA-02" },
+  { key: "insurers",   label: "Insurers selected",        step: 1,  actor: "BimaKavach", slaId: "SLA-04" },
+  { key: "market",     label: "RFQ floated to insurers",  step: 2,  actor: "Insurer",    slaId: "SLA-06" },
+  { key: "quotes",     label: "Quotes reviewed",          step: 3,  actor: "BimaKavach", slaId: "SLA-10" },
+  { key: "qcr",        label: "QCR released to RM",       step: 4,  actor: "BimaKavach", slaId: "SLA-12" },
+  { key: "decision",   label: "RM decision",              step: 5,  actor: "RM",         slaId: "SLA-14" },
   { key: "closed",     label: "Case closed",              step: 6,  actor: "system",     sla: 15, unit: "Min" },
 ];
+
+/* §15 · Convert a PL_SLA_MASTER row's minute count into the {sla, unit}
+   pair the Overview table renders. Under 60 → Min; under 540 → BH
+   (mins / 60); otherwise WD (mins / 540). Rows without a slaId already
+   carry their own sla/unit (Case created / Case closed). */
+function plWorkflowTarget(r) {
+  if (!r.slaId) return { sla: r.sla, unit: r.unit };
+  const m = PL_SLA_MASTER[r.slaId]?.mins;
+  if (m == null) return { sla: r.sla || 0, unit: r.unit || "" };
+  if (m < 60) return { sla: m, unit: "Min" };
+  if (m < 540) return { sla: Math.round(m / 60), unit: "BH" };
+  return { sla: Math.round(m / 540), unit: "WD" };
+}
 const PL_STAGE_PHASE = {
   rfq_review:        1,
   awaiting_rm:       1,
@@ -12120,6 +12137,20 @@ function makePlacementApi(setCases, say = () => {}) {
     }),
 
     toggleTask: (id, taskId) => patch(id, (c) => ({ ...c, tasks: c.tasks.map((t) => t.id === taskId ? { ...t, done: !t.done } : t) })),
+
+    /* §15 · Manual Review "Unmatched → confirm mapping" and every
+       "Not Applicable" write land here. Adds a thread event and an
+       audit line; the thread's status stays as it was. */
+    logInbound: (id, threadId, reviewId, event, detail = "") => patch(id, (c) => {
+      const stamp = plStamp();
+      const suffix = reviewId ? ` (Manual Review ${reviewId})` : "";
+      const threads = threadId
+        ? c.threads.map((t) => t.id !== threadId ? t
+            : { ...t, events: [...t.events, plEv(stamp, "System", `${event}${suffix}`)] })
+        : c.threads;
+      const auditDetail = [detail, reviewId ? `Manual Review ${reviewId}` : ""].filter(Boolean).join(" · ");
+      return withLog({ ...c, threads }, "System", "System", event, auditDetail);
+    }),
   };
 }
 
@@ -13782,10 +13813,16 @@ function PlActorMark({ actor }) {
 function PlOverviewTab({ c }) {
   const [open, setOpen] = useState(false);
   const currentStep = c.outcome ? 6 : (PL_STAGE[c.stage]?.step ?? 0);
+  /* §15 · Manual tickets are created by a PM under the BimaKavach banner
+     (Bhupendra or Himani), so the "Case created" actor reads BimaKavach
+     rather than "system". RM-Interface tickets keep the system actor. */
+  const isManual = c.createdVia === "manual";
   const rows = PL_WORKFLOW_ROWS.map((r) => {
     const done = r.step < currentStep;
     const now = r.step === currentStep;
-    return { ...r, done, now };
+    const actor = r.key === "created" && isManual ? "BimaKavach" : r.actor;
+    const { sla, unit } = plWorkflowTarget(r);
+    return { ...r, actor, sla, unit, done, now };
   });
   return (
     <div className="space-y-5">
@@ -13850,7 +13887,7 @@ function PlOverviewTab({ c }) {
               })}
             </div>
             <p className="mt-3 px-1" style={{ fontSize: 12, color: PL_T.ink3, lineHeight: 1.5 }}>
-              The middle chip is the actor owning each stage; the right figure is the fictitious SLA target (BH = business hours, WD = working days, Min = minutes). A tick means the stage has closed; a dash means it is live now.
+              The middle chip is the actor owning each stage; the right figure is the target from the Placement SLA master (BH = business hours, WD = working days, Min = minutes). A tick means the stage has closed; a dash means it is live now.
             </p>
           </div>
         )}
@@ -14601,12 +14638,71 @@ const PL_UNMATCHED = [
     why: "Case and thread reference are strong, but the sender is not a contact on the Insurer Master. Held here rather than applied.", tone: "amber" },
 ];
 
-function PlManualScreen({ cases, onOpen, done, setDone }) {
+function PlManualScreen({ cases, onOpen, done, setDone, api }) {
   const [tab, setTab] = useState("mine");
   const [pick, setPick] = useState({});
   const [map, setMap] = useState({});
 
   const openCases = cases.filter((c) => c.stage !== "closed");
+
+  /* §15 · Find the thread the review's subject refers to: first by
+     insurer name plus the TH-nn reference, then by insurer name alone. */
+  const findThreadFor = (r) => {
+    const c = cases.find((x) => x.id === r.caseId);
+    if (!c) return { c: null, t: null };
+    const ref = (r.subject || "").match(/TH-\d{2,}/);
+    const insurerMatch = (c.threads || []).filter((t) => (PL_INSURERS[t.insurerId]?.name || "").toLowerCase() === (r.insurer || "").toLowerCase());
+    const t = (ref && insurerMatch.find((x) => x.id === ref[0])) || insurerMatch[0] || null;
+    return { c, t };
+  };
+
+  const applyClassification = (r, kind) => {
+    const { c, t } = findThreadFor(r);
+    if (!c || !t) {
+      api?.say(`No matching thread on ${r.caseId} — nothing applied`);
+      return;
+    }
+    if (kind === "Not Applicable") {
+      api.logInbound(c.id, t.id, r.id, "Inbound mail marked not applicable", r.subject);
+      api.say(`${r.id} · logged as not applicable`);
+    } else {
+      const opts = { note: r.body, source: r.id };
+      const map = {
+        "Quote Received": "quote",
+        "Clarification Required": "clarify",
+        "Declined": "decline",
+      };
+      const k = map[kind];
+      if (!k) return;
+      api.simulateInsurer(c.id, t.id, k, opts);
+      api.say(`${r.id} · ${kind.toLowerCase()} applied to ${plThreadLabel(t)}`);
+    }
+    setDone((s) => ({ ...s, [r.id]: kind }));
+  };
+
+  const confirmMapping = (u) => {
+    const caseId = map[u.id]?.case;
+    const threadId = map[u.id]?.thread;
+    if (!caseId || !threadId) return;
+    api.logInbound(caseId, threadId, u.id, "Inbound mail mapped to thread",
+      [u.subject, u.attachment].filter(Boolean).join(" · "));
+    api.say(`${u.id} · mapped to ${threadId}`);
+    setDone((s) => ({ ...s, [u.id]: `${caseId} · ${threadId}` }));
+  };
+
+  /* §15 · Case-picker for Unmatched: product-type matches from
+     plMatchProductTypes go first, labelled with the shorts they matched,
+     then the rest of the open cases with today's label. */
+  const caseOptionsFor = (u) => {
+    const codes = plMatchProductTypes([u.subject, u.body, u.attachment].filter(Boolean).join(" "));
+    const shorts = codes.map((code) => plProductType(code).short);
+    const matches = openCases.filter((c) => (c.products || []).some((p) => codes.includes(p)));
+    const rest = openCases.filter((c) => !matches.includes(c));
+    return [
+      ...matches.map((c) => ({ value: c.id, label: `${c.id} · ${c.client.name} · matches ${shorts.join(", ") || "-"}` })),
+      ...rest.map((c) => ({ value: c.id, label: `${c.id} · ${c.client.name}` })),
+    ];
+  };
 
   const pillTabs = [
     { id: "mine", label: "My reviews", n: PL_MY_REVIEWS.filter((r) => !done[r.id]).length },
@@ -14672,7 +14768,7 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
                     </div>
                     <div className="mt-2.5 flex gap-1.5">
                       <PlBtn size="sm" variant="primary" disabled={!pick[r.id]}
-                        onClick={() => setDone((s) => ({ ...s, [r.id]: pick[r.id] }))}>Confirm classification</PlBtn>
+                        onClick={() => applyClassification(r, pick[r.id])}>Confirm classification</PlBtn>
                       <PlBtn size="sm" onClick={() => onOpen(r.caseId, "market")}>Open thread</PlBtn>
                     </div>
                   </>
@@ -14713,27 +14809,27 @@ function PlManualScreen({ cases, onOpen, done, setDone }) {
                   </div>
                 ) : (
                   <div className="mt-3 flex items-end gap-2">
-                    <div style={{ width: 240 }}>
+                    <div style={{ width: 300 }}>
                       <PlLabel>Placement Case</PlLabel>
                       <div className="mt-1">
-                        <PlMenuPicker width={240} placeholder="Pick a case"
+                        <PlMenuPicker width={300} placeholder="Pick a case"
                           value={map[u.id]?.case || ""}
-                          options={openCases.map((c) => ({ value: c.id, label: `${c.id} · ${c.client.name}` }))}
+                          options={caseOptionsFor(u)}
                           onChange={(v) => setMap((s) => ({ ...s, [u.id]: { case: v, thread: "" } }))} />
                       </div>
                     </div>
-                    <div style={{ width: 220 }}>
+                    <div style={{ width: 240 }}>
                       <PlLabel>Insurer thread</PlLabel>
                       <div className="mt-1">
-                        <PlMenuPicker width={220} placeholder="Pick a thread"
+                        <PlMenuPicker width={240} placeholder="Pick a thread"
                           disabled={!map[u.id]?.case}
                           value={map[u.id]?.thread || ""}
-                          options={(openCases.find((c) => c.id === map[u.id]?.case)?.threads || []).map((t) => PL_INSURERS[t.insurerId].name)}
+                          options={(openCases.find((c) => c.id === map[u.id]?.case)?.threads || []).map((t) => ({ value: t.id, label: plThreadLabel(t) }))}
                           onChange={(v) => setMap((s) => ({ ...s, [u.id]: { ...s[u.id], thread: v } }))} />
                       </div>
                     </div>
                     <PlBtn size="sm" variant="primary" disabled={!map[u.id]?.case || !map[u.id]?.thread}
-                      onClick={() => setDone((s) => ({ ...s, [u.id]: `${map[u.id].case} · ${map[u.id].thread}` }))}>Confirm mapping</PlBtn>
+                      onClick={() => confirmMapping(u)}>Confirm mapping</PlBtn>
                   </div>
                 )}
               </div>
@@ -18594,7 +18690,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
             {openCase
               ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
               : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} onCreate={() => setCreateOpen(true)} />
-              : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
+              : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} api={api} />
               : (
                 <div className="px-6 py-6">
                   {nav === "home" ? <PlHomeScreen cases={cases} onOpen={openCaseAt} setNav={setNav} user={user} scope={scope} setScope={setScope} />
