@@ -14979,15 +14979,16 @@ function PlMarketTab({ c, api, goTo }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-4 pb-1" style={{ fontSize: 9.5, letterSpacing: 0.6, color: PL_T.ink3, fontWeight: 650 }}>
-        <span style={{ width: 7 }} />
-        <span style={{ width: 190 }}>INSURER / LAST ACTIVITY</span>
-        <span className="flex-1" />
-        <span style={{ width: 150 }}>STATUS</span>
-        <span style={{ width: 96 }}>FOLLOW-UP</span>
-        <span style={{ width: 96 }}>SLA / DUE</span>
-        <span style={{ width: 150 }}>NEXT ACTION</span>
-        <span style={{ width: 14 }} />
+      {/* Column header row (mixed case) — grid layout keeps every cell
+          aligned with the row grid below. */}
+      <div className="grid gap-3 px-4 pb-1 items-center"
+        style={{ gridTemplateColumns: "minmax(0,1fr) 150px 100px 100px 160px 18px", fontSize: 11.5, color: PL_T.ink3, fontWeight: 600 }}>
+        <span>Insurer / Last activity</span>
+        <span>Status</span>
+        <span>Follow-up</span>
+        <span>SLA / Due</span>
+        <span>Next action</span>
+        <span />
       </div>
 
       <div className="space-y-2">
@@ -14997,29 +14998,35 @@ function PlMarketTab({ c, api, goTo }) {
           const last = t.events[t.events.length - 1];
           const qs = plLiveQuotes(c, t.insurerId);
           const cl = t.clarifications[t.clarifications.length - 1];
+          const logo = plInsurerLogo(I.name);
+          const stopped = ["declined", "quote_usable", "quote_excluded"].includes(t.status) || !t.followUpsActive;
+          const followUpLabel = stopped
+            ? "Stopped"
+            : t.followUps >= 3 ? PL_FOLLOWUP_LADDER[2].label
+              : t.followUps > 0 ? PL_FOLLOWUP_LADDER[t.followUps - 1].label
+                : "None sent";
+          const followUpTone = stopped ? "green" : t.followUps > 0 ? "purple" : "neutral";
           return (
             <div key={t.insurerId} className="rounded-xl border overflow-hidden"
               style={{ borderColor: t.paused ? PL_T.orangeLine : on ? PL_T.borderStrong : PL_T.border, background: PL_T.card }}>
-              <button onClick={() => setOpen(on ? null : t.insurerId)} className="w-full text-left px-4 py-3 flex items-center gap-3">
-                <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: PL_TONES[PL_TSTAT[t.status].tone].fg }} />
-                <span className="min-w-0" style={{ width: 190 }}>
-                  <span className="block" style={{ fontSize: 12.5, fontWeight: 600 }}>{I.name}</span>
-                  <span className="block truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>{last ? `${last.at} - ${last.text}` : "-"}</span>
+              <button onClick={() => setOpen(on ? null : t.insurerId)} className="w-full text-left px-4 py-3 grid gap-3 items-center"
+                style={{ gridTemplateColumns: "minmax(0,1fr) 150px 100px 100px 160px 18px" }}>
+                <span className="flex items-center gap-2.5 min-w-0">
+                  {logo
+                    ? <img src={logo} alt="" className="shrink-0" style={{ height: 20, width: "auto", maxWidth: 56 }} />
+                    : <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: PL_TONES[PL_TSTAT[t.status].tone].fg }} />}
+                  <span className="min-w-0">
+                    <span className="block" style={{ fontSize: 13, fontWeight: 600, color: PL_T.ink }}>{I.name}</span>
+                    <span className="block truncate" style={{ fontSize: 11.5, color: PL_T.ink3 }}>{last ? `${last.at} · ${last.text}` : "—"}</span>
+                  </span>
                 </span>
-                <span className="flex-1" />
-                <span style={{ width: 150 }}><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
-                <span style={{ width: 96, fontSize: 11, color: PL_T.ink3 }}>
-                  {["declined", "quote_usable", "quote_excluded"].includes(t.status) || !t.followUpsActive
-                    ? "stopped"
-                    : t.followUps >= 3 ? PL_FOLLOWUP_LADDER[2].label
-                      : t.followUps > 0 ? PL_FOLLOWUP_LADDER[t.followUps - 1].label
-                        : "none sent"}
-                </span>
-                <span style={{ width: 96 }}>
+                <span><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
+                <span><PlChip tone={followUpTone}>{followUpLabel}</PlChip></span>
+                <span>
                   <PlSlaChip hours={t.slaH} paused={t.paused} pauseReason={t.pauseReason}
                     stopped={!t.paused && ["declined", "quote_usable", "quote_excluded"].includes(t.status)} />
                 </span>
-                <span style={{ width: 150, fontSize: 11, color: PL_T.ink2, lineHeight: 1.3 }}>{plThreadNext(c, t)}</span>
+                <span style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.3 }}>{plThreadNext(c, t)}</span>
                 {on ? <ChevronDown size={14} color={PL_T.ink3} /> : <ChevronRight size={14} color={PL_T.ink3} />}
               </button>
 
