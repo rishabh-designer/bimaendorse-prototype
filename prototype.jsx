@@ -10347,7 +10347,7 @@ const PL_SEED = [
       { id: "icici", reasons: ["Writes both product sections, so a single thread covers the submission.", "Accepts the requested 2018 retroactive date on D&O without referral."] },
       { id: "bajaj", reasons: ["Active Cyber appetite for IT/ITES with US and EU exposure.", "Cyber limits above ₹25 Cr are referred to reinsurers - this ₹15 Cr request is within direct authority."] },
       { id: "hdfc", reasons: ["Active Cyber appetite in this sector.", "D&O capacity meets, but does not exceed, the requested limit."] },
-      { id: "liberty", reasons: ["Writes both sections for export-facing services companies."] },
+      { id: "liberty", reasons: ["Writes the full scheme for export-facing services companies."] },
     ],
     notRecommended: [
       { id: "digit", reasons: ["No D&O appetite - would only cover one of the two sections."] },
@@ -10486,7 +10486,7 @@ const PL_SEED_B = [
     }],
     panel: { locked: true, selected: ["icici", "hdfc", "bajaj", "nia", "reliance"], excluded: [{ id: "star", reason: "Health-only market, cannot quote the GPA section." }] },
     recommend: [
-      { id: "icici", reasons: ["Writes both sections for EPC contractors at this headcount.", "Accepts 18 project-site GPA exposure without loading."] },
+      { id: "icici", reasons: ["Writes the full scheme for EPC contractors at this headcount.", "Accepts 18 project-site GPA exposure without loading."] },
       { id: "hdfc", reasons: ["GMC appetite covers this headcount range; referred and accepted."] },
       { id: "bajaj", reasons: ["Active appetite for infrastructure employee benefits.", "Willing to look at schemes with an adverse claims ratio."] },
       { id: "nia", reasons: ["Writes large employee-benefit schemes.", "Capacity covers the full headcount without referral."] },
@@ -10495,7 +10495,7 @@ const PL_SEED_B = [
     notRecommended: [{ id: "star", reasons: ["Health-only market. Cannot quote the GPA section."] }],
     threads: [
       { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC and GPA"), plEv("14 Aug, 11:05", "Bhupendra Singh", "Both sections marked usable")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GPA"), plEv("14 Aug, 11:05", "Bhupendra Singh", "GMC quote marked usable"), plEv("14 Aug, 11:05", "Bhupendra Singh", "GPA quote marked usable")], clarifications: [] },
       { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false,
         events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Bhupendra Singh", "Clarification sent - room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Bhupendra Singh", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
       { insurerId: "bajaj", status: "quote_received", slaH: 3, paused: false, followUps: 1, followUpsActive: true,
@@ -10671,7 +10671,7 @@ const PL_SEED_C = [
 
   /* 8 ── Terminal: quote selected, handed off */
   {
-    id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG on both sections. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Shubh Bangar (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
+    id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Shubh Bangar (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
     client: { name: "Orbit Semiconductors Pvt Ltd", industry: "Semiconductor design & test", city: "Noida, UP", headcount: 260, turnover: "₹184 Cr", spoc: "Sanjana Kapoor, COO", rm: "Shubh Bangar" },
     products: ["PI_TECH", "DNO"], receivedAt: "12 Jul, 10:30", renewal: "01 Sep 2026", activeRfq: 1,
     rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "PI_TECH", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "DNO", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics - Semiconductor services", suggested: "Electronics - Semiconductor services", flagged: false, confirmed: "Electronics - Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
@@ -10694,7 +10694,7 @@ const PL_SEED_C = [
       plAu("13 Jul, 10:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("28 Jul, 11:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
       plAu("28 Jul, 15:30", "Bhupendra Singh", "PM", "QCR V1 released to RM", "Sent to Shubh Bangar · version locked"),
-      plAu("04 Aug, 16:45", "Shubh Bangar", "RM", "Client decision recorded", "Quote selected - Tata AIG, both sections"),
+      plAu("04 Aug, 16:45", "Shubh Bangar", "RM", "Client decision recorded", "Quote selected - Tata AIG"),
       plAu("05 Aug, 09:10", "System", "System", "Handed off to RM / Policy Journey", "Reference ISS-8841"),
     ],
   },
