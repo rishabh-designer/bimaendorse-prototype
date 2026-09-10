@@ -14996,7 +14996,9 @@ function PlMarketTab({ c, api, goTo }) {
           const I = PL_INSURERS[t.insurerId];
           const on = open === t.insurerId;
           const last = t.events[t.events.length - 1];
-          const qs = plLiveQuotes(c, t.insurerId);
+          /* Filter live quotes to THIS insurer — plLiveQuotes returns the
+             whole case, so a bare `.some` would light up every row. */
+          const qs = plLiveQuotes(c).filter((q) => q.insurerId === t.insurerId);
           const cl = t.clarifications[t.clarifications.length - 1];
           const logo = plInsurerLogo(I.name);
           const terminal = ["declined", "quote_usable", "quote_excluded"].includes(t.status);
@@ -15018,21 +15020,44 @@ function PlMarketTab({ c, api, goTo }) {
             : slaState === "over" ? `${plFmtH(Math.abs(t.slaH))} over`
             : `${plFmtH(t.slaH)} left`;
 
-          /* Actions column — one primary action button per row, disabled or
-             hidden depending on state. onClick stops propagation so the row
-             itself remains the click target for expand. */
+          /* Actions column — state-first. Each thread status maps to exactly
+             ONE button (or none). Some read as disabled because the ball is
+             not on our desk (awaiting_rm), some are absent because the thread
+             is terminal (declined / usable held / excluded). Everything else
+             surfaces the next concrete action Bhupendra/Himani can take. */
           const nextLabel = plThreadNext(c, t);
-          const hasQuote = qs.some((q) => !q.decision);
-          const canFollowUp = ["rfq_sent", "acknowledged", "no_response"].includes(t.status) && t.followUpsActive;
-          const canReply = t.status === "awaiting_rm" && cl?.rmResponse;
+          const pendingQuote = qs.some((q) => !q.decision);
           let action = null;
-          if (hasQuote) action = { label: "Review Quote", variant: "primary", onClick: () => goTo("quotes") };
-          else if (canReply) action = { label: "Reply to insurer", variant: "primary", onClick: () => setModal({ kind: "reply", t }) };
-          else if (t.status === "insurer_clarification") action = { label: "Request from RM", variant: "primary", onClick: () => setModal({ kind: "askRm", t }) };
-          else if (canFollowUp) action = { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } };
-          else if (t.status === "awaiting_rm") action = { label: "RM Response", variant: "default", disabled: true };
-          else if (t.status === "declined") action = null;
-          else if (!terminal) action = { label: "Log call", variant: "default", onClick: () => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); } };
+          switch (t.status) {
+            case "declined":
+            case "quote_usable":
+            case "quote_excluded":
+              action = null;
+              break;
+            case "quote_received":
+            case "quote_clarification":
+              if (pendingQuote) action = { label: "Review Quote", variant: "primary", onClick: () => goTo("quotes") };
+              break;
+            case "awaiting_rm":
+              action = cl?.rmResponse
+                ? { label: "Reply to insurer", variant: "primary", onClick: () => setModal({ kind: "reply", t }) }
+                : { label: "RM Response", variant: "default", disabled: true };
+              break;
+            case "insurer_clarification":
+              action = { label: "Request from RM", variant: "primary", onClick: () => setModal({ kind: "askRm", t }) };
+              break;
+            case "no_response":
+              action = t.followUpsActive && t.followUps < 3
+                ? { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } }
+                : { label: "Escalate", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`${I.name}: escalation flagged`); } };
+              break;
+            case "rfq_sent":
+            case "acknowledged":
+              if (t.followUpsActive) action = { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } };
+              break;
+            default:
+              action = null;
+          }
 
           return (
             <div key={t.insurerId} className="rounded-xl border overflow-hidden"
