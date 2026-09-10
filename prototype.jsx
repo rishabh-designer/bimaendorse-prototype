@@ -13679,9 +13679,10 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
    threads (`PlMarketTab`). Bodies are unchanged; this is pure composition
    so a revert only needs to drop the wrapper. */
 function PlInsuranceContactTab({ c, api, sub, setSub, goTo }) {
+  const na = plNextAction(c);
   const subs = [
-    { id: "insurers", label: "Insurer" },
-    { id: "market",   label: "Insurer Threads" },
+    { id: "insurers", label: "Insurer Panel",   dot: na?.tab === "insurers" },
+    { id: "market",   label: "Insurer Threads", dot: na?.tab === "market" },
   ];
   return (
     <div className="space-y-5">
@@ -13745,12 +13746,15 @@ function PlSubTabs({ items, value, onChange }) {
         const on = value === it.id;
         return (
           <button key={it.id} type="button" onClick={() => onChange(it.id)}
-            className="pl-focus rounded-full leading-none transition-colors"
+            className="pl-focus rounded-full leading-none transition-colors inline-flex items-center gap-1.5"
             style={{ padding: "6px 12px",
               border: `1px solid ${on ? PL_T.purple : PL_T.border}`,
               background: on ? PL_T.purple : PL_T.card,
               color: on ? "#fff" : PL_T.ink2,
               fontSize: 12.5, fontWeight: 550, cursor: "pointer" }}>
+            {it.dot && (
+              <span className="rounded-full" style={{ width: 6, height: 6, background: on ? "#fff" : PL_T.red, flexShrink: 0 }} />
+            )}
             {it.label}
           </button>
         );
