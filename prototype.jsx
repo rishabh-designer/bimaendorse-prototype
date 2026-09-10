@@ -10959,8 +10959,74 @@ function plNormalizeSeed(c) {
   // 4 · quote threadIds
   const quotes = (c.quotes || []).map((q) => ({ ...q, threadId: q.threadId || firstThreadOf(q.insurerId) }));
 
-  // 5 · qcr rfqV (copycat seed-attachment is wired in Phase 6)
-  const qcrs = (c.qcrs || []).map((q) => ({ ...q, rfqV: q.rfqV || c.activeRfq }));
+  // 5 · qcr rfqV + Phase-6 copycat block on released rows
+  const qcrs = (c.qcrs || []).map((q) => {
+    const withRfq = { ...q, rfqV: q.rfqV || c.activeRfq };
+    if (withRfq.status !== "released" || withRfq.copycat) return withRfq;
+    /* Released seed QCRs pre-date the Copycat lifecycle. Rebuild the
+       Copycat result from the same usable quotes the release included
+       so PlQcrDocument (which now reads from copycat.result) has data
+       to render. */
+    const included = (quotes || []).filter((qq) =>
+      qq.rfqV === withRfq.rfqV && qq.decision === "usable");
+    const documents = included.map((qq) => {
+      const t = threads.find((x) => x.id === qq.threadId);
+      return {
+        quoteId: qq.id, insurerId: qq.insurerId,
+        insurer: PL_INSURERS[qq.insurerId]?.name || qq.insurerId,
+        contact: t ? (t.poc || "") : "",
+        product: qq.product, version: qq.version, fileName: qq.doc,
+      };
+    });
+    const byProduct = {};
+    included.forEach((qq) => { (byProduct[qq.product] = byProduct[qq.product] || []).push(qq); });
+    /* plFmtVal isn't defined yet at seed-eval time, so inline the same
+       small formatter: empty ⇒ null; money ⇒ Indian-lakh formatted; else
+       stringify. Kept in sync with plFmtVal / plInr further down. */
+    const fmt = (f) => {
+      const raw = String(f.value ?? "").trim();
+      if (raw === "") return null;
+      if (f.kind !== "money") return String(f.value);
+      const n = Number(f.value);
+      if (isNaN(n)) return String(f.value);
+      return `₹ ${n.toLocaleString("en-IN")}`;
+    };
+    const products = Object.keys(byProduct).map((product) => {
+      const list = byProduct[product];
+      const columns = list.map((qq) => {
+        const doc = documents.find((d) => d.quoteId === qq.id) || {};
+        return {
+          quoteId: qq.id, insurerId: qq.insurerId,
+          insurer: PL_INSURERS[qq.insurerId]?.name || qq.insurerId,
+          contact: doc.contact || "", version: qq.version,
+          receivedAt: qq.receivedAt, fileName: qq.doc,
+        };
+      });
+      const labelSet = list[0].fields.map((f) => ({ key: f.key, label: f.label }));
+      const rows = labelSet.map(({ key, label }) => ({
+        term: label,
+        values: list.map((qq) => {
+          const f = qq.fields.find((x) => x.key === key);
+          return f ? fmt(f) : null;
+        }),
+      }));
+      return { product, columns, rows };
+    });
+    const requestId = `CC-${c.id}-V${withRfq.v}-1`;
+    return {
+      ...withRfq,
+      quoteIds: documents.map((d) => d.quoteId),
+      copycat: {
+        status: "ready", requestId, attempt: 1,
+        queuedAt: withRfq.createdAt, startedAt: withRfq.createdAt, generatedAt: withRfq.createdAt,
+        documents,
+        result: {
+          qcrId: `CC-QCR-${c.id}-V${withRfq.v}`, generatedAt: withRfq.createdAt,
+          file: { name: `QCR_${c.id}_V${withRfq.v}.pdf` }, products,
+        },
+      },
+    };
+  });
 
   // Excel cases: rewrite the "RFQ received" audit as a manual-create line
   let audit = c.audit || [];
@@ -11137,8 +11203,12 @@ const plThreadLabel = (t) => (t ? `${(PL_INSURERS[t.insurerId] && PL_INSURERS[t.
 const plThreadsAtInsurer = (c, insurerId) => (c.threads || []).filter((t) => t.insurerId === insurerId);
 const plInsurerHasManyThreads = (c, insurerId) => plThreadsAtInsurer(c, insurerId).length > 1;
 const plActiveRfqOf = (c) => c.rfqs.find((r) => r.v === c.activeRfq) || c.rfqs[c.rfqs.length - 1];
-const plReleasedQcr = (c) => c.qcrs.filter((q) => q.status === "released").slice(-1)[0] || null;
-const plDraftQcr = (c) => c.qcrs.find((q) => q.status === "draft") || null;
+/* §12 · A QCR belongs to an RFQ version. plQcrsOnRfq scopes to activeRfq
+   and drops superseded rows; plReleasedQcr and plDraftQcr read from it so
+   an RFQ V2 draft never sees the released V1 QCR. */
+const plQcrsOnRfq = (c) => (c.qcrs || []).filter((q) => q.rfqV === c.activeRfq && q.status !== "superseded");
+const plReleasedQcr = (c) => plQcrsOnRfq(c).filter((q) => q.status === "released").slice(-1)[0] || null;
+const plDraftQcr = (c) => plQcrsOnRfq(c).find((q) => q.status === "draft") || null;
 const plRestartableThreads = (c) => plOpenThreads(c).filter((t) => t.status !== "awaiting_rm");
 const plOpenThreads = (c) => c.threads.filter((t) => !["declined", "no_response", "quote_usable", "quote_excluded"].includes(t.status));
 
@@ -11182,7 +11252,12 @@ function plNextAction(c) {
     if (breach.length) return { label: `${PL_INSURERS[breach[0].insurerId].name} has breached SLA`, tab: "market", tone: "red" };
     return { label: "Monitor insurer responses", tab: "market", tone: "neutral" };
   }
-  if (c.stage === "qcr_draft") return { label: "Review draft QCR and send to RM", tab: "qcr", tone: "purple" };
+  if (c.stage === "qcr_draft") {
+    const st = plDraftQcr(c)?.copycat?.status;
+    if (st === "failed") return { label: "QCR generation failed - retry with Copycat", tab: "qcr", tone: "red" };
+    if (st === "ready")  return { label: "Review draft QCR and send to RM", tab: "qcr", tone: "purple" };
+    return { label: "Copycat is generating the QCR", tab: "qcr", tone: "neutral" };
+  }
   if (c.rmMoreQuotes && !c.rmMoreQuotes.handled)
     return { label: "RM requested more quotes - decide which markets to approach", tab: "market", tone: "orange" };
   if (c.stage === "qcr_released") {
@@ -11224,9 +11299,12 @@ function plCaseStatus(c) {
     if (plLiveQuotes(c).some((q) => !q.decision)) return P("Quote Review Required", "Placement In Progress");
     return P("Quote Collection In Progress", "Placement In Progress");
   }
-  if (c.stage === "qcr_draft")
-    return plDraftQcr(c) ? P("Pending Placement Release", "Placement In Progress")
-                       : P("QCR Ready", "Placement In Progress");
+  if (c.stage === "qcr_draft") {
+    const st = plDraftQcr(c)?.copycat?.status;
+    if (st === "ready") return P("Pending Placement Release", "Placement In Progress");
+    if (st === "failed") return P("QCR Generation Failed", "Placement In Progress");
+    return P("QCR Generation In Progress", "Placement In Progress");
+  }
   if (c.stage === "qcr_released") return P("Pending RM Review", "QCR Ready");
   if (c.stage === "negotiation") return P("Negotiation In Progress", "Requote / Negotiation In Progress");
   return P("Placement In Progress", "Placement In Progress");
@@ -11280,7 +11358,7 @@ function plSlaIdOf(c) {
     : c.stage === "negotiation" ? (c.negotiations.some((n) => n.status === "draft") ? "SLA-15"
                                    : c.negotiations.some((n) => n.status === "open") ? "SLA-16" : "SLA-15")
     : c.stage === "qcr_released" ? "SLA-14"
-    : c.stage === "qcr_draft" ? (plDraftQcr(c) ? "SLA-12" : "SLA-11")
+    : c.stage === "qcr_draft" ? (plDraftQcr(c)?.copycat?.status === "ready" ? "SLA-12" : "SLA-11")
     : c.threads.some((t) => t.status === "awaiting_rm") ? "SLA-03"
     : plLiveQuotes(c).some((q) => !q.decision) ? "SLA-10"
     : "SLA-06";
@@ -11331,6 +11409,194 @@ const PL_TAXONOMY = [
     details: ["Purchase postponed", "No longer interested", "Bought elsewhere"] },
   { broad: "Other", route: "Placement review determines the route. Free text is mandatory.", kind: null, details: [] },
 ];
+
+/* ================================================================== *
+ *  §12 · Copycat integration — the QCR is built externally, not
+ *  assembled from extracted quote fields. Every QCR creation goes
+ *  through plQueueCopycat; the runner reads queued rows off `cases`
+ *  and hands them to plCopycatClient, which is a thin seam over the
+ *  mock adapter (works out of the box) and a live adapter (a
+ *  multipart POST to whatever endpoint PL_CONFIG.copycat carries).
+ * ================================================================== */
+
+/* Prototype-only failure switch. Flipped by "Simulate Copycat →
+   Fail the next generation" on the QCR tab; the mock adapter reads
+   and clears it on the next generate call. */
+let plCopycatFailNext = false;
+const plCopycatSetFailNext = (v = true) => { plCopycatFailNext = !!v; };
+
+/* Documents payload the Copycat call receives. One entry per usable
+   quote on the active RFQ — quote id, insurer, POC name, product,
+   version and file name are the metadata; the PDF blob (fresh
+   uploads only, absent for seeded cases) rides on top when live. */
+function plQcrDocumentsFor(c) {
+  const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
+  return usable.map((q) => {
+    const t = plThreadById(c, q.threadId);
+    return {
+      quoteId: q.id,
+      insurerId: q.insurerId,
+      insurer: PL_INSURERS[q.insurerId]?.name || q.insurerId,
+      contact: t ? (t.poc || "") : "",
+      product: q.product,
+      version: q.version,
+      fileName: q.doc,
+    };
+  });
+}
+
+/* Move a QCR into the queued state with a stable requestId. Both
+   the auto-draft (threshold-met) path and the manual paths (early
+   release, new version, regenerate) go through this. */
+function plQueueCopycat(qcr, c, attempt = 1) {
+  const requestId = `CC-${c.id}-V${qcr.v}-${attempt}`;
+  const documents = plQcrDocumentsFor(c);
+  return {
+    ...qcr,
+    rfqV: c.activeRfq,
+    quoteIds: documents.map((d) => d.quoteId),
+    copycat: {
+      status: "queued",
+      requestId,
+      attempt,
+      queuedAt: plStamp(),
+      documents,
+    },
+  };
+}
+
+/* Mock adapter — builds a plausible result from the usable quote
+   field snapshots so the QCR tab can render without a real backend
+   round-trip. Waits mockDelayMs to feel like a network hop.
+   plCopycatFailNext flips this into a rejected promise once. */
+function plCopycatMock(payload, mockQuotes, cfg) {
+  return new Promise((resolve, reject) => {
+    const delay = Math.max(0, cfg?.mockDelayMs ?? 0);
+    setTimeout(() => {
+      if (plCopycatFailNext) {
+        plCopycatFailNext = false;
+        const first = payload.documents && payload.documents[0];
+        reject(new Error(`Copycat could not read ${first ? first.fileName : "the quote PDFs"} (simulated)`));
+        return;
+      }
+      /* Group by product; one column per included quote. */
+      const byProduct = {};
+      (mockQuotes || []).forEach((q) => {
+        (byProduct[q.product] = byProduct[q.product] || []).push(q);
+      });
+      const products = Object.keys(byProduct).map((product) => {
+        const list = byProduct[product];
+        const columns = list.map((q) => {
+          const doc = payload.documents.find((d) => d.quoteId === q.id) || {};
+          return {
+            quoteId: q.id,
+            insurerId: q.insurerId,
+            insurer: PL_INSURERS[q.insurerId]?.name || q.insurerId,
+            contact: doc.contact || "",
+            version: q.version,
+            receivedAt: q.receivedAt,
+            fileName: q.doc,
+          };
+        });
+        const labelSet = list[0].fields.map((f) => ({ key: f.key, label: f.label }));
+        const rows = labelSet.map(({ key, label }) => ({
+          term: label,
+          values: list.map((q) => {
+            const f = q.fields.find((x) => x.key === key);
+            return f ? plFmtVal(f) : null;
+          }),
+        }));
+        return { product, columns, rows };
+      });
+      resolve({
+        qcrId: `CC-QCR-${payload.caseId}-V${payload.qcrVersion}`,
+        generatedAt: plStamp(),
+        file: { name: `QCR_${payload.caseId}_V${payload.qcrVersion}.pdf` },
+        products,
+      });
+    }, delay);
+  });
+}
+
+/* Live adapter — POSTs multipart/form-data to the configured
+   endpoint. Blobs are attached under `files`; the rest of the
+   payload rides as a `metadata` JSON part. plCopycatMapResponse is
+   the seam to shape whatever the backend returns into our
+   `result` contract. */
+async function plCopycatLive(payload, cfg) {
+  const missingBlob = (payload.documents || []).find((d) => !d.file);
+  if (missingBlob) throw new Error(`No PDF available for ${missingBlob.fileName} in the prototype`);
+  const form = new FormData();
+  (payload.documents || []).forEach((d) => form.append("files", d.file, d.fileName));
+  const meta = { ...payload, documents: payload.documents.map(({ file, ...rest }) => rest) };
+  form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), cfg.timeoutMs || 60000);
+  try {
+    const res = await fetch(cfg.endpoint, { method: "POST", headers: cfg.headers || {}, body: form, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`Copycat returned HTTP ${res.status}`);
+    const json = await res.json();
+    return plCopycatMapResponse(json, payload);
+  } finally { clearTimeout(t); }
+}
+function plCopycatMapResponse(json, payload) {
+  /* Default mapping keeps the same shape the mock uses. Reshape here
+     once the real backend contract is known. */
+  return {
+    qcrId: json.qcrId || `CC-QCR-${payload.caseId}-V${payload.qcrVersion}`,
+    generatedAt: json.generatedAt || plStamp(),
+    file: json.file || { name: `QCR_${payload.caseId}_V${payload.qcrVersion}.pdf` },
+    products: Array.isArray(json.products) ? json.products : [],
+  };
+}
+
+const plCopycatClient = {
+  async generate(payload, mockQuotes) {
+    const cfg = PL_CONFIG.copycat;
+    return cfg.mode === "live"
+      ? plCopycatLive(payload, cfg)
+      : plCopycatMock(payload, mockQuotes, cfg);
+  },
+};
+
+/* React hook — the only thing in the app that talks to
+   plCopycatClient. Watches `cases` for QCRs in the queued state,
+   nudges them to generating, then resolves each to succeeded or
+   failed. An in-flight Set guards StrictMode's double-mount so we
+   never fire the same requestId twice. */
+function usePlCopycatRunner(cases, api) {
+  const inFlight = useRef(new Set());
+  useEffect(() => {
+    cases.forEach((c) => {
+      (c.qcrs || []).forEach((qcr) => {
+        const cc = qcr.copycat;
+        if (!cc || cc.status !== "queued") return;
+        if (inFlight.current.has(cc.requestId)) return;
+        inFlight.current.add(cc.requestId);
+        const payload = {
+          caseId: c.id,
+          qcrVersion: qcr.v,
+          rfqVersion: qcr.rfqV || c.activeRfq,
+          requestId: cc.requestId,
+          documents: (cc.documents || []).map((d) => ({
+            ...d,
+            productLabel: plProductType(d.product).label,
+            template: plProductType(d.product).template,
+            file: null,
+          })),
+        };
+        const mockQuotes = (cc.documents || [])
+          .map((d) => (c.quotes || []).find((q) => q.id === d.quoteId))
+          .filter(Boolean);
+        api.copycatStarted(c.id, qcr.v, cc.requestId);
+        plCopycatClient.generate(payload, mockQuotes)
+          .then((result) => api.copycatSucceeded(c.id, qcr.v, cc.requestId, result))
+          .catch((err) => api.copycatFailed(c.id, qcr.v, cc.requestId, err && err.message ? err.message : String(err)))
+          .finally(() => { inFlight.current.delete(cc.requestId); });
+      });
+    });
+  }, [cases, api]);
+}
 
 function makePlacementApi(setCases, say = () => {}) {
   const patch = (id, fn) => setCases((cs) => cs.map((c) => (c.id === id ? plReconcileSla(fn(c)) : c)));
@@ -11702,8 +11968,15 @@ function makePlacementApi(setCases, say = () => {}) {
         out = { ...out, followUpsStopped: true, threads: out.threads.map((t) => ({ ...t, followUpsActive: false })) };
         out = withLog(out, "System", "System", "Usable-quote threshold reached", `${plUsableCount(out)} usable quotes from ${plUsableCount(out)} distinct insurers`);
         out = withLog(out, "System", "System", "Automated follow-ups stopped", `${plOpenThreads(out).length} thread(s) still open`);
-        out = { ...out, stage: "qcr_draft", qcrs: [...out.qcrs, { v: (out.qcrs.length + 1), status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: null }] };
-        out = withLog(out, "System", "System", `Draft QCR V${out.qcrs.length} generated`, "Awaiting Placement Manager review");
+        /* §12 · Threshold-met auto-draft goes straight into the Copycat
+           queue. The runner picks it up on the next render tick. */
+        const draft = plQueueCopycat({
+          v: (out.qcrs.length + 1), status: "draft", createdAt: plStamp(),
+          notes: {}, earlyRelease: null,
+        }, out, 1);
+        out = { ...out, stage: "qcr_draft", qcrs: [...out.qcrs, draft] };
+        out = withLog(out, "System", "System", `Draft QCR V${draft.v} queued for Copycat`,
+          `${draft.copycat.documents.length} PDF(s) · ${draft.copycat.requestId}`);
       } else if (out.stage === "market") {
         out = { ...out, stage: "quote_review" };
       }
@@ -11711,23 +11984,82 @@ function makePlacementApi(setCases, say = () => {}) {
     }),
 
     startDraftQcr: (id, earlyReason) => patch(id, (c) => {
-      let out = { ...c, stage: "qcr_draft", followUpsStopped: true, threads: c.threads.map((t) => ({ ...t, followUpsActive: false })),
-        qcrs: [...c.qcrs, { v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: earlyReason ? { reason: earlyReason, count: plUsableCount(c) } : null }] };
-      return withLog(out, PL_ME.name, "PM", `Draft QCR V${out.qcrs.length} created`,
-        earlyReason ? `Early release · ${plUsableCount(c)} usable quote(s) · reason recorded` : "");
+      const seed = {
+        v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(),
+        notes: {}, earlyRelease: earlyReason ? { reason: earlyReason, count: plUsableCount(c) } : null,
+      };
+      const draft = plQueueCopycat(seed, c, 1);
+      let out = { ...c, stage: "qcr_draft", followUpsStopped: true,
+        threads: c.threads.map((t) => ({ ...t, followUpsActive: false })),
+        qcrs: [...c.qcrs, draft] };
+      return withLog(out, PL_ME.name, "PM", `Draft QCR V${draft.v} queued for Copycat`,
+        earlyReason ? `Early release · ${plUsableCount(c)} usable quote(s) · reason recorded` : `${draft.copycat.documents.length} PDF(s) · ${draft.copycat.requestId}`);
     }),
 
+    /* §12 · Release is only allowed once Copycat says the draft is
+       ready. The stored `result` is what's frozen — nothing else
+       edits it after this point. */
     releaseQcr: (id, note) => patch(id, (c) => {
-      const qcrs = c.qcrs.map((q) => q.status !== "draft" ? q
+      const draft = plDraftQcr(c);
+      if (!draft || draft.copycat?.status !== "ready") return c;
+      const qcrs = c.qcrs.map((q) => q !== draft ? q
         : { ...q, status: "released", releasedAt: plStamp(), releasedBy: PL_ME.name, sentTo: `${c.client.rm} (RM)`, coverNote: note });
-      const v = qcrs.filter((q) => q.status === "released").slice(-1)[0].v;
       return withLog({ ...c, qcrs, stage: "qcr_released" }, PL_ME.name, "PM",
-        `QCR V${v} released to RM`, `Sent to ${c.client.rm} · version locked`);
+        `QCR V${draft.v} released to RM`, `Sent to ${c.client.rm} · version locked`);
     }),
 
-    newQcrVersion: (id) => patch(id, (c) => withLog(
-      { ...c, stage: "qcr_draft", qcrs: [...c.qcrs, { v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(), quoteIds: [], notes: {}, earlyRelease: null }] },
-      PL_ME.name, "PM", `Draft QCR V${c.qcrs.length + 1} created`, "Includes quotes received after the previous release")),
+    newQcrVersion: (id) => patch(id, (c) => {
+      const seed = {
+        v: c.qcrs.length + 1, status: "draft", createdAt: plStamp(),
+        notes: {}, earlyRelease: null,
+      };
+      const draft = plQueueCopycat(seed, c, 1);
+      return withLog({ ...c, stage: "qcr_draft", qcrs: [...c.qcrs, draft] },
+        PL_ME.name, "PM", `Draft QCR V${draft.v} queued for Copycat`,
+        `Includes quotes received after the previous release · ${draft.copycat.documents.length} PDF(s)`);
+    }),
+
+    /* §12 · Copycat lifecycle. Stale requestIds are ignored so a
+       regenerate mid-flight cannot be clobbered by the earlier
+       run's late resolution. */
+    copycatStarted: (id, v, requestId) => patch(id, (c) => {
+      const q = c.qcrs.find((x) => x.v === v);
+      if (!q || !q.copycat || q.copycat.requestId !== requestId) return c;
+      const qcrs = c.qcrs.map((x) => x !== q ? x
+        : { ...x, copycat: { ...x.copycat, status: "generating", startedAt: plStamp() } });
+      return withLog({ ...c, qcrs }, "System", "System", "Quote PDFs sent to Copycat",
+        `${q.copycat.documents.length} PDFs · ${q.copycat.documents.map((d) => d.fileName).join(", ")} · ${requestId}`);
+    }),
+
+    copycatSucceeded: (id, v, requestId, result) => patch(id, (c) => {
+      const q = c.qcrs.find((x) => x.v === v);
+      if (!q || !q.copycat || q.copycat.requestId !== requestId) return c;
+      const qcrs = c.qcrs.map((x) => x !== q ? x
+        : { ...x, copycat: { ...x.copycat, status: "ready", generatedAt: plStamp(), result } });
+      const nQuotes = (result.products || []).reduce((n, p) => n + (p.columns || []).length, 0);
+      return withLog({ ...c, qcrs }, "System", "System", `QCR V${v} generated by Copycat`,
+        `${result.file?.name || "QCR.pdf"} · ${nQuotes} quotes`);
+    }),
+
+    copycatFailed: (id, v, requestId, message) => patch(id, (c) => {
+      const q = c.qcrs.find((x) => x.v === v);
+      if (!q || !q.copycat || q.copycat.requestId !== requestId) return c;
+      const qcrs = c.qcrs.map((x) => x !== q ? x
+        : { ...x, copycat: { ...x.copycat, status: "failed", error: message } });
+      return withLog({ ...c, qcrs }, "System", "System", `Copycat could not generate QCR V${v}`, message);
+    }),
+
+    /* §12 · Regenerate stays on the same draft — attempt bumps so
+       stale resolutions from the previous attempt are ignored. */
+    regenerateQcr: (id, v) => patch(id, (c) => {
+      const q = c.qcrs.find((x) => x.v === v);
+      if (!q || q.status !== "draft") return c;
+      const nextAttempt = (q.copycat?.attempt || 1) + 1;
+      const requeued = plQueueCopycat({ v: q.v, status: "draft", createdAt: q.createdAt, notes: q.notes, earlyRelease: q.earlyRelease }, c, nextAttempt);
+      const qcrs = c.qcrs.map((x) => x === q ? requeued : x);
+      return withLog({ ...c, qcrs }, PL_ME.name, "PM", `QCR V${v} regeneration requested`,
+        `${requeued.copycat.documents.length} PDF(s) · attempt ${nextAttempt} · ${requeued.copycat.requestId}`);
+    }),
 
     recordOutcome: (id, type, reason) => patch(id, (c) => withLog(
       { ...c, stage: "closed", outcome: { type, reason, at: plStamp(), by: PL_ME.name } },
@@ -14991,11 +15323,21 @@ function PlDocumentsCard({ c }) {
           : q.decision === "excluded" ? { tone: "red", label: "Excluded" }
           : { tone: "purple", label: "Awaiting decision" },
     })),
-    ...(c.qcrs || []).map((qcr) => ({
-      name: `QCR_${c.id}_V${qcr.v}.pdf`,
-      sub: `QCR Version ${qcr.v}${qcr.releasedAt ? ` · released ${qcr.releasedAt}` : ""}`,
-      chip: qcr.status === "released" ? { tone: "green", label: "Released" } : { tone: "purple", label: "Draft" },
-    })),
+    ...(c.qcrs || []).map((qcr) => {
+      const cc = qcr.copycat || {};
+      const file = cc.result?.file?.name || `QCR_${c.id}_V${qcr.v}.pdf`;
+      const chip = qcr.status === "superseded" ? { tone: "neutral", label: "Superseded" }
+                : qcr.status === "released" ? { tone: "green", label: "Released" }
+                : cc.status === "ready" ? { tone: "purple", label: "Draft" }
+                : cc.status === "failed" ? { tone: "red", label: "Failed" }
+                : cc.status === "generating" || cc.status === "queued" ? { tone: "purple", label: "Generating" }
+                : { tone: "purple", label: "Draft" };
+      return {
+        name: file,
+        sub: `QCR Version ${qcr.v}${qcr.releasedAt ? ` · released ${qcr.releasedAt}` : ""}`,
+        chip,
+      };
+    }),
   ];
 
   const list = tab === "internal" ? internal : external;
@@ -16484,8 +16826,17 @@ function PlQcrTab({ c, api, goTo }) {
   const [send, setSend] = useState(false);
   const [outcome, setOutcome] = useState(null);
   const lateQuotes = plLiveQuotes(c).filter((q) => !q.decision && released && q.receivedAt >= (released.releasedAt || ""));
+  const activeQcr = draft || released;
+  const cc = activeQcr?.copycat;
+  const ccStatus = cc?.status;
+  const usableIds = new Set(plLiveQuotes(c).filter((q) => q.decision === "usable").map((q) => q.id));
+  const includedIds = new Set(draft?.quoteIds || []);
+  const missing = [...usableIds].filter((id) => !includedIds.has(id));
+  const stale = draft && ccStatus === "ready" && missing.length > 0;
   const qcrMeta = released ? `V${released.v} released to RM`
-    : draft ? `V${draft.v} draft · awaiting release`
+    : draft ? (ccStatus === "ready" ? `V${draft.v} draft · awaiting release`
+             : ccStatus === "failed" ? `V${draft.v} draft · generation failed`
+             : `V${draft.v} draft · generating`)
     : `${plUsableCount(c)} of ${PL_THRESHOLD} usable quotes`;
 
   return (
@@ -16498,8 +16849,8 @@ function PlQcrTab({ c, api, goTo }) {
             <div>
               <div style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report</div>
               <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.5 }} className="mt-0.5">
-                A draft QCR is generated automatically once {PL_THRESHOLD} usable quotes from {PL_THRESHOLD} distinct insurers
-                are on the current RFQ version. Nothing reaches the client until you release it.
+                Once {PL_THRESHOLD} usable quotes from {PL_THRESHOLD} distinct insurers are on the current RFQ version,
+                their quote PDFs go to Copycat, which builds the draft QCR. Nothing reaches the client until you release it.
               </div>
             </div>
             <div className="shrink-0"><PlUsableMeter count={plUsableCount(c)} /></div>
@@ -16560,19 +16911,83 @@ function PlQcrTab({ c, api, goTo }) {
         </PlCard>
       )}
 
-      {/* versions */}
+      {/* versions — superseded rows read neutral and name their RFQ. */}
       {c.qcrs.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <PlLabel>Versions</PlLabel>
           {c.qcrs.map((q) => (
-            <PlChip key={q.v} tone={q.status === "released" ? "green" : "purple"} mono>
+            <PlChip key={q.v} tone={q.status === "released" ? "green" : q.status === "superseded" ? "neutral" : "purple"} mono>
               {q.status === "released" ? <Lock size={9} /> : null} QCR V{q.v} · {q.status}
+              {q.status === "superseded" ? ` · RFQ V${q.rfqV || c.activeRfq}` : ""}
             </PlChip>
           ))}
         </div>
       )}
 
-      {(draft || released) && <PlQcrDocument c={c} qcr={draft || released} locked={!draft} />}
+      {/* §12 · Draft, queued or generating — Copycat is working. */}
+      {draft && (ccStatus === "queued" || ccStatus === "generating") && (
+        <PlCard pad={false}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report - V{draft.v}</span>
+            <PlChip tone="purple" dot>Generating with Copycat</PlChip>
+          </div>
+          <div className="px-4 py-3">
+            <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>
+              Copycat is building the QCR from {cc?.documents?.length || 0} quote PDF{(cc?.documents?.length || 0) === 1 ? "" : "s"}.
+            </div>
+            <div className="mt-2 space-y-1">
+              {(cc?.documents || []).map((d, i) => (
+                <div key={i} className="rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border, fontSize: 12 }}>
+                  <span style={{ color: PL_T.ink }}>{d.insurer}{d.contact ? ` · ${d.contact}` : ""}</span>
+                  <span style={{ color: PL_T.ink3 }}> - {plProductType(d.product).short} v{d.version} · </span>
+                  <span style={{ fontFamily: PL_MONO, color: PL_T.ink2 }}>{d.fileName}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </PlCard>
+      )}
+
+      {/* §12 · Draft failed — Copycat rejected. */}
+      {draft && ccStatus === "failed" && (
+        <PlCard pad={false}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Quote Comparison Report - V{draft.v}</span>
+            <PlChip tone="red" dot>Generation failed</PlChip>
+          </div>
+          <div className="px-4 py-3 space-y-3">
+            <PlCallout tone="red">
+              <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45 }}>{cc?.error || "Copycat returned an error."}</div>
+            </PlCallout>
+            <PlBtn variant="primary" onClick={() => { api.regenerateQcr(c.id, draft.v); api.say("Regeneration requested from Copycat"); }}>Retry with Copycat</PlBtn>
+          </div>
+        </PlCard>
+      )}
+
+      {/* §12 · Draft or released, ready — the frozen result. */}
+      {activeQcr && ccStatus === "ready" && (
+        <PlQcrDocument c={c} qcr={activeQcr} locked={!draft || activeQcr === released} />
+      )}
+      {released && !draft && released.copycat?.status !== "ready" && (
+        <PlQcrDocument c={c} qcr={released} locked />
+      )}
+
+      {/* §12 · Stale draft — new usable quotes exist that this draft doesn't cover. */}
+      {stale && (
+        <PlCard style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>
+                {missing.length} usable quote{missing.length === 1 ? "" : "s"} not in this draft
+              </div>
+              <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>
+                Rebuild with Copycat to include the new quote{missing.length === 1 ? "" : "s"}.
+              </div>
+            </div>
+            <PlBtn size="sm" onClick={() => { api.regenerateQcr(c.id, draft.v); api.say("Regeneration requested from Copycat"); }}>Regenerate with Copycat</PlBtn>
+          </div>
+        </PlCard>
+      )}
 
       {draft && (
         <PlCard style={{ borderColor: PL_T.purpleLine, background: PL_T.purpleSoft }}>
@@ -16580,12 +16995,25 @@ function PlQcrTab({ c, api, goTo }) {
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 600 }}>Release QCR V{draft.v} to the RM</div>
               <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>
-                Released versions are locked. A later quote can only reach the client through a new version you create.
+                {ccStatus === "ready"
+                  ? "Released versions are locked. A later quote can only reach the client through a new version you create."
+                  : ccStatus === "failed"
+                    ? "Copycat could not build the draft. Retry before you can release."
+                    : "Waiting for Copycat to finish generating the draft."}
               </div>
             </div>
-            <PlBtn size="lg" variant="primary" onClick={() => setSend(true)}>Send to RM</PlBtn>
+            <PlBtn size="lg" variant="primary" disabled={ccStatus !== "ready"} onClick={() => setSend(true)}>Send to RM</PlBtn>
           </div>
         </PlCard>
+      )}
+
+      {/* §12 · Prototype control: fail the next Copycat run once. */}
+      {draft && (
+        <PlSimBlock title="Simulate Copycat">
+          <PlSimBtn onClick={() => { plCopycatSetFailNext(true); api.say("The next Copycat generation will fail"); }}>
+            Fail the next generation
+          </PlSimBtn>
+        </PlSimBlock>
       )}
 
       {c.rmMoreQuotes && !c.rmMoreQuotes.handled && (
@@ -16666,13 +17094,20 @@ function PlQcrTab({ c, api, goTo }) {
   );
 }
 
+/* §12 · Renders straight from `qcr.copycat.result` — the frozen output
+   Copycat handed us. If Copycat only returned a PDF (products empty),
+   the parent renders the file document row below and this card just
+   shows the header + note. */
 function PlQcrDocument({ c, qcr, locked }) {
-  const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
-  const prods = [...new Set(usable.map((q) => q.product))];
-  const [p, setP] = useState(prods[0]);
-  const rows = usable.filter((q) => q.product === p);
-  const labels = rows.length ? rows[0].fields.map((f) => ({ key: f.key, label: f.label })) : [];
-
+  const result = qcr.copycat?.result || { products: [] };
+  const products = result.products || [];
+  const shorts = products.map((p) => plProductType(p.product).short || p.product);
+  const [p, setP] = useState(products[0]?.product || null);
+  const active = products.find((x) => x.product === p) || products[0] || { columns: [], rows: [] };
+  const columns = active.columns || [];
+  const rows = active.rows || [];
+  const nQuotes = products.reduce((n, x) => n + (x.columns || []).length, 0);
+  const gen = qcr.copycat?.generatedAt || qcr.copycat?.result?.generatedAt;
   return (
     <PlCard pad={false}>
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
@@ -16682,16 +17117,17 @@ function PlQcrDocument({ c, qcr, locked }) {
             {locked ? <PlChip tone="green" dot><Lock size={9} /> Released and locked</PlChip> : <PlChip tone="purple" dot>Draft</PlChip>}
           </div>
           <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-0.5">
-            {c.client.name} · RFQ V{c.activeRfq} · {rows.length} quote{rows.length === 1 ? "" : "s"}
+            {c.client.name} · RFQ V{qcr.rfqV || c.activeRfq} · {nQuotes} quote{nQuotes === 1 ? "" : "s"}
+            {gen ? ` · generated by Copycat ${gen} from ${nQuotes} quote PDF${nQuotes === 1 ? "" : "s"}` : ""}
             {locked && qcr.releasedAt ? ` · released ${qcr.releasedAt} by ${qcr.releasedBy} to ${qcr.sentTo}` : ""}
           </div>
         </div>
-        {prods.length > 1 && (
+        {products.length > 1 && (
           <div className="flex gap-1">
-            {prods.map((x) => (
-              <button key={x} onClick={() => setP(x)} className="rounded-lg px-2.5 py-1 border"
-                style={{ background: p === x ? PL_T.card : "transparent", borderColor: p === x ? PL_T.borderStrong : "transparent", fontSize: 12, fontWeight: p === x ? 550 : 450 }}>
-                {x}
+            {products.map((x, i) => (
+              <button key={x.product} onClick={() => setP(x.product)} className="rounded-lg px-2.5 py-1 border"
+                style={{ background: p === x.product ? PL_T.card : "transparent", borderColor: p === x.product ? PL_T.borderStrong : "transparent", fontSize: 12, fontWeight: p === x.product ? 550 : 450 }}>
+                {shorts[i]}
               </button>
             ))}
           </div>
@@ -16707,36 +17143,48 @@ function PlQcrDocument({ c, qcr, locked }) {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 620 }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
-              <th className="text-left px-4 py-2.5" style={{ fontSize: 12, color: PL_T.ink3, fontWeight: 600, width: 200 }}>Term</th>
-              {rows.map((q) => (
-                <th key={q.id} className="text-left px-4 py-2.5" style={{ minWidth: 170 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[q.insurerId].name}</div>
-                  <PlMono size={10.5} color={PL_T.ink3}>v{q.version} · {q.receivedAt}</PlMono>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {labels.map((L) => (
-              <tr key={L.key} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink3 }}>{L.label}</td>
-                {rows.map((q) => {
-                  const f = q.fields.find((x) => x.key === L.key);
-                  return (
-                    <td key={q.id} className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, fontFamily: f?.kind === "money" ? PL_MONO : FONT, verticalAlign: "top" }}>
-                      {f ? (plFmtVal(f) || "-") : "-"}
-                    </td>
-                  );
-                })}
+      {products.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 620 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
+                <th className="text-left px-4 py-2.5" style={{ fontSize: 12, color: PL_T.ink3, fontWeight: 600, width: 200 }}>Term</th>
+                {columns.map((col) => (
+                  <th key={col.quoteId} className="text-left px-4 py-2.5" style={{ minWidth: 170 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{col.insurer}</div>
+                    <PlMono size={10.5} color={PL_T.ink3}>{col.contact ? `${col.contact} · ` : ""}v{col.version} · {col.receivedAt}</PlMono>
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                  <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink3 }}>{row.term}</td>
+                  {row.values.map((v, ci) => (
+                    <td key={ci} className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, verticalAlign: "top" }}>
+                      {v == null || v === "" ? "-" : v}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {result.file && (
+        <div className="px-4 py-3 flex items-center gap-2.5" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+          <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 28, height: 28, background: PL_T.purpleSoft }}>
+            <FileText size={13} color={PL_T.purple} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate" style={{ fontSize: 12.5, color: PL_T.blue, fontWeight: 600 }}>{result.file.name}</div>
+            <div className="truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>QCR V{qcr.v} · Copycat</div>
+          </div>
+          <PlBtn size="sm">Open</PlBtn>
+        </div>
+      )}
 
       <div className="px-4 py-2.5 flex gap-2" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
         <Info size={12.5} color={PL_T.ink3} style={{ marginTop: 1, flexShrink: 0 }} />
@@ -16783,8 +17231,11 @@ function PlEarlyReleaseModal({ c, api, onClose }) {
 
 function PlSendQcrModal({ c, qcr, api, onClose }) {
   const [note, setNote] = useState(
-    `Hi ${c.client.rm.split(" ")[0]}, comparison for ${c.client.name} is attached. All terms are as quoted and none of the markets have been ranked - happy to walk ${c.client.spoc.split(",")[0]} through the differences if useful.`);
-  const usable = plLiveQuotes(c).filter((q) => q.decision === "usable");
+    `Hi ${c.client.rm.split(" ")[0]}, comparison for ${c.client.name} is attached. All terms are as quoted and none of the markets have been ranked - happy to walk ${plSpocFirst(c)} through the differences if useful.`);
+  /* §12 · Included quotes come from the frozen Copycat result's columns
+     — the QCR file that ships to the RM. */
+  const columns = (qcr.copycat?.result?.products || []).flatMap((p) =>
+    (p.columns || []).map((col) => ({ ...col, product: p.product })));
   return (
     <PlModal title={`Send QCR V${qcr.v} to RM`} subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose} wide
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
@@ -16793,13 +17244,25 @@ function PlSendQcrModal({ c, qcr, api, onClose }) {
         </PlBtn></>}>
       <PlLabel>Included quotes</PlLabel>
       <div className="mt-1.5 mb-4 space-y-1">
-        {usable.map((q) => (
-          <div key={q.id} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
-            <span style={{ fontSize: 12.5 }}>{PL_INSURERS[q.insurerId].name} - {PL_PRODUCTS[q.product]} v{q.version}</span>
-            <PlMono size={11.5}>{plFmtVal(q.fields.find((f) => f.key === "premium")) || "-"}</PlMono>
+        {columns.map((col) => (
+          <div key={col.quoteId} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+            <span style={{ fontSize: 12.5 }}>
+              {col.insurer}{col.contact ? ` · ${col.contact}` : ""} · {plProductType(col.product).label} v{col.version}
+            </span>
+            <PlMono size={11.5} color={PL_T.ink3}>{col.receivedAt}</PlMono>
           </div>
         ))}
       </div>
+      {qcr.copycat?.result?.file && (
+        <>
+          <PlLabel>QCR file</PlLabel>
+          <div className="mt-1.5 mb-4 rounded-lg border px-3 py-2 flex items-center gap-2.5" style={{ borderColor: PL_T.border, background: PL_T.cardAlt }}>
+            <FileText size={14} color={PL_T.purple} />
+            <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.blue }}>{qcr.copycat.result.file.name}</span>
+            <span style={{ fontSize: 11, color: PL_T.ink3 }}>Copycat</span>
+          </div>
+        </>
+      )}
       <PlLabel>Covering note</PlLabel>
       <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
       <PlCallout tone="purple" className="mt-3 flex gap-2">
@@ -18331,6 +18794,11 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
 
   const say = (msg, tone = "green") => { setToast({ msg, tone }); setTimeout(() => setToast(null), 3400); };
   const api = useMemo(() => makePlacementApi(setCases, say), []);   // stable across renders
+
+  /* §12 · Copycat runner — the only code that talks to the adapter.
+     Reads queued QCRs off `cases` and moves them through the
+     generating → ready / failed lifecycle. */
+  usePlCopycatRunner(cases, api);
 
   const openCase = cases.find((c) => c.id === openId) || null;
   const go = (n) => { setNav(n); setOpenId(null); setOpenTab(null); };
