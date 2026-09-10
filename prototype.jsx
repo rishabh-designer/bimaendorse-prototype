@@ -12481,8 +12481,10 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
                   {c.id === "PC-1026" && (
-                    <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
-                      leading={<IconStarCheck size={13} color="#FF7700" />} />
+                    <PlMandateHover c={c}>
+                      <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
+                        leading={<IconStarCheck size={13} color="#FF7700" />} />
+                    </PlMandateHover>
                   )}
                   <Indicator big status size={16}
                     ind={PL_STATUS_IND[statusTone] || "info"}
@@ -13273,6 +13275,66 @@ function PlBimaNetraDrawer({ c, onClose, onClick }) {
   );
 }
 
+/* Mandate details body — verbatim Figma 1510:52625 layout, extracted so the
+   same content can live inline in the rail card OR inside the hover popover
+   over the Exclusive Mandate header pill. */
+function PlMandateDetails({ c }) {
+  const m = c.meta?.mandate;
+  if (!m) return null;
+  return (
+    <>
+      <div className="flex items-center justify-between" style={{ height: 20 }}>
+        <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: "14.4px" }}>
+          <IconStarCheck size={12} color={PL_T.orange} />
+          Update
+        </span>
+        {m.byAvatar && (
+          <span className="flex items-center" style={{ gap: 6 }}>
+            <PlAvatar src={m.byAvatar} name={m.by} size={20} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink, lineHeight: "18px" }}>{m.by}</span>
+          </span>
+        )}
+      </div>
+      <div style={{ paddingTop: 4 }}>
+        <div style={{ fontSize: 18, fontWeight: 600, lineHeight: "21.6px", color: PL_T.orange }}>Exclusive Mandate Available</div>
+      </div>
+      <div className="flex flex-col" style={{ paddingTop: 8, gap: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1 }}>Preferred Insurer:</span>
+        {m.preferredInsurerId === "bajaj"
+          ? <img src={LOGO_BAJAJ} alt="Bajaj Allianz" style={{ height: 24, width: 51.333, display: "block" }} />
+          : <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[m.preferredInsurerId]?.name || "-"}</span>}
+      </div>
+    </>
+  );
+}
+
+/* Hover wrapper for the Exclusive Mandate header pill — the rail card that
+   used to live in PlRightRail is now a mouseover popover under the pill.
+   No mandate on the case → the wrapper is inert and just renders children. */
+function PlMandateHover({ c, children }) {
+  const [open, setOpen] = useState(false);
+  if (!c.meta?.mandate) return children;
+  return (
+    <span className="relative inline-block"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}>
+      {children}
+      {open && (
+        <div className="absolute z-40" style={{
+          top: "calc(100% + 8px)", left: 0, width: 320,
+          background: `linear-gradient(180deg, ${C.white} 50%, ${PL_T.orangeSoft} 100%)`,
+          border: `1px solid ${PL_T.orangeLine}`,
+          borderRadius: 16, padding: "14px 16px",
+          boxShadow: "0 12px 32px rgba(28,29,31,0.16)",
+          fontFamily: FONT,
+        }}>
+          <PlMandateDetails c={c} />
+        </div>
+      )}
+    </span>
+  );
+}
+
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
   return (
@@ -13299,41 +13361,10 @@ function PlRightRail({ c, api, goTo }) {
         </PlSimBlock>
       )}
 
-      {/* Exclusive Mandate available card - Figma 1510:52625. Verbatim spec:
-          white → #fff6ed gradient, 0.5px #ffd2a8 border, 16px radius, 16/14
-          padding. Update chip (Anek Medium 12/14.4 in #a9acb1) with the RM
-          avatar + name on the right. Title "Exclusive Mandate Available" in
-          Anek SemiBold 18/21.6 #ff7700. Preferred Insurer label + insurer
-          logo below. Shows only when the mandate was raised in-session
-          (byAvatar set); seeded mandates render only via PlCaseStrategyCard. */}
-      {c.meta?.mandate?.byAvatar && !c.outcome && (
-        <PlCard style={{
-          background: `linear-gradient(180deg, ${C.white} 50%, ${PL_T.orangeSoft} 100%)`,
-          borderColor: PL_T.orangeLine,
-          borderRadius: 16,
-          padding: "14px 16px",
-        }}>
-          <div className="flex items-center justify-between" style={{ height: 20 }}>
-            <span className="inline-flex items-center gap-1.5" style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: "14.4px" }}>
-              <IconStarCheck size={12} color={PL_T.orange} />
-              Update
-            </span>
-            <span className="flex items-center" style={{ gap: 6 }}>
-              <PlAvatar src={c.meta.mandate.byAvatar} name={c.meta.mandate.by} size={20} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink, lineHeight: "18px" }}>{c.meta.mandate.by}</span>
-            </span>
-          </div>
-          <div style={{ paddingTop: 4 }}>
-            <div style={{ fontSize: 18, fontWeight: 600, lineHeight: "21.6px", color: PL_T.orange }}>Exclusive Mandate Available</div>
-          </div>
-          <div className="flex flex-col" style={{ paddingTop: 8, gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1 }}>Preferred Insurer:</span>
-            {c.meta.mandate.preferredInsurerId === "bajaj"
-              ? <img src={LOGO_BAJAJ} alt="Bajaj Allianz" style={{ height: 24, width: 51.333, display: "block" }} />
-              : <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[c.meta.mandate.preferredInsurerId]?.name || "-"}</span>}
-          </div>
-        </PlCard>
-      )}
+      {/* The Exclusive Mandate rail card was removed — its content now appears
+          as a hover popover under the "Exclusive Mandate" pill on the case
+          header (via PlMandateHover / PlMandateDetails). Kept the sim block
+          above so the RM-signs-mandate simulation still lives on this rail. */}
 
       {c.outcome && (
         <PlCard style={{ borderColor: PL_TONES[PL_OUTCOME[c.outcome.type].tone].line }}>
