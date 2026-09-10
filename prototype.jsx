@@ -5564,6 +5564,34 @@ const PORTAL_USERS = {
 };
 const PORTAL_PASSWORD = "pass-word";
 
+/* Team roster surfaced above a head's sidebar profile card — the head sees
+   their team's avatars with an online dot; the executives see nothing.
+   Keyed by head name × env, so Umesh sees only claims execs in BimaClaim
+   and only endorsement execs in BimaEndorse. Not-shown in the collapsed
+   sidebar. */
+const TEAM_OF = {
+  "Umesh Bagri": {
+    BimaEndorse: ["nanditha.p@bimakavach.com"],
+    BimaClaim:   ["ruksana.khan@bimakavach.com"],
+  },
+  "Himani Doshi": {
+    BimaPlacement: ["bhupendra.solanki@bimakavach.com"],
+  },
+};
+
+/* Deterministic pseudo last-online time for an executive when they are
+   offline. No real presence stream — we just want a stable-looking
+   timestamp that reads as "some time this evening". */
+function pseudoLastOnline(seed) {
+  const s = String(seed || "");
+  const h = [...s].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const hour24 = 17 + (h % 3);
+  const min = (h * 13) % 60;
+  const suffix = hour24 >= 12 ? "PM" : "AM";
+  const dispHour = hour24 > 12 ? hour24 - 12 : hour24 === 0 ? 12 : hour24;
+  return `${dispHour}:${String(min).padStart(2, "0")} ${suffix}`;
+}
+
 /* Peetal interactive.input/alphanumeric - label, a bottom-ruled field, a suffix
    stack, and a right-aligned help line. Three states: idle · success · error. */
 function LoginField({ label, value, onChange, placeholder, masked, reveal, onReveal, state, help, onSubmit, autoFocus }) {
@@ -5914,6 +5942,58 @@ function SearchModal({ open, onClose, tickets, openTicket }) {
 /* Sidebar - Figma 900:101884 / 900:102387. Neutral ground, not the cream page:
    the rail reads as chrome and the content area keeps the warmth. 237px open,
    92px collapsed; the collapse state is React state, since storage is unavailable. */
+/* Team-member avatar shown to a head above their sidebar profile card. Just
+   the photo + a 6px presence dot; the tooltip (portalled so it never clips
+   against the sidebar) tells them whether the exec is online now or reads
+   "Last online at HH:MM". No name text — the head knows their team. */
+function TeamMemberAvatar({ src, name, presence, tip, size = 28 }) {
+  const [over, setOver] = useState(false);
+  const anchor = useRef(null);
+  const [rect, setRect] = useState(null);
+  useEffect(() => {
+    if (!over) { setRect(null); return; }
+    const measure = () => { const el = anchor.current; if (el) setRect(el.getBoundingClientRect()); };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [over]);
+  return (
+    <>
+      <span ref={anchor} className="relative inline-flex"
+        onMouseEnter={() => setOver(true)} onMouseLeave={() => setOver(false)}
+        style={{ lineHeight: 0 }}>
+        <img src={src} alt="" style={{ width: size, height: size, borderRadius: 999, objectFit: "cover", border: `0.5px solid ${C.subtle}`, display: "block" }} />
+        <span title={STATUS[presence]?.label} className="absolute rounded-full"
+          style={{ width: 8, height: 8, right: -1, bottom: -1,
+            background: STATUS[presence]?.dot || STATUS.offline.dot,
+            border: `1.5px solid ${C.white}` }} />
+      </span>
+      {over && rect && createPortal(
+        <div style={{
+          position: "fixed",
+          top: rect.top + rect.height / 2,
+          left: rect.right + 10,
+          transform: "translateY(-50%)",
+          background: C.figInk, color: "#fff",
+          padding: "6px 10px", borderRadius: 8,
+          fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap",
+          boxShadow: "0 8px 24px rgba(28,29,31,0.16)",
+          fontFamily: FONT, lineHeight: 1.3, pointerEvents: "none",
+          zIndex: 1000,
+        }}>
+          {name}
+          <span style={{ opacity: 0.7 }}>{" · "}{tip}</span>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed, onSignOut, onSearch, nav = NAV, listKey = "list",
   tool = "BimaEndorse", envs, onSwitchEnv = () => {}, identity = { avatar: AVATAR, name: "Nanditha P", role: ROLES["Nanditha P"].role } }) {
   const presence = identity.status || (isWorkingNow(new Date()) ? "online" : "offline");
@@ -6050,6 +6130,19 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
       </div>
 
       <div className={`flex flex-col gap-3 pb-8 pt-7 ${collapsed ? "items-center px-5" : "pl-8 pr-3"}`}>
+        {!collapsed && TEAM_OF[identity.name]?.[tool] && (
+          <div className="flex items-center gap-2 pl-1">
+            {TEAM_OF[identity.name][tool].map((email) => {
+              const u = PORTAL_USERS[email];
+              if (!u) return null;
+              const pres = u.status || (isWorkingNow(new Date()) ? "online" : "offline");
+              const tip = pres === "online" ? "Online now"
+                : pres === "ooo" ? "Out of office"
+                : `Last online at ${pseudoLastOnline(email)}`;
+              return <TeamMemberAvatar key={email} src={u.avatar} name={u.name} presence={pres} tip={tip} />;
+            })}
+          </div>
+        )}
         <div className={`bk-profile flex shrink-0 items-start rounded-xl border ${collapsed ? "justify-center p-1.5" : "w-full justify-between p-2"}`}
           style={{ background: C.white, borderColor: C.subtle, borderWidth: "0.5px" }}>
           <div className="flex shrink-0 flex-col gap-3">
