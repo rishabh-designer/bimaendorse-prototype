@@ -12568,17 +12568,107 @@ function makePlacementApi(setCases, say = () => {}, setRfqMailLog = () => {}) {
        (and later PlCaseStrategyCard) picks it up, and captures the RM's
        identity + avatar so the "Update" chip in the mandate card can print
        a face. Preferred insurer id defaults to bajaj to match the demo node. */
-    rmAcceptExclusiveMandate: (id, preferredInsurerId = "bajaj") => patch(id, (c) => withLog(
-      { ...c, meta: { ...c.meta, mandate: {
+    /* §2 · Placement asks the RM. Guarded by plCanRequestMandate. */
+    requestMandate: (id, { preferredInsurerId = null, reason, message } = {}) => patch(id, (c) => {
+      if (!plCanRequestMandate(c)) return c;
+      const reqId = plNextMandateRequestId(c);
+      const at = plStamp();
+      const insurerName = preferredInsurerId ? (PL_INSURERS[preferredInsurerId]?.name || preferredInsurerId) : "none";
+      const req = {
+        id: reqId,
+        type: "Exclusive Placement Mandate",
+        status: "requested",
+        requestedBy: PL_ME.name,
+        requestedByKey: PL_ME.key,
+        requestedAt: at,
+        to: c.client.rm,
+        preferredInsurerId: preferredInsurerId || null,
+        reason: reason || "",
+        message: message || "",
+        reminders: [],
+        responses: [],
+        closedAt: null,
+      };
+      const next = { ...c, mandateRequests: [...(c.mandateRequests || []), req] };
+      return withLog(next, PL_ME.name, "PM", "Exclusive Mandate requested",
+        `To ${c.client.rm} · ${reason || "no reason recorded"} · preferred insurer ${insurerName}${message ? `\n\n${message}` : ""}`);
+    }),
+
+    /* §2 · Reminder to the RM on an open request. */
+    remindMandate: (id, note) => patch(id, (c) => {
+      const open = plOpenMandateRequest(c);
+      if (!open) return c;
+      const at = plStamp();
+      const reminder = { at, by: PL_ME.name };
+      const mandateRequests = (c.mandateRequests || []).map((r) =>
+        r.id === open.id ? { ...r, reminders: [...(r.reminders || []), reminder] } : r);
+      const n = ((open.reminders || []).length + 1);
+      const detail = [`Reminder ${n} to ${c.client.rm}`, (note || "").trim()].filter(Boolean).join(" · ");
+      return withLog({ ...c, mandateRequests }, PL_ME.name, "PM", "Mandate reminder sent", detail);
+    }),
+
+    /* §2 · Placement withdraws its own open request. */
+    withdrawMandateRequest: (id, note) => patch(id, (c) => {
+      const open = plOpenMandateRequest(c);
+      if (!open) return c;
+      const at = plStamp();
+      const mandateRequests = (c.mandateRequests || []).map((r) =>
+        r.id === open.id ? { ...r, status: "withdrawn", closedAt: at } : r);
+      return withLog({ ...c, mandateRequests }, PL_ME.name, "PM", "Mandate request withdrawn", (note || "").trim());
+    }),
+
+    /* §2 · RM responses (prototype simulation). */
+    rmMandateConsidering: (id, note) => patch(id, (c) => {
+      const open = plOpenMandateRequest(c);
+      if (!open || open.status !== "requested") return c;
+      const at = plStamp();
+      const response = { at, actor: c.client.rm, kind: "considering", note: note || "" };
+      const mandateRequests = (c.mandateRequests || []).map((r) =>
+        r.id === open.id ? { ...r, status: "considering", responses: [...(r.responses || []), response] } : r);
+      return withLog({ ...c, mandateRequests }, c.client.rm, "RM", "Client still considering the mandate", note || "");
+    }),
+
+    rmMandateSigned: (id, note) => patch(id, (c) => {
+      const open = plOpenMandateRequest(c);
+      if (!open || (open.status !== "requested" && open.status !== "considering")) return c;
+      const at = plStamp();
+      const response = { at, actor: c.client.rm, kind: "signed", note: note || "" };
+      const mandateRequests = (c.mandateRequests || []).map((r) =>
+        r.id === open.id
+          ? { ...r, status: "signed", closedAt: at, responses: [...(r.responses || []), response] }
+          : r);
+      /* §3.4 · Signed mandate lives on c.meta.mandate too so every
+         existing display keeps working. */
+      const insurerName = open.preferredInsurerId ? (PL_INSURERS[open.preferredInsurerId]?.name || open.preferredInsurerId) : "none";
+      const mandate = {
         type: "Exclusive Placement Mandate",
         ref: `MND-${id.replace("PC-", "")}-E`,
-        note: "RM raised an Exclusive Placement Mandate on the strength of your recommendation.",
+        note: `Client signed the Exclusive Placement Mandate requested by ${open.requestedBy}.`,
         by: c.client.rm,
-        byAvatar: AVATAR_SHUBH,
-        preferredInsurerId,
-        at: plStamp(),
-      } } },
-      c.client.rm, "RM", "Exclusive Placement Mandate raised", `${c.client.name} · preferred insurer ${PL_INSURERS[preferredInsurerId]?.name || preferredInsurerId}`)),
+        byAvatar: plRmAvatar(c.client.rm),
+        preferredInsurerId: open.preferredInsurerId || null,
+        at,
+        requestId: open.id,
+        requestedBy: open.requestedBy,
+        requestedAt: open.requestedAt,
+      };
+      return withLog({ ...c, mandateRequests, meta: { ...c.meta, mandate } },
+        c.client.rm, "RM", "Exclusive Placement Mandate signed",
+        `${mandate.ref} · preferred insurer ${insurerName}${note ? ` · ${note}` : ""}`);
+    }),
+
+    rmMandateDeclined: (id, reason, note) => patch(id, (c) => {
+      const open = plOpenMandateRequest(c);
+      if (!open || (open.status !== "requested" && open.status !== "considering")) return c;
+      const at = plStamp();
+      const detail = [reason || "", (note || "").trim()].filter(Boolean).join(" · ");
+      const response = { at, actor: c.client.rm, kind: "declined", note: detail };
+      const mandateRequests = (c.mandateRequests || []).map((r) =>
+        r.id === open.id
+          ? { ...r, status: "declined", closedAt: at, responses: [...(r.responses || []), response] }
+          : r);
+      return withLog({ ...c, mandateRequests }, c.client.rm, "RM", "Exclusive Placement Mandate declined", detail);
+    }),
 
     /* §11 · Every thread api takes the thread's own id, not the insurer id.
        Two contacts at one insurer = two threads with separate ids, so an
@@ -15384,15 +15474,10 @@ function PlRightRail({ c, api, goTo }) {
         </PlCard>
       )}
 
-      {/* Prototype-only: stand in for the RM raising an Exclusive Placement
-          Mandate. Hidden once a mandate is on file or the case has closed. */}
-      {!c.meta?.mandate && !c.outcome && (
-        <PlSimBlock title="Simulate RM asking for Exclusive Mandate">
-          <PlSimBtn onClick={() => { api.rmAcceptExclusiveMandate(c.id); api.say(`${c.client.rm} signed the Exclusive Placement Mandate`); }}>
-            RM asks for mandate
-          </PlSimBtn>
-        </PlSimBlock>
-      )}
+      {/* §2 · The RM-initiated "RM asks for mandate" sim block was
+          removed with rmAcceptExclusiveMandate; the mandate flow is
+          now Placement-initiated and the RM-response sim block sits
+          on the mandate rail card (§3.7). */}
 
       {/* The Exclusive Mandate rail card was removed — its content now appears
           as a hover popover under the "Exclusive Mandate" pill on the case
@@ -18608,7 +18693,10 @@ function plMailsForThread(c, thread) {
       || (ev.actor === "System" ? "System"
         : ev.actor === "Insurer" ? "Insurer"
         : "PM");
-    const outbound = actorType === "PM" || (actorType === "System" && /sent|floated|follow-up|restarted/i.test(event));
+    const outbound = actorType === "PM" || (actorType === "System" && /sent|floated|follow-up|restarted/i.test(event))
+      /* §2 · Placement-initiated mandate events are outbound too so
+         the RM pill's mail trail reads correctly. */
+      || /mandate requested|mandate reminder|request withdrawn/i.test(event);
     const subject = insurer
       ? `${c.id} · ${insurer.name} · ${products}`
       : `${c.id} · ${c.client.name} · RFQ / QCR`;
