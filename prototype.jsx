@@ -12121,6 +12121,33 @@ function makePlacementApi(setCases, say = () => {}) {
       return _doBatchCreate(cs, { ...d, ids: d.id ? [d.id] : d.ids });
     }),
 
+    /* §2 · Target premium — add / update / remove on open cases.
+       Value passes through plNormTargetPremium; a blank / null /
+       unparseable value removes the target. Idempotent against the
+       normalised value. Never touches stage, SLA, next action,
+       panel, threads, quotes or released QCRs. */
+    setTargetPremium: (id, value, note) => patch(id, (c) => {
+      if (c.outcome) return c;
+      const next = plNormTargetPremium(value);
+      const prev = plNormTargetPremium(c.meta && c.meta.targetPremium);
+      if (next === prev) return c;
+      const cleanNote = (note || "").trim();
+      const fmt = (v) => v == null ? "no target" : plInr(v);
+      let event, detail;
+      if (prev == null && next != null) {
+        event = "Target premium added";
+        detail = [plInr(next), cleanNote].filter(Boolean).join(" · ");
+      } else if (prev != null && next == null) {
+        event = "Target premium removed";
+        detail = cleanNote || "";
+      } else {
+        event = "Target premium updated";
+        detail = [`${fmt(prev)} → ${fmt(next)}`, cleanNote].filter(Boolean).join(" · ");
+      }
+      const meta = { ...c.meta, targetPremium: next };
+      return withLog({ ...c, meta }, PL_ME.name, "PM", event, detail);
+    }),
+
     confirmClassification: (id, value, changed) => patch(id, (c) => {
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r
         : { ...r, classification: { ...r.classification, confirmed: value, flagged: false } });
@@ -13413,6 +13440,48 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
   );
 }
 
+/* §2 · Target premium modal. Add / edit / remove on any open case.
+   Prefilled with the current value; blanking the field removes the
+   target. Note is optional and lands on the audit line. */
+function PlTargetPremiumModal({ c, api, onClose }) {
+  const current = c.meta && c.meta.targetPremium;
+  const [value, setValue] = useState(current != null ? String(current) : "");
+  const [note, setNote] = useState("");
+  const isEdit = current != null;
+  return (
+    <PlModal
+      title={isEdit ? "Edit target premium" : "Add target premium"}
+      subtitle={`${c.id} · ${c.client.name}`}
+      onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" onClick={() => {
+          api.setTargetPremium(c.id, value, note);
+          const next = plNormTargetPremium(value);
+          if (next == null && current != null) api.say("Target premium removed");
+          else if (next != null && current == null) api.say("Target premium added");
+          else if (next != null && current != null && next !== current) api.say("Target premium updated");
+          onClose();
+        }}>Save</PlBtn></>}>
+      <PlLabel>Target premium (optional)</PlLabel>
+      <div className="mt-1.5">
+        <PlInput value={value} onChange={setValue} kind="money" placeholder="Leave blank to remove" />
+      </div>
+      <div className="mt-3">
+        <PlLabel>Note (optional)</PlLabel>
+        <div className="mt-1.5">
+          <PlTextArea value={note} onChange={setNote} rows={3}
+            placeholder="e.g. RM shared the client's budget on call" />
+        </div>
+      </div>
+      <PlCallout tone="blue" className="mt-3">
+        <span style={{ fontSize: 11.5, color: PL_T.blue, lineHeight: 1.45 }}>
+          Target Premium is decision support only. No quote is rejected or ranked because of it, and any released QCR stays unchanged.
+        </span>
+      </PlCallout>
+    </PlModal>
+  );
+}
+
 function PlTick({ checked, onChange, label, sub }) {
   return (
     <label className="flex items-start gap-2.5 cursor-pointer py-1">
@@ -14009,6 +14078,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab, onOpen, cases }) {
     ? "contact"
     : initialTab || (na ? (na.tab === "insurers" || na.tab === "market" ? "contact" : na.tab) : "rfq");
   const [tab, setTab] = useState(initialTop);
+  const [tpOpen, setTpOpen] = useState(false);
   const [contactSub, setContactSub] = useState(
     initialTab === "market" || (!initialTab && na?.tab === "market") ? "market" : "insurers"
   );
@@ -14118,12 +14188,23 @@ function PlCaseWorkspace({ c, api, onBack, initialTab, onOpen, cases }) {
                     <PlAvatar src={pm.avatar} name={pmName} size={22} />
                     <span>Placement Manager: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{pmName}</b></span>
                   </MetaHover>
-                  {c.meta?.targetPremium != null && (
-                    <MetaHover label="Target Premium" className="gap-2">
-                      <IconBanknoteCheck size={16} color={PL_T.ink} />
+                  {/* §2 · Always render the Target Premium item; when
+                      null the value reads "Not provided" in ink3, and
+                      open cases carry an inline Add / Edit text link. */}
+                  <MetaHover label="Target Premium" className="gap-2">
+                    <IconBanknoteCheck size={16} color={PL_T.ink} />
+                    {c.meta?.targetPremium != null ? (
                       <span>Target Premium: <b style={{ color: PL_T.ink, fontWeight: 600, fontFamily: PL_MONO }}>{plInrL(c.meta.targetPremium)}</b></span>
-                    </MetaHover>
-                  )}
+                    ) : (
+                      <span>Target Premium: <b style={{ color: PL_T.ink3, fontWeight: 500 }}>Not provided</b></span>
+                    )}
+                    {!c.outcome && (
+                      <button type="button" onClick={() => setTpOpen(true)}
+                        style={{ color: PL_T.purple, fontSize: 12.5, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>
+                        {c.meta?.targetPremium != null ? "Edit" : "Add"}
+                      </button>
+                    )}
+                  </MetaHover>
                 </div>
               </div>
               {/* Right cluster: caseType pill + participant stack, above Contact RM. */}
@@ -14180,6 +14261,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab, onOpen, cases }) {
           {tab === "activity" && <PlActivityTab c={c} />}
         </div>
       </div>
+      {tpOpen && <PlTargetPremiumModal c={c} api={api} onClose={() => setTpOpen(false)} />}
     </div>
   );
 }
