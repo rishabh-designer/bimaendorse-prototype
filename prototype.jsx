@@ -20298,13 +20298,16 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
                   : [{ label: PL_NAV_LABEL[nav] || "Home" }]}
                 right={openCase
                   ? <TicketPager id={openCase.id} list={visibleCases.filter((c) => c.stage !== "closed" || c.id === openCase.id)} onOpen={setOpenId} />
-                  : nav === "cases"
-                    ? <button onClick={() => setCreateOpen(true)}
-                        className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
-                        style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>
-                        Create Ticket
-                      </button>
-                    : null}
+                  : /* Create Ticket lives in the breadcrumb on every
+                       Placement screen (Home, Cases, Manual Review,
+                       Insurer Master, Reports) — matching BimaEndorse's
+                       pattern where it's swapped for the TicketPager
+                       only when a specific case is open. */
+                    <button onClick={() => setCreateOpen(true)}
+                      className="bk-btn bk-btn-fill flex items-center justify-center gap-2 font-semibold leading-none"
+                      style={{ background: C.brand, color: C.white, border: `0.5px solid ${C.brand}`, borderRadius: 10, padding: "10px 14px", fontSize: 12 }}>
+                      Create Ticket
+                    </button>}
               />
             </div>
             {openCase
