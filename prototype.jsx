@@ -9865,15 +9865,21 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
  *      string above, and PL_RAIL is the label list for the lifecycle rail.
  * ==================================================================== */
 
-const PL_ME = { name: "Ananya Rao", role: "Placement Manager", initials: "AR" };
-
-/* The placement bench under Himani. Two executives so the Head view actually
-   reads with visible ownership variety; deterministic assignment keeps the
-   split stable across renders. `plExecOf(c)` is the single source. */
+/* The placement team: exactly two people — the executive (Bhupendra) and
+   the head (Himani). `plExecOf(c)` is the single source of ownership. */
 const PL_EXECS = {
   bhupendra: { key: "bhupendra", name: "Bhupendra Singh", first: "Bhupendra", avatar: "/bhupendra.webp", initials: "BS" },
-  shubh:     { key: "shubh",     name: "Shubh Patel",     first: "Shubh",     avatar: "/Shubh.webp",     initials: "SP" },
-  himani:    { key: "himani",    name: "Himani",          first: "Himani",    avatar: "/himani.webp",    initials: "H"  },
+  himani:    { key: "himani",    name: "Himani Doshi",    first: "Himani",    avatar: "/himani.webp",    initials: "HD" },
+};
+
+/* PL_ME is the logged-in Placement user, set once per session by plSetMe
+   (called first in PlacementApp). Mutable so the api / audit read the right
+   actor. Defaults to the executive. */
+let PL_ME = { name: PL_EXECS.bhupendra.name, role: "Placement Executive", initials: PL_EXECS.bhupendra.initials, key: "bhupendra" };
+const plSetMe = (user) => {
+  const isHimani = user?.first === "Himani" || user?.role === "Placement Head";
+  const e = isHimani ? PL_EXECS.himani : PL_EXECS.bhupendra;
+  PL_ME = { name: e.name, role: isHimani ? "Placement Head" : "Placement Executive", initials: e.initials, key: e.key };
 };
 /* Three cases are permanently escalated to the Placement Head (Himani): their
    internal SLA has run out and the ladder is exhausted. See PL_CASE_META for
@@ -9889,9 +9895,9 @@ const plRmAvatar = (name) => PL_RM_AVATARS[name] || null;
 
 const PL_HEAD_ESCALATED_IDS = new Set(["PC-1024", "PC-1028", "PC-1029"]);
 const plExecOf = (c) => {
+  if (c.owner && PL_EXECS[c.owner]) return PL_EXECS[c.owner];
   if (PL_HEAD_ESCALATED_IDS.has(c.id)) return PL_EXECS.himani;
-  const n = parseInt(String(c.id).replace(/[^0-9]/g, "") || "0", 10);
-  return n % 3 === 2 ? PL_EXECS.shubh : PL_EXECS.bhupendra;
+  return PL_EXECS.bhupendra;
 };
 
 /* Scope-aware visibility for the Placement pool. The executive never sees
@@ -10230,7 +10236,7 @@ const PL_SEED = [
   /* 1 ── RFQ review: classification conflict + missing information */
   {
     id: "PC-1024", priority: "Standard", stage: "rfq_review", outcome: null,
-    client: { name: "Nutrigrain Foods Pvt Ltd", industry: "Food processing - packaged snacks", city: "Indore, MP", headcount: 640, turnover: "₹212 Cr", spoc: "Meenal Trivedi, Head HR", rm: "Rohit Desai" },
+    client: { name: "Nutrigrain Foods Pvt Ltd", industry: "Food processing - packaged snacks", city: "Indore, MP", headcount: 640, turnover: "₹212 Cr", spoc: "Meenal Trivedi, Head HR", rm: "Shubh Bangar" },
     products: ["GMC", "GPA"], receivedAt: "25 Aug, 09:40", renewal: "01 Oct 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "25 Aug, 09:40",
@@ -10272,12 +10278,12 @@ const PL_SEED = [
       { id: "nia", reasons: ["Health and employee-benefit sections are written from a different branch - routing would split the submission."] },
     ],
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
-    tasks: [{ id: "t1", label: "Confirm risk classification before floating", due: "Today", owner: "You", done: false }],
+    tasks: [{ id: "t1", label: "Review the RFQ and mail the RM for any gaps", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
-      plAu("25 Aug, 09:41", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("25 Aug, 09:41", "System", "System", "Case created and assigned", "Assigned to Bhupendra Singh"),
       plAu("25 Aug, 09:41", "System", "System", "Classification flagged for review", "RM entry differs from suggested classification"),
-      plAu("27 Aug, 15:20", "System", "System", "SLA breached", "RFQ classification still unconfirmed · material gaps unresolved"),
+      plAu("27 Aug, 15:20", "System", "System", "SLA breached", "RFQ review not completed within SLA-02"),
       plAu("28 Aug, 10:00", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
       plAu("28 Aug, 10:00", "System", "System", "Escalated to Placement Head", "SLA-P1 ladder exhausted · owner reassigned to Himani (Placement Head)"),
     ],
@@ -10286,13 +10292,13 @@ const PL_SEED = [
   /* 2 ── Insurer selection */
   {
     id: "PC-1025", priority: "Standard", stage: "insurer_selection", outcome: null,
-    client: { name: "Vertex Analytics Pvt Ltd", industry: "IT/ITES - data analytics SaaS", city: "Bengaluru, KA", headcount: 310, turnover: "₹96 Cr", spoc: "Karthik Menon, CFO", rm: "Priya Nair" },
-    products: ["Cyber", "D&O"], receivedAt: "21 Aug, 15:02", renewal: "20 Sep 2026", activeRfq: 1,
+    client: { name: "Vertex Analytics Pvt Ltd", industry: "IT/ITES - data analytics SaaS", city: "Bengaluru, KA", headcount: 310, turnover: "₹96 Cr", spoc: "Karthik Menon, CFO", rm: "Shubh Bangar" },
+    products: ["PI_TECH", "DNO"], receivedAt: "21 Aug, 15:02", renewal: "20 Sep 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "validated", createdAt: "21 Aug, 15:02", validatedAt: "22 Aug, 11:20",
       sections: [
-        { product: "Cyber", si: "₹15 Cr limit of indemnity", detail: [["Records held", "1.9 million customer records"], ["Territory", "India, US, EU"], ["Prior incidents", "Nil in last 5 years"], ["Retention sought", "₹25,00,000"], ["Key extensions", "Business interruption, ransomware, regulatory defence"]] },
-        { product: "D&O", si: "₹10 Cr limit of indemnity", detail: [["Entity", "Unlisted, Series C funded"], ["Board size", "7 (incl. 2 investor nominees)"], ["Retroactive date sought", "Inception 2018"], ["Prior claims", "Nil"]] },
+        { product: "PI_TECH", si: "₹15 Cr limit of indemnity", detail: [["Records held", "1.9 million customer records"], ["Territory", "India, US, EU"], ["Prior incidents", "Nil in last 5 years"], ["Retention sought", "₹25,00,000"], ["Key extensions", "Business interruption, ransomware, regulatory defence"]] },
+        { product: "DNO", si: "₹10 Cr limit of indemnity", detail: [["Entity", "Unlisted, Series C funded"], ["Board size", "7 (incl. 2 investor nominees)"], ["Retroactive date sought", "Inception 2018"], ["Prior claims", "Nil"]] },
       ],
       classification: { rmEntered: "IT/ITES - Software services", suggested: "IT/ITES - Software services", flagged: false, confirmed: "IT/ITES - Software services", basis: ["RM entry matches GST filings and prior policy schedule."], impact: "" },
       missing: [], rmThread: [],
@@ -10314,8 +10320,8 @@ const PL_SEED = [
     tasks: [{ id: "t1", label: "Approve insurer panel and float RFQ", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
-      plAu("22 Aug, 11:18", "Ananya Rao", "PM", "Classification confirmed", "IT/ITES - Software services (unchanged)"),
-      plAu("22 Aug, 11:20", "Ananya Rao", "PM", "RFQ V1 validated", "No missing information recorded"),
+      plAu("22 Aug, 11:18", "Bhupendra Singh", "PM", "Classification confirmed", "IT/ITES - Software services (unchanged)"),
+      plAu("22 Aug, 11:20", "Bhupendra Singh", "PM", "RFQ V1 validated", "No missing information recorded"),
       plAu("22 Aug, 11:22", "System", "System", "Insurer recommendations generated", "5 eligible · 3 outside appetite"),
     ],
   },
@@ -10325,13 +10331,13 @@ const PL_SEED_B = [
   /* 3 ── Market engagement: live insurer threads, one paused, one breached */
   {
     id: "PC-1026", priority: "Urgent", stage: "market", outcome: null,
-    client: { name: "Meridian Logistics Ltd", industry: "Third-party logistics & warehousing", city: "Navi Mumbai, MH", headcount: 1150, turnover: "₹480 Cr", spoc: "Devika Shetty, VP Risk", rm: "Aman Kulkarni" },
-    products: ["Marine", "CGL"], receivedAt: "14 Aug, 10:15", renewal: "05 Sep 2026", activeRfq: 1,
+    client: { name: "Meridian Logistics Ltd", industry: "Third-party logistics & warehousing", city: "Navi Mumbai, MH", headcount: 1150, turnover: "₹480 Cr", spoc: "Devika Shetty, VP Risk", rm: "Shubh Bangar" },
+    products: ["MARINE_OPEN", "CGL"], receivedAt: "14 Aug, 10:15", renewal: "05 Sep 2026", activeRfq: 1,
     urgentReason: "Expiring cover lapses 05 Sep. Client has a contractual obligation to evidence cover to three shippers by 02 Sep.",
     rfqs: [{
       v: 1, status: "floated", createdAt: "14 Aug, 10:15", validatedAt: "14 Aug, 16:40", floatedAt: "15 Aug, 09:30",
       sections: [
-        { product: "Marine", si: "₹6 Cr per sending", detail: [["Annual sendings", "₹740 Cr"], ["Commodity", "FMCG, electronics, packaged food"], ["Transit", "Domestic road and rail"], ["Cover basis sought", "ICC (A)"], ["Expiring premium", "₹1,18,00,000"]] },
+        { product: "MARINE_OPEN", si: "₹6 Cr per sending", detail: [["Annual sendings", "₹740 Cr"], ["Commodity", "FMCG, electronics, packaged food"], ["Transit", "Domestic road and rail"], ["Cover basis sought", "ICC (A)"], ["Expiring premium", "₹1,18,00,000"]] },
         { product: "CGL", si: "₹5 Cr AOA / ₹10 Cr AOY", detail: [["Locations", "14 warehouses"], ["Prior claims", "2 claims, ₹34 L total, last 3 years"], ["Territory", "India"]] },
       ],
       classification: { rmEntered: "Logistics - Warehousing & transport", suggested: "Logistics - Warehousing & transport", flagged: false, confirmed: "Logistics - Warehousing & transport", basis: ["RM entry matches GST filings."], impact: "" },
@@ -10364,7 +10370,7 @@ const PL_SEED_B = [
           plEv("15 Aug, 09:31", "System", "RFQ V1 floated to underwriting desk"),
           plEv("18 Aug, 11:05", "Insurer", "Submission acknowledged"),
           plEv("22 Aug, 15:30", "Insurer", "Clarification raised - fire-safety certificates for all 14 warehouses"),
-          plEv("22 Aug, 16:10", "Ananya Rao", "Information requested from RM · insurer clock held at 1d 7h"),
+          plEv("22 Aug, 16:10", "Bhupendra Singh", "Information requested from RM · insurer clock held at 1d 7h"),
         ],
         clarifications: [{
           id: "c1", question: "Please provide current fire-safety certificates and NOC for all 14 warehouse locations before we can rate the CGL section.",
@@ -10400,7 +10406,7 @@ const PL_SEED_B = [
       },
     ],
     quotes: [
-      plMkQuote("icici", "Marine", 1, 1, "25 Aug, 17:44", {
+      plMkQuote("icici", "MARINE_OPEN", 1, 1, "25 Aug, 17:44", {
         premium: 10620000, si: 60000000, clause: "ICC (A) - all risks including SRCC",
         excess: "₹50,000 each and every claim", validity: "30 days from 25 Aug 2026",
       }),
@@ -10413,11 +10419,11 @@ const PL_SEED_B = [
     ],
     audit: [
       plAu("14 Aug, 10:15", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
-      plAu("14 Aug, 16:40", "Ananya Rao", "PM", "RFQ V1 validated", ""),
-      plAu("15 Aug, 09:28", "Ananya Rao", "PM", "Insurer panel approved", "5 insurers · Go Digit removed (no CGL appetite)"),
-      plAu("15 Aug, 09:30", "Ananya Rao", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
+      plAu("14 Aug, 16:40", "Bhupendra Singh", "PM", "RFQ V1 validated", ""),
+      plAu("15 Aug, 09:28", "Bhupendra Singh", "PM", "Insurer panel approved", "5 insurers · Go Digit removed (no CGL appetite)"),
+      plAu("15 Aug, 09:30", "Bhupendra Singh", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
       plAu("19 Aug, 10:48", "New India Assurance", "Insurer", "Clarification raised", "Fire-safety certificates for 14 locations"),
-      plAu("22 Aug, 16:10", "Ananya Rao", "PM", "Information requested from RM", "New India Assurance SLA held at 1d 7h remaining"),
+      plAu("22 Aug, 16:10", "Bhupendra Singh", "PM", "Information requested from RM", "New India Assurance SLA held at 1d 7h remaining"),
       plAu("25 Aug, 17:44", "ICICI Lombard", "Insurer", "Quote received", "Marine · awaiting Placement Manager review"),
       plAu("25 Aug, 18:00", "System", "System", "SLA breached", "Oriental Insurance · 3 follow-ups sent, no response"),
     ],
@@ -10426,7 +10432,7 @@ const PL_SEED_B = [
   /* 4 ── Quote review: one decision away from the QCR threshold */
   {
     id: "PC-1027", priority: "Standard", stage: "quote_review", outcome: null,
-    client: { name: "Kalpataru Infra Projects Ltd", industry: "EPC & infrastructure construction", city: "Pune, MH", headcount: 2300, turnover: "₹1,240 Cr", spoc: "Nikhil Bhandari, CHRO", rm: "Sneha Iyer" },
+    client: { name: "Kalpataru Infra Projects Ltd", industry: "EPC & infrastructure construction", city: "Pune, MH", headcount: 2300, turnover: "₹1,240 Cr", spoc: "Nikhil Bhandari, CHRO", rm: "Shubh Bangar" },
     products: ["GMC", "GPA"], receivedAt: "05 Aug, 11:30", renewal: "15 Sep 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "floated", createdAt: "05 Aug, 11:30", validatedAt: "06 Aug, 10:05", floatedAt: "06 Aug, 14:00",
@@ -10436,8 +10442,8 @@ const PL_SEED_B = [
       ],
       classification: { rmEntered: "Construction - EPC contractor", suggested: "Construction - EPC contractor", flagged: false, confirmed: "Construction - EPC contractor", basis: ["RM entry matches GST filings and expiring policy schedule."], impact: "" },
       missing: [], rmThread: [
-        { at: "05 Aug, 16:20", actor: "Ananya Rao", text: "Please confirm whether parents are to be quoted in-scope or as a buy-up." },
-        { at: "06 Aug, 09:12", actor: "Sneha Iyer", text: "Client confirms parents as a voluntary buy-up, not in the base premium." },
+        { at: "05 Aug, 16:20", actor: "Bhupendra Singh", text: "Please confirm whether parents are to be quoted in-scope or as a buy-up." },
+        { at: "06 Aug, 09:12", actor: "Shubh Bangar", text: "Client confirms parents as a voluntary buy-up, not in the base premium." },
       ],
     }],
     panel: { locked: true, selected: ["icici", "hdfc", "bajaj", "nia", "reliance"], excluded: [{ id: "star", reason: "Health-only market, cannot quote the GPA section." }] },
@@ -10451,9 +10457,9 @@ const PL_SEED_B = [
     notRecommended: [{ id: "star", reasons: ["Health-only market. Cannot quote the GPA section."] }],
     threads: [
       { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false,
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC and GPA"), plEv("14 Aug, 11:05", "Ananya Rao", "Both sections marked usable")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("07 Aug, 09:30", "Insurer", "Submission acknowledged"), plEv("13 Aug, 16:20", "Insurer", "Quote received for GMC and GPA"), plEv("14 Aug, 11:05", "Bhupendra Singh", "Both sections marked usable")], clarifications: [] },
       { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false,
-        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Ananya Rao", "Clarification sent - room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Ananya Rao", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
+        events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("08 Aug, 10:15", "Insurer", "Submission acknowledged"), plEv("15 Aug, 12:40", "Insurer", "Quote received for GMC"), plEv("18 Aug, 09:20", "Bhupendra Singh", "Clarification sent - room rent basis unclear"), plEv("21 Aug, 15:10", "Insurer", "Revised quote received (v2)"), plEv("22 Aug, 10:00", "Bhupendra Singh", "Revision v2 marked usable, v1 superseded")], clarifications: [] },
       { insurerId: "bajaj", status: "quote_received", slaH: 3, paused: false, followUps: 1, followUpsActive: true,
         events: [plEv("06 Aug, 14:01", "System", "RFQ V1 floated to underwriting desk"), plEv("09 Aug, 11:22", "Insurer", "Submission acknowledged"), plEv("18 Aug, 09:00", "System", "Automated follow-up 1 sent"), plEv("25 Aug, 19:15", "Insurer", "Quote received for GMC")], clarifications: [] },
       { insurerId: "nia", status: "quote_received", slaH: 1, paused: false, followUps: 2, followUpsActive: true,
@@ -10504,12 +10510,12 @@ const PL_SEED_B = [
     ],
     audit: [
       plAu("05 Aug, 11:30", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
-      plAu("05 Aug, 16:20", "Ananya Rao", "PM", "Clarification requested from RM", "Parents in-scope or buy-up"),
-      plAu("06 Aug, 09:12", "Sneha Iyer", "RM", "Clarification answered", "Parents confirmed as voluntary buy-up"),
-      plAu("06 Aug, 10:05", "Ananya Rao", "PM", "RFQ V1 validated", ""),
-      plAu("06 Aug, 14:00", "Ananya Rao", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
-      plAu("14 Aug, 11:05", "Ananya Rao", "PM", "Quote marked usable", "ICICI Lombard · GMC and GPA · counts as 1 insurer"),
-      plAu("22 Aug, 10:00", "Ananya Rao", "PM", "Quote revision marked usable", "HDFC ERGO · v2 supersedes v1 · counts as 1 insurer"),
+      plAu("05 Aug, 16:20", "Bhupendra Singh", "PM", "Clarification requested from RM", "Parents in-scope or buy-up"),
+      plAu("06 Aug, 09:12", "Shubh Bangar", "RM", "Clarification answered", "Parents confirmed as voluntary buy-up"),
+      plAu("06 Aug, 10:05", "Bhupendra Singh", "PM", "RFQ V1 validated", ""),
+      plAu("06 Aug, 14:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
+      plAu("14 Aug, 11:05", "Bhupendra Singh", "PM", "Quote marked usable", "ICICI Lombard · GMC and GPA · counts as 1 insurer"),
+      plAu("22 Aug, 10:00", "Bhupendra Singh", "PM", "Quote revision marked usable", "HDFC ERGO · v2 supersedes v1 · counts as 1 insurer"),
       plAu("24 Aug, 14:05", "New India Assurance", "Insurer", "Quote received", "GMC · room rent limit missing"),
       plAu("25 Aug, 19:15", "Bajaj Allianz", "Insurer", "Quote received", "GMC · awaiting Placement Manager review"),
     ],
@@ -10520,38 +10526,38 @@ const PL_SEED_C = [
   /* 5 ── QCR released, client deciding, late quote has landed */
   {
     id: "PC-1028", priority: "Standard", stage: "qcr_released", outcome: null,
-    client: { name: "Suryodaya Renewables Ltd", industry: "Solar EPC & O&M", city: "Ahmedabad, GJ", headcount: 420, turnover: "₹310 Cr", spoc: "Ritu Pandya, Finance Controller", rm: "Priya Nair" },
-    products: ["Fire"], receivedAt: "28 Jul, 09:00", renewal: "12 Sep 2026", activeRfq: 1,
+    client: { name: "Suryodaya Renewables Ltd", industry: "Solar EPC & O&M", city: "Ahmedabad, GJ", headcount: 420, turnover: "₹310 Cr", spoc: "Ritu Pandya, Finance Controller", rm: "Shubh Bangar" },
+    products: ["FIRE_FACTORY"], receivedAt: "28 Jul, 09:00", renewal: "12 Sep 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "floated", createdAt: "28 Jul, 09:00", validatedAt: "28 Jul, 15:10", floatedAt: "29 Jul, 10:00",
-      sections: [{ product: "Fire", si: "₹186 Cr total sum insured", detail: [["Locations", "3 manufacturing units, 1 warehouse"], ["Construction", "RCC, sprinklered"], ["Prior claims", "1 claim, ₹12 L, 2023"], ["Add-ons sought", "Earthquake, STFI, terrorism"]] }],
+      sections: [{ product: "FIRE_FACTORY", si: "₹186 Cr total sum insured", detail: [["Locations", "3 manufacturing units, 1 warehouse"], ["Construction", "RCC, sprinklered"], ["Prior claims", "1 claim, ₹12 L, 2023"], ["Add-ons sought", "Earthquake, STFI, terrorism"]] }],
       classification: { rmEntered: "Renewable energy - Solar EPC", suggested: "Renewable energy - Solar EPC", flagged: false, confirmed: "Renewable energy - Solar EPC", basis: ["RM entry matches GST filings."], impact: "" },
       missing: [], rmThread: [],
     }],
     panel: { locked: true, selected: ["icici", "nia", "chola", "sompo"], excluded: [] },
     recommend: [], notRecommended: [],
     threads: [
-      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("06 Aug, 11:00", "Insurer", "Quote received"), plEv("08 Aug, 09:40", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "nia", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("12 Aug, 15:20", "Insurer", "Quote received"), plEv("14 Aug, 10:10", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "chola", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("18 Aug, 12:00", "Insurer", "Quote received"), plEv("21 Aug, 16:30", "Ananya Rao", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("06 Aug, 11:00", "Insurer", "Quote received"), plEv("08 Aug, 09:40", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "nia", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("12 Aug, 15:20", "Insurer", "Quote received"), plEv("14 Aug, 10:10", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "chola", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("18 Aug, 12:00", "Insurer", "Quote received"), plEv("21 Aug, 16:30", "Bhupendra Singh", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
       { insurerId: "sompo", status: "quote_received", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("29 Jul, 10:01", "System", "RFQ V1 floated"), plEv("21 Aug, 16:30", "System", "Automated follow-ups stopped - usable-quote threshold reached"), plEv("25 Aug, 11:20", "Insurer", "Quote received after QCR V1 release")], clarifications: [] },
     ],
     quotes: [
-      plMkQuote("icici", "Fire", 1, 1, "06 Aug, 11:00", { premium: 4820000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "45 days from 06 Aug 2026" }, { decision: "usable", decisionAt: "08 Aug, 09:40" }),
-      plMkQuote("nia", "Fire", 1, 1, "12 Aug, 15:20", { premium: 4415000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI. Terrorism quoted separately at ₹6,20,000", validity: "30 days from 12 Aug 2026" }, { decision: "usable", decisionAt: "14 Aug, 10:10" }),
-      plMkQuote("chola", "Fire", 1, 1, "18 Aug, 12:00", { premium: 5140000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹5 L", addons: "Earthquake, STFI, terrorism, spontaneous combustion", validity: "30 days from 18 Aug 2026" }, { decision: "usable", decisionAt: "21 Aug, 16:30" }),
-      plMkQuote("sompo", "Fire", 1, 1, "25 Aug, 11:20", { premium: 4290000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "30 days from 25 Aug 2026" }),
+      plMkQuote("icici", "FIRE_FACTORY", 1, 1, "06 Aug, 11:00", { premium: 4820000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "45 days from 06 Aug 2026" }, { decision: "usable", decisionAt: "08 Aug, 09:40" }),
+      plMkQuote("nia", "FIRE_FACTORY", 1, 1, "12 Aug, 15:20", { premium: 4415000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI. Terrorism quoted separately at ₹6,20,000", validity: "30 days from 12 Aug 2026" }, { decision: "usable", decisionAt: "14 Aug, 10:10" }),
+      plMkQuote("chola", "FIRE_FACTORY", 1, 1, "18 Aug, 12:00", { premium: 5140000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹5 L", addons: "Earthquake, STFI, terrorism, spontaneous combustion", validity: "30 days from 18 Aug 2026" }, { decision: "usable", decisionAt: "21 Aug, 16:30" }),
+      plMkQuote("sompo", "FIRE_FACTORY", 1, 1, "25 Aug, 11:20", { premium: 4290000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "30 days from 25 Aug 2026" }),
     ],
-    qcrs: [{ v: 1, status: "released", createdAt: "21 Aug, 16:31", releasedAt: "22 Aug, 10:15", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Priya Nair (RM)" }],
+    qcrs: [{ v: 1, status: "released", createdAt: "21 Aug, 16:31", releasedAt: "22 Aug, 10:15", releasedBy: "Bhupendra Singh", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Shubh Bangar (RM)" }],
     negotiations: [], followUpsStopped: true,
     tasks: [{ id: "t1", label: "Decide whether Universal Sompo quote warrants QCR V2", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("28 Jul, 09:00", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section"),
-      plAu("29 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("29 Jul, 10:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("21 Aug, 16:30", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
       plAu("21 Aug, 16:30", "System", "System", "Automated follow-ups stopped", "Remaining open thread: Universal Sompo"),
       plAu("21 Aug, 16:31", "System", "System", "Draft QCR V1 generated", "3 quotes included"),
-      plAu("22 Aug, 10:15", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Priya Nair · version locked"),
+      plAu("22 Aug, 10:15", "Bhupendra Singh", "PM", "QCR V1 released to RM", "Sent to Shubh Bangar · version locked"),
       plAu("25 Aug, 11:20", "Universal Sompo", "Insurer", "Quote received after QCR release", "Not included in QCR V1"),
       plAu("29 Aug, 12:15", "System", "System", "SLA breached", "QCR V2 decision pending on the late Universal Sompo quote"),
       plAu("30 Aug, 09:30", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
@@ -10561,8 +10567,8 @@ const PL_SEED_C = [
 
   /* 6 ── Negotiation */
   {
-    id: "PC-1029", priority: "Standard", stage: "negotiation", outcome: null,
-    client: { name: "Halcyon Hospitality Group", industry: "Hotels & resorts", city: "Panaji, GA", headcount: 780, turnover: "₹265 Cr", spoc: "Farhan Qureshi, Director HR", rm: "Rohit Desai" },
+    id: "PC-1029", priority: "Standard", stage: "qcr_released", outcome: null,
+    client: { name: "Halcyon Hospitality Group", industry: "Hotels & resorts", city: "Panaji, GA", headcount: 780, turnover: "₹265 Cr", spoc: "Farhan Qureshi, Director HR", rm: "Shubh Bangar" },
     products: ["GMC"], receivedAt: "18 Jul, 14:00", renewal: "20 Sep 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "floated", createdAt: "18 Jul, 14:00", validatedAt: "19 Jul, 09:30", floatedAt: "19 Jul, 15:00",
@@ -10573,40 +10579,24 @@ const PL_SEED_C = [
     panel: { locked: true, selected: ["hdfc", "care", "icici", "star"], excluded: [] },
     recommend: [], notRecommended: [],
     threads: [
-      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("28 Jul, 10:20", "Insurer", "Quote received"), plEv("30 Jul, 11:00", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent - premium and co-pay"), plEv("22 Aug, 14:30", "Insurer", "Revised quote received (v2)")], clarifications: [] },
-      { insurerId: "care", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("30 Jul, 09:15", "Insurer", "Quote received"), plEv("01 Aug, 10:30", "Ananya Rao", "Marked usable"), plEv("18 Aug, 16:00", "Ananya Rao", "Negotiation ask sent - maternity limit")], clarifications: [] },
-      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("05 Aug, 12:40", "Insurer", "Quote received"), plEv("07 Aug, 09:00", "Ananya Rao", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
+      { insurerId: "hdfc", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("28 Jul, 10:20", "Insurer", "Quote received"), plEv("30 Jul, 11:00", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "care", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("30 Jul, 09:15", "Insurer", "Quote received"), plEv("01 Aug, 10:30", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("05 Aug, 12:40", "Insurer", "Quote received"), plEv("07 Aug, 09:00", "Bhupendra Singh", "Marked usable - threshold reached, follow-ups stopped")], clarifications: [] },
       { insurerId: "star", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "Hospitality occupancy with 88% claims ratio is outside current appetite.", events: [plEv("19 Jul, 15:01", "System", "RFQ V1 floated"), plEv("24 Jul, 16:00", "Insurer", "Declined")], clarifications: [] },
     ],
     quotes: [
-      plMkQuote("hdfc", "GMC", 1, 1, "28 Jul, 10:20", { premium: 11240000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "10% on all claims", validity: "30 days from 28 Jul 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "superseded" }),
-      plMkQuote("hdfc", "GMC", 1, 2, "22 Aug, 14:30", { premium: 10680000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "Nil", validity: "21 days from 22 Aug 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "usable", decisionAt: "23 Aug, 09:40" }),
+      plMkQuote("hdfc", "GMC", 1, 1, "28 Jul, 10:20", { premium: 11240000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹20,00,000", copay: "10% on all claims", validity: "30 days from 28 Jul 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "usable", decisionAt: "30 Jul, 11:00" }),
       plMkQuote("care", "GMC", 1, 1, "30 Jul, 09:15", { premium: 10910000, si: 300000, family: "1+1+2", roomRent: "Single private AC room", maternity: "₹40,000 / ₹60,000", ped: "Covered from day one", buffer: "Not offered", copay: "Nil", validity: "30 days from 30 Jul 2026", exclusions: "Cosmetic, dental, OPD, day-care beyond listed" }, { decision: "usable", decisionAt: "01 Aug, 10:30" }),
       plMkQuote("icici", "GMC", 1, 1, "05 Aug, 12:40", { premium: 11890000, si: 300000, family: "1+1+2", roomRent: "1% of SI per day, ICU at actuals", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "30 days from 05 Aug 2026", exclusions: "Cosmetic, dental, OPD" }, { decision: "usable", decisionAt: "07 Aug, 09:00" }),
     ],
-    qcrs: [{ v: 1, status: "released", createdAt: "07 Aug, 09:02", releasedAt: "07 Aug, 15:00", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Rohit Desai (RM)" }],
-    negotiations: [
-      { round: 1, openedAt: "18 Aug, 16:00", status: "closed", closedAt: "23 Aug, 09:40", brief: "Client asked for a single-digit increase over expiring and removal of co-pay.", items: [
-        { insurerId: "hdfc", ask: "Remove the 10% co-pay and hold premium within 3% of expiring.", status: "improved", response: "Co-pay removed. Premium reduced to ₹1,06,80,000 (revision v2)." },
-        { insurerId: "care", ask: "Increase maternity limit to ₹50,000 / ₹75,000 to match the panel.", status: "declined", response: "Cannot improve maternity at this claims ratio. Terms stand." },
-      ] },
-      { round: 2, openedAt: "25 Aug, 11:00", status: "open", brief: "Client wants the corporate buffer restored on the leading terms before deciding.", items: [
-        { insurerId: "hdfc", ask: "Increase corporate buffer from ₹20 L to ₹35 L at the revised premium.", status: "awaiting", response: null },
-        { insurerId: "icici", ask: "Match ₹1,06,80,000 premium at the current ₹25 L buffer.", status: "awaiting", response: null },
-      ] },
-    ],
+    qcrs: [{ v: 1, status: "released", createdAt: "07 Aug, 09:02", releasedAt: "07 Aug, 15:00", releasedBy: "Bhupendra Singh", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Shubh Bangar (RM)" }],
     followUpsStopped: true,
-    tasks: [{ id: "t1", label: "Chase round 2 negotiation responses", due: "Tomorrow", owner: "You", done: false }],
+    tasks: [{ id: "t1", label: "Chase Shubh Bangar for the client decision", due: "Tomorrow", owner: "You", done: false }],
     audit: [
-      plAu("19 Jul, 15:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("19 Jul, 15:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("07 Aug, 09:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
-      plAu("07 Aug, 15:00", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Rohit Desai · version locked"),
-      plAu("18 Aug, 15:40", "Rohit Desai", "RM", "Client decision recorded", "Negotiation requested"),
-      plAu("18 Aug, 16:00", "Ananya Rao", "PM", "Negotiation round 1 opened", "2 insurer asks"),
-      plAu("22 Aug, 14:30", "HDFC ERGO", "Insurer", "Revised quote received", "v2 · co-pay removed, premium reduced"),
-      plAu("23 Aug, 09:40", "Ananya Rao", "PM", "Negotiation round 1 closed", "1 improved · 1 declined"),
-      plAu("25 Aug, 11:00", "Ananya Rao", "PM", "Negotiation round 2 opened", "2 insurer asks"),
-      plAu("29 Aug, 14:40", "System", "System", "SLA breached", "Negotiation round 2 open · no insurer response chased in over 96 Hrs."),
+      plAu("07 Aug, 15:00", "Bhupendra Singh", "PM", "QCR V1 released to RM", "Sent to Shubh Bangar · version locked"),
+      plAu("29 Aug, 14:40", "System", "System", "SLA breached", "Client decision on QCR V1 overdue · no RM follow-up recorded in over 96 Hrs."),
       plAu("30 Aug, 11:15", "System", "System", "Escalation ladder exhausted", "3 reminders sent to Bhupendra Singh · no action recorded"),
       plAu("30 Aug, 11:15", "System", "System", "Escalated to Placement Head", "SLA-P1 ladder exhausted · owner reassigned to Himani (Placement Head)"),
     ],
@@ -10614,12 +10604,12 @@ const PL_SEED_C = [
 
   /* 7 ── Terminal: unable to place */
   {
-    id: "PC-1030", priority: "Standard", stage: "closed", outcome: { type: "unable_to_place", reason: "Six markets approached across two RFQ versions. All declined US product-liability exposure for a contract manufacturer without a US-domiciled parent. No market available on the requested structure.", at: "12 Aug, 17:20", by: "Ananya Rao" },
-    client: { name: "Ridgeline Pharma Ltd", industry: "Pharmaceutical contract manufacturing", city: "Hyderabad, TS", headcount: 890, turnover: "₹520 Cr", spoc: "Dr. Anil Varma, QA Head", rm: "Aman Kulkarni" },
-    products: ["PL"], receivedAt: "02 Jul, 10:00", renewal: "31 Aug 2026", activeRfq: 2,
+    id: "PC-1030", priority: "Standard", stage: "closed", outcome: { type: "unable_to_place", reason: "Six markets approached across two RFQ versions. All declined US product-liability exposure for a contract manufacturer without a US-domiciled parent. No market available on the requested structure.", at: "12 Aug, 17:20", by: "Bhupendra Singh" },
+    client: { name: "Ridgeline Pharma Ltd", industry: "Pharmaceutical contract manufacturing", city: "Hyderabad, TS", headcount: 890, turnover: "₹520 Cr", spoc: "Dr. Anil Varma, QA Head", rm: "Shubh Bangar" },
+    products: ["CGL"], receivedAt: "02 Jul, 10:00", renewal: "31 Aug 2026", activeRfq: 2,
     rfqs: [
-      { v: 1, status: "superseded", createdAt: "02 Jul, 10:00", validatedAt: "03 Jul, 11:00", floatedAt: "03 Jul, 14:00", sections: [{ product: "PL", si: "USD 5 M limit", detail: [["Territory", "India, US, EU"], ["Jurisdiction", "Worldwide including US"], ["US turnover share", "38%"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
-      { v: 2, status: "floated", createdAt: "24 Jul, 09:00", validatedAt: "24 Jul, 12:00", floatedAt: "24 Jul, 15:00", sections: [{ product: "PL", si: "USD 3 M limit", detail: [["Territory", "India, EU"], ["Jurisdiction", "Excluding US"], ["Change from V1", "US jurisdiction removed to test appetite"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+      { v: 1, status: "superseded", createdAt: "02 Jul, 10:00", validatedAt: "03 Jul, 11:00", floatedAt: "03 Jul, 14:00", sections: [{ product: "CGL", si: "USD 5 M limit", detail: [["Territory", "India, US, EU"], ["Jurisdiction", "Worldwide including US"], ["US turnover share", "38%"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
+      { v: 2, status: "floated", createdAt: "24 Jul, 09:00", validatedAt: "24 Jul, 12:00", floatedAt: "24 Jul, 15:00", sections: [{ product: "CGL", si: "USD 3 M limit", detail: [["Territory", "India, EU"], ["Jurisdiction", "Excluding US"], ["Change from V1", "US jurisdiction removed to test appetite"]] }], classification: { rmEntered: "Pharma - Contract manufacturing", suggested: "Pharma - Contract manufacturing", flagged: false, confirmed: "Pharma - Contract manufacturing", basis: [], impact: "" }, missing: [], rmThread: [] },
     ],
     panel: { locked: true, selected: ["icici", "bajaj", "tata", "nia", "oriental", "chola"], excluded: [] },
     recommend: [], notRecommended: [],
@@ -10633,40 +10623,40 @@ const PL_SEED_C = [
     ],
     quotes: [], qcrs: [], negotiations: [], followUpsStopped: true, tasks: [],
     audit: [
-      plAu("03 Jul, 14:00", "Ananya Rao", "PM", "RFQ V1 floated", "6 insurer threads created"),
-      plAu("23 Jul, 16:00", "Ananya Rao", "PM", "RFQ V2 created", "US jurisdiction removed to test appetite"),
-      plAu("24 Jul, 15:00", "Ananya Rao", "PM", "RFQ V2 floated", "6 threads reset to RFQ V2"),
+      plAu("03 Jul, 14:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "6 insurer threads created"),
+      plAu("23 Jul, 16:00", "Bhupendra Singh", "PM", "RFQ V2 created", "US jurisdiction removed to test appetite"),
+      plAu("24 Jul, 15:00", "Bhupendra Singh", "PM", "RFQ V2 floated", "6 threads reset to RFQ V2"),
       plAu("10 Aug, 09:00", "System", "System", "All threads closed without quote", "5 declined · 1 no response"),
-      plAu("12 Aug, 17:20", "Ananya Rao", "PM", "Case closed - unable to place", "Reason recorded"),
+      plAu("12 Aug, 17:20", "Bhupendra Singh", "PM", "Case closed - unable to place", "Reason recorded"),
     ],
   },
 
   /* 8 ── Terminal: quote selected, handed off */
   {
-    id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG on both sections. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Rohit Desai (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
-    client: { name: "Orbit Semiconductors Pvt Ltd", industry: "Semiconductor design & test", city: "Noida, UP", headcount: 260, turnover: "₹184 Cr", spoc: "Sanjana Kapoor, COO", rm: "Rohit Desai" },
-    products: ["Cyber", "D&O"], receivedAt: "12 Jul, 10:30", renewal: "01 Sep 2026", activeRfq: 1,
-    rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "Cyber", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "D&O", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics - Semiconductor services", suggested: "Electronics - Semiconductor services", flagged: false, confirmed: "Electronics - Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
+    id: "PC-1031", priority: "Standard", stage: "closed", outcome: { type: "quote_selected", reason: "Client selected Tata AIG on both sections. Handed off to RM / Policy Journey on 05 Aug.", at: "04 Aug, 16:45", by: "Shubh Bangar (RM)", insurerId: "tata", handoffRef: "ISS-8841" },
+    client: { name: "Orbit Semiconductors Pvt Ltd", industry: "Semiconductor design & test", city: "Noida, UP", headcount: 260, turnover: "₹184 Cr", spoc: "Sanjana Kapoor, COO", rm: "Shubh Bangar" },
+    products: ["PI_TECH", "DNO"], receivedAt: "12 Jul, 10:30", renewal: "01 Sep 2026", activeRfq: 1,
+    rfqs: [{ v: 1, status: "floated", createdAt: "12 Jul, 10:30", validatedAt: "12 Jul, 16:00", floatedAt: "13 Jul, 10:00", sections: [{ product: "PI_TECH", si: "₹8 Cr limit", detail: [["Records held", "Nil consumer records"], ["Territory", "India, US"], ["Prior incidents", "Nil"]] }, { product: "DNO", si: "₹5 Cr limit", detail: [["Entity", "Unlisted"], ["Board size", "5"]] }], classification: { rmEntered: "Electronics - Semiconductor services", suggested: "Electronics - Semiconductor services", flagged: false, confirmed: "Electronics - Semiconductor services", basis: [], impact: "" }, missing: [], rmThread: [] }],
     panel: { locked: true, selected: ["tata", "icici", "bajaj", "hdfc"], excluded: [] },
     recommend: [], notRecommended: [],
     threads: [
-      { insurerId: "tata", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("19 Jul, 14:00", "Insurer", "Quote received"), plEv("21 Jul, 10:00", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("22 Jul, 11:00", "Insurer", "Quote received"), plEv("24 Jul, 09:30", "Ananya Rao", "Marked usable")], clarifications: [] },
-      { insurerId: "bajaj", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("26 Jul, 15:30", "Insurer", "Quote received"), plEv("28 Jul, 11:00", "Ananya Rao", "Marked usable - threshold reached")], clarifications: [] },
+      { insurerId: "tata", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("19 Jul, 14:00", "Insurer", "Quote received"), plEv("21 Jul, 10:00", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "icici", status: "quote_usable", slaH: 0, paused: false, followUps: 1, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("22 Jul, 11:00", "Insurer", "Quote received"), plEv("24 Jul, 09:30", "Bhupendra Singh", "Marked usable")], clarifications: [] },
+      { insurerId: "bajaj", status: "quote_usable", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("26 Jul, 15:30", "Insurer", "Quote received"), plEv("28 Jul, 11:00", "Bhupendra Singh", "Marked usable - threshold reached")], clarifications: [] },
       { insurerId: "hdfc", status: "no_response", slaH: 0, paused: false, followUps: 2, followUpsActive: false, events: [plEv("13 Jul, 10:01", "System", "RFQ V1 floated"), plEv("28 Jul, 11:00", "System", "Automated follow-ups stopped - threshold reached")], clarifications: [] },
     ],
     quotes: [
-      plMkQuote("tata", "Cyber", 1, 1, "19 Jul, 14:00", { premium: 1840000, si: 80000000, retention: 2500000, extensions: "BI, ransomware, regulatory defence", territory: "India and US, Indian jurisdiction", validity: "30 days from 19 Jul 2026" }, { decision: "usable", decisionAt: "21 Jul, 10:00" }),
-      plMkQuote("icici", "Cyber", 1, 1, "22 Jul, 11:00", { premium: 1965000, si: 80000000, retention: 2500000, extensions: "BI, ransomware", territory: "India and US, Indian jurisdiction", validity: "30 days from 22 Jul 2026" }, { decision: "usable", decisionAt: "24 Jul, 09:30" }),
-      plMkQuote("bajaj", "Cyber", 1, 1, "26 Jul, 15:30", { premium: 1790000, si: 80000000, retention: 5000000, extensions: "BI, ransomware, regulatory defence", territory: "India only", validity: "21 days from 26 Jul 2026" }, { decision: "usable", decisionAt: "28 Jul, 11:00" }),
+      plMkQuote("tata", "PI_TECH", 1, 1, "19 Jul, 14:00", { premium: 1840000, si: 80000000, retention: 2500000, extensions: "BI, ransomware, regulatory defence", territory: "India and US, Indian jurisdiction", validity: "30 days from 19 Jul 2026" }, { decision: "usable", decisionAt: "21 Jul, 10:00" }),
+      plMkQuote("icici", "PI_TECH", 1, 1, "22 Jul, 11:00", { premium: 1965000, si: 80000000, retention: 2500000, extensions: "BI, ransomware", territory: "India and US, Indian jurisdiction", validity: "30 days from 22 Jul 2026" }, { decision: "usable", decisionAt: "24 Jul, 09:30" }),
+      plMkQuote("bajaj", "PI_TECH", 1, 1, "26 Jul, 15:30", { premium: 1790000, si: 80000000, retention: 5000000, extensions: "BI, ransomware, regulatory defence", territory: "India only", validity: "21 days from 26 Jul 2026" }, { decision: "usable", decisionAt: "28 Jul, 11:00" }),
     ],
-    qcrs: [{ v: 1, status: "released", createdAt: "28 Jul, 11:02", releasedAt: "28 Jul, 15:30", releasedBy: "Ananya Rao", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Rohit Desai (RM)" }],
+    qcrs: [{ v: 1, status: "released", createdAt: "28 Jul, 11:02", releasedAt: "28 Jul, 15:30", releasedBy: "Bhupendra Singh", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Shubh Bangar (RM)" }],
     negotiations: [], followUpsStopped: true, tasks: [],
     audit: [
-      plAu("13 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
+      plAu("13 Jul, 10:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("28 Jul, 11:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
-      plAu("28 Jul, 15:30", "Ananya Rao", "PM", "QCR V1 released to RM", "Sent to Rohit Desai · version locked"),
-      plAu("04 Aug, 16:45", "Rohit Desai", "RM", "Client decision recorded", "Quote selected - Tata AIG, both sections"),
+      plAu("28 Jul, 15:30", "Bhupendra Singh", "PM", "QCR V1 released to RM", "Sent to Shubh Bangar · version locked"),
+      plAu("04 Aug, 16:45", "Shubh Bangar", "RM", "Client decision recorded", "Quote selected - Tata AIG, both sections"),
       plAu("05 Aug, 09:10", "System", "System", "Handed off to RM / Policy Journey", "Reference ISS-8841"),
     ],
   },
@@ -10676,11 +10666,11 @@ const PL_SEED_C = [
   {
     id: "PC-1032", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
     client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering - precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, CFO", rm: "Shubh Bangar" },
-    products: ["D&O"], receivedAt: "31 Aug, 10:05", renewal: "15 Oct 2026", activeRfq: 1,
+    products: ["DNO"], receivedAt: "31 Aug, 10:05", renewal: "15 Oct 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "31 Aug, 10:05",
       sections: [
-        { product: "D&O", si: "₹5 Cr aggregate (AOY)", detail: [
+        { product: "DNO", si: "₹5 Cr aggregate (AOY)", detail: [
           ["Company type", "Unlisted Pvt Ltd - family-run manufacturer"],
           ["Board composition", "4 directors (2 promoter, 1 professional MD, 1 independent)"],
           ["Foreign exposure", "None - domestic revenue only"],
@@ -10723,7 +10713,7 @@ const PL_SEED_C = [
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("31 Aug, 10:05", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section (D&O) · web form"),
-      plAu("31 Aug, 10:06", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("31 Aug, 10:06", "System", "System", "Case created and assigned", "Assigned to Bhupendra Singh"),
       plAu("31 Aug, 10:06", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
     ],
   },
@@ -10732,12 +10722,12 @@ const PL_SEED_C = [
      four D&O markets that all write the risk, realistic differing quotes. */
   {
     id: "PC-1033", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
-    client: { name: "Neurastack Technologies Pvt Ltd", industry: "IT/ITES - enterprise SaaS", city: "Bengaluru, KA", headcount: 420, turnover: "₹185 Cr", spoc: "Meera Iyer, CFO", rm: "Aditya Menon" },
-    products: ["D&O"], receivedAt: "01 Sep, 11:20", renewal: "05 Nov 2026", activeRfq: 1,
+    client: { name: "Neurastack Technologies Pvt Ltd", industry: "IT/ITES - enterprise SaaS", city: "Bengaluru, KA", headcount: 420, turnover: "₹185 Cr", spoc: "Meera Iyer, CFO", rm: "Shubh Bangar" },
+    products: ["DNO"], receivedAt: "01 Sep, 11:20", renewal: "05 Nov 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "01 Sep, 11:20",
       sections: [
-        { product: "D&O", si: "₹5 Cr aggregate (AOY)", detail: [
+        { product: "DNO", si: "₹5 Cr aggregate (AOY)", detail: [
           ["Company type", "Unlisted Pvt Ltd - Series C funded"],
           ["Board composition", "7 directors (2 founder, 3 investor nominee, 2 independent)"],
           ["Foreign exposure", "US subsidiary (Delaware) - excluded from cover"],
@@ -10778,7 +10768,7 @@ const PL_SEED_C = [
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("01 Sep, 11:20", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section · web form"),
-      plAu("01 Sep, 11:21", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("01 Sep, 11:21", "System", "System", "Case created and assigned", "Assigned to Bhupendra Singh"),
       plAu("01 Sep, 11:21", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
     ],
   },
@@ -10788,11 +10778,11 @@ const PL_SEED_C = [
   {
     id: "PC-1034", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
     client: { name: "Karnataka Fluid Systems Pvt Ltd", industry: "Industrial engineering - hydraulic assemblies", city: "Bengaluru, KA", headcount: 285, turnover: "₹92 Cr", spoc: "Suresh Ramakrishna, Plant Head", rm: "Shubh Bangar" },
-    products: ["Fire", "WC"], receivedAt: "02 Sep, 09:45", renewal: "20 Nov 2026", activeRfq: 1,
+    products: ["FIRE_FACTORY", "WC"], receivedAt: "02 Sep, 09:45", renewal: "20 Nov 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "02 Sep, 09:45",
       sections: [
-        { product: "Fire", si: "₹42 Cr total sum insured", detail: [
+        { product: "FIRE_FACTORY", si: "₹42 Cr total sum insured", detail: [
           ["Occupancy", "Machine-shop + finished-goods godown, Peenya Industrial Area"],
           ["Building basis", "Reinstatement value ₹18 Cr"],
           ["Plant & machinery", "₹22 Cr (hydraulic presses, CNC lathes)"],
@@ -10836,7 +10826,7 @@ const PL_SEED_C = [
     tasks: [{ id: "t1", label: "Confirm classification, then pick a branch per PSU insurer and float", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("02 Sep, 09:45", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections · web form"),
-      plAu("02 Sep, 09:46", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
+      plAu("02 Sep, 09:46", "System", "System", "Case created and assigned", "Assigned to Bhupendra Singh"),
       plAu("02 Sep, 09:46", "System", "System", "RFQ extraction complete", "All mandatory Fire + WC fields present · classification consistent"),
     ],
   },
@@ -10847,7 +10837,7 @@ const PL_SEED_C = [
 const PL_CASE_META = {
   "PC-1024": { slaLeftMins: -420, caseType: "Renewal", urgency: "Medium", targetPremium: 7800000, mandate: null, incumbent: "Star Health" },
   "PC-1025": { slaLeftMins: 96, caseType: "Fresh", urgency: "Medium", targetPremium: 4200000, mandate: null, incumbent: null },
-  /* PC-1026: hard-coded Exclusive Mandate demo case. The RM (Aman Kulkarni)
+  /* PC-1026: hard-coded Exclusive Mandate demo case. The RM (Shubh Bangar)
      has raised an Exclusive Placement Mandate with Bajaj as preferred
      insurer — this mandate is seeded (not simulator-driven) so the
      Exclusive Mandate badge, queue-row icon, and rail banner always show
@@ -10856,19 +10846,80 @@ const PL_CASE_META = {
   "PC-1026": { slaLeftMins: -38, caseType: "Renewal", urgency: "High", targetPremium: 3100000,
     mandate: { type: "Exclusive Placement Mandate", ref: "MND-1026-E",
       note: "RM raised an Exclusive Placement Mandate on the strength of your recommendation.",
-      by: "Aman Kulkarni", byAvatar: AVATAR_SHUBH, preferredInsurerId: "bajaj", at: "16 Aug, 09:00" },
+      by: "Shubh Bangar", byAvatar: AVATAR_SHUBH, preferredInsurerId: "bajaj", at: "16 Aug, 09:00" },
     incumbent: "New India" },
   "PC-1027": { slaLeftMins: 92, caseType: "Renewal", urgency: "Medium", targetPremium: 11500000, mandate: null, incumbent: "HDFC Ergo" },
   "PC-1028": { slaLeftMins: -600, caseType: "Rollover", urgency: "Medium", targetPremium: 2400000, mandate: { type: "Incumbent Approach Mandate", ref: "MND-1028-A", note: "Client authority on file to approach the incumbent." }, incumbent: "Universal Sompo" },
   "PC-1029": { slaLeftMins: -240, caseType: "Renewal", urgency: "Medium", targetPremium: 5900000, mandate: null, incumbent: "Care Health" },
   "PC-1030": { slaLeftMins: null, caseType: "Fresh", urgency: "High", targetPremium: 1800000, mandate: null, incumbent: null },
   "PC-1032": { slaLeftMins: 55, caseType: "Fresh", urgency: "Medium", targetPremium: 480000, mandate: null, incumbent: null },
-  "PC-1033": { slaLeftMins: 48, caseType: "Fresh", urgency: "Medium", targetPremium: 450000, mandate: null, incumbent: null },
+  "PC-1033": { slaLeftMins: 48, caseType: "Fresh", urgency: "Medium", targetPremium: null, mandate: null, incumbent: null },
   "PC-1034": { slaLeftMins: 92, caseType: "Fresh", urgency: "Medium", targetPremium: 480000, mandate: null, incumbent: null },
   "PC-1031": { slaLeftMins: null, caseType: "Fresh", urgency: "Medium", targetPremium: 3600000, mandate: { type: "Exclusive Placement Mandate", ref: "MND-1031-E", note: "RM + Placement jointly approved the selected option." }, incumbent: null },
 };
 
-const PL_ALL_CASES = PL_SEED.concat(PL_SEED_B, PL_SEED_C).map((c) => ({ ...c, meta: { ...PL_CASE_META[c.id] } }));
+/* RFQ source url/name helpers (§6) — the rest of the §6 helpers land in
+   Phase 3, but plNormalizeSeed needs these two now. */
+const plRfqLinkUrl = (id, v) => `https://rm.bimakavach.com/rfq/${id}/v${v}`;
+const plRfqFileName = (id, v) => `RFQ_${id}_V${v}.xlsx`;
+
+/* §16.3 industry type per seed case. */
+const PL_INDUSTRY_BY_CASE = {
+  "PC-1024": "Manufacturing", "PC-1025": "Technology", "PC-1026": "Warehousing & Logistics",
+  "PC-1027": "Construction & Contracting", "PC-1028": "Power & Energy", "PC-1029": "Others",
+  "PC-1030": "Manufacturing", "PC-1031": "Technology", "PC-1032": "Manufacturing",
+  "PC-1033": "Technology", "PC-1034": "Manufacturing",
+};
+/* §16.5.1 which seed cases carry a link RFQ vs an Excel (manually created). */
+const PL_RFQ_LINK_CASES = new Set(["PC-1024", "PC-1026", "PC-1028", "PC-1030", "PC-1032", "PC-1034"]);
+
+/* §16.5 structural normalisation applied to every seed case at assembly. */
+function plNormalizeSeed(c) {
+  const meta = { ...PL_CASE_META[c.id] };
+  const isLink = PL_RFQ_LINK_CASES.has(c.id);
+  const createdVia = isLink ? "rm_interface" : "manual";
+  const createdBy = isLink ? null : "Bhupendra Singh";
+
+  // 1 · RFQ source on every version + gaps filter (2)
+  const rfqs = (c.rfqs || []).map((r) => {
+    const source = isLink
+      ? { link: { url: plRfqLinkUrl(c.id, r.v), at: r.createdAt } }
+      : { file: { name: plRfqFileName(c.id, r.v), size: "46 KB", by: "Bhupendra Singh", at: r.createdAt } };
+    const missing = (r.missing || []).filter((m) => (r.rmThread || []).some((t) => (t.items || []).includes(m.id)));
+    return { ...r, source, missing };
+  });
+
+  // 3 · thread ids + rfqV
+  let seq = 0;
+  const threads = (c.threads || []).map((t) => ({ ...t, id: `TH-${String(++seq).padStart(2, "0")}`, rfqV: t.rfqV || c.activeRfq }));
+  const firstThreadOf = (insurerId) => (threads.find((t) => t.insurerId === insurerId) || {}).id || null;
+
+  // 4 · quote threadIds
+  const quotes = (c.quotes || []).map((q) => ({ ...q, threadId: q.threadId || firstThreadOf(q.insurerId) }));
+
+  // 5 · qcr rfqV (copycat seed-attachment is wired in Phase 6)
+  const qcrs = (c.qcrs || []).map((q) => ({ ...q, rfqV: q.rfqV || c.activeRfq }));
+
+  // Excel cases: rewrite the "RFQ received" audit as a manual-create line
+  let audit = c.audit || [];
+  if (!isLink) {
+    const tmpl = plRfqTemplatesOf(c.products).join(" · ");
+    audit = audit.map((a) =>
+      /RFQ received/i.test(a.event)
+        ? { ...a, actor: "Bhupendra Singh", actorType: "PM", event: "Case created manually", detail: `RFQ V1 · ${plRfqFileName(c.id, 1)} · ${tmpl}` }
+        : a);
+  }
+
+  return {
+    ...c,
+    createdVia, createdBy,
+    client: { ...c.client, industryType: PL_INDUSTRY_BY_CASE[c.id] || "Others" },
+    rfqs, threads, threadSeq: threads.length, quotes, qcrs, audit,
+    meta,
+  };
+}
+
+const PL_ALL_CASES = PL_SEED.concat(PL_SEED_B, PL_SEED_C).map(plNormalizeSeed);
 
 /* seeded cases join mid-SLA: the seeded minutes are what is left on the clock they are on today */
 const plSeedSla = (c) => {
@@ -11734,15 +11785,16 @@ function PlAvatarStack({ participants, size = 22 }) {
 }
 
 /* Which people are on this case — used by the header stack. */
+/* First comma-part of the SPOC, or "the client" when empty. */
+const plSpocFirst = (c) => (c.client.spoc || "").split(",")[0].trim() || "the client";
+
 function plParticipantsOf(c) {
-  const ex = plExecOf(c);
-  const pm = PORTAL_USERS["himani@bimakavach.com"] || {};
   return [
-    { src: ex.avatar,  name: ex.name,     tone: "neutral", role: "Placement Executive" },
-    { src: pm.avatar,  name: pm.name,     tone: "neutral", role: "Placement Head" },
-    { src: null,       name: c.client.rm, tone: "blue",    role: "Relationship Manager" },
-    { src: null,       name: (c.client.spoc || "").split(",")[0], tone: "green", role: "Client SPOC" },
-  ];
+    { src: PL_EXECS.bhupendra.avatar, name: PL_EXECS.bhupendra.name, tone: "neutral", role: "Placement Executive" },
+    { src: PL_EXECS.himani.avatar,    name: PL_EXECS.himani.name,    tone: "neutral", role: "Placement Head" },
+    { src: plRmAvatar(c.client.rm),   name: c.client.rm,             tone: "blue",    role: "Relationship Manager" },
+    { src: null,                      name: (c.client.spoc || "").split(",")[0], tone: "green", role: "Client SPOC" },
+  ].filter((p) => p.name && p.name.trim());
 }
 
 function PlBtn({ variant = "default", size = "md", onClick, disabled, children, icon: Icon, iconRight = false, full, title }) {
@@ -16826,12 +16878,12 @@ const opsMethodIcon = { "Payment Link": LinkIcon, "NEFT": Landmark, "Proforma In
    NEFT, the follow-up ladder, an escalation, a delivery failure and a
    clean close. Ages are wall-minutes so opsClock's arithmetic reads. */
 const OPS_SEED = [
-  { id: "PAY-1042", stage: "Link generation",        method: "Payment Link",     source: "rm_interface", requester: "Ananya Rao",       client: "Suryodaya Infra Projects Pvt Ltd", insurer: "Tata AIG",           productCode: "CAR",    ref: "OPP-4471", policyNo: "CAR/2026/00214", premium: 742000, ageMin: 24, priority: "High",     bot: null, followUps: 0, escalated: false, deliveryFailed: false },
+  { id: "PAY-1042", stage: "Link generation",        method: "Payment Link",     source: "rm_interface", requester: "Bhupendra Singh",       client: "Suryodaya Infra Projects Pvt Ltd", insurer: "Tata AIG",           productCode: "CAR",    ref: "OPP-4471", policyNo: "CAR/2026/00214", premium: 742000, ageMin: 24, priority: "High",     bot: null, followUps: 0, escalated: false, deliveryFailed: false },
   { id: "PAY-1043", stage: "Awaiting payment details", method: "NEFT",           source: "rm_interface", requester: "Kabir Sethi",      client: "Nandi Steelworks Ltd",             insurer: "New India Assurance", productCode: "MARINE", ref: "OPP-4408", policyNo: "MAR/2026/00921", premium: 218400, ageMin: 15, priority: "Medium",   bot: null, followUps: 0, escalated: false, deliveryFailed: false },
   { id: "PAY-1044", stage: "Awaiting payment details", method: "NEFT",           source: "bima_sahayak", requester: "Nandita P",        client: "Vanguard Textiles Pvt Ltd",        insurer: "ICICI Lombard",       productCode: "FIRE",   ref: "POL-IL-55613", policyNo: "FIRE/2026/00613", premium: 156800, endorsementRef: "END-1062", endorsementType: "Sum Insured / Limit Enhancement", ageMin: 54, priority: "High", bot: { status: "watching", note: "Watching corp.desk@icicilombard.example for a reply with an account number." }, followUps: 0, escalated: false, deliveryFailed: false },
   { id: "PAY-1045", stage: "Awaiting payment details", method: "Proforma Invoice", source: "rm_interface", requester: "Sanjana Kulkarni", client: "Kaveri Textile Mills Ltd",         insurer: "Tata AIG",            productCode: "FIRE",   ref: "OPP-4452", policyNo: "FIRE/2026/00338", premium: 934500, ageMin: 252, priority: "Critical", bot: { status: "watching", note: "Watching branch.ops@tataaig.example for the proforma PDF." }, followUps: 2, escalated: false, deliveryFailed: false },
   { id: "PAY-1046", stage: "Link generation",        method: "Payment Link",     source: "bima_sahayak", requester: "Nandita P",        client: "Vertex Pharma Ltd",                insurer: "Bajaj Allianz",       productCode: "BRG",    ref: "POL-BJ-70255", policyNo: "FIRE/2026/00947", premium:  88200, endorsementRef: "END-1043", endorsementType: "Name / Entity Change", ageMin: 84, priority: "Critical", bot: { status: "failed", note: "Bot found a link but the client name reads Vertex Pharma Limited against Vertex Pharma Ltd. Held in Manual Review as MB-2291." }, followUps: 0, escalated: false, deliveryFailed: false },
-  { id: "PAY-1047", stage: "Awaiting payment details", method: "Proforma Invoice", source: "rm_interface", requester: "Ananya Rao",       client: "Ganga Realty Developers Pvt Ltd",  insurer: "Future Generali",     productCode: "EAR",    ref: "OPP-4419", policyNo: "EAR/2026/00880", premium: 1265000, ageMin: 1680, priority: "Critical", bot: { status: "watching", note: "Still watching corp.servicing@futuregenerali.example, but the ladder is exhausted." }, followUps: 3, escalated: true, deliveryFailed: false },
+  { id: "PAY-1047", stage: "Awaiting payment details", method: "Proforma Invoice", source: "rm_interface", requester: "Bhupendra Singh",       client: "Ganga Realty Developers Pvt Ltd",  insurer: "Future Generali",     productCode: "EAR",    ref: "OPP-4419", policyNo: "EAR/2026/00880", premium: 1265000, ageMin: 1680, priority: "Critical", bot: { status: "watching", note: "Still watching corp.servicing@futuregenerali.example, but the ladder is exhausted." }, followUps: 3, escalated: true, deliveryFailed: false },
   { id: "PAY-1048", stage: "Awaiting payment details", method: "NEFT",           source: "rm_interface", requester: "Devansh Pillai",   client: "Aravalli Ceramics Pvt Ltd",        insurer: "Chola MS",            productCode: "BRG",    ref: "OPP-4460", policyNo: "BRG/2026/00011", premium: 164000, ageMin: 108, priority: "High",   bot: null, followUps: 0, escalated: false, deliveryFailed: true, failureNote: "The RM workspace rejected the payload: Devansh has no active payment channel against OPP-4460." },
   { id: "PAY-1050", stage: "Link generation",        method: "Payment Link",     source: "bima_sahayak", requester: "Umesh Kamat",      client: "Kanchan Foods Pvt Ltd",            insurer: "HDFC ERGO",           productCode: "FIRE",   ref: "POL-HE-56402", policyNo: "FIRE/2026/00402", premium: 388000, endorsementRef: "END-1071", endorsementType: "Additional Location", ageMin:  9, priority: "Medium",   bot: null, followUps: 0, escalated: false, deliveryFailed: false },
   { id: "PAY-1030", stage: "Closed", method: "Payment Link",  source: "rm_interface", requester: "Reena D'Costa", client: "Sunbeam Logistics Pvt Ltd", insurer: "Bajaj Allianz", productCode: "MARINE", ref: "OPP-4384", policyNo: "MAR/2026/00701", premium: 296000, ageMin: 46, priority: "Medium", bot: null, followUps: 0, escalated: false, deliveryFailed: false, closedAgo: "2h ago" },
@@ -17522,6 +17574,7 @@ function OpsApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
 }
 
 function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
+  plSetMe(user);   /* fix the logged-in Placement actor for the api + audit */
   const [cases, setCases] = useState(() => PL_ALL_CASES.map(plSeedSla));
   const [nav, setNav] = useState("home");   /* land on Home at login */
   const [openId, setOpenId] = useState(null);
