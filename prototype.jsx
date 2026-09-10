@@ -11817,7 +11817,7 @@ function PlModal({ title, subtitle, children, onClose, footer, wide = false, siz
      ModalShell and both Placement drawers. */
   return createPortal(
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-6"
-      style={{ background: PL_T.scrim }} onClick={onClose}>
+      style={{ background: PL_T.scrim, fontFamily: FONT }} onClick={onClose}>
       <div className="bk-modal rounded-2xl shadow-2xl my-8"
         style={{ background: PL_T.card, width, maxWidth: "100%" }}
         onClick={(e) => e.stopPropagation()}>
@@ -16452,9 +16452,9 @@ function PlSearchModal({ open, onClose, cases, onOpen }) {
 
   return createPortal(
     <div className="bk-scrim fixed inset-0 z-50 flex items-start justify-center p-6"
-      style={{ background: "rgba(28,27,31,0.42)", fontFamily: FONT, color: PL_T.ink }} onClick={onClose}>
-      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl border shadow-2xl"
-        style={{ background: PL_T.card, borderColor: PL_T.borderStrong, maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
+      style={{ background: PL_T.scrim, fontFamily: FONT, color: PL_T.ink }} onClick={onClose}>
+      <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl shadow-2xl"
+        style={{ background: PL_T.card, maxWidth: 1000, maxHeight: "86vh" }} onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <PlSearchField value={q} onChange={setQ} placeholder="Search Cases, Clients, And Insurers"
             size="lg" autoFocus onClear={q ? () => setQ("") : undefined} />
