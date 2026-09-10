@@ -13601,7 +13601,7 @@ function PlMultiPicker({ value, options, placeholder = "Select", onChange, width
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const away = (e) => { if (!e.target.closest("[data-plmenu]")) setOpen(false); };
+    const away = (e) => { if (!e.target.closest("[data-plmenu]") && !e.target.closest("[data-menu]")) setOpen(false); };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
   }, [open]);
@@ -13663,7 +13663,7 @@ function PlMenuPicker({ value, options, placeholder = "Select", onChange, width 
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const away = (e) => { if (!e.target.closest("[data-plmenu]")) setOpen(false); };
+    const away = (e) => { if (!e.target.closest("[data-plmenu]") && !e.target.closest("[data-menu]")) setOpen(false); };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
   }, [open]);
