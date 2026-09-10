@@ -5098,7 +5098,7 @@ const UP_STATE = {
   error:    { line: "#F10000", dash: "solid",  to: "#FFECEC", art: "error",   tone: "#CF0000" },
 };
 
-function UploadField({ label, doc, state = "default", file, onPick, onReset }) {
+function UploadField({ label, doc, state = "default", file, onPick, onReset, maxLabel = "2MB" }) {
   const s = UP_STATE[state];
   const dead = state === "disabled";
   return (
@@ -5124,7 +5124,7 @@ function UploadField({ label, doc, state = "default", file, onPick, onReset }) {
             {state === "default" ? "click to browse or drag and drop the file here"
               : state === "disabled" ? "Please Refresh or Try Again Later"
               : <><span style={{ color: state === "success" ? C.brand : C.figPlaceholder }}>{file}</span>
-                  {state === "success" ? " has been uploaded." : " is larger than 2MB"}</>}
+                  {state === "success" ? " has been uploaded." : ` is larger than ${maxLabel}`}</>}
           </p>
         </div>
         {(state === "success" || state === "error") && (
@@ -9947,21 +9947,26 @@ const PL_NAV_LABEL = {
 };
 
 const PL_INSURERS = {
-  icici: { name: "ICICI Lombard", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL"], sectors: "Manufacturing, IT/ITES, Logistics", note: "Requires 3-year claims history above ₹5 Cr SI." },
-  hdfc: { name: "HDFC ERGO", appetite: ["GMC", "GPA", "GTL", "Cyber", "D&O", "Fire", "Marine", "CGL", "PI"], sectors: "Services, Healthcare, Hospitality", note: "Strong on GMC for headcount 200–2000." },
-  bajaj: { name: "Bajaj Allianz", appetite: ["GMC", "GPA", "Cyber", "D&O", "Fire", "Marine", "PL"], sectors: "IT/ITES, Pharma, Infrastructure", note: "Cyber referred to reinsurer above ₹25 Cr limit." },
-  tata: { name: "Tata AIG", appetite: ["GMC", "GPA", "Cyber", "D&O", "PI", "Marine", "CGL"], sectors: "IT/ITES, Financial services, Exports", note: "Preferred market for D&O on unlisted companies." },
-  nia: { name: "New India Assurance", appetite: ["GMC", "GPA", "Fire", "Marine", "CGL", "PL", "WC"], sectors: "Infrastructure, Manufacturing, PSU", note: "Writes large property and marine risks." },
-  digit: { name: "Go Digit", appetite: ["GMC", "GPA", "GTL", "Marine", "Fire"], sectors: "Startups, Retail, Logistics", note: "Accepts a census without age bands at proposal stage." },
-  sbi: { name: "SBI General", appetite: ["GMC", "GPA", "Fire", "Marine", "CGL"], sectors: "Manufacturing, BFSI, Retail", note: "Declines standalone Marine below ₹2 Cr annual sendings." },
-  chola: { name: "Cholamandalam MS", appetite: ["GMC", "GPA", "Fire", "Marine", "WC", "PL"], sectors: "Auto components, Logistics, SME", note: "Good SME appetite; limited liability capacity." },
-  reliance: { name: "Reliance General", appetite: ["GMC", "GPA", "GTL", "Fire", "Marine", "CGL"], sectors: "Manufacturing, Textiles, Retail", note: "" },
-  liberty: { name: "Liberty General", appetite: ["GMC", "GPA", "Cyber", "D&O", "Fire", "Marine", "CGL", "PI"], sectors: "Exports, Engineering, Services", note: "" },
+  /* Appetite lists hold PL_PRODUCT_TYPES codes (§2.4). Translation from the
+     old codes is deterministic mock data pending the real Insurer Master:
+     D&O→DNO,CRIME · CGL→CGL,PL_ACT · PL→CGL · PI→PI_ENGG,PI_TECH ·
+     Fire→FIRE_FACTORY,FIRE_GODOWN,IAR,BURGLARY,MBD_EEP,CAR,EAR,BGR ·
+     Marine→MARINE_OPEN,MARINE_STOP · Cyber→dropped. De-duplicated. */
+  icici: { name: "ICICI Lombard", appetite: ["GMC", "GPA", "GTL", "DNO", "CRIME", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT"], sectors: "Manufacturing, IT/ITES, Logistics", note: "Requires 3-year claims history above ₹5 Cr SI." },
+  hdfc: { name: "HDFC ERGO", appetite: ["GMC", "GPA", "GTL", "DNO", "CRIME", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT", "PI_ENGG", "PI_TECH"], sectors: "Services, Healthcare, Hospitality", note: "Strong on GMC for headcount 200–2000." },
+  bajaj: { name: "Bajaj Allianz", appetite: ["GMC", "GPA", "DNO", "CRIME", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL"], sectors: "IT/ITES, Pharma, Infrastructure", note: "D&O limits above ₹25 Cr referred to reinsurer." },
+  tata: { name: "Tata AIG", appetite: ["GMC", "GPA", "DNO", "CRIME", "PI_ENGG", "PI_TECH", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT"], sectors: "IT/ITES, Financial services, Exports", note: "Preferred market for D&O on unlisted companies." },
+  nia: { name: "New India Assurance", appetite: ["GMC", "GPA", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT", "WC"], sectors: "Infrastructure, Manufacturing, PSU", note: "Writes large property and marine risks." },
+  digit: { name: "Go Digit", appetite: ["GMC", "GPA", "GTL", "MARINE_OPEN", "MARINE_STOP", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR"], sectors: "Startups, Retail, Logistics", note: "Accepts a census without age bands at proposal stage." },
+  sbi: { name: "SBI General", appetite: ["GMC", "GPA", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT"], sectors: "Manufacturing, BFSI, Retail", note: "Declines standalone Marine below ₹2 Cr annual sendings." },
+  chola: { name: "Cholamandalam MS", appetite: ["GMC", "GPA", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "WC", "CGL"], sectors: "Auto components, Logistics, SME", note: "Good SME appetite; limited liability capacity." },
+  reliance: { name: "Reliance General", appetite: ["GMC", "GPA", "GTL", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT"], sectors: "Manufacturing, Textiles, Retail", note: "" },
+  liberty: { name: "Liberty General", appetite: ["GMC", "GPA", "DNO", "CRIME", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT", "PI_ENGG", "PI_TECH"], sectors: "Exports, Engineering, Services", note: "" },
   care: { name: "Care Health", appetite: ["GMC", "GPA"], sectors: "Services, IT/ITES, Retail", note: "Health-only market. No maternity below 50 lives." },
   star: { name: "Star Health", appetite: ["GMC", "GPA"], sectors: "SME, Retail, Healthcare", note: "Health-only market." },
-  sompo: { name: "Universal Sompo", appetite: ["GMC", "GPA", "Fire", "Marine", "WC"], sectors: "Manufacturing, Logistics", note: "" },
-  oriental: { name: "Oriental Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC"], sectors: "PSU, Heavy engineering", note: "Commercial lines only for this segment." },
-  united: { name: "United India Insurance", appetite: ["Fire", "Marine", "CGL", "PL", "WC", "GPA"], sectors: "PSU, Manufacturing, Cooperatives", note: "Preferred market for PSU-linked SMEs; branch routing decides the desk." },
+  sompo: { name: "Universal Sompo", appetite: ["GMC", "GPA", "FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "WC"], sectors: "Manufacturing, Logistics", note: "" },
+  oriental: { name: "Oriental Insurance", appetite: ["FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT", "WC"], sectors: "PSU, Heavy engineering", note: "Commercial lines only for this segment." },
+  united: { name: "United India Insurance", appetite: ["FIRE_FACTORY", "FIRE_GODOWN", "IAR", "BURGLARY", "MBD_EEP", "CAR", "EAR", "BGR", "MARINE_OPEN", "MARINE_STOP", "CGL", "PL_ACT", "WC", "GPA"], sectors: "PSU, Manufacturing, Cooperatives", note: "Preferred market for PSU-linked SMEs; branch routing decides the desk." },
 };
 
 /* Insurer Contact Master - routing key is Insurer + Product + Geography/Branch.
@@ -10004,11 +10009,111 @@ const plBranchOf = (c, id) =>
   || (c.insurerBranches && c.insurerBranches[id] && c.insurerBranches[id][0])
   || (PL_CONTACTS[id] && PL_CONTACTS[id].branch);
 
-const PL_PRODUCTS = {
-  GMC: "Group Medical Cover", GPA: "Group Personal Accident", GTL: "Group Term Life",
-  Cyber: "Cyber Liability", "D&O": "Directors & Officers Liability", Fire: "Property - Fire & Special Perils",
-  Marine: "Marine Cargo (Open Policy)", CGL: "Commercial General Liability", PI: "Professional Indemnity",
-  PL: "Product Liability", WC: "Workmen's Compensation",
+/* ---- Intake master: product types (§2.1) --------------------------------
+   Each product type maps to exactly one RFQ template. `aliases` are what the
+   email matcher looks for; `fieldset` names the quote-review field family
+   (PL_FIELDSETS); `short` is for chips, `label` the full name. */
+const PL_PRODUCT_TYPES = [
+  // EB
+  { code: "GMC",          group: "EB",        short: "GMC",          label: "Group Medical Cover (GMC)",              template: "EB RFQ – GMC block",                 aliases: ["GMC"],                                   fieldset: "GMC" },
+  { code: "GPA",          group: "EB",        short: "GPA",          label: "Group Personal Accident (GPA)",          template: "EB RFQ – GPA block",                 aliases: ["GPA"],                                   fieldset: "GPA" },
+  { code: "GTL",          group: "EB",        short: "GTL",          label: "Group Term Life (GTL)",                  template: "EB RFQ – GTL block",                 aliases: ["GTL"],                                   fieldset: "GTL" },
+  // Liability
+  { code: "CGL",          group: "Liability", short: "CGL",          label: "Commercial General Liability (CGL)",     template: "CGL + Common Questions",             aliases: ["CGL Policy", "CGL"],                     fieldset: "LIABILITY" },
+  { code: "DNO",          group: "Liability", short: "D&O",          label: "Directors & Officers (D&O)",             template: "D&O + Common Questions",             aliases: ["DNO", "D&O"],                            fieldset: "DNO" },
+  { code: "PI_ENGG",      group: "Liability", short: "PI Engg",      label: "Professional Indemnity – Engineering",   template: "PI Engg + Common Questions",         aliases: ["PI Engg"],                               fieldset: "LIABILITY" },
+  { code: "PI_TECH",      group: "Liability", short: "PI Tech",      label: "Professional Indemnity – Tech & Others", template: "PI Tech & Rest + Common Questions",  aliases: ["PI Tech", "PI"],                         fieldset: "LIABILITY" },
+  { code: "CRIME",        group: "Liability", short: "Crime",        label: "Crime",                                  template: "Crime + Common Questions",           aliases: ["Crime"],                                 fieldset: "LIABILITY" },
+  { code: "PL_ACT",       group: "Liability", short: "PL Act",       label: "Public Liability (Act)",                 template: "Public Liability – ACT Policy tab",  aliases: ["ACT Policy"],                            fieldset: "LIABILITY" },
+  { code: "WC",           group: "Liability", short: "WC",           label: "Employee Compensation (WC)",             template: "WC Policy RFQ",                      aliases: ["WC"],                                    fieldset: "WC" },
+  // P&C
+  { code: "FIRE_FACTORY", group: "P&C",       short: "Fire Factory", label: "Fire – Factory / Plant",                 template: "Fire RFQ Main",                      aliases: ["Fire"], eligibility: ["Factory/Plant", "Factory", "Plant"],                  fieldset: "PROPERTY" },
+  { code: "FIRE_GODOWN",  group: "P&C",       short: "Fire Godown",  label: "Fire – Warehouse / Godown",              template: "Fire RFQ Open Godown",               aliases: ["Fire"], eligibility: ["Warehouse/godown", "Warehouse", "Godown"],            fieldset: "PROPERTY" },
+  { code: "IAR",          group: "P&C",       short: "IAR",          label: "Industrial All Risk (IAR)",              template: "IAR RFQ",                            aliases: ["IAR"],                                   fieldset: "PROPERTY" },
+  { code: "BURGLARY",     group: "P&C",       short: "Burglary",     label: "Burglary",                               template: "Burglary RFQ",                       aliases: ["Burglary", "housebreaking", "theft"],   fieldset: "PROPERTY" },
+  { code: "MBD_EEP",      group: "P&C",       short: "MBD & EEP",    label: "Machinery Breakdown (MBD) & EEP",        template: "MBD & EEP RFQ",                      aliases: ["MBD"],                                   fieldset: "PROPERTY" },
+  { code: "CAR",          group: "P&C",       short: "CAR",          label: "Contractor All Risk (CAR)",              template: "CAR RFQ",                            aliases: ["CAR"],                                   fieldset: "PROPERTY" },
+  { code: "EAR",          group: "P&C",       short: "EAR",          label: "Erection All Risk (EAR)",                template: "EAR RFQ",                            aliases: ["Storage cum Erection", "EAR"],           fieldset: "PROPERTY" },
+  { code: "BGR",          group: "P&C",       short: "BGR",          label: "Bharat Griha Raksha (BGR)",              template: "BGR RFQ",                            aliases: ["BGR"],                                   fieldset: "PROPERTY" },
+  { code: "MARINE_OPEN",  group: "P&C",       short: "Marine Open",  label: "Marine Open",                            template: "Marine Open RFQ",                    aliases: ["Marine Open"],                           fieldset: "MARINE" },
+  { code: "MARINE_STOP",  group: "P&C",       short: "Marine STOP",  label: "Marine STOP",                            template: "Marine STOP RFQ",                    aliases: ["STOP", "Marine STOP"],                   fieldset: "MARINE" },
+];
+const PL_PRODUCT_GROUPS = ["EB", "Liability", "P&C"];
+/* Legacy code → fieldset, so seed quotes still built on the OLD codes
+   (Cyber/Fire/Marine/PI/PL/D&O) resolve to the right field family until the
+   seed remap in §16.2 lands. Harmless once seeds are migrated. */
+const PL_LEGACY_FIELDSET = { Cyber: "LIABILITY", "D&O": "DNO", Fire: "PROPERTY", Marine: "MARINE", PI: "LIABILITY", PL: "LIABILITY" };
+const plProductType = (code) =>
+  PL_PRODUCT_TYPES.find((p) => p.code === code)
+  || { code, short: code, label: code, template: "-", group: "-", aliases: [], fieldset: PL_LEGACY_FIELDSET[code] || "LIABILITY" };
+/* Keeps existing PL_PRODUCTS[code] lookups working; new codes only. */
+const PL_PRODUCTS = Object.fromEntries(PL_PRODUCT_TYPES.map((p) => [p.code, p.label]));
+const plRfqTemplatesOf = (products) => products.map((code) => plProductType(code).template);
+
+/* §2.1.1 Email matcher — returns product type codes found in `text`.
+   Longest phrase first, word-boundary; short all-caps aliases match
+   case-sensitively so "please stop" is not Marine STOP. */
+const PL_CASE_SENSITIVE_ALIASES = new Set(["GMC", "GPA", "GTL", "CGL", "DNO", "PI", "WC", "IAR", "MBD", "CAR", "EAR", "BGR", "STOP"]);
+function plMatchProductTypes(text) {
+  const raw = String(text || "");
+  const lower = raw.toLowerCase();
+  const hit = new Set();
+  // Fire: eligibility-driven split
+  if (/\bfire\b/i.test(raw)) {
+    const factory = /\b(factory|plant)\b/i.test(raw);
+    const godown = /\b(warehouse|godown)\b/i.test(raw);
+    if (factory) hit.add("FIRE_FACTORY");
+    if (godown) hit.add("FIRE_GODOWN");
+    if (!factory && !godown) { hit.add("FIRE_FACTORY"); hit.add("FIRE_GODOWN"); }
+  }
+  // PI: profession-driven
+  if (/\bpi\s*engg\b/i.test(raw)) hit.add("PI_ENGG");
+  else if (/\bpi\s*tech\b/i.test(raw) || /professional indemnity/i.test(raw) || /\bpi\b/i.test(raw)) hit.add("PI_TECH");
+  // Everything else by alias, longest first
+  const aliasRows = [];
+  for (const p of PL_PRODUCT_TYPES) {
+    if (p.code.startsWith("FIRE_") || p.code === "PI_ENGG" || p.code === "PI_TECH") continue;
+    for (const a of p.aliases) aliasRows.push({ code: p.code, alias: a });
+  }
+  aliasRows.sort((x, y) => y.alias.length - x.alias.length);
+  for (const { code, alias } of aliasRows) {
+    const caseSensitive = PL_CASE_SENSITIVE_ALIASES.has(alias) && alias === alias.toUpperCase();
+    const found = caseSensitive
+      ? new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(raw)
+      : new RegExp(`\\b${alias.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(lower);
+    if (found) hit.add(code);
+  }
+  // Fire add-ons are sections of Fire, never standalone when Fire is present
+  if (hit.has("FIRE_FACTORY") || hit.has("FIRE_GODOWN")) { hit.delete("BURGLARY"); hit.delete("MBD_EEP"); }
+  return [...hit];
+}
+
+/* §2.2 Business type — stored in c.meta.caseType. */
+const PL_BUSINESS_TYPES = [
+  { value: "Fresh",    meaning: "New policy" },
+  { value: "Renewal",  meaning: "Our renewal" },
+  { value: "Rollover", meaning: "Other Co. renewal" },
+];
+/* §2.3 Industry type — stored in c.client.industryType. `source` is docs-only. */
+const PL_INDUSTRY_TYPES = [
+  { value: "Manufacturing",                        source: 'CGL premises type "Manufacturing"; Fire eligibility "Factory/Plant"' },
+  { value: "Warehousing & Logistics",              source: 'CGL "Warehouse"; Fire Godown "Warehouse / Godown / Logistics godown"' },
+  { value: "Retail / Shops",                       source: 'Fire occupancy "Shop"' },
+  { value: "Services (office-based)",              source: 'CGL "Office"; Crime "service oriented industry"' },
+  { value: "Construction & Contracting",           source: 'CAR / EAR principal–contractor, "road projects"' },
+  { value: "Engineering Services",                 source: "PI Engg (Residential / Commercial / Industrial projects)" },
+  { value: "Technology",                           source: "PI Tech" },
+  { value: "Power & Energy",                       source: 'IAR "Wind Mill" tab' },
+  { value: "Trading (Domestic / Import / Export)", source: "Marine Open and STOP sales, purchase, import and export turnover" },
+  { value: "Residential / Individual",             source: "BGR (owner-occupied dwelling)" },
+  { value: "Others",                               source: 'CGL dropdown "Others"' },
+];
+
+/* §3 Placement config. */
+const PL_CONFIG = {
+  universalRm: "Shubh Bangar",
+  rfqUpload: { accept: [".xlsx", ".xls", ".csv"], maxMb: 2 },
+  copycat: { mode: "mock", endpoint: "", headers: {}, timeoutMs: 60000, mockDelayMs: 2500 },
 };
 
 /* quote field helper: extracted value is preserved forever, PM value can diverge */
@@ -10039,7 +10144,14 @@ const PL_FIELDSETS = {
     plQf("medEx", "Medical extension", p.medEx, { page: "p.2" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
-  Cyber: (p) => [
+  GTL: (p) => [
+    plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
+    plQf("si", "Sum assured basis", p.si, { required: true, material: true, page: "p.1" }),
+    plQf("cover", "Cover scope", p.cover, { required: true, page: "p.2" }),
+    plQf("fcl", "Free cover limit", p.fcl, { page: "p.2" }),
+    plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
+  ],
+  LIABILITY: (p) => [
     plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.2" }),
     plQf("si", "Limit of indemnity (AOY)", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("retention", "Retention / deductible", p.retention, { required: true, material: true, kind: "money", page: "p.2" }),
@@ -10047,14 +10159,14 @@ const PL_FIELDSETS = {
     plQf("territory", "Territory & jurisdiction", p.territory, { required: true, page: "p.2" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
-  Marine: (p) => [
+  MARINE: (p) => [
     plQf("premium", "Estimated annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("si", "Per-sending limit", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("clause", "Cover basis", p.clause, { required: true, page: "p.2" }),
     plQf("excess", "Excess", p.excess, { required: true, page: "p.2" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
-  Fire: (p) => [
+  PROPERTY: (p) => [
     plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("si", "Total sum insured", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("basis", "Valuation basis", p.basis, { required: true, page: "p.2" }),
@@ -10062,7 +10174,7 @@ const PL_FIELDSETS = {
     plQf("addons", "Add-on covers", p.addons, { page: "p.3" }),
     plQf("validity", "Quote validity", p.validity, { required: true, page: "p.1" }),
   ],
-  "D&O": (p) => [
+  DNO: (p) => [
     plQf("premium", "Annual premium (incl. GST)", p.premium, { required: true, material: true, kind: "money", page: "p.2" }),
     plQf("si", "Limit of indemnity (AOY)", p.si, { required: true, material: true, kind: "money", page: "p.1" }),
     plQf("retention", "Retention / deductible", p.retention, { required: true, material: true, kind: "money", page: "p.2" }),
@@ -10088,7 +10200,7 @@ const plMkQuote = (insurerId, product, rfqV, version, receivedAt, payload, o = {
   doc: o.doc || `${PL_INSURERS[insurerId].name.split(" ")[0]}_${product}_Quote_v${version}.pdf`,
   decision: o.decision || null, decisionAt: o.decisionAt || null, decisionNote: o.decisionNote || "",
   openItems: o.openItems || [],
-  fields: PL_FIELDSETS[product](payload),
+  fields: PL_FIELDSETS[plProductType(product).fieldset](payload),
 });
 
 const plEv = (at, actor, text) => ({ at, actor, text });
@@ -11271,11 +11383,17 @@ function makePlacementApi(setCases, say = () => {}) {
       }
       if (kind === "quote") {
         const product = c.products[0];
-        const base = { GMC: { premium: 30500000, si: 500000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "30 days", exclusions: "Cosmetic, dental, OPD" },
+        const fam = plProductType(product).fieldset;
+        const base = {
+          GMC: { premium: 30500000, si: 500000, family: "1+1+2", roomRent: "1% of SI per day", maternity: "₹50,000 / ₹75,000", ped: "Covered from day one", buffer: "₹25,00,000", copay: "Nil", validity: "30 days", exclusions: "Cosmetic, dental, OPD" },
           GPA: { premium: 1750000, si: "24× monthly salary", scope: "24 hours, worldwide", ttd: "₹20,000 per week", medEx: "10% of CSI", validity: "30 days" },
-          Cyber: { premium: 1880000, si: 100000000, retention: 2500000, extensions: "BI, ransomware", territory: "India, Indian jurisdiction", validity: "30 days" },
-          Marine: { premium: 9800000, si: 50000000, clause: "ICC (A)", excess: "₹50,000 each claim", validity: "30 days" },
-          Fire: { premium: 4600000, si: 1000000000, basis: "Reinstatement value", excess: "5% of claim", addons: "Earthquake, STFI", validity: "30 days" } }[product] || {};
+          GTL: { premium: 2150000, si: "36× monthly salary", cover: "Death due to any cause", fcl: "₹50,00,000", validity: "30 days" },
+          LIABILITY: { premium: 1880000, si: 100000000, retention: 2500000, extensions: "Defence costs, contractual liability", territory: "India, Indian jurisdiction", validity: "30 days" },
+          DNO: { premium: 1450000, si: 50000000, retention: 1000000, basis: "Claims-made", extensions: "Side A DIC, regulatory investigation costs", territory: "Worldwide excl. US/Canada", validity: "30 days", exclusions: "Prior and pending litigation" },
+          WC: { premium: 820000, wageRoll: 180000000, headcount: "1,150", scope: "EC Act 1923 + common law", occupational: "Included", validity: "30 days" },
+          MARINE: { premium: 9800000, si: 50000000, clause: "ICC (A)", excess: "₹50,000 each claim", validity: "30 days" },
+          PROPERTY: { premium: 4600000, si: 1000000000, basis: "Reinstatement value", excess: "5% of claim", addons: "Earthquake, STFI", validity: "30 days" },
+        }[fam] || {};
         const existing = plQuotesOf(c, insurerId).filter((q) => q.product === product).length;
         const payload = { ...base, ...((c.demoQuotes && c.demoQuotes[insurerId]) || {}) };
         const nq = plMkQuote(insurerId, product, c.activeRfq, existing + 1, plStamp(), payload);
@@ -11870,13 +11988,15 @@ function PlTextArea({ value, onChange, placeholder, rows = 3 }) {
   );
 }
 
-function PlInput({ value, onChange, placeholder, mono = false, kind = "text" }) {
+function PlInput({ value, onChange, placeholder, mono = false, kind = "text", type = "text" }) {
   /* Text mode is the original raw <input> - kept intact for every existing
-     caller. Numeric mode wraps a stripped input with a ₹/%/h affix, adds
-     inputMode=numeric, right-aligns, and formats en-IN groups when unfocused. */
+     caller. `type` is passed through in text mode only (e.g. "date" for the
+     renewal field). Numeric mode wraps a stripped input with a ₹/%/h affix,
+     adds inputMode=numeric, right-aligns, and formats en-IN groups when
+     unfocused. */
   if (kind === "text") {
     return (
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className="pl-focus w-full rounded-lg border px-3 py-1.5 outline-none"
         style={{ borderColor: PL_T.borderStrong, fontSize: 12.5, color: PL_T.ink, background: PL_T.card, fontFamily: mono ? PL_MONO : FONT }} />
     );
