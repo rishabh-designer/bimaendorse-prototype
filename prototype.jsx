@@ -11453,38 +11453,62 @@ function PlAvatar({ src, name, size = 22, tone = "neutral", icon: IconEl }) {
 }
 
 /* The overlapping participant stack (Executive · PM · RM · Client SPOC).
-   Native <img title=…> tooltips fire slowly (~500ms) and are unreliable on
-   overlapping absolutely-positioned siblings, so drive our own dark
-   tooltip on hover with name + role. */
+   Tooltip is portalled to document.body so it never clips against a parent
+   with overflow:hidden or a sibling stacking context. Position is computed
+   from the anchor's viewport rect and re-measured on scroll / resize. */
 function PlAvatarStack({ participants, size = 22 }) {
   const [hover, setHover] = useState(-1);
+  const refs = useRef([]);
+  const [rect, setRect] = useState(null);
+  useEffect(() => {
+    if (hover < 0) { setRect(null); return; }
+    const measure = () => {
+      const el = refs.current[hover];
+      if (el) setRect(el.getBoundingClientRect());
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [hover]);
+  const p = hover >= 0 ? participants[hover] : null;
   return (
-    <span className="inline-flex items-center">
-      {participants.map((p, i) => (
-        <span key={i}
-          onMouseEnter={() => setHover(i)}
-          onMouseLeave={() => setHover((cur) => (cur === i ? -1 : cur))}
-          style={{ marginLeft: i === 0 ? 0 : -6, position: "relative",
-            zIndex: hover === i ? participants.length + 5 : participants.length - i,
-            display: "inline-flex", lineHeight: 0 }}>
-          <PlAvatar src={p.src} name={p.name} tone={p.tone} size={size} />
-          {hover === i && (
-            <span className="absolute" style={{
-              top: size + 6, left: "50%", transform: "translateX(-50%)",
-              background: PL_T.ink, color: "#fff",
-              padding: "6px 10px", borderRadius: 8,
-              fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap",
-              boxShadow: "0 8px 24px rgba(28,29,31,0.16)",
-              fontFamily: FONT, lineHeight: 1.3, pointerEvents: "none",
-              zIndex: 60,
-            }}>
-              {p.name}
-              {p.role && <span style={{ opacity: 0.7 }}>{" · "}{p.role}</span>}
-            </span>
-          )}
-        </span>
-      ))}
-    </span>
+    <>
+      <span className="inline-flex items-center">
+        {participants.map((entry, i) => (
+          <span key={i}
+            ref={(el) => { refs.current[i] = el; }}
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover((cur) => (cur === i ? -1 : cur))}
+            style={{ marginLeft: i === 0 ? 0 : -6, position: "relative",
+              zIndex: hover === i ? participants.length + 5 : participants.length - i,
+              display: "inline-flex", lineHeight: 0 }}>
+            <PlAvatar src={entry.src} name={entry.name} tone={entry.tone} size={size} />
+          </span>
+        ))}
+      </span>
+      {p && rect && createPortal(
+        <div style={{
+          position: "fixed",
+          top: rect.bottom + 6,
+          left: rect.left + rect.width / 2,
+          transform: "translateX(-50%)",
+          background: PL_T.ink, color: "#fff",
+          padding: "6px 10px", borderRadius: 8,
+          fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap",
+          boxShadow: "0 8px 24px rgba(28,29,31,0.16)",
+          fontFamily: FONT, lineHeight: 1.3, pointerEvents: "none",
+          zIndex: 1000,
+        }}>
+          {p.name}
+          {p.role && <span style={{ opacity: 0.7 }}>{" · "}{p.role}</span>}
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
