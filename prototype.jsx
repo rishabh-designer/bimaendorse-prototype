@@ -16626,6 +16626,21 @@ function PlMarketTab({ c, api, goTo }) {
   const [open, setOpen] = useState(c.threads.find((t) => t.paused)?.id || c.threads[0]?.id || null);
   const [modal, setModal] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  /* Native file inputs — one per thread — for the Re-upload quote
+     action. Keyed by thread id so each row's re-upload targets the
+     right thread. */
+  const reuploadRefs = useRef({});
+  const openReupload = (threadId) => {
+    const el = reuploadRefs.current[threadId];
+    if (el) el.click();
+  };
+  const onReuploadSelected = (threadId, e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    api.simulateInsurer(c.id, threadId, "quote");
+    api.say(`Quote re-uploaded — ${file.name}`);
+  };
 
   if (c.threads.length === 0)
     return <PlEmpty icon={Users} title="RFQ has not been floated yet"
@@ -16864,9 +16879,26 @@ function PlMarketTab({ c, api, goTo }) {
                           Send follow-up
                         </PlBtn>
                       )}
-                      {qs.some((q) => !q.decision) && (
-                        <PlBtn size="sm" variant="primary" onClick={() => goTo("quotes")}>Open quote</PlBtn>
-                      )}
+                      {qs.length > 0 && (() => {
+                        /* Latest live (non-superseded) quote on this thread — the
+                           one Download / Re-upload target. */
+                        const live = [...qs].reverse().find((q) => q.decision !== "superseded") || qs[qs.length - 1];
+                        return (
+                          <>
+                            <PlBtn size="sm" variant="primary"
+                              onClick={() => plDownloadDoc(c, {
+                                name: live.doc,
+                                sub: `${I.name} · Quote V${live.version} against RFQ V${live.rfqV} · ${live.receivedAt}`,
+                              })}>
+                              Download quote
+                            </PlBtn>
+                            <PlBtn size="sm" variant="ghost" onClick={() => openReupload(t.id)}>Re-upload quote</PlBtn>
+                            <input ref={(el) => { reuploadRefs.current[t.id] = el; }}
+                              type="file" accept=".pdf,.doc,.docx,.xlsx,.xls" className="hidden"
+                              onChange={(e) => onReuploadSelected(t.id, e)} />
+                          </>
+                        );
+                      })()}
                       <PlBtn size="sm" onClick={() => { api.logCall(c.id, t.id); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
                     </div>
 
