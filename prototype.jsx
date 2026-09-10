@@ -15030,6 +15030,8 @@ function PlQuotesTab({ c, api }) {
         })}
       </div>
 
+      <div className="bk-rule" aria-hidden />
+
       <PlQuoteWorkspace c={c} q={q} api={api} />
     </div>
   );
