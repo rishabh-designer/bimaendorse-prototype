@@ -11437,14 +11437,36 @@ function PlAvatar({ src, name, size = 22, tone = "neutral", icon: IconEl }) {
   );
 }
 
-/* The overlapping participant stack (Executive · PM · RM · Client SPOC). */
+/* The overlapping participant stack (Executive · PM · RM · Client SPOC).
+   Native <img title=…> tooltips fire slowly (~500ms) and are unreliable on
+   overlapping absolutely-positioned siblings, so drive our own dark
+   tooltip on hover with name + role. */
 function PlAvatarStack({ participants, size = 22 }) {
+  const [hover, setHover] = useState(-1);
   return (
     <span className="inline-flex items-center">
       {participants.map((p, i) => (
-        <span key={i} title={p.role ? `${p.name} · ${p.role}` : p.name}
-          style={{ marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: participants.length - i, display: "inline-flex", lineHeight: 0 }}>
+        <span key={i}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover((cur) => (cur === i ? -1 : cur))}
+          style={{ marginLeft: i === 0 ? 0 : -6, position: "relative",
+            zIndex: hover === i ? participants.length + 5 : participants.length - i,
+            display: "inline-flex", lineHeight: 0 }}>
           <PlAvatar src={p.src} name={p.name} tone={p.tone} size={size} />
+          {hover === i && (
+            <span className="absolute" style={{
+              top: size + 6, left: "50%", transform: "translateX(-50%)",
+              background: PL_T.ink, color: "#fff",
+              padding: "6px 10px", borderRadius: 8,
+              fontSize: 11.5, fontWeight: 500, whiteSpace: "nowrap",
+              boxShadow: "0 8px 24px rgba(28,29,31,0.16)",
+              fontFamily: FONT, lineHeight: 1.3, pointerEvents: "none",
+              zIndex: 60,
+            }}>
+              {p.name}
+              {p.role && <span style={{ opacity: 0.7 }}>{" · "}{p.role}</span>}
+            </span>
+          )}
         </span>
       ))}
     </span>
