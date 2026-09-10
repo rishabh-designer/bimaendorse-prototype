@@ -10974,6 +10974,21 @@ function plNormalizeSeed(c) {
      normaliser so nulls stay null and any legacy strings become
      integers. Valid numbers round-trip unchanged. */
   meta.targetPremium = plNormTargetPremium(meta.targetPremium);
+  /* §4 · When a seed carries a signed mandate request, enrich the
+     existing meta.mandate with the request id / requester / requested
+     time and rewrite the note to the "Client signed …" wording. */
+  const seededReqs = PL_SEED_MANDATE_REQUESTS[c.id];
+  const seededSigned = seededReqs && seededReqs.find((r) => r.status === "signed");
+  if (seededSigned && meta.mandate && meta.mandate.type === "Exclusive Placement Mandate") {
+    meta.mandate = {
+      ...meta.mandate,
+      note: `Client signed the Exclusive Placement Mandate requested by ${seededSigned.requestedBy}.`,
+      requestId: seededSigned.id,
+      requestedBy: seededSigned.requestedBy,
+      requestedAt: seededSigned.requestedAt,
+      at: meta.mandate.at || seededSigned.closedAt,
+    };
+  }
   const isLink = PL_RFQ_LINK_CASES.has(c.id);
   const createdVia = isLink ? "rm_interface" : "manual";
   const createdBy = isLink ? null : "Bhupendra Singh";
@@ -11080,10 +11095,43 @@ function plNormalizeSeed(c) {
     client: { ...c.client, industryType: PL_INDUSTRY_BY_CASE[c.id] || "Others" },
     rfqs, threads, threadSeq: threads.length, quotes, qcrs, audit,
     meta,
-    /* §1 · Every seed carries an empty mandateRequests[]; the two
+    /* §1 · Every seed carries an empty mandateRequests[]. The two
        Exclusive-mandate seeds (PC-1026, PC-1031) and the pending
-       demo (PC-1027) fill it in at Phase 4. */
-    mandateRequests: c.mandateRequests || [],
+       demo (PC-1027) get their §4 history from PL_SEED_MANDATE_REQUESTS.
+       For signed cases, meta.mandate also picks up requestId /
+       requestedBy / requestedAt and its note gets rewritten. */
+    mandateRequests: c.mandateRequests
+      || (seededReqs
+          ? seededReqs.map((r) => ({ ...r, reminders: [...(r.reminders || [])], responses: [...(r.responses || [])] }))
+          : []),
+    /* §4 · Audit lines for each seeded mandate event. Appended to the
+       case's audit so the Audit trail shows the request → response
+       history at their real times. */
+    audit: (() => {
+      const base = audit || [];
+      if (!seededReqs || c.mandateRequests) return base;
+      const extra = [];
+      seededReqs.forEach((r) => {
+        const insurerName = r.preferredInsurerId ? (PL_INSURERS[r.preferredInsurerId]?.name || r.preferredInsurerId) : "none";
+        extra.push(plAu(r.requestedAt, r.requestedBy, "PM", "Exclusive Mandate requested",
+          `To ${r.to} · ${r.reason} · preferred insurer ${insurerName}`));
+        (r.reminders || []).forEach((rem, i) => {
+          extra.push(plAu(rem.at, rem.by, "PM", "Mandate reminder sent", `Reminder ${i + 1} to ${r.to}`));
+        });
+        (r.responses || []).forEach((rsp) => {
+          if (rsp.kind === "considering") {
+            extra.push(plAu(rsp.at, rsp.actor, "RM", "Client still considering the mandate", rsp.note || ""));
+          } else if (rsp.kind === "signed") {
+            const ref = `MND-${c.id.replace("PC-", "")}-E`;
+            extra.push(plAu(rsp.at, rsp.actor, "RM", "Exclusive Placement Mandate signed",
+              `${ref} · preferred insurer ${insurerName}${rsp.note ? ` · ${rsp.note}` : ""}`));
+          } else if (rsp.kind === "declined") {
+            extra.push(plAu(rsp.at, rsp.actor, "RM", "Exclusive Placement Mandate declined", rsp.note || ""));
+          }
+        });
+      });
+      return [...base, ...extra];
+    })(),
   };
 }
 
@@ -11901,6 +11949,60 @@ function plParseRfqMail(mail) {
 
   return { fields, missing, notes };
 }
+
+/* §4 · Seeded mandate-request history. Stamped by plNormalizeSeed on
+   the three cases the spec calls out:
+   - PC-1026: signed by RM, originally requested by Bhupendra Singh
+   - PC-1031: signed by RM, originally requested by Himani Doshi
+   - PC-1027: open "considering", requested by Bhupendra Singh
+   Every other seed carries the empty array from plNormalizeSeed. */
+const PL_SEED_MANDATE_REQUESTS = {
+  "PC-1026": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "signed",
+    requestedBy: "Bhupendra Singh",
+    requestedByKey: "bhupendra",
+    requestedAt: "15 Aug, 17:10",
+    to: "Shubh Bangar",
+    preferredInsurerId: "bajaj",
+    reason: "Client relies on our market view",
+    message: "Hi Shubh, please ask Meridian to give us an Exclusive Placement Mandate for Marine Open. Bajaj Allianz is our recommendation.",
+    reminders: [],
+    responses: [{ at: "16 Aug, 09:00", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
+    closedAt: "16 Aug, 09:00",
+  }],
+  "PC-1031": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "signed",
+    requestedBy: "Himani Doshi",
+    requestedByKey: "himani",
+    requestedAt: "03 Aug, 11:00",
+    to: "Shubh Bangar",
+    preferredInsurerId: null,
+    reason: "Several comparable quotes - client wants us to choose",
+    message: "Hi Shubh, we have three comparable D&O quotes and Orbit has asked us to make the call. Could we get an Exclusive Placement Mandate?",
+    reminders: [],
+    responses: [{ at: "03 Aug, 15:30", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
+    closedAt: "03 Aug, 15:30",
+  }],
+  "PC-1027": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "considering",
+    requestedBy: "Bhupendra Singh",
+    requestedByKey: "bhupendra",
+    requestedAt: "26 Aug, 10:20",
+    to: "Shubh Bangar",
+    preferredInsurerId: "hdfc",
+    reason: "Client relies on our market view",
+    message: "Hi Shubh, could you ask Kalpataru for an Exclusive Placement Mandate for the GMC placement? HDFC ERGO is our recommendation.",
+    reminders: [{ at: "28 Aug, 09:15", by: "Bhupendra Singh" }],
+    responses: [{ at: "28 Aug, 16:40", actor: "Shubh Bangar", kind: "considering", note: "Client's CFO is reviewing; expect an answer Monday." }],
+    closedAt: null,
+  }],
+};
 
 /* §1 · Mandate-request masters + helpers (Placement asks the RM for
    the Exclusive Placement Mandate). Reason wording is [OPEN] per §6
