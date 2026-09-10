@@ -14504,11 +14504,12 @@ function PlBimaNetraCard({ c }) {
 
 /* Lightbox scrim (Figma 1553:44234) with a right-side drawer inside it
    (1553:44447). Click the scrim or the close cross to dismiss. */
-function PlBimaNetraLightbox({ c, onClose }) {
+function PlBimaNetraLightbox({ c, onClose, onAccept, onReject }) {
   return (
     <div className="bk-scrim fixed inset-0 z-50 flex justify-end"
       style={{ background: PL_T.scrim, fontFamily: FONT }} onClick={onClose}>
-      <PlBimaNetraDrawer c={c} onClose={onClose} onClick={(e) => e.stopPropagation()} />
+      <PlBimaNetraDrawer c={c} onClose={onClose} onAccept={onAccept} onReject={onReject}
+        onClick={(e) => e.stopPropagation()} />
     </div>
   );
 }
@@ -14632,7 +14633,7 @@ function NetraGroup({ title, avg, rows }) {
   );
 }
 
-function PlBimaNetraDrawer({ c, onClose, onClick }) {
+function PlBimaNetraDrawer({ c, onClose, onClick, onAccept, onReject }) {
   return (
     <div onClick={onClick} className="bk-modal flex h-full flex-col overflow-hidden"
       style={{ width: 720, maxWidth: "100%", background: NETRA_T.cardBg, borderLeft: `1px solid ${NETRA_T.cardBorder}`,
@@ -14761,7 +14762,49 @@ function PlBimaNetraDrawer({ c, onClose, onClick }) {
           ]} />
         </section>
       </div>
+
+      {/* Decision footer — only rendered when the parent wires the two
+          handlers. The exploratory card in the rail keeps its
+          info-only variant with no footer. */}
+      {(onAccept || onReject) && (
+        <footer className="flex items-center justify-end gap-2 px-5 py-4"
+          style={{ borderTop: `1px solid ${NETRA_T.cardBorder}`, background: NETRA_T.cardBg }}>
+          {onReject && <PlBtn variant="default" onClick={onReject}>Reject &amp; Feedback</PlBtn>}
+          {onAccept && <PlBtn variant="primary" icon={ArrowRight} onClick={onAccept}>Accept &amp; Approve</PlBtn>}
+        </footer>
+      )}
     </div>
+  );
+}
+
+/* Reject-with-feedback modal — captures the reason before we send it
+   through as the audit detail on the validate call. */
+function PlBimaNetraRejectModal({ c, api, onClose, onDone }) {
+  const [reason, setReason] = useState("");
+  const canSubmit = reason.trim().length > 4;
+  return (
+    <PlModal title="Reject BimaNetra recommendation" subtitle={`${c.id} · feedback captured on the audit trail`}
+      onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" disabled={!canSubmit}
+          onClick={() => {
+            api.say("BimaNetra feedback recorded");
+            if (onDone) onDone(reason.trim());
+            onClose();
+          }}>
+          Submit feedback
+        </PlBtn></>}>
+      <PlLabel>Why is BimaNetra's recommendation being rejected?</PlLabel>
+      <div className="mt-1.5">
+        <PlTextArea value={reason} onChange={setReason} rows={5}
+          placeholder="What did BimaNetra miss - risk signals, appetite calls, or something else the model didn't weigh?" />
+      </div>
+      <PlCallout tone="orange" className="mt-3">
+        <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+          The case stays on the RFQ tab. Your feedback is written to the audit trail so the model can be corrected.
+        </span>
+      </PlCallout>
+    </PlModal>
   );
 }
 
@@ -15938,6 +15981,8 @@ function PlRfqTab({ c, api }) {
   const rfq = plActiveRfqOf(c);
   const [askOpen, setAskOpen] = useState(false);
   const [rmOpen, setRmOpen] = useState(false);
+  const [netraOpen, setNetraOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const editable = c.stage === "rfq_review";
   const unresolved = (rfq.missing || []).filter((m) => !m.resolved);
   const canValidate = unresolved.length === 0 && c.stage === "rfq_review";
@@ -16070,9 +16115,9 @@ function PlRfqTab({ c, api }) {
                 {canValidate ? "No open gaps." : `${unresolved.length} gap(s) still open.`}
               </div>
             </div>
-            <PlBtn variant="primary" disabled={!canValidate} icon={ArrowRight}
-              onClick={() => { api.validateRfq(c.id); api.say("RFQ validated - insurer recommendations ready"); }}>
-              Validate and continue
+            <PlBtn variant="primary" disabled={!canValidate} icon={Sparkles}
+              onClick={() => setNetraOpen(true)}>
+              Activate BimaNetra
             </PlBtn>
           </div>
         </PlCard>
@@ -16080,6 +16125,17 @@ function PlRfqTab({ c, api }) {
 
       {askOpen && <PlAskRmModal c={c} rfq={rfq} api={api} onClose={() => setAskOpen(false)} />}
       {rmOpen && <PlSimRmModal c={c} api={api} onClose={() => setRmOpen(false)} />}
+      {netraOpen && createPortal(
+        <PlBimaNetraLightbox c={c}
+          onClose={() => setNetraOpen(false)}
+          onAccept={() => {
+            api.validateRfq(c.id);
+            api.say("BimaNetra recommendation accepted - RFQ validated");
+            setNetraOpen(false);
+          }}
+          onReject={() => { setNetraOpen(false); setRejectOpen(true); }} />,
+        document.body)}
+      {rejectOpen && <PlBimaNetraRejectModal c={c} api={api} onClose={() => setRejectOpen(false)} />}
     </div>
   );
 }
