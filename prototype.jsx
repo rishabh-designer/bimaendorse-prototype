@@ -11122,6 +11122,20 @@ const plCorrected = (q) => q.fields.filter((f) => f.correctedBy);
 
 const plThreadOf = (c, id) => c.threads.find((t) => t.insurerId === id);
 const plQuotesOf = (c, id) => c.quotes.filter((q) => q.insurerId === id && q.rfqV === c.activeRfq);
+
+/* §11 · Threads are now keyed by their own id (TH-nn). Two contacts at one
+   insurer = two threads. plNextThreadId keeps a monotonic counter on the
+   case so ids never repeat, even across RFQ versions. plThreadById is the
+   preferred lookup; plThreadOf(insurerId) stays for consumers that still
+   want any thread at an insurer. */
+function plNextThreadId(c, offset = 0) {
+  const seq = (c.threadSeq || 0) + offset + 1;
+  return `TH-${String(seq).padStart(2, "0")}`;
+}
+const plThreadById = (c, tid) => (c.threads || []).find((t) => t.id === tid) || null;
+const plThreadLabel = (t) => (t ? `${(PL_INSURERS[t.insurerId] && PL_INSURERS[t.insurerId].name) || t.insurerId} · ${t.poc || ""}` : "");
+const plThreadsAtInsurer = (c, insurerId) => (c.threads || []).filter((t) => t.insurerId === insurerId);
+const plInsurerHasManyThreads = (c, insurerId) => plThreadsAtInsurer(c, insurerId).length > 1;
 const plActiveRfqOf = (c) => c.rfqs.find((r) => r.v === c.activeRfq) || c.rfqs[c.rfqs.length - 1];
 const plReleasedQcr = (c) => c.qcrs.filter((q) => q.status === "released").slice(-1)[0] || null;
 const plDraftQcr = (c) => c.qcrs.find((q) => q.status === "draft") || null;
@@ -11466,46 +11480,67 @@ function makePlacementApi(setCases, say = () => {}) {
     }),
 
     togglePanel: (id, insurerId) => patch(id, (c) => {
+      /* §9 · Do Not Float cannot be bypassed anywhere in the api. */
+      if (PL_CONTACTS[insurerId] && PL_CONTACTS[insurerId].status === "Do Not Float") return c;
       const has = c.panel.selected.includes(insurerId);
       if (has && !c.panel.locked)
         return { ...c, panel: { ...c.panel, selected: c.panel.selected.filter((x) => x !== insurerId) } };
       if (has) return c;
       let out = { ...c, panel: { ...c.panel, selected: [...c.panel.selected, insurerId] } };
-      /* after float, adding a market is a PM decision that opens one more independent thread */
+      /* after float, adding a market is a PM decision that opens one more
+         independent thread (§10 · attach line rides on the new thread's event). */
       if (c.panel.locked) {
+        const attach = plRfqAttachLine(c);
+        const pocs = plPocsOf(c, insurerId);
+        const newThreads = pocs.map((poc, i) => ({
+          id: plNextThreadId(c, i),
+          rfqV: c.activeRfq,
+          insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
+          events: [plEv(plStamp(), "System",
+            `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name} — market added after initial float${attach ? ` · ${attach}` : ""}`)],
+          clarifications: [],
+        }));
         out = {
-          ...out, stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
-          threads: [
-            ...c.threads,
-            ...plPocsOf(c, insurerId).map((poc) => ({
-              insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false, followUps: 0, followUpsActive: true,
-              events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name} — market added after initial float`)],
-              clarifications: [],
-            })),
-          ],
+          ...out,
+          stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
+          threads: [...c.threads, ...newThreads],
+          threadSeq: (c.threadSeq || 0) + newThreads.length,
           rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: "Approached another insurer" } : c.rmMoreQuotes,
         };
-        out = withLog(out, PL_ME.name, "PM", "Additional insurer approached", `${PL_INSURERS[insurerId].name} · new independent thread on RFQ V${c.activeRfq}`);
+        out = withLog(out, PL_ME.name, "PM", "Additional insurer approached",
+          `${PL_INSURERS[insurerId].name} · new independent thread on RFQ V${c.activeRfq}${attach ? ` · ${attach}` : ""}`);
       }
       return out;
     }),
 
     floatRfq: (id) => patch(id, (c) => {
-      /* One thread per (insurer × selected POC). Two POCs at ICICI ⇒ two
-         independent ICICI threads, each targeting a different underwriter,
-         so downstream quotes come back in parallel. */
+      /* §10 · One thread per (insurer × selected POC). Every thread gets
+         its own TH-nn id and carries the RFQ attach line on its first
+         event; the audit line includes the same attach line so the audit
+         trail says exactly what left our desk. */
+      const attach = plRfqAttachLine(c);
+      let offset = 0;
       const threads = c.panel.selected.flatMap((insurerId) => {
         const pocs = plPocsOf(c, insurerId);
-        return pocs.map((poc) => ({
-          insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false,
-          followUps: 0, followUpsActive: true,
-          events: [plEv(plStamp(), "System", `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name}`)],
-          clarifications: [],
-        }));
+        return pocs.map((poc) => {
+          const t = {
+            id: plNextThreadId(c, offset),
+            rfqV: c.activeRfq,
+            insurerId, poc, status: "rfq_sent", slaH: PL_THREAD_TARGET_H, paused: false,
+            followUps: 0, followUpsActive: true,
+            events: [plEv(plStamp(), "System",
+              `RFQ V${c.activeRfq} floated to ${poc} at ${PL_INSURERS[insurerId].name}${attach ? ` · ${attach}` : ""}`)],
+            clarifications: [],
+          };
+          offset += 1;
+          return t;
+        });
       });
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : { ...r, status: "floated", floatedAt: plStamp() });
-      return withLog({ ...c, threads, rfqs, panel: { ...c.panel, locked: true }, stage: "market" },
-        PL_ME.name, "PM", `RFQ V${c.activeRfq} floated`, `${threads.length} independent insurer threads created`);
+      return withLog(
+        { ...c, threads, threadSeq: (c.threadSeq || 0) + threads.length, rfqs, panel: { ...c.panel, locked: true }, stage: "market" },
+        PL_ME.name, "PM", `RFQ V${c.activeRfq} floated`,
+        `${threads.length} independent insurer threads created${attach ? ` · ${attach}` : ""}`);
     }),
 
     setPoc: (id, insurerId, poc) => patch(id, (c) => {
@@ -11537,67 +11572,78 @@ function makePlacementApi(setCases, say = () => {}) {
       } } },
       c.client.rm, "RM", "Exclusive Placement Mandate raised", `${c.client.name} · preferred insurer ${PL_INSURERS[preferredInsurerId]?.name || preferredInsurerId}`)),
 
-    logCall: (id, insurerId) => patch(id, (c) => {
-      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
+    /* §11 · Every thread api takes the thread's own id, not the insurer id.
+       Two contacts at one insurer = two threads with separate ids, so an
+       insurer-keyed call would ambiguously touch both. */
+    logCall: (id, threadId) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const threads = c.threads.map((t) => t.id !== threadId ? t
         : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Call logged - spoke to the insurer POC, quote expected shortly")] });
-      return withLog({ ...c, threads }, PL_ME.name, "PM", "Call logged", PL_INSURERS[insurerId].name);
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Call logged", plThreadLabel(t0));
     }),
 
-    followUp: (id, insurerId) => patch(id, (c) => {
-      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t
+    followUp: (id, threadId) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const threads = c.threads.map((t) => t.id !== threadId ? t
         : { ...t, followUps: t.followUps + 1, events: [...t.events, plEv(plStamp(), PL_ME.name, `Manual follow-up sent (follow-up ${t.followUps + 1})`)] });
-      return withLog({ ...c, threads }, PL_ME.name, "PM", "Follow-up sent", PL_INSURERS[insurerId].name);
+      return withLog({ ...c, threads }, PL_ME.name, "PM", "Follow-up sent", plThreadLabel(t0));
     }),
 
-    holdForRm: (id, insurerId, note) => patch(id, (c) => {
-      const t0 = plThreadOf(c, insurerId);
-      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+    holdForRm: (id, threadId, note) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const threads = c.threads.map((t) => t.id !== threadId ? t : {
         ...t, status: "awaiting_rm", paused: true, pauseReason: note,
         clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, rmRequested: true, rmRequestedAt: plStamp() } : cl),
         events: [...t.events, plEv(plStamp(), PL_ME.name, `Information requested from RM · insurer clock held at ${plFmtH(t.slaH)}`)],
       });
       return withLog({ ...c, threads }, PL_ME.name, "PM", "Information requested from RM",
-        `${PL_INSURERS[insurerId].name} SLA held at ${plFmtH(t0.slaH)} remaining`);
+        `${plThreadLabel(t0)} · SLA held at ${plFmtH(t0.slaH)} remaining`);
     }),
 
-    rmAnswered: (id, insurerId, text) => patch(id, (c) => {
-      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+    rmAnswered: (id, threadId, text) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const threads = c.threads.map((t) => t.id !== threadId ? t : {
         ...t,
         clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, rmResponse: text, rmRespondedAt: plStamp() } : cl),
         events: [...t.events, plEv(plStamp(), c.client.rm, "RM provided the requested information")],
       });
-      return withLog({ ...c, threads }, c.client.rm, "RM", "Information provided", PL_INSURERS[insurerId].name);
+      return withLog({ ...c, threads }, c.client.rm, "RM", "Information provided", plThreadLabel(t0));
     }),
 
-    replyToInsurer: (id, insurerId, text) => patch(id, (c) => {
-      const threads = c.threads.map((t) => t.insurerId !== insurerId ? t : {
+    replyToInsurer: (id, threadId, text) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const threads = c.threads.map((t) => t.id !== threadId ? t : {
         ...t, status: "acknowledged", paused: false, pauseReason: null,
         clarifications: t.clarifications.map((cl, i) => i === t.clarifications.length - 1 ? { ...cl, repliedAt: plStamp() } : cl),
         events: [...t.events, plEv(plStamp(), PL_ME.name, `Reply sent to insurer · clock resumed with ${plFmtH(t.slaH)} remaining`)],
       });
       return withLog({ ...c, threads }, PL_ME.name, "PM", "Replied to insurer clarification",
-        `${PL_INSURERS[insurerId].name} SLA resumed`);
+        `${plThreadLabel(t0)} · SLA resumed`);
     }),
 
-    simulateInsurer: (id, insurerId, kind) => patch(id, (c) => {
+    simulateInsurer: (id, threadId, kind, opts = {}) => patch(id, (c) => {
+      const t0 = plThreadById(c, threadId); if (!t0) return c;
+      const insurerId = t0.insurerId;
+      const suffix = opts.source ? ` (applied from Manual Review ${opts.source})` : "";
       let out = { ...c };
-      const map = (fn) => { out = { ...out, threads: out.threads.map((t) => (t.insurerId === insurerId ? fn(t) : t)) }; };
+      const map = (fn) => { out = { ...out, threads: out.threads.map((t) => (t.id === threadId ? fn(t) : t)) }; };
       if (kind === "ack") {
-        map((t) => ({ ...t, status: "acknowledged", events: [...t.events, plEv(plStamp(), "Insurer", "Submission acknowledged, allocated to underwriting desk")] }));
-        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Submission acknowledged", "");
+        map((t) => ({ ...t, status: "acknowledged", events: [...t.events, plEv(plStamp(), "Insurer", `Submission acknowledged, allocated to underwriting desk${suffix}`)] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Submission acknowledged", plThreadLabel(t0));
       }
       if (kind === "clarify") {
-        const q = "Please share the client's loss run and the current risk-control report before we can rate this submission.";
+        const q = opts.note || "Please share the client's loss run and the current risk-control report before we can rate this submission.";
         map((t) => ({
           ...t, status: "insurer_clarification",
           clarifications: [...t.clarifications, { id: `c${Date.now()}`, question: q, askedAt: plStamp(), rmRequested: false, rmResponse: null, repliedAt: null }],
-          events: [...t.events, plEv(plStamp(), "Insurer", "Clarification raised")],
+          events: [...t.events, plEv(plStamp(), "Insurer", `Clarification raised${suffix}`)],
         }));
-        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Clarification raised", q.slice(0, 60) + "…");
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Clarification raised", `${plThreadLabel(t0)} · ${q.slice(0, 60)}…`);
       }
       if (kind === "decline") {
-        map((t) => ({ ...t, status: "declined", followUpsActive: false, declineReason: "Risk falls outside current underwriting appetite.", events: [...t.events, plEv(plStamp(), "Insurer", "Declined to quote")] }));
-        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Declined to quote", "Outside underwriting appetite");
+        const reason = opts.note || "Risk falls outside current underwriting appetite.";
+        map((t) => ({ ...t, status: "declined", followUpsActive: false, declineReason: reason, events: [...t.events, plEv(plStamp(), "Insurer", `Declined to quote${suffix}`)] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Declined to quote", `${plThreadLabel(t0)} · ${reason}`);
       }
       if (kind === "quote") {
         const product = c.products[0];
@@ -11612,12 +11658,15 @@ function makePlacementApi(setCases, say = () => {}) {
           MARINE: { premium: 9800000, si: 50000000, clause: "ICC (A)", excess: "₹50,000 each claim", validity: "30 days" },
           PROPERTY: { premium: 4600000, si: 1000000000, basis: "Reinstatement value", excess: "5% of claim", addons: "Earthquake, STFI", validity: "30 days" },
         }[fam] || {};
-        const existing = plQuotesOf(c, insurerId).filter((q) => q.product === product).length;
+        /* §11 · Version numbers count PER THREAD, not per insurer — two
+           contacts at one insurer keep their own V1/V2/... series. */
+        const existing = (c.quotes || []).filter((q) => q.threadId === threadId && q.product === product && q.rfqV === c.activeRfq).length;
         const payload = { ...base, ...((c.demoQuotes && c.demoQuotes[insurerId]) || {}) };
         const nq = plMkQuote(insurerId, product, c.activeRfq, existing + 1, plStamp(), payload);
+        nq.threadId = threadId;
         out = { ...out, quotes: [...out.quotes, nq] };
-        map((t) => ({ ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Quote received for ${product}`)] }));
-        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Quote received", `${product} · awaiting Placement Manager review`);
+        map((t) => ({ ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Quote received for ${product}${suffix}`)] }));
+        out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", "Quote received", `${plThreadLabel(t0)} · ${product} · awaiting Placement Manager review`);
       }
       return out;
     }),
@@ -11638,13 +11687,16 @@ function makePlacementApi(setCases, say = () => {}) {
 
     decideQuote: (id, quoteId, decision, note) => patch(id, (c) => {
       const q0 = c.quotes.find((q) => q.id === quoteId);
+      const threadId = q0 && q0.threadId;
       let out = { ...c, quotes: c.quotes.map((q) => q.id !== quoteId ? q : { ...q, decision, decisionAt: plStamp(), decisionNote: note || "" }) };
       const tstat = { usable: "quote_usable", clarification: "quote_clarification", excluded: "quote_excluded" }[decision];
-      out = { ...out, threads: out.threads.map((t) => t.insurerId !== q0.insurerId ? t : {
+      /* §11 · Decision touches only the quote's own thread. */
+      out = { ...out, threads: out.threads.map((t) => t.id !== threadId ? t : {
         ...t, status: tstat, events: [...t.events, plEv(plStamp(), PL_ME.name, `${q0.product} quote marked ${decision === "usable" ? "usable" : decision === "clarification" ? "needs clarification" : "excluded from QCR"}`)],
       }) };
       const dLabel = { usable: "Quote marked usable", clarification: "Quote marked needs clarification", excluded: "Quote excluded from QCR" }[decision];
-      out = withLog(out, PL_ME.name, "PM", dLabel, `${PL_INSURERS[q0.insurerId].name} · ${q0.product}${note ? " · " + note : ""}`);
+      const t0 = plThreadById(out, threadId);
+      out = withLog(out, PL_ME.name, "PM", dLabel, `${plThreadLabel(t0) || PL_INSURERS[q0.insurerId].name} · ${q0.product}${note ? " · " + note : ""}`);
 
       if (plThresholdMet(out) && !out.followUpsStopped && !plReleasedQcr(out) && !plDraftQcr(out)) {
         out = { ...out, followUpsStopped: true, threads: out.threads.map((t) => ({ ...t, followUpsActive: false })) };
@@ -11777,16 +11829,23 @@ function makePlacementApi(setCases, say = () => {}) {
 
     /* Only the selected threads restart. Each gets a fresh quote-collection clock (PRD 8.4);
        everything else is untouched. The reason and the insurer list go to the audit trail. */
-    restartThreads: (id, insurerIds, reason) => patch(id, (c) => {
-      const names = insurerIds.map((i) => PL_INSURERS[i].name).join(", ");
-      const threads = c.threads.map((t) => !insurerIds.includes(t.insurerId) ? t : {
+    /* §11 · restart takes thread ids and hits only those. §10 · the RFQ
+       attach line rides on the restart event and audit. */
+    restartThreads: (id, threadIds, reason) => patch(id, (c) => {
+      const set = new Set(threadIds);
+      const touched = c.threads.filter((t) => set.has(t.id));
+      const attach = plRfqAttachLine(c);
+      const labels = touched.map(plThreadLabel).join(", ");
+      const threads = c.threads.map((t) => !set.has(t.id) ? t : {
         ...t, followUpsActive: true, followUps: 0, slaH: PL_THREAD_TARGET_H, paused: false,
         status: t.status === "acknowledged" ? "acknowledged" : "rfq_sent",
-        events: [...t.events, plEv(plStamp(), PL_ME.name, `Thread restarted - ${reason}`)],
+        events: [...t.events, plEv(plStamp(), PL_ME.name,
+          `Thread restarted - ${reason}${attach ? ` · RFQ re-sent (${attach})` : ""}`)],
       });
       const out = { ...c, stage: "market", followUpsStopped: false, threads,
-        rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: `Restarted ${names}` } : c.rmMoreQuotes };
-      return withLog(out, PL_ME.name, "PM", "Threads restarted", `${names} · ${reason}`);
+        rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: `Restarted ${labels}` } : c.rmMoreQuotes };
+      return withLog(out, PL_ME.name, "PM", "Threads restarted",
+        `${labels} · ${reason}${attach ? ` · RFQ re-sent (${attach})` : ""}`);
     }),
 
     toggleTask: (id, taskId) => patch(id, (c) => ({ ...c, tasks: c.tasks.map((t) => t.id === taskId ? { ...t, done: !t.done } : t) })),
@@ -15337,18 +15396,17 @@ function PlInsurersTab({ c, api }) {
             <PlChip tone="green" dot><Lock size={9} /> Locked</PlChip>
           </div>
           <div className="mt-3 space-y-1.5">
-            {c.panel.selected.map((id) => {
-              const t = plThreadOf(c, id);
-              return (
-                <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 550 }}>{PL_INSURERS[id].name}</div>
-                    <div style={{ fontSize: 11, color: PL_T.ink3 }}>{plPocOf(c, id)} · {PL_CONTACTS[id].branch}</div>
-                  </div>
-                  {t && <PlChip tone={PL_TSTAT[t.status].tone} dot>{PL_TSTAT[t.status].label}</PlChip>}
+            {/* §11 · One row per thread. Two contacts at one insurer are
+                two separate threads with independent SLA / status / history. */}
+            {(c.threads || []).map((t) => (
+              <div key={t.id} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 550 }}>{PL_INSURERS[t.insurerId].name}</div>
+                  <div style={{ fontSize: 11, color: PL_T.ink3 }}>{t.poc || plPocOf(c, t.insurerId)} · {PL_CONTACTS[t.insurerId].branch} · {t.id}</div>
                 </div>
-              );
-            })}
+                <PlChip tone={PL_TSTAT[t.status].tone} dot>{PL_TSTAT[t.status].label}</PlChip>
+              </div>
+            ))}
           </div>
         </PlCard>
         {c.panel.excluded.length > 0 && (
@@ -15368,24 +15426,67 @@ function PlInsurersTab({ c, api }) {
     );
   }
 
+  /* §9 · Manual tickets pick from the FULL Insurer Master; RM-Interface
+     cases keep their seeded recommend / notRecommended lists. */
+  const isMasterPick = c.insurerPick === "master";
+  const masterActiveIds = isMasterPick
+    ? Object.keys(PL_INSURERS).filter((id) => (PL_CONTACTS[id]?.status || "Active") === "Active")
+    : [];
+  const masterInactiveIds = isMasterPick
+    ? Object.keys(PL_INSURERS).filter((id) => PL_CONTACTS[id]?.status === "Do Not Float" || PL_CONTACTS[id]?.status === "Inactive")
+    : [];
+  const productShort = (code) => plProductType(code).short || code;
+  const appetiteChip = (insurerId, p) => (
+    <PlChip key={p} size="xs" tone={PL_INSURERS[insurerId].appetite.includes(p) ? "green" : "red"}>
+      {productShort(p)} {PL_INSURERS[insurerId].appetite.includes(p) ? "in appetite" : "not in appetite"}
+    </PlChip>
+  );
+
   return (
     <div className="space-y-3">
       <PlCard alt>
         <div className="flex gap-2">
           <Info size={13} color={PL_T.purpleDeep} style={{ marginTop: 1, flexShrink: 0 }} />
           <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.5 }}>
-            Recommendations explain why a market fits this risk. They do not rank or score insurers, and nothing is
-            approached until you approve the panel.
+            {isMasterPick
+              ? "Pick from the full Insurer Master. Appetite chips show which of this case's product types each insurer writes. Nothing is approached until you approve the panel."
+              : "Recommendations explain why a market fits this risk. They do not rank or score insurers, and nothing is approached until you approve the panel."}
           </div>
         </div>
       </PlCard>
 
       <PlCard pad={false}>
         <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Eligible markets</span>
-          <PlMono size={11} color={PL_T.ink3}>{c.recommend.length} in appetite</PlMono>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{isMasterPick ? "Insurer Master" : "Eligible markets"}</span>
+          <PlMono size={11} color={PL_T.ink3}>{isMasterPick ? `${masterActiveIds.length} insurers` : `${c.recommend.length} in appetite`}</PlMono>
         </div>
-        {c.recommend.map((r) => {
+        {isMasterPick ? masterActiveIds.map((id) => {
+          const on = c.panel.selected.includes(id);
+          return (
+            <div key={id} className="px-4 py-3 flex gap-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: on ? PL_T.purpleSoft : "transparent" }}>
+              <div className="pt-0.5">
+                <PlTick checked={on} onChange={() => api.togglePanel(c.id, id)} label="" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[id].name}</span>
+                  {c.products.map((p) => appetiteChip(id, p))}
+                </div>
+                <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>{PL_INSURERS[id].sectors}</div>
+              </div>
+              <div className="shrink-0" style={{ width: 168 }}>
+                <PlLabel>Primary POC</PlLabel>
+                <div className="mt-1">
+                  <PlMultiPicker value={plPocsOf(c, id)} onChange={(v) => api.setPoc(c.id, id, v)}
+                    options={PL_CONTACTS[id].alternates} width={168} />
+                </div>
+                {(c.insurerBranches?.[id]?.length || 0) > 1
+                  ? <div className="mt-1"><PlMenuPicker value={plBranchOf(c, id)} onChange={(v) => api.setBranch(c.id, id, v)} options={c.insurerBranches[id]} width={168} right /></div>
+                  : <div style={{ fontSize: 10.5, color: PL_T.ink3, marginTop: 3 }}>{plBranchOf(c, id)}</div>}
+              </div>
+            </div>
+          );
+        }) : c.recommend.map((r) => {
           const on = c.panel.selected.includes(r.id);
           return (
             <div key={r.id} className="px-4 py-3 flex gap-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: on ? PL_T.purpleSoft : "transparent" }}>
@@ -15395,11 +15496,7 @@ function PlInsurersTab({ c, api }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[r.id].name}</span>
-                  {c.products.map((p) => (
-                    <PlChip key={p} size="xs" tone={PL_INSURERS[r.id].appetite.includes(p) ? "green" : "red"}>
-                      {p} {PL_INSURERS[r.id].appetite.includes(p) ? "in appetite" : "not in appetite"}
-                    </PlChip>
-                  ))}
+                  {c.products.map((p) => appetiteChip(r.id, p))}
                 </div>
                 <ul className="mt-1.5 space-y-0.5">
                   {r.reasons.map((x, i) => (
@@ -15422,7 +15519,7 @@ function PlInsurersTab({ c, api }) {
             </div>
           );
         })}
-        {extra.map((id) => (
+        {!isMasterPick && extra.map((id) => (
           <div key={id} className="px-4 py-3 flex gap-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.purpleSoft }}>
             <div className="pt-0.5"><PlTick checked onChange={() => api.togglePanel(c.id, id)} label="" /></div>
             <div className="flex-1">
@@ -15444,27 +15541,52 @@ function PlInsurersTab({ c, api }) {
             </div>
           </div>
         ))}
-        <div className="px-4 py-2.5">
-          <PlBtn size="sm" onClick={() => setAddOpen(true)}>Add an insurer outside the recommendations</PlBtn>
-        </div>
+        {!isMasterPick && (
+          <div className="px-4 py-2.5">
+            <PlBtn size="sm" onClick={() => setAddOpen(true)}>Add an insurer outside the recommendations</PlBtn>
+          </div>
+        )}
       </PlCard>
 
-      {c.notRecommended.length > 0 && (
+      {(isMasterPick ? masterInactiveIds.length : c.notRecommended.length) > 0 && (
         <PlCard pad={false}>
           <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt, fontSize: 12.5, fontWeight: 600 }}>
             Not recommended
           </div>
-          {c.notRecommended.map((r) => (
-            <div key={r.id} className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.ink2 }}>{PL_INSURERS[r.id].name}</span>
-                <PlBtn variant="ghost" size="sm" onClick={() => api.togglePanel(c.id, r.id)}>Add anyway</PlBtn>
+          {isMasterPick ? masterInactiveIds.map((id) => {
+            const status = PL_CONTACTS[id]?.status || "Inactive";
+            const isDNF = status === "Do Not Float";
+            return (
+              <div key={id} className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.ink2 }}>{PL_INSURERS[id].name}</span>
+                  <PlBtn variant="ghost" size="sm" disabled
+                    title={isDNF ? "Marked Do Not Float on the Insurer Master" : `Marked ${status} on the Insurer Master`}>
+                    Add anyway
+                  </PlBtn>
+                </div>
+                <ul className="mt-0.5">
+                  <li style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>- Marked {status} on the Insurer Master.</li>
+                </ul>
               </div>
-              <ul className="mt-0.5">
-                {r.reasons.map((x, i) => <li key={i} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>- {x}</li>)}
-              </ul>
-            </div>
-          ))}
+            );
+          }) : c.notRecommended.map((r) => {
+            const isDNF = PL_CONTACTS[r.id]?.status === "Do Not Float";
+            return (
+              <div key={r.id} className="px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: 12.5, fontWeight: 550, color: PL_T.ink2 }}>{PL_INSURERS[r.id].name}</span>
+                  <PlBtn variant="ghost" size="sm"
+                    disabled={isDNF}
+                    title={isDNF ? "Marked Do Not Float on the Insurer Master" : undefined}
+                    onClick={isDNF ? undefined : () => api.togglePanel(c.id, r.id)}>Add anyway</PlBtn>
+                </div>
+                <ul className="mt-0.5">
+                  {r.reasons.map((x, i) => <li key={i} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>- {x}</li>)}
+                </ul>
+              </div>
+            );
+          })}
         </PlCard>
       )}
 
@@ -15486,31 +15608,78 @@ function PlInsurersTab({ c, api }) {
         </div>
       </PlCard>
 
-      {floatOpen && (
-        <PlModal title={`Float RFQ V${c.activeRfq}`} subtitle={`${c.id} · ${c.client.name}`} onClose={() => setFloatOpen(false)}
-          footer={<><PlBtn onClick={() => setFloatOpen(false)}>Cancel</PlBtn>
-            <PlBtn variant="primary" onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${c.panel.selected.length} insurers`); setFloatOpen(false); }}>
-              Float to {c.panel.selected.length} insurers
-            </PlBtn></>}>
-          <PlLabel>Product sections being floated</PlLabel>
-          <div className="mt-1.5 mb-4 flex gap-1.5">{c.products.map((p) => <PlChip key={p} tone="purple">{PL_PRODUCTS[p]}</PlChip>)}</div>
-          <PlLabel>Insurers</PlLabel>
-          <div className="mt-1.5 mb-4 space-y-1">
-            {c.panel.selected.map((id) => (
-              <div key={id} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
-                <span style={{ fontSize: 12.5 }}>{PL_INSURERS[id].name}</span>
-                <span style={{ fontSize: 11, color: PL_T.ink3 }}>{plPocOf(c, id)} · target 2 business days</span>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
-            <Info size={13} color={PL_T.ink2} style={{ marginTop: 1, flexShrink: 0 }} />
-            <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
-              The panel locks on float. Adding a market later is possible but is recorded as a separate action against RFQ V{c.activeRfq}.
-            </span>
-          </div>
-        </PlModal>
-      )}
+      {floatOpen && (() => {
+        const rfq = plActiveRfqOf(c);
+        const src = (rfq && rfq.source) || {};
+        const threadCount = c.panel.selected.reduce((n, id) => n + plPocsOf(c, id).length, 0);
+        const mand = c.meta.mandate;
+        return (
+          <PlModal title={`Float RFQ V${c.activeRfq}`} subtitle={`${c.id} · ${c.client.name}`} onClose={() => setFloatOpen(false)}
+            footer={<><PlBtn onClick={() => setFloatOpen(false)}>Cancel</PlBtn>
+              <PlBtn variant="primary" onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${threadCount} thread${threadCount === 1 ? "" : "s"}`); setFloatOpen(false); }}>
+                Float to {threadCount} thread{threadCount === 1 ? "" : "s"}
+              </PlBtn></>}>
+            <PlLabel>Product sections being floated</PlLabel>
+            <div className="mt-1.5 mb-4 flex flex-wrap gap-1.5">
+              {c.products.map((p) => <PlChip key={p} tone="purple">{plProductType(p).label}</PlChip>)}
+            </div>
+
+            <PlLabel>RFQ attached</PlLabel>
+            <div className="mt-1.5 mb-4 space-y-1">
+              {src.file && (
+                <div className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+                  <span className="flex items-center gap-2" style={{ fontSize: 12.5 }}>
+                    <Paperclip size={12} style={{ color: PL_T.ink3 }} />
+                    <span>{src.file.name}</span>
+                  </span>
+                  <span style={{ fontSize: 11, color: PL_T.ink3 }}>attached to every insurer mail</span>
+                </div>
+              )}
+              {src.link && (
+                <div className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+                  <span style={{ fontSize: 12.5, fontFamily: PL_MONO }}>{src.link.url}</span>
+                  <span style={{ fontSize: 11, color: PL_T.ink3 }}>in the body of every insurer mail</span>
+                </div>
+              )}
+              {!src.file && !src.link && (
+                <div className="rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border, fontSize: 11.5, color: PL_T.ink3 }}>
+                  No RFQ source on the case yet.
+                </div>
+              )}
+            </div>
+
+            <PlLabel>Insurers</PlLabel>
+            <div className="mt-1.5 mb-4 space-y-1">
+              {c.panel.selected.flatMap((id) => plPocsOf(c, id).map((poc) => (
+                <div key={`${id}::${poc}`} className="flex items-center justify-between rounded-lg border px-3 py-1.5" style={{ borderColor: PL_T.border }}>
+                  <span style={{ fontSize: 12.5 }}>{PL_INSURERS[id].name}</span>
+                  <span style={{ fontSize: 11, color: PL_T.ink3 }}>{poc} · own thread · target 2 business days</span>
+                </div>
+              )))}
+            </div>
+
+            {mand && (
+              <>
+                <PlLabel>Mandate on file</PlLabel>
+                <div className="mt-1.5 mb-4 rounded-lg border px-3 py-2"
+                  style={{ borderColor: PL_T.orangeLine, background: PL_T.orangeSoft }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.orange }}>{mand.type} · {mand.ref}</div>
+                  <div style={{ fontSize: 11.5, color: PL_T.ink2 }}>
+                    {mand.preferredInsurerId ? `Preferred: ${PL_INSURERS[mand.preferredInsurerId]?.name || mand.preferredInsurerId}` : "For information"}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="rounded-lg px-3 py-2 flex gap-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
+              <Info size={13} color={PL_T.ink2} style={{ marginTop: 1, flexShrink: 0 }} />
+              <span style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>
+                The panel locks on float. Adding a market later is possible but is recorded as a separate action against RFQ V{c.activeRfq}.
+              </span>
+            </div>
+          </PlModal>
+        );
+      })()}
 
       {addOpen && <PlAddInsurerModal c={c} api={api} onClose={() => setAddOpen(false)} />}
     </div>
@@ -15613,7 +15782,7 @@ function PlSimBtn({ onClick, children }) {
 }
 
 function PlMarketTab({ c, api, goTo }) {
-  const [open, setOpen] = useState(c.threads.find((t) => t.paused)?.insurerId || c.threads[0]?.insurerId || null);
+  const [open, setOpen] = useState(c.threads.find((t) => t.paused)?.id || c.threads[0]?.id || null);
   const [modal, setModal] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
 
@@ -15691,11 +15860,13 @@ function PlMarketTab({ c, api, goTo }) {
 
         {c.threads.map((t, rowIdx) => {
           const I = PL_INSURERS[t.insurerId];
-          const on = open === t.insurerId;
+          const on = open === t.id;
           const last = t.events[t.events.length - 1];
-          /* Filter live quotes to THIS insurer — plLiveQuotes returns the
-             whole case, so a bare `.some` would light up every row. */
-          const qs = plLiveQuotes(c).filter((q) => q.insurerId === t.insurerId);
+          /* §11 · Two contacts at one insurer = two threads. Filter to THIS
+             thread's quotes, not the insurer's. */
+          const qs = plLiveQuotes(c).filter((q) => q.threadId === t.id);
+          const showPocChip = plInsurerHasManyThreads(c, t.insurerId);
+          const pocFirst = (t.poc || "").split(" ")[0];
           const cl = t.clarifications[t.clarifications.length - 1];
           const logo = plInsurerLogo(I.name);
           const terminal = ["declined", "quote_usable", "quote_excluded"].includes(t.status);
@@ -15745,12 +15916,12 @@ function PlMarketTab({ c, api, goTo }) {
               break;
             case "no_response":
               action = t.followUpsActive && t.followUps < 3
-                ? { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } }
-                : { label: "Escalate", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`${I.name}: escalation flagged`); } };
+                ? { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.id); api.say(`Follow-up sent to ${I.name}`); } }
+                : { label: "Escalate", variant: "default", onClick: () => { api.followUp(c.id, t.id); api.say(`${I.name}: escalation flagged`); } };
               break;
             case "rfq_sent":
             case "acknowledged":
-              if (t.followUpsActive) action = { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } };
+              if (t.followUpsActive) action = { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.id); api.say(`Follow-up sent to ${I.name}`); } };
               break;
             default:
               action = null;
@@ -15758,8 +15929,8 @@ function PlMarketTab({ c, api, goTo }) {
 
           const notLast = rowIdx < c.threads.length - 1;
           return (
-            <div key={t.insurerId} style={{ borderBottom: (notLast || on) ? `1px solid ${PL_T.border}` : "none" }}>
-              <div onClick={() => setOpen(on ? null : t.insurerId)}
+            <div key={t.id} style={{ borderBottom: (notLast || on) ? `1px solid ${PL_T.border}` : "none" }}>
+              <div onClick={() => setOpen(on ? null : t.id)}
                 className="grid gap-2 items-center px-3 py-2.5 cursor-pointer"
                 style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px",
                   background: on ? PL_T.cardAlt : t.paused ? PL_T.orangeSoft : PL_T.card }}
@@ -15768,6 +15939,7 @@ function PlMarketTab({ c, api, goTo }) {
                   {logo
                     ? <img src={logo} alt={I.name} className="shrink-0" style={{ height: 24, width: "auto", maxWidth: 96, objectFit: "contain" }} />
                     : <span className="min-w-0 truncate" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{I.name}</span>}
+                  {showPocChip && <PlChip size="xs">{pocFirst}</PlChip>}
                   <PlChip size="xs" tone={followTone}>{followLabel}</PlChip>
                 </span>
                 <span><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
@@ -15785,7 +15957,7 @@ function PlMarketTab({ c, api, goTo }) {
               {on && (
                 <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.card }}>
                   <div>
-                    <PlLabel className="mb-2">Thread history</PlLabel>
+                    <PlLabel className="mb-2">Thread history · {t.id} · {t.poc || "—"}</PlLabel>
                     <div className="space-y-2 mt-2">
                       {t.events.map((e, i) => (
                         <div key={i} className="flex gap-2.5">
@@ -15847,20 +16019,20 @@ function PlMarketTab({ c, api, goTo }) {
                         </PlBtn>
                       )}
                       {["rfq_sent", "acknowledged", "no_response"].includes(t.status) && (
-                        <PlBtn size="sm" onClick={() => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); }}>
+                        <PlBtn size="sm" onClick={() => { api.followUp(c.id, t.id); api.say(`Follow-up sent to ${I.name}`); }}>
                           Send follow-up
                         </PlBtn>
                       )}
                       {qs.some((q) => !q.decision) && (
                         <PlBtn size="sm" variant="primary" onClick={() => goTo("quotes")}>Open quote</PlBtn>
                       )}
-                      <PlBtn size="sm" onClick={() => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
+                      <PlBtn size="sm" onClick={() => { api.logCall(c.id, t.id); api.say(`Call logged against ${I.name}`); }}>Log call</PlBtn>
                     </div>
 
                     <PlSimBlock title="Simulate insurer response">
                       {["ack", "clarify", "quote", "decline"].map((k) => (
                         <PlSimBtn key={k}
-                          onClick={() => { api.simulateInsurer(c.id, t.insurerId, k); api.say(`${I.name}: ${{ ack: "acknowledged", clarify: "raised a clarification", quote: "sent a quote", decline: "declined" }[k]}`); }}>
+                          onClick={() => { api.simulateInsurer(c.id, t.id, k); api.say(`${I.name}: ${{ ack: "acknowledged", clarify: "raised a clarification", quote: "sent a quote", decline: "declined" }[k]}`); }}>
                           {{ ack: "Acknowledged", clarify: "Clarification raised", quote: "Quote received", decline: "Declined" }[k]}
                         </PlSimBtn>
                       ))}
@@ -15889,9 +16061,9 @@ function PlThreadPicker({ c, picked, setPicked }) {
   return (
     <div className="space-y-1">
       {rows.map((t) => (
-        <PlTick key={t.insurerId} checked={picked.includes(t.insurerId)}
-          onChange={(v) => setPicked(v ? [...picked, t.insurerId] : picked.filter((x) => x !== t.insurerId))}
-          label={PL_INSURERS[t.insurerId].name}
+        <PlTick key={t.id} checked={picked.includes(t.id)}
+          onChange={(v) => setPicked(v ? [...picked, t.id] : picked.filter((x) => x !== t.id))}
+          label={plThreadLabel(t)}
           sub={`${PL_TSTAT[t.status].label}${PL_TSTAT[t.status].sub ? ` · ${PL_TSTAT[t.status].sub}` : ""} · ${t.followUps} follow-up${t.followUps === 1 ? "" : "s"} sent`} />
       ))}
     </div>
@@ -15926,9 +16098,9 @@ function PlHoldForRmModal({ c, t, api, onClose }) {
   const cl = t.clarifications[t.clarifications.length - 1];
   const [note, setNote] = useState(cl ? cl.question : "");
   return (
-    <PlModal title="Request information from RM" subtitle={`${PL_INSURERS[t.insurerId].name} · ${c.id}`} onClose={onClose}
+    <PlModal title="Request information from RM" subtitle={`${plThreadLabel(t)} · ${c.id}`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Pause} onClick={() => { api.holdForRm(c.id, t.insurerId, note); api.say(`Clock held for ${PL_INSURERS[t.insurerId].name}`); onClose(); }}>
+        <PlBtn variant="primary" icon={Pause} onClick={() => { api.holdForRm(c.id, t.id, note); api.say(`Clock held for ${PL_INSURERS[t.insurerId].name}`); onClose(); }}>
           Send and hold the clock
         </PlBtn></>}>
       <PlLabel>What to ask {c.client.rm}</PlLabel>
@@ -15949,7 +16121,7 @@ function PlSimThreadRmModal({ c, t, api, onClose }) {
   return (
     <PlModal title="Simulate RM response" subtitle="Prototype control - stands in for the RM Interface™" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Check} onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
+        <PlBtn variant="primary" icon={Check} onClick={() => { api.rmAnswered(c.id, t.id, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
       <PlLabel>Response from {c.client.rm}</PlLabel>
       <div className="mt-1.5"><PlTextArea value={text} onChange={setText} rows={3} /></div>
     </PlModal>
@@ -15960,9 +16132,9 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
   const cl = t.clarifications[t.clarifications.length - 1];
   const [text, setText] = useState(`Thanks for the note. ${cl?.rmResponse || "The requested information is attached."} Please revert with terms at your earliest.`);
   return (
-    <PlModal title={`Reply to ${PL_INSURERS[t.insurerId].name}`} subtitle={`${c.id} · resumes the insurer SLA`} onClose={onClose}
+    <PlModal title={`Reply to ${plThreadLabel(t)}`} subtitle={`${c.id} · resumes the insurer SLA`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Play} onClick={() => { api.replyToInsurer(c.id, t.insurerId, text); api.say(`Reply sent - clock resumed at ${plFmtH(t.slaH)}`); onClose(); }}>
+        <PlBtn variant="primary" icon={Play} onClick={() => { api.replyToInsurer(c.id, t.id, text); api.say(`Reply sent - clock resumed at ${plFmtH(t.slaH)}`); onClose(); }}>
           Send reply and resume clock
         </PlBtn></>}>
       <PlLabel>Reply</PlLabel>
@@ -16033,6 +16205,9 @@ function PlQuotesTab({ c, api }) {
             : t.quote.decision ? PL_DECISION_CHIP[t.quote.decision].tone
               : "purple";
           const dotColor = t.counted ? PL_T.green : statusTone ? PL_TONES[statusTone].fg : PL_T.ink3;
+          const qThread = plThreadById(c, t.quote.threadId);
+          const showPoc = plInsurerHasManyThreads(c, t.insurerId);
+          const pocFirst = qThread ? (qThread.poc || "").split(" ")[0] : "";
           return (
             <button key={t.id} onClick={() => setSel(t.id)} disabled={dead}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors"
@@ -16046,6 +16221,7 @@ function PlQuotesTab({ c, api }) {
               }}>
               <span className="rounded-full" style={{ width: 6, height: 6, background: on ? "#fff" : dotColor }} />
               <span>{PL_INSURERS[t.insurerId].name}</span>
+              {showPoc && pocFirst && <span style={{ opacity: on ? 0.85 : 0.6, fontWeight: 500 }}>· {pocFirst}</span>}
               {showVer && <span style={{ opacity: on ? 0.8 : 0.55, fontWeight: 500 }}>V{t.quote.version}</span>}
             </button>
           );
@@ -16985,22 +17161,44 @@ function plMailFrom(actor, actorType, ins) {
 function plMailsForThread(c, thread) {
   const insurer = thread.insurerId ? PL_INSURERS[thread.insurerId] : null;
   const products = c.products.map((p) => PL_PRODUCTS[p] || p).join(" · ");
+  const pocContact = thread.poc || null;
   return (thread.events || []).map((ev) => {
-    const outbound = ev.actorType === "PM" || (ev.actorType === "System" && /sent|floated|follow-up/i.test(ev.event));
+    /* Thread events use plEv shape ({at, actor, text}) — audit rows use
+       plAu shape ({event, detail, actorType}). Handle both so the RM
+       pseudo-thread (built from `audit`) and real insurer threads
+       render alike. */
+    const event = ev.event || ev.text || "";
+    const actorType = ev.actorType
+      || (ev.actor === "System" ? "System"
+        : ev.actor === "Insurer" ? "Insurer"
+        : "PM");
+    const outbound = actorType === "PM" || (actorType === "System" && /sent|floated|follow-up|restarted/i.test(event));
     const subject = insurer
       ? `${c.id} · ${insurer.name} · ${products}`
       : `${c.id} · ${c.client.name} · RFQ / QCR`;
+    /* §10 · Insurer threads carry the RFQ on their float / restart events. */
+    const atts = (insurer && /floated|restarted/i.test(event))
+      ? plRfqAttachNames(c, thread.rfqV || c.activeRfq)
+      : [];
+    const toLine = outbound
+      ? (insurer
+          ? (pocContact
+            ? `${pocContact} <${(insurer.name || "").toLowerCase().replace(/[^a-z]/g, "")}.underwriting@${(insurer.name || "insurer").toLowerCase().replace(/[^a-z]+/g, "")}.com>`
+            : plMailFrom("Insurer", "Insurer", insurer))
+          : plMailFrom("RM", "RM", null))
+      : null;
     return {
       at: ev.at,
       actor: ev.actor,
-      actorType: ev.actorType,
+      actorType,
       dir: outbound ? "out" : "in",
-      who: plMailFrom(ev.actor, ev.actorType, insurer),
-      to: outbound ? plMailFrom(insurer ? "Insurer" : "RM", insurer ? "Insurer" : "RM", insurer) : null,
-      name: ev.actorType === "Insurer" ? (insurer?.name || "Insurer") : ev.actor,
+      who: plMailFrom(ev.actor, actorType, insurer),
+      to: toLine,
+      name: actorType === "Insurer" ? (insurer?.name || "Insurer") : ev.actor,
       subject,
-      body: ev.detail ? `${ev.event}\n\n${ev.detail}` : ev.event,
-      att: 0,
+      body: ev.detail ? `${event}\n\n${ev.detail}` : event,
+      atts,
+      att: atts.length,
     };
   });
 }
@@ -17020,7 +17218,7 @@ function PlMailTab({ c }) {
     const ins = PL_INSURERS[t.insurerId];
     const poc = t.poc || plPocOf(c, t.insurerId);
     return {
-      key: `${t.insurerId}::${poc}`,
+      key: t.id,   /* §11 · pills key by the thread's own id */
       label: `${(ins?.name || t.insurerId).split(" ")[0]}${poc ? ` · ${poc.split(" ")[0]}` : ""}`,
       short: `${ins?.name || t.insurerId}${poc ? ` — ${poc}` : ""}`,
       mails: plMailsForThread(c, t),
@@ -17046,7 +17244,8 @@ function PlMailTab({ c }) {
   const query = q.trim().toLowerCase();
   const shown = (activeThread.mails || []).filter((m) => {
     if (!query) return true;
-    return [m.subject, m.body, m.name, m.who, m.to].filter(Boolean).join(" ").toLowerCase().includes(query);
+    const attNames = (m.atts || []).join(" ");
+    return [m.subject, m.body, m.name, m.who, m.to, attNames].filter(Boolean).join(" ").toLowerCase().includes(query);
   });
   const Mark = ({ name, kind }) => {
     const bg = kind === "in" && /Insurer|Lombard|Ergo|Bajaj|Tata|AIG|New India|Digit|SBI|Chola|Reliance|Liberty|Care|Star|Sompo|Oriental/.test(name)
@@ -17101,6 +17300,16 @@ function PlMailTab({ c }) {
                 </div>
                 <div className="mt-2" style={{ fontSize: 14, fontWeight: 600, color: PL_T.ink }}>{m.subject}</div>
                 <div className="mt-1 whitespace-pre-line" style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.6, color: PL_T.ink }}>{m.body}</div>
+                {(m.atts || []).length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {m.atts.map((name, ai) => (
+                      <PlChip key={ai} size="xs">
+                        <Paperclip size={10} style={{ marginRight: 3 }} />
+                        {name}
+                      </PlChip>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             {i < shown.length - 1 && <div className="bk-rule my-4 opacity-40" aria-hidden />}
