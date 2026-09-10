@@ -9924,7 +9924,7 @@ const PL_RM_AVATARS = {
 };
 const plRmAvatar = (name) => PL_RM_AVATARS[name] || null;
 
-const PL_HEAD_ESCALATED_IDS = new Set(["PC-1024", "PC-1028", "PC-1029"]);
+const PL_HEAD_ESCALATED_IDS = new Set(["PC-1024", "PC-1028", "PC-1029", "PC-1035"]);
 const plExecOf = (c) => {
   if (c.owner && PL_EXECS[c.owner]) return PL_EXECS[c.owner];
   if (PL_HEAD_ESCALATED_IDS.has(c.id)) return PL_EXECS.himani;
@@ -11079,7 +11079,357 @@ function plNormalizeSeed(c) {
   };
 }
 
-const PL_ALL_CASES = PL_SEED.concat(PL_SEED_B, PL_SEED_C).map(plNormalizeSeed);
+/* §3 · Split the six seeded two-product tickets. The first product
+   stays on the original id; the second migrates to a sibling id and
+   keeps its own quotes, threads, QCR and thread history. Runs after
+   plNormalizeSeed so thread ids, RFQ sources and Copycat results are
+   already stamped. */
+const PL_SEED_SPLITS = {
+  "PC-1024": "PC-1035", "PC-1025": "PC-1036", "PC-1026": "PC-1037",
+  "PC-1027": "PC-1038", "PC-1031": "PC-1039", "PC-1034": "PC-1040",
+};
+
+/* Case-specific overrides (§3.4). Each is a function
+   `(sibling, original) => sibling` applied AFTER the generic split so
+   the surgical tweaks (PC-1039's seeded D&O quotes + QCR, PC-1037's
+   task, PC-1038's status recompute) sit in one place. */
+const PL_SEED_SPLIT_OVERRIDES = {};
+
+function plSeedTextNamesOnlyOther(text, myProd, otherProd) {
+  const t = String(text || "").toLowerCase();
+  const my = plProductType(myProd);
+  const other = plProductType(otherProd);
+  const mine = new Set([my.short, my.label, ...(my.aliases || [])].map((s) => s.toLowerCase()));
+  const mentionsOther = [other.short, other.label, ...(other.aliases || [])].some((s) => t.includes(s.toLowerCase()));
+  const mentionsMine = [...mine].some((s) => t.includes(s));
+  return mentionsOther && !mentionsMine;
+}
+
+function plSplitSeedByProduct(c, newId) {
+  if (!c.products || c.products.length < 2) return [c];
+  const [prodA, prodB] = c.products;
+
+  const gapProductOf = (label) => {
+    const hits = plMatchProductTypes(label);
+    if (hits.length === 1) return hits[0];
+    return null;
+  };
+
+  const buildFor = (id, myProd, otherProd) => {
+    // §3.2.2 · RFQ versions. Each ticket keeps every version; sections
+    // scoped to my product; missing gaps scoped when they name only the
+    // other product; rmThread rewritten to keep only the remaining gap ids.
+    const rfqs = (c.rfqs || []).map((r) => {
+      const sections = (r.sections || []).filter((s) => s.product === myProd);
+      const missing = (r.missing || []).filter((g) => {
+        const p = gapProductOf(g.label);
+        return p == null || p === myProd;
+      });
+      const remainingIds = new Set(missing.map((g) => g.id));
+      const rmThread = (r.rmThread || [])
+        .map((t) => ({ ...t, items: (t.items || []).filter((mid) => remainingIds.has(mid)) }))
+        .filter((t) => (t.items || []).length > 0);
+      return { ...r, sections, missing, rmThread };
+    });
+
+    // §3.2.4 · Threads. Copy to both; the sibling gets its own TH ids in
+    // original order; drop events that name only the other product.
+    const isSibling = id === newId;
+    const threads = (c.threads || []).map((t, i) => {
+      const events = (t.events || []).filter((e) => !plSeedTextNamesOnlyOther(e.text, myProd, otherProd));
+      return {
+        ...t,
+        id: isSibling ? `TH-${String(i + 1).padStart(2, "0")}` : t.id,
+        events,
+      };
+    });
+
+    // §3.2.5 · Quotes for this product; remap threadId from original TH id
+    // to the equivalent thread on this ticket by list position.
+    const oldIdxOf = (tid) => (c.threads || []).findIndex((x) => x.id === tid);
+    const quotes = (c.quotes || [])
+      .filter((q) => q.product === myProd)
+      .map((q) => {
+        const i = oldIdxOf(q.threadId);
+        return { ...q, threadId: i >= 0 ? threads[i].id : q.threadId };
+      });
+
+    // §3.2.4 · Thread status recompute for the four quote-* statuses.
+    const quoteStatuses = new Set(["quote_received", "quote_usable", "quote_clarification", "quote_excluded"]);
+    const threadsWithStatus = threads.map((t) => {
+      const my = quotes.filter((q) => q.threadId === t.id && q.decision !== "superseded");
+      if (quoteStatuses.has(t.status)) {
+        if (my.some((q) => q.decision === "usable"))       return { ...t, status: "quote_usable" };
+        if (my.some((q) => q.decision === "clarification")) return { ...t, status: "quote_clarification" };
+        if (my.some((q) => q.decision === "excluded"))     return { ...t, status: "quote_excluded" };
+        if (my.length > 0)                                   return { ...t, status: "quote_received" };
+        return { ...t, status: "acknowledged" };
+      }
+      // Exception: if the event that set the current status names only
+      // the other product, fall back to acknowledged.
+      const last = (t.events || [])[(t.events || []).length - 1];
+      if (last && plSeedTextNamesOnlyOther(last.text, myProd, otherProd)) return { ...t, status: "acknowledged" };
+      return t;
+    });
+
+    // §3.2.6 · QCRs. Filter to my quotes and product.
+    const myQuoteIds = new Set(quotes.map((q) => q.id));
+    const qcrs = (c.qcrs || [])
+      .map((q) => {
+        const cc = q.copycat || {};
+        const documents = (cc.documents || []).filter((d) => myQuoteIds.has(d.quoteId) && d.product === myProd);
+        const result = cc.result
+          ? { ...cc.result, products: (cc.result.products || []).filter((p) => p.product === myProd)
+              .map((p) => ({ ...p, columns: (p.columns || []).filter((col) => myQuoteIds.has(col.quoteId)) })) }
+          : cc.result;
+        const quoteIds = (q.quoteIds || []).filter((qid) => myQuoteIds.has(qid));
+        return { ...q, quoteIds, copycat: { ...cc, documents, result } };
+      })
+      .filter((q) => (q.quoteIds || []).length > 0);
+
+    // §3.2.7 · Tasks. Keep those that name my product on both; those
+    // naming the other stay on the original only.
+    const tasks = (c.tasks || []).filter((t) => !plSeedTextNamesOnlyOther(t.label || t.text || "", myProd, otherProd));
+
+    // §3.2.8 · Audit. Drop entries whose detail names only the other product.
+    const audit = (c.audit || []).filter((a) => {
+      const combined = `${a.event || ""} ${a.detail || ""}`;
+      return !plSeedTextNamesOnlyOther(combined, myProd, otherProd);
+    });
+
+    // §3.2.3 · Panel + recommend/notRecommended. Exclusions naming only
+    // the other product stay on the original; recommend reasons keep
+    // whichever reasons don't only name the other product.
+    const cleanReasons = (arr) => (arr || []).map((r) => ({
+      ...r,
+      reasons: (r.reasons || []).filter((reason) => !plSeedTextNamesOnlyOther(reason, myProd, otherProd)),
+    })).filter((r) => (r.reasons || []).length > 0);
+    const panel = c.panel ? {
+      ...c.panel,
+      selected: [...(c.panel.selected || [])],
+      excluded: (c.panel.excluded || []).filter((e) => !plSeedTextNamesOnlyOther(e.reason || "", myProd, otherProd)),
+    } : c.panel;
+    const recommend = cleanReasons(c.recommend);
+    const notRecommended = cleanReasons(c.notRecommended);
+
+    // §3.2.9 · Outcome. Reword "on both sections" and similar plural
+    // phrasing to singular; the sibling handoffRef bumps by one on
+    // PC-1031 → PC-1039 (§3.4 override handles the exact ref).
+    let outcome = c.outcome ? { ...c.outcome } : null;
+    if (outcome && outcome.reason) {
+      outcome.reason = outcome.reason
+        .replace(/ on both sections\.?/i, ".")
+        .replace(/\bboth sections\b/gi, "the placement");
+    }
+
+    // §3.2.10 · Meta. Sibling zeroes targetPremium and mandate.
+    const meta = { ...(c.meta || {}) };
+    if (isSibling) {
+      meta.targetPremium = null;
+      meta.mandate = null;
+    }
+
+    // §3.2.11 · Ownership. PL_HEAD_ESCALATED_IDS handled globally below.
+
+    return {
+      ...c,
+      id,
+      products: [myProd],
+      rfqs,
+      threads: threadsWithStatus,
+      threadSeq: threadsWithStatus.length,
+      quotes,
+      qcrs,
+      tasks,
+      audit,
+      panel,
+      recommend,
+      notRecommended,
+      outcome,
+      meta,
+      linkedTickets: [], // §3.5 sets the one linked pair after the split
+    };
+  };
+
+  const original = buildFor(c.id, prodA, prodB);
+  const sibling = buildFor(newId, prodB, prodA);
+  return [original, sibling];
+}
+
+/* §3.4 · PC-1038 (GPA, from PC-1027). Stage market with a single
+   usable ICICI quote; the other threads become acknowledged. */
+PL_SEED_SPLIT_OVERRIDES["PC-1038"] = (sibling) => {
+  const stage = "market";
+  const threads = (sibling.threads || []).map((t) => {
+    if (PL_INSURERS[t.insurerId]?.name === "ICICI Lombard") return { ...t, status: "quote_usable" };
+    if (t.status === "declined") return t;
+    return { ...t, status: "acknowledged" };
+  });
+  const tasks = [{ id: "t-gpa-chase", label: "Chase insurers for GPA quotes", due: "Today", owner: "You", done: false }];
+  return { ...sibling, stage, threads, tasks };
+};
+
+/* §3.4 · PC-1037 (CGL, from PC-1026). The task about warehouse
+   fire-safety certificates moves here; the ICICI thread is
+   acknowledged (its only quote was Marine). */
+PL_SEED_SPLIT_OVERRIDES["PC-1037"] = (sibling) => {
+  const threads = (sibling.threads || []).map((t) => {
+    if (PL_INSURERS[t.insurerId]?.name === "ICICI Lombard") return { ...t, status: "acknowledged" };
+    return t;
+  });
+  const carriedTask = { id: "t-cgl-warehouse", label: "Chase RM for warehouse fire-safety certificates", due: "Today", owner: "You", done: false };
+  return { ...sibling, threads, tasks: [...(sibling.tasks || []), carriedTask] };
+};
+
+/* §3.4 · Also strip that same task from PC-1026 after the split. */
+PL_SEED_SPLIT_OVERRIDES["PC-1026"] = (original) => ({
+  ...original,
+  tasks: (original.tasks || []).filter((t) => !/warehouse fire-safety/i.test(t.label || t.text || "")),
+});
+
+/* §3.4 · PC-1039 (DNO, from PC-1031). Its outcome says Tata was
+   selected on both sections, but PC-1031 had no D&O quotes seeded.
+   Add three D&O quotes (Tata usable → selected, ICICI usable, Bajaj
+   usable), a released QCR V1, and re-scope the outcome. Also rewrite
+   the original PC-1031 outcome reason to the singular form. */
+PL_SEED_SPLIT_OVERRIDES["PC-1039"] = (sibling) => {
+  const findInsurer = (name) => Object.entries(PL_INSURERS).find(([_, v]) => v.name === name)?.[0];
+  const tataId = findInsurer("Tata AIG"), iciciId = findInsurer("ICICI Lombard"), bajajId = findInsurer("Bajaj Allianz");
+  const threadIdFor = (insurerId) => (sibling.threads || []).find((t) => t.insurerId === insurerId)?.id || null;
+
+  const baseFields = [
+    { key: "premium",  label: "Annual premium (incl. GST)", kind: "money", required: true, page: "p.2" },
+    { key: "si",       label: "Sum insured",                             required: true, page: "p.1" },
+    { key: "retention",label: "Retention",                                            required: true, page: "p.1" },
+    { key: "basis",    label: "Basis",                                                required: true, page: "p.1" },
+    { key: "ext",      label: "Extensions",                                           page: "p.1" },
+    { key: "terr",     label: "Territory",                                            page: "p.1" },
+    { key: "validity", label: "Quote validity",                                       required: true, page: "p.3" },
+    { key: "excl",     label: "Key exclusions",                                       page: "p.3" },
+  ];
+  const mk = (id, insurerId, values, doc, receivedAt, decision, decisionAt) => ({
+    id, insurerId, threadId: threadIdFor(insurerId), rfqV: 1, version: 1, product: "DNO",
+    doc, receivedAt, decision, decisionAt,
+    fields: baseFields.map((f) => ({ ...f, value: values[f.key] ?? "", confidence: "high" })),
+  });
+
+  const quotes = [
+    mk("Q-DNO-1", tataId,
+      { premium: 945000, si: 50000000, retention: 1000000, basis: "Claims-made",
+        ext: "Side A DIC, regulatory investigation costs",
+        terr: "Worldwide excl. US/Canada", validity: "30 days from 19 Jul 2026",
+        excl: "Prior and pending litigation" },
+      "Tata_DNO_Quote_v1.pdf", "19 Jul, 14:00", "usable", "21 Jul, 10:00"),
+    mk("Q-DNO-2", iciciId,
+      { premium: 1010000, si: 50000000, retention: 1000000, basis: "Claims-made",
+        ext: "Side A DIC",
+        terr: "Worldwide excl. US/Canada", validity: "30 days from 22 Jul 2026",
+        excl: "Prior and pending litigation" },
+      "ICICI_DNO_Quote_v1.pdf", "22 Jul, 11:00", "usable", "24 Jul, 09:30"),
+    mk("Q-DNO-3", bajajId,
+      { premium: 920000, si: 50000000, retention: 2500000, basis: "Claims-made",
+        ext: "Side A DIC, EPL sub-limit",
+        terr: "India only", validity: "21 days from 26 Jul 2026",
+        excl: "Prior and pending litigation" },
+      "Bajaj_DNO_Quote_v1.pdf", "26 Jul, 15:30", "usable", "28 Jul, 11:00"),
+  ];
+
+  // Bump the three threads to quote_usable
+  const threads = (sibling.threads || []).map((t) => {
+    if (quotes.some((q) => q.threadId === t.id)) return { ...t, status: "quote_usable" };
+    return t;
+  });
+
+  // Released QCR V1. plNormalizeSeed's post-run has already added the
+  // Copycat block on released seed QCRs — but this QCR is new so we
+  // stamp a matching minimal block so PlQcrDocument has something to
+  // render. Copycat's real data is filled by the same fmt helper the
+  // seed pipeline uses; keep it simple with the values we just wrote.
+  const cols = quotes.map((q) => ({
+    quoteId: q.id, insurerId: q.insurerId,
+    insurer: PL_INSURERS[q.insurerId]?.name || q.insurerId,
+    contact: (threads.find((t) => t.id === q.threadId)?.poc) || "",
+    version: q.version, receivedAt: q.receivedAt, fileName: q.doc,
+  }));
+  const rows = baseFields.map((f) => ({
+    term: f.label,
+    values: quotes.map((q) => {
+      const val = q.fields.find((x) => x.key === f.key)?.value ?? "";
+      const raw = String(val).trim();
+      if (raw === "") return null;
+      if (f.kind === "money") {
+        const n = Number(val);
+        return isNaN(n) ? raw : `₹ ${n.toLocaleString("en-IN")}`;
+      }
+      return String(val);
+    }),
+  }));
+  const qcr = {
+    v: 1, status: "released", rfqV: 1,
+    quoteIds: quotes.map((q) => q.id),
+    releasedAt: "05 Aug, 09:15", releasedBy: "Bhupendra Singh", sentTo: "Shubh Bangar (RM)",
+    copycat: {
+      status: "ready",
+      generatedAt: "05 Aug, 09:00",
+      documents: quotes.map((q) => ({
+        quoteId: q.id, insurerId: q.insurerId,
+        insurer: PL_INSURERS[q.insurerId]?.name || q.insurerId,
+        contact: cols.find((c) => c.quoteId === q.id)?.contact || "",
+        product: "DNO", version: q.version, fileName: q.doc,
+      })),
+      result: {
+        qcrId: "CC-QCR-PC-1039-V1",
+        generatedAt: "05 Aug, 09:00",
+        file: { name: "QCR_PC-1039_V1.pdf" },
+        products: [{ product: "DNO", columns: cols, rows }],
+      },
+    },
+  };
+
+  const outcome = {
+    type: "quote_selected",
+    reason: "Client selected Tata AIG. Handed off to RM / Policy Journey on 05 Aug.",
+    at: sibling.outcome?.at || "04 Aug, 16:45",
+    by: sibling.outcome?.by || "Shubh Bangar (RM)",
+    insurerId: tataId,
+    handoffRef: "ISS-8842",
+  };
+
+  return { ...sibling, quotes, qcrs: [qcr], threads, outcome };
+};
+
+/* §3.4 · Also rewrite PC-1031's outcome reason to the singular. */
+PL_SEED_SPLIT_OVERRIDES["PC-1031"] = (original) => {
+  if (!original.outcome) return original;
+  return {
+    ...original,
+    outcome: {
+      ...original.outcome,
+      reason: "Client selected Tata AIG. Handed off to RM / Policy Journey on 05 Aug.",
+    },
+  };
+};
+
+/* §3.5 · The one linked example: PC-1024 ↔ PC-1035. Other splits are
+   NOT linked per spec. */
+const PL_SEED_LINKED_PAIRS = { "PC-1024": [{ id: "PC-1035", reason: "Same RFQ" }],
+                               "PC-1035": [{ id: "PC-1024", reason: "Same RFQ" }] };
+
+/* Pipeline: seeds → plNormalizeSeed → flatMap through the split
+   registry → apply overrides → attach linkedTickets. */
+const PL_ALL_CASES = (() => {
+  const normalised = PL_SEED.concat(PL_SEED_B, PL_SEED_C).map(plNormalizeSeed);
+  const split = normalised.flatMap((c) => {
+    const newId = PL_SEED_SPLITS[c.id];
+    if (!newId) return [{ ...c, linkedTickets: [] }];
+    return plSplitSeedByProduct(c, newId);
+  });
+  return split.map((c) => {
+    const withOverride = PL_SEED_SPLIT_OVERRIDES[c.id] ? PL_SEED_SPLIT_OVERRIDES[c.id](c) : c;
+    const linkedTickets = PL_SEED_LINKED_PAIRS[c.id] || withOverride.linkedTickets || [];
+    return { ...withOverride, linkedTickets };
+  });
+})();
 
 /* seeded cases join mid-SLA: the seeded minutes are what is left on the clock they are on today */
 const plSeedSla = (c) => {
