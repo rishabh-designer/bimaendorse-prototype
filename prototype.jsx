@@ -15807,8 +15807,8 @@ function PlRequestMandateModal({ c, api, prefill, onClose }) {
     const usable = new Set(plUsableInsurers(c));
     const panel = new Set(c.panel?.selected || []);
     const active = Object.entries(PL_INSURERS).filter(([id]) => {
-      const contacts = (PL_CONTACTS && PL_CONTACTS[id]) || [];
-      return contacts.some((k) => (k.status || "Active") === "Active");
+      const contact = (PL_CONTACTS && PL_CONTACTS[id]) || null;
+      return contact && (contact.status || "Active") === "Active";
     }).map(([id]) => id);
     const seen = new Set();
     const out = [{ value: "", label: "No preference yet" }];
