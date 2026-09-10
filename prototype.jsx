@@ -10970,6 +10970,10 @@ const PL_RFQ_LINK_CASES = new Set(["PC-1024", "PC-1026", "PC-1028", "PC-1030", "
 /* §16.5 structural normalisation applied to every seed case at assembly. */
 function plNormalizeSeed(c) {
   const meta = { ...PL_CASE_META[c.id] };
+  /* §1 · Target Premium: pass every seed value through the shared
+     normaliser so nulls stay null and any legacy strings become
+     integers. Valid numbers round-trip unchanged. */
+  meta.targetPremium = plNormTargetPremium(meta.targetPremium);
   const isLink = PL_RFQ_LINK_CASES.has(c.id);
   const createdVia = isLink ? "rm_interface" : "manual";
   const createdBy = isLink ? null : "Bhupendra Singh";
@@ -11769,9 +11773,28 @@ function plCurrentSla(c) {
 
 function plTargetFlag(c, premium) {
   const t = c.meta && c.meta.targetPremium;
-  if (!t) return { label: "Target Not Available", tone: "neutral" };
-  if (premium == null) return { label: "Target Not Available", tone: "neutral" };
+  if (!t || typeof t !== "number") return { label: "Target Not Available", tone: "neutral" };
+  if (premium == null || typeof premium !== "number") return { label: "Target Not Available", tone: "neutral" };
   return premium <= t ? { label: "Target Met", tone: "green" } : { label: "Above Target", tone: "orange" };
+}
+
+/* §1 · Target Premium normaliser. Accepts null / undefined / ""
+   → null, numbers > 0 → Math.round, strings with common Indian
+   currency shorthand ("₹78 L", "1.2 Cr", "78,00,000"). Anything
+   unparseable or ≤ 0 returns null. Used by every writer of
+   c.meta.targetPremium. */
+function plNormTargetPremium(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return isFinite(v) && v > 0 ? Math.round(v) : null;
+  if (typeof v !== "string") return null;
+  const raw = v.replace(/₹|,|\s/g, "").trim();
+  if (!raw) return null;
+  const mL = /^([\d.]+)(l|lac|lakh|lakhs)$/i.exec(raw);
+  if (mL) { const n = parseFloat(mL[1]); return isFinite(n) && n > 0 ? Math.round(n * 100000) : null; }
+  const mCr = /^([\d.]+)(cr|crore|crores)$/i.exec(raw);
+  if (mCr) { const n = parseFloat(mCr[1]); return isFinite(n) && n > 0 ? Math.round(n * 10000000) : null; }
+  const n = parseFloat(raw);
+  return isFinite(n) && n > 0 ? Math.round(n) : null;
 }
 
 /* ==================================================================== *
@@ -12061,7 +12084,7 @@ function makePlacementApi(setCases, say = () => {}) {
         meta: {
           caseType: d.meta.caseType,
           urgency: d.meta.urgency || "Medium",
-          targetPremium: d.meta.targetPremium == null ? null : Number(d.meta.targetPremium),
+          targetPremium: plNormTargetPremium(d.meta.targetPremium),
           mandate: null,
           incumbent: d.meta.incumbent || null,
           slaLeftMins: PL_SLA_MASTER["SLA-02"].mins,
@@ -13269,7 +13292,7 @@ function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
       meta: {
         caseType,
         urgency,
-        targetPremium: target ? Number(String(target).replace(/[^\d.]/g, "")) : null,
+        targetPremium: plNormTargetPremium(target),
         incumbent: incumbent || null,
       },
       renewal: asDdMonYyyy(renewal),
