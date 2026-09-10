@@ -11471,6 +11471,58 @@ PL_SEED_SPLIT_OVERRIDES["PC-1031"] = (original) => {
 const PL_SEED_LINKED_PAIRS = { "PC-1024": [{ id: "PC-1035", reason: "Same RFQ" }],
                                "PC-1035": [{ id: "PC-1024", reason: "Same RFQ" }] };
 
+/* §4 · Seeded mandate-request history. Stamped by plNormalizeSeed on
+   the three cases the spec calls out. Declared here (above
+   PL_ALL_CASES) so it is initialised before plNormalizeSeed is
+   invoked by the seed pipeline. */
+const PL_SEED_MANDATE_REQUESTS = {
+  "PC-1026": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "signed",
+    requestedBy: "Bhupendra Singh",
+    requestedByKey: "bhupendra",
+    requestedAt: "15 Aug, 17:10",
+    to: "Shubh Bangar",
+    preferredInsurerId: "bajaj",
+    reason: "Client relies on our market view",
+    message: "Hi Shubh, please ask Meridian to give us an Exclusive Placement Mandate for Marine Open. Bajaj Allianz is our recommendation.",
+    reminders: [],
+    responses: [{ at: "16 Aug, 09:00", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
+    closedAt: "16 Aug, 09:00",
+  }],
+  "PC-1031": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "signed",
+    requestedBy: "Himani Doshi",
+    requestedByKey: "himani",
+    requestedAt: "03 Aug, 11:00",
+    to: "Shubh Bangar",
+    preferredInsurerId: null,
+    reason: "Several comparable quotes - client wants us to choose",
+    message: "Hi Shubh, we have three comparable D&O quotes and Orbit has asked us to make the call. Could we get an Exclusive Placement Mandate?",
+    reminders: [],
+    responses: [{ at: "03 Aug, 15:30", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
+    closedAt: "03 Aug, 15:30",
+  }],
+  "PC-1027": [{
+    id: "MR-01",
+    type: "Exclusive Placement Mandate",
+    status: "considering",
+    requestedBy: "Bhupendra Singh",
+    requestedByKey: "bhupendra",
+    requestedAt: "26 Aug, 10:20",
+    to: "Shubh Bangar",
+    preferredInsurerId: "hdfc",
+    reason: "Client relies on our market view",
+    message: "Hi Shubh, could you ask Kalpataru for an Exclusive Placement Mandate for the GMC placement? HDFC ERGO is our recommendation.",
+    reminders: [{ at: "28 Aug, 09:15", by: "Bhupendra Singh" }],
+    responses: [{ at: "28 Aug, 16:40", actor: "Shubh Bangar", kind: "considering", note: "Client's CFO is reviewing; expect an answer Monday." }],
+    closedAt: null,
+  }],
+};
+
 /* Pipeline: seeds → plNormalizeSeed → flatMap through the split
    registry → apply overrides → attach linkedTickets. */
 const PL_ALL_CASES = (() => {
@@ -11949,60 +12001,6 @@ function plParseRfqMail(mail) {
 
   return { fields, missing, notes };
 }
-
-/* §4 · Seeded mandate-request history. Stamped by plNormalizeSeed on
-   the three cases the spec calls out:
-   - PC-1026: signed by RM, originally requested by Bhupendra Singh
-   - PC-1031: signed by RM, originally requested by Himani Doshi
-   - PC-1027: open "considering", requested by Bhupendra Singh
-   Every other seed carries the empty array from plNormalizeSeed. */
-const PL_SEED_MANDATE_REQUESTS = {
-  "PC-1026": [{
-    id: "MR-01",
-    type: "Exclusive Placement Mandate",
-    status: "signed",
-    requestedBy: "Bhupendra Singh",
-    requestedByKey: "bhupendra",
-    requestedAt: "15 Aug, 17:10",
-    to: "Shubh Bangar",
-    preferredInsurerId: "bajaj",
-    reason: "Client relies on our market view",
-    message: "Hi Shubh, please ask Meridian to give us an Exclusive Placement Mandate for Marine Open. Bajaj Allianz is our recommendation.",
-    reminders: [],
-    responses: [{ at: "16 Aug, 09:00", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
-    closedAt: "16 Aug, 09:00",
-  }],
-  "PC-1031": [{
-    id: "MR-01",
-    type: "Exclusive Placement Mandate",
-    status: "signed",
-    requestedBy: "Himani Doshi",
-    requestedByKey: "himani",
-    requestedAt: "03 Aug, 11:00",
-    to: "Shubh Bangar",
-    preferredInsurerId: null,
-    reason: "Several comparable quotes - client wants us to choose",
-    message: "Hi Shubh, we have three comparable D&O quotes and Orbit has asked us to make the call. Could we get an Exclusive Placement Mandate?",
-    reminders: [],
-    responses: [{ at: "03 Aug, 15:30", actor: "Shubh Bangar", kind: "signed", note: "Client signed the mandate letter." }],
-    closedAt: "03 Aug, 15:30",
-  }],
-  "PC-1027": [{
-    id: "MR-01",
-    type: "Exclusive Placement Mandate",
-    status: "considering",
-    requestedBy: "Bhupendra Singh",
-    requestedByKey: "bhupendra",
-    requestedAt: "26 Aug, 10:20",
-    to: "Shubh Bangar",
-    preferredInsurerId: "hdfc",
-    reason: "Client relies on our market view",
-    message: "Hi Shubh, could you ask Kalpataru for an Exclusive Placement Mandate for the GMC placement? HDFC ERGO is our recommendation.",
-    reminders: [{ at: "28 Aug, 09:15", by: "Bhupendra Singh" }],
-    responses: [{ at: "28 Aug, 16:40", actor: "Shubh Bangar", kind: "considering", note: "Client's CFO is reviewing; expect an answer Monday." }],
-    closedAt: null,
-  }],
-};
 
 /* §1 · Mandate-request masters + helpers (Placement asks the RM for
    the Exclusive Placement Mandate). Reason wording is [OPEN] per §6
