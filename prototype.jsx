@@ -11080,6 +11080,10 @@ function plNormalizeSeed(c) {
     client: { ...c.client, industryType: PL_INDUSTRY_BY_CASE[c.id] || "Others" },
     rfqs, threads, threadSeq: threads.length, quotes, qcrs, audit,
     meta,
+    /* §1 · Every seed carries an empty mandateRequests[]; the two
+       Exclusive-mandate seeds (PC-1026, PC-1031) and the pending
+       demo (PC-1027) fill it in at Phase 4. */
+    mandateRequests: c.mandateRequests || [],
   };
 }
 
@@ -11896,6 +11900,63 @@ function plParseRfqMail(mail) {
   if (!source.file && !source.link) missing.push("RFQ Excel or link");
 
   return { fields, missing, notes };
+}
+
+/* §1 · Mandate-request masters + helpers (Placement asks the RM for
+   the Exclusive Placement Mandate). Reason wording is [OPEN] per §6
+   until the Head confirms; the seeds below reflect the defaults. */
+const PL_MANDATE_REQUEST_REASONS = [
+  "Client relies on our market view",
+  "Several comparable quotes - client wants us to choose",
+  "Tight renewal timeline",
+  "Client has asked us to handle placement end to end",
+  "Other",
+];
+const PL_MANDATE_DECLINE_REASONS = [
+  "Client wants to see all options and decide",
+  "Client prefers to decide with the insurer directly",
+  "Client's group policy requires its own approval",
+  "Other",
+];
+
+/* Last request whose status is `requested` or `considering`, else null. */
+function plOpenMandateRequest(c) {
+  const list = (c && c.mandateRequests) || [];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (list[i].status === "requested" || list[i].status === "considering") return list[i];
+  }
+  return null;
+}
+/* Last mandate request whatever its status, else null. */
+function plLastMandateRequest(c) {
+  const list = (c && c.mandateRequests) || [];
+  return list.length ? list[list.length - 1] : null;
+}
+/* Compressed state for the rail card, header pill and queue icon. */
+function plMandateState(c) {
+  if (c && c.meta && c.meta.mandate && c.meta.mandate.type === "Exclusive Placement Mandate") return "signed";
+  const open = plOpenMandateRequest(c);
+  if (open) return open.status;   // "requested" | "considering"
+  const last = plLastMandateRequest(c);
+  if (last && last.status === "declined") return "declined";
+  return "none";
+}
+/* Only the Placement Executive and Placement Head can raise a request. */
+function plCanRequestMandate(c) {
+  if (!c || c.outcome) return false;
+  const state = plMandateState(c);
+  if (state !== "none" && state !== "declined") return false;
+  return PL_ME && (PL_ME.key === "bhupendra" || PL_ME.key === "himani");
+}
+/* Next MR-nn id for the given case, one above the highest existing. */
+function plNextMandateRequestId(c) {
+  const list = (c && c.mandateRequests) || [];
+  let max = 0;
+  list.forEach((r) => {
+    const m = String(r.id || "").match(/^MR-(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return `MR-${String(max + 1).padStart(2, "0")}`;
 }
 
 /* §1 · Target Premium normaliser. Accepts null / undefined / ""
