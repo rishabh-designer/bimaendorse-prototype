@@ -10894,6 +10894,37 @@ function plRfqAttachLine(c) {
   return parts.join(" + ");
 }
 
+/* §8 · Download the RFQ Excel. If we have the actual File blob (fresh
+   upload), download it verbatim; seeded cases fall back to a CSV of the
+   linked-RFQ rows so "Download" is never a dead button. */
+function plDownloadRfq(c, rfq) {
+  const src = rfq && rfq.source;
+  if (!src || !src.file) return;
+  const base = src.file.name || plRfqFileName(c.id, rfq.v);
+  if (src.file.blob) {
+    const url = URL.createObjectURL(src.file.blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = base;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+    return;
+  }
+  const rows = [["Case", "RFQ version", "Product type", "Field", "Value"]];
+  (rfq.sections || []).forEach((sec) => {
+    const label = plProductType(sec.product).label;
+    rows.push([c.id, `V${rfq.v}`, label, "Sum insured", sec.si || ""]);
+    (sec.detail || []).forEach(([k, v]) => rows.push([c.id, `V${rfq.v}`, label, k, v]));
+  });
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = base.replace(/\.(xlsx|xls|csv)$/i, "") + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
 /* §16.3 industry type per seed case. */
 const PL_INDUSTRY_BY_CASE = {
   "PC-1024": "Manufacturing", "PC-1025": "Technology", "PC-1026": "Warehousing & Logistics",
@@ -11120,11 +11151,11 @@ function plNextAction(c) {
   if (c.stage === "closed") return null;
   const r = plActiveRfqOf(c);
   if (c.stage === "rfq_review") {
-    /* Risk classification UI was removed from the RFQ tab — treat any
-       flagged classification as confirmed for the next-action derivation
-       so users never get pointed at a nonexistent card. */
-    if (r.missing.some((m) => !m.resolved)) return { label: "Request missing information from RM", tab: "rfq", tone: "orange" };
-    return { label: "Validate RFQ and move to insurer selection", tab: "rfq", tone: "purple" };
+    /* §8 · Gaps are mail-raised, PM-resolved. Open gaps here mean the
+       RM has replied but the PM hasn't cleared them yet. */
+    if ((r.missing || []).some((m) => !m.resolved))
+      return { label: "Mark the gaps the RM answered as resolved", tab: "rfq", tone: "orange" };
+    return { label: "Review the RFQ - mail the RM for any gaps, or validate", tab: "rfq", tone: "purple" };
   }
   if (c.stage === "awaiting_rm") return { label: "Waiting on RM response", tab: "rfq", tone: "orange" };
   if (c.stage === "insurer_selection") return { label: "Approve insurer panel and float RFQ", tab: "insurers", tone: "purple" };
@@ -11375,24 +11406,57 @@ function makePlacementApi(setCases, say = () => {}) {
         changed ? `${plActiveRfqOf(c).classification.rmEntered} → ${value}` : value);
     }),
 
-    requestRmInfo: (id, itemIds, note) => patch(id, (c) => {
+    /* §8 · Raise clarification gaps by mailing the RM. New gap labels
+       become fresh `missing` items with a "Raised in mail to <RM>"
+       note; still-open gaps already on the RFQ are included again
+       (their ids are appended to rmThread.items, not duplicated on
+       `missing`). The rmThread entry carries both the id list and the
+       matched labels so the RM-thread card can render "- <gap>" lines. */
+    requestRmInfo: (id, gapLabels, note) => patch(id, (c) => {
+      const active = plActiveRfqOf(c);
+      const stamp = plStamp();
+      const raisedNote = `Raised in mail to ${c.client.rm} · ${stamp}`;
+      const existing = (active.missing || []).filter((m) => !m.resolved);
+      const stillOpenIds = existing.map((m) => m.id);
+      const stillOpenLabels = existing.map((m) => m.label);
+      const newItems = (gapLabels || []).filter(Boolean).map((label, i) => ({
+        id: `g-${c.id}-${active.v}-${(active.missing || []).length + i + 1}`,
+        label, note: raisedNote, resolved: false, material: true,
+      }));
+      const allIds = [...stillOpenIds, ...newItems.map((m) => m.id)];
+      const allLabels = [...stillOpenLabels, ...newItems.map((m) => m.label)];
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : {
         ...r,
-        rmThread: [...r.rmThread, { at: plStamp(), actor: PL_ME.name, text: note, items: itemIds }],
+        missing: [...(r.missing || []), ...newItems],
+        rmThread: [...r.rmThread, { at: stamp, actor: PL_ME.name, text: note, items: allIds, gaps: allLabels }],
       });
-      return withLog({ ...c, rfqs, stage: "awaiting_rm", pendingRm: itemIds },
-        PL_ME.name, "PM", "Clarification requested from RM", `${itemIds.length} item(s) · sent to ${c.client.rm}`);
+      return withLog({ ...c, rfqs, stage: "awaiting_rm", pendingRm: allIds },
+        PL_ME.name, "PM", "Clarification mail sent to RM",
+        `To ${c.client.rm} · ${allLabels.length} gap(s): ${allLabels.join(", ")}`);
     }),
 
+    /* §8 · The RM replies but does NOT auto-resolve anything — the PM
+       reads the answer and marks each gap resolved on the RFQ tab. */
     simulateRmReply: (id, text) => patch(id, (c) => {
-      const pending = c.pendingRm || [];
+      const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r
+        : { ...r, rmThread: [...r.rmThread, { at: plStamp(), actor: c.client.rm, text }] });
+      return withLog({ ...c, rfqs, stage: "rfq_review", pendingRm: [] },
+        c.client.rm, "RM", "Clarification answered", "");
+    }),
+
+    /* §8 · PM marks a gap resolved after reading the RM's answer. */
+    resolveGap: (id, gapId) => patch(id, (c) => {
+      if (c.stage !== "rfq_review") return c;
+      let label = "";
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r : {
         ...r,
-        missing: r.missing.map((m) => (pending.includes(m.id) ? { ...m, resolved: true, resolvedAt: plStamp() } : m)),
-        rmThread: [...r.rmThread, { at: plStamp(), actor: c.client.rm, text }],
+        missing: (r.missing || []).map((m) => {
+          if (m.id !== gapId || m.resolved) return m;
+          label = m.label;
+          return { ...m, resolved: true, resolvedAt: plStamp(), resolvedBy: PL_ME.name };
+        }),
       });
-      return withLog({ ...c, rfqs, stage: "rfq_review", pendingRm: [] },
-        c.client.rm, "RM", "Clarification answered", `${pending.length} item(s) resolved`);
+      return withLog({ ...c, rfqs }, PL_ME.name, "PM", "Gap resolved", label);
     }),
 
     validateRfq: (id) => patch(id, (c) => {
@@ -14728,17 +14792,29 @@ function PlSection({ icon: Icon, title, badge, children }) {
 
 function PlRfqSummaryCard({ c, inline = false }) {
   const rfq = plActiveRfqOf(c);
+  const manual = c.createdVia === "manual";
+  const sourceLabel = manual ? "Manual ticket" : "RM Interface™";
+  const submittedBy = manual ? (c.createdBy || PL_EXECS.bhupendra.name) : c.client.rm;
+  const submittedAvatar = manual
+    ? (PL_EXECS.bhupendra.name === submittedBy ? PL_EXECS.bhupendra.avatar
+        : PL_EXECS.himani.name === submittedBy ? PL_EXECS.himani.avatar : null)
+    : plRmAvatar(c.client.rm);
+  const btMeta = PL_BUSINESS_TYPES.find((b) => b.value === c.meta.caseType);
+  const businessTypeText = btMeta ? `${btMeta.value} - ${btMeta.meaning}` : (c.meta.caseType || "-");
+  const templates = plRfqTemplatesOf(c.products || []).join(" · ") || "-";
+  const spoc = (c.client.spoc && c.client.spoc.trim()) || "Not provided";
   const body = (
     <>
-      {/* 2×3 grid — user asked for two columns instead of the stacked list,
-          with the RFQ version as a purple pill and person fields carrying
-          an avatar before the name. Source now reads "RM Interface™". */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-        <PlKV k="Source" v="RM Interface™" />
-        <PlKV k="Submitted by" v={c.client.rm} avatar={plRmAvatar(c.client.rm)} avatarName={c.client.rm} />
+        <PlKV k="Source" v={sourceLabel} />
+        <PlKV k="Submitted by" v={submittedBy} avatar={submittedAvatar} avatarName={submittedBy} />
         <PlKV k="Received" v={c.receivedAt} mono />
         <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} pill />
-        <PlKV k="Client SPOC" v={c.client.spoc} avatar={null} avatarName={c.client.spoc} />
+        <PlKV k="Industry type" v={c.client.industryType || "-"} />
+        <PlKV k="Business type" v={businessTypeText} />
+        {c.meta.caseType === "Renewal" && <PlKV k="Renewal date" v={c.renewal || "-"} mono />}
+        <PlKV k="RFQ template(s)" v={templates} />
+        <PlKV k="Client SPOC" v={spoc} avatar={null} avatarName={spoc === "Not provided" ? null : spoc} />
       </div>
       {rfq.rmNote && (
         <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
@@ -14819,8 +14895,27 @@ function PlDocumentsTab({ c }) {
 function PlDocumentsCard({ c }) {
   const [tab, setTab] = useState("internal");
 
+  /* RFQ row(s) read straight from the source — an Excel row (name +
+     version/size/uploader/time sub) and/or a link row (the URL as sub). */
+  const rfqRows = [];
+  (c.rfqs || []).forEach((r) => {
+    if (r.source && r.source.file) {
+      const f = r.source.file;
+      const size = f.size || (f.blob ? plFileSize(f.blob.size) : "");
+      rfqRows.push({
+        name: f.name,
+        sub: `RFQ V${r.v} · Excel${size ? ` · ${size}` : ""}${f.by ? ` · uploaded by ${f.by}` : ""}${f.at ? ` · ${f.at}` : ""}`,
+      });
+    }
+    if (r.source && r.source.link) {
+      rfqRows.push({
+        name: `RFQ V${r.v} link`,
+        sub: r.source.link.url,
+      });
+    }
+  });
   const internal = [
-    { name: `RFQ_${c.id}_V${c.activeRfq}.pdf`, sub: `Uploaded ${c.receivedAt}` },
+    ...(rfqRows.length ? rfqRows : [{ name: `RFQ_${c.id}_V${c.activeRfq}.pdf`, sub: `Uploaded ${c.receivedAt}` }]),
     { name: "Client_form_submission.pdf", sub: `Uploaded ${c.receivedAt}` },
     ...c.products.map((p) => ({ name: `${p}_expiring_schedule.pdf`, sub: `Uploaded ${c.receivedAt}` })),
   ];
@@ -14897,6 +14992,84 @@ function PlDocumentsCard({ c }) {
   );
 }
 
+/* §8 · Replaces the structured product-section cards in the RFQ tab.
+   Renders one card per source present — a link (URL header + a table
+   of the linked rows in PlQcrDocument's table styling) and/or an
+   Excel (file-name row + Download that hands off to plDownloadRfq).
+   Both are stored on the case; neither is extracted. */
+function PlRfqSourceCard({ c, rfq }) {
+  const src = rfq && rfq.source ? rfq.source : {};
+  return (
+    <div className="space-y-3">
+      {src.link && (
+        <PlCard pad={false}>
+          <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
+            <LinkIcon size={13} color={PL_T.purple} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>RFQ V{rfq.v} · RFQ link</span>
+            <PlMono size={11.5} color={PL_T.ink2}>{src.link.url}</PlMono>
+            <span className="flex-1" />
+            {src.link.at && <span style={{ fontSize: 11, color: PL_T.ink3 }}>{src.link.at}</span>}
+            <PlBtn size="sm" onClick={() => window.open(src.link.url, "_blank", "noopener,noreferrer")}>Open link</PlBtn>
+          </div>
+          {(rfq.sections || []).length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full" style={{ borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
+                    {["#", "Product type", "Field", "Value"].map((h) => (
+                      <th key={h} className="text-left px-4 py-2.5" style={{ fontSize: 12, color: PL_T.ink3, fontWeight: 600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    let n = 0;
+                    return (rfq.sections || []).flatMap((sec) => {
+                      const label = plProductType(sec.product).label;
+                      const rows = [];
+                      rows.push({ product: label, field: "Sum insured", value: sec.si || "-" });
+                      (sec.detail || []).forEach(([k, v]) => rows.push({ product: label, field: k, value: v }));
+                      return rows.map((row, i) => {
+                        n += 1;
+                        return (
+                          <tr key={`${sec.product}-${i}`} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
+                            <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink3, fontFamily: PL_MONO }}>{n}</td>
+                            <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink }}>{i === 0 ? row.product : ""}</td>
+                            <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink2 }}>{row.field}</td>
+                            <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, fontWeight: 480 }}>{row.value}</td>
+                          </tr>
+                        );
+                      });
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="px-4 py-3" style={{ fontSize: 12, color: PL_T.ink3 }}>The linked RFQ has no rows yet.</div>
+          )}
+        </PlCard>
+      )}
+      {src.file && (
+        <PlCard>
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-lg flex items-center justify-center shrink-0" style={{ width: 28, height: 28, background: PL_T.purpleSoft }}>
+              <FileText size={13} color={PL_T.purple} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate" style={{ fontSize: 12.5, color: PL_T.blue, fontWeight: 600 }}>{src.file.name}</div>
+              <div className="truncate" style={{ fontSize: 11, color: PL_T.ink3 }}>
+                RFQ V{rfq.v} · Excel{src.file.size ? ` · ${src.file.size}` : ""}{src.file.by ? ` · uploaded by ${src.file.by}` : ""}{src.file.at ? ` · ${src.file.at}` : ""}
+              </div>
+            </div>
+            <PlBtn size="sm" onClick={() => plDownloadRfq(c, rfq)}>Download</PlBtn>
+          </div>
+        </PlCard>
+      )}
+    </div>
+  );
+}
+
 function PlRfqSummaryAccordion({ c }) {
   const [open, setOpen] = useState(false);
   return (
@@ -14917,22 +15090,23 @@ function PlRfqSummaryAccordion({ c }) {
 
 function PlRfqTab({ c, api }) {
   const rfq = plActiveRfqOf(c);
-  const [cls, setCls] = useState(rfq.classification.confirmed || rfq.classification.suggested);
   const [askOpen, setAskOpen] = useState(false);
   const [rmOpen, setRmOpen] = useState(false);
   const editable = c.stage === "rfq_review";
-  const unresolvedMaterial = rfq.missing.filter((m) => !m.resolved && m.material);
-  /* The Risk Classification card was removed from the RFQ tab earlier, so
-     `classification.confirmed` can no longer be flipped from the UI.
-     Auto-treat the classification as confirmed for the validation gate —
-     the only remaining precondition is that all material gaps are closed. */
-  const canValidate = unresolvedMaterial.length === 0 && c.stage === "rfq_review";
+  const unresolved = (rfq.missing || []).filter((m) => !m.resolved);
+  const canValidate = unresolved.length === 0 && c.stage === "rfq_review";
+  const gapsChip = (rfq.missing || []).length === 0
+    ? { tone: "neutral", label: "None raised" }
+    : unresolved.length > 0
+      ? { tone: "orange", label: `${unresolved.length} open` }
+      : { tone: "green", label: "All gaps closed" };
   const rfqMeta = (
     <span className="inline-flex items-center gap-2">
       <PlChip size="sm" tone="purple">V{c.activeRfq} of {c.rfqs.length}</PlChip>
-      <span>{rfq.sections.length} {rfq.sections.length === 1 ? "product" : "products"}</span>
+      <span>{c.products.length} {c.products.length === 1 ? "product" : "products"}</span>
     </span>
   );
+  const showGapsCard = c.stage === "rfq_review" || c.stage === "awaiting_rm" || (rfq.missing || []).length > 0;
 
   return (
     <div className="space-y-3">
@@ -14957,67 +15131,55 @@ function PlRfqTab({ c, api }) {
           classification is still confirmed in the seed and read by the RFQ
           gate logic; only the surface is gone. */}
 
-      {/* product sections */}
-      {rfq.sections.map((s) => (
-        <PlCard key={s.product} pad={false}>
-          <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-            <div className="flex items-center gap-2">
-              <FileText size={13} color={PL_T.purple} />
-              <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_PRODUCTS[s.product]}</span>
-              <PlChip size="xs" mono>{s.product}</PlChip>
-            </div>
-            <PlMono size={11.5} color={PL_T.ink2}>{s.si}</PlMono>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 px-4 py-3">
-            {s.detail.map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 py-1.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-                <span style={{ fontSize: 12, color: PL_T.ink3 }}>{k}</span>
-                <span style={{ fontSize: 12, color: PL_T.ink, fontWeight: 480, textAlign: "right" }}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </PlCard>
-      ))}
+      {/* §8 · RFQ source (never extracted) — link and/or Excel. */}
+      <PlRfqSourceCard c={c} rfq={rfq} />
 
-      {/* missing information */}
-      {rfq.missing.length > 0 && (
-        <PlCard style={unresolvedMaterial.length ? { borderColor: PL_T.orangeLine } : {}}>
+      {/* §8 · Information gaps — mail-raised, PM-resolved. */}
+      {showGapsCard && (
+        <PlCard style={unresolved.length ? { borderColor: PL_T.orangeLine } : {}}>
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Information gaps</span>
-                {unresolvedMaterial.length > 0
-                  ? <PlChip tone="orange" dot>{unresolvedMaterial.length} material</PlChip>
-                  : <PlChip tone="green" dot>All material gaps closed</PlChip>}
+                <PlChip tone={gapsChip.tone} dot={gapsChip.tone !== "neutral"}>{gapsChip.label}</PlChip>
               </div>
               <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">
-                Material gaps block the RFQ from being floated. Optional gaps do not.
+                Raise gaps by mailing the RM. Mark each one resolved once the RM has answered it. Validate stays disabled while any gap is open.
               </div>
             </div>
-            {editable && rfq.missing.some((m) => !m.resolved) && (
+            {c.stage === "rfq_review" && (
               <PlBtn variant="primary" size="sm" onClick={() => setAskOpen(true)}>Request from RM</PlBtn>
             )}
           </div>
-          <div className="mt-3 space-y-1.5">
-            {rfq.missing.map((m) => (
-              <div key={m.id} className="flex items-start gap-2.5 rounded-lg border px-3 py-2"
-                style={{ borderColor: m.resolved ? PL_T.greenLine : m.material ? PL_T.orangeLine : PL_T.border, background: m.resolved ? PL_T.greenSoft : PL_T.card }}>
-                {m.resolved ? <CheckCircle2 size={14} color={PL_T.green} className="mt-0.5 shrink-0" />
-                  : <Circle size={14} color={m.material ? PL_T.orange : PL_T.ink3} className="mt-0.5 shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span style={{ fontSize: 12.5, fontWeight: 500, color: m.resolved ? PL_T.green : PL_T.ink }}>{m.label}</span>
-                    {!m.resolved && <PlChip size="xs" tone={m.material ? "orange" : "neutral"}>{m.material ? "Material" : "Optional"}</PlChip>}
+          {(rfq.missing || []).length === 0 ? (
+            <div className="mt-3 rounded-lg border px-3 py-3" style={{ borderColor: PL_T.border, background: PL_T.cardAlt, fontSize: 12, color: PL_T.ink3 }}>
+              No gaps raised on RFQ V{c.activeRfq}. If the RFQ is missing anything, mail the RM before validating.
+            </div>
+          ) : (
+            <div className="mt-3 space-y-1.5">
+              {rfq.missing.map((m) => (
+                <div key={m.id} className="flex items-start gap-2.5 rounded-lg border px-3 py-2"
+                  style={{ borderColor: m.resolved ? PL_T.greenLine : PL_T.orangeLine, background: m.resolved ? PL_T.greenSoft : PL_T.card }}>
+                  {m.resolved
+                    ? <CheckCircle2 size={14} color={PL_T.green} className="mt-0.5 shrink-0" />
+                    : <Circle size={14} color={PL_T.orange} className="mt-0.5 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: m.resolved ? PL_T.green : PL_T.ink }}>{m.label}</div>
+                    <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                      {m.resolved ? `Resolved by ${m.resolvedBy || PL_ME.name} · ${m.resolvedAt || ""}` : m.note}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>{m.note}</div>
+                  {!m.resolved && editable && (
+                    <PlBtn size="sm" onClick={() => api.resolveGap(c.id, m.id)}>Mark resolved</PlBtn>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </PlCard>
       )}
 
-      {/* RM thread */}
+      {/* §8 · RM thread — each PM message lists the gaps it carried. */}
       {(rfq.rmThread.length > 0 || c.stage === "awaiting_rm") && (
         <PlCard>
           <div className="flex items-center justify-between">
@@ -15039,6 +15201,13 @@ function PlRfqTab({ c, api }) {
                   <PlMono size={10.5} color={PL_T.ink3}>{m.at}</PlMono>
                 </div>
                 <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>{m.text}</div>
+                {Array.isArray(m.gaps) && m.gaps.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5">
+                    {m.gaps.map((g, j) => (
+                      <li key={j} style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.45 }}>- {g}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
@@ -15052,9 +15221,7 @@ function PlRfqTab({ c, api }) {
             <div>
               <div style={{ fontSize: 12.5, fontWeight: 600 }}>Validate RFQ V{c.activeRfq}</div>
               <div style={{ fontSize: 11.5, color: PL_T.ink3 }}>
-                {canValidate
-                  ? "No material gaps remain."
-                  : `${unresolvedMaterial.length} material gap(s) still open.`}
+                {canValidate ? "No open gaps." : `${unresolved.length} gap(s) still open.`}
               </div>
             </div>
             <PlBtn variant="primary" disabled={!canValidate} icon={ArrowRight}
@@ -15072,32 +15239,56 @@ function PlRfqTab({ c, api }) {
 }
 
 function PlAskRmModal({ c, rfq, api, onClose }) {
-  const open = rfq.missing.filter((m) => !m.resolved);
-  const [picked, setPicked] = useState(open.filter((m) => m.material).map((m) => m.id));
+  const stillOpen = (rfq.missing || []).filter((m) => !m.resolved);
+  const [rows, setRows] = useState([""]);
+  const rmFirst = (c.client.rm || "").split(" ")[0] || "the RM";
+  const spoc = plSpocFirst(c);
   const [note, setNote] = useState(
-    `Hi ${c.client.rm.split(" ")[0]}, before I can float this RFQ to the market I need a few things from ${c.client.name}. Could you pick these up with ${c.client.spoc.split(",")[0]}?`);
+    `Hi ${rmFirst}, before I can float RFQ V${rfq.v} for ${c.client.name} I need the points below. Could you pick these up with ${spoc}?`);
+  const newGaps = rows.map((s) => s.trim()).filter(Boolean);
+  const canSend = newGaps.length > 0 || stillOpen.length > 0;
+  const setRow = (i, v) => setRows((rs) => rs.map((r, j) => (j === i ? v : r)));
+  const removeRow = (i) => setRows((rs) => rs.length === 1 ? [""] : rs.filter((_, j) => j !== i));
   return (
-    <PlModal title="Request clarification from RM" subtitle={`${c.id} · goes to ${c.client.rm}`} onClose={onClose}
+    <PlModal title="Request clarification from RM" subtitle={`${c.id} · mail to ${c.client.rm}`} onClose={onClose}
       footer={<>
-        <PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" disabled={picked.length === 0}
-          onClick={() => { api.requestRmInfo(c.id, picked, note); api.say(`Clarification sent to ${c.client.rm}`); onClose(); }}>
-          Send request
+        <PlBtn variant="ghost" onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" disabled={!canSend}
+          onClick={() => { api.requestRmInfo(c.id, newGaps, note); api.say(`Mail sent to ${c.client.rm}`); onClose(); }}>
+          Send mail
         </PlBtn>
       </>}>
-      <PlLabel>Items to request</PlLabel>
-      <div className="mt-1.5 mb-4">
-        {open.map((m) => (
-          <PlTick key={m.id} checked={picked.includes(m.id)} label={m.label} sub={m.note}
-            onChange={(v) => setPicked((p) => (v ? [...p, m.id] : p.filter((x) => x !== m.id)))} />
+      {stillOpen.length > 0 && (
+        <div className="mb-4">
+          <PlLabel>Still open - included again</PlLabel>
+          <ul className="mt-1.5 space-y-0.5">
+            {stillOpen.map((m) => (
+              <li key={m.id} style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>- {m.label}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <PlLabel>Gaps to raise</PlLabel>
+      <div className="mt-1.5 mb-2 space-y-2">
+        {rows.map((val, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <PlInput value={val} onChange={(v) => setRow(i, v)} placeholder="e.g. Employee census with age bands" />
+            </div>
+            {rows.length > 1 && <PlIconBtn icon={X} onClick={() => removeRow(i)} title="Remove gap" />}
+          </div>
         ))}
       </div>
-      <PlLabel>Message</PlLabel>
-      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+      <PlBtn size="sm" onClick={() => setRows((rs) => [...rs, ""])}>Add another gap</PlBtn>
+
+      <div className="mt-4">
+        <PlLabel>Message</PlLabel>
+        <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+      </div>
       <PlCallout tone="orange" className="mt-3 flex gap-2">
         <Info size={13} color={PL_T.orange} style={{ marginTop: 1, flexShrink: 0 }} />
         <span style={{ fontSize: 11.5, color: PL_T.orange, lineHeight: 1.45 }}>
-          The case moves to <b>Awaiting RM clarification</b>. The RFQ cannot be floated until the material gaps are closed.
+          The case moves to <b>RFQ Clarification</b>. Each gap stays open until you mark it resolved.
         </span>
       </PlCallout>
     </PlModal>
@@ -15105,12 +15296,18 @@ function PlAskRmModal({ c, rfq, api, onClose }) {
 }
 
 function PlSimRmModal({ c, api, onClose }) {
+  const rfq = plActiveRfqOf(c);
+  const pendingIds = c.pendingRm || [];
+  const pendingLabels = (rfq.missing || [])
+    .filter((m) => pendingIds.includes(m.id))
+    .map((m) => m.label);
+  const detail = pendingLabels.length ? pendingLabels.join(", ") : "the gaps you raised";
   const [text, setText] = useState(
-    `Spoke to ${c.client.spoc.split(",")[0]}. Census with age bands and the three-year claims history are attached. Family definition to be quoted is 1+1+2 with parents as a voluntary buy-up. GPA multiple stays at 24×.`);
+    `Spoke to ${plSpocFirst(c)}. Details for ${detail} are attached.`);
   return (
     <PlModal title="Simulate RM reply" subtitle="Prototype control - stands in for the RM Interface™" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM responded - requested items resolved"); onClose(); }}>
+        <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM replied - mark each gap resolved once you've read the answer"); onClose(); }}>
           Post reply
         </PlBtn></>}>
       <PlLabel>Reply from {c.client.rm}</PlLabel>
