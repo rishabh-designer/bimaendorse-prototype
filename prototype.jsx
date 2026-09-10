@@ -1213,6 +1213,7 @@ const IND = {
   success: { dot: "#00B200", line: "#A9EAA2", fill: "#FFFFFF",               tint: "rgba(0,178,0,0.08)" },
   brand:   { dot: "#4100CF", line: "#D1C6FF", fill: "#FFFFFF",               tint: "rgba(65,0,207,0.08)" },
   muted:   { dot: "#A9ACB1", line: "#E6E8EA", fill: "#F4F5F6",               tint: "#F4F5F6" },
+  orange:  { dot: "#FF7700", line: "#FFD2A8", fill: "#FFF6ED",               tint: "rgba(255,119,0,0.08)" },
 };
 const PRIO_IND = { Critical: "error", High: "caution", Medium: "neutral", Low: "neutral" };
 const KIND_IND = { Financial: "success", "Non-Financial": "info", Refund: "caution" };
@@ -1241,7 +1242,7 @@ const stageInd = (t) => {
 /* `outline` is the desk-row / priority-card variant: white fill, a 1px hairline
    and the label in the tone itself, rather than the table's black-on-tint. */
 const IND_TEXT = { error: "#CF0000", caution: "#B38F0A", info: "#1868F4", success: "#007B00",
-  brand: "#4100CF", neutral: "#6F7378", muted: "#A9ACB1" };
+  brand: "#4100CF", neutral: "#6F7378", muted: "#A9ACB1", orange: "#A15C00" };
 /* Three sizes, all from the design and all deliberate:
      default - table row pill:        6px pad · r8  · 0.5px
      big     - card status pill:      8px pad · r10 · 0.5px   (874:83812)
@@ -1251,16 +1252,18 @@ const IND_SIZE = {
   big:     { padding: "8px", borderRadius: 10, bw: "0.5px" },
   thick:   { padding: "3px 6px", borderRadius: 8, bw: "1px" },
 };
-const Indicator = ({ label, ind, outline, big, thick, status, size = 14 }) => {
+const Indicator = ({ label, ind, outline, big, thick, status, size = 14, leading = null }) => {
   const k = IND[ind] || IND.neutral;
   const s = IND_SIZE[big ? "big" : thick ? "thick" : "default"];
   return (
-    <span title={label} className="inline-flex max-w-full items-center justify-center gap-1"
+    <span title={typeof label === "string" ? label : undefined} className="inline-flex max-w-full items-center justify-center gap-1.5"
       style={{ padding: s.padding, borderRadius: s.borderRadius,
         ...(outline
           ? { background: C.white, border: `1px solid ${k.line}` }
           : { background: status ? k.tint : k.fill, border: `${s.bw} solid ${k.line}` }) }}>
-      <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, background: k.dot }} />
+      {leading
+        ? <span className="inline-flex shrink-0 items-center justify-center">{leading}</span>
+        : <span className="shrink-0 rounded-full" style={{ width: 4, height: 4, background: k.dot }} />}
       <span className="truncate" style={{ fontSize: size, fontWeight: 500, lineHeight: 1,
         color: outline ? (IND_TEXT[ind] || IND_TEXT.neutral) : ind === "muted" ? C.figTert : "#1C1C1C" }}>{label}</span>
     </span>
@@ -11439,7 +11442,8 @@ function PlAvatarStack({ participants, size = 22 }) {
   return (
     <span className="inline-flex items-center">
       {participants.map((p, i) => (
-        <span key={i} style={{ marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: participants.length - i }}>
+        <span key={i} title={p.role ? `${p.name} · ${p.role}` : p.name}
+          style={{ marginLeft: i === 0 ? 0 : -6, position: "relative", zIndex: participants.length - i, display: "inline-flex", lineHeight: 0 }}>
           <PlAvatar src={p.src} name={p.name} tone={p.tone} size={size} />
         </span>
       ))}
@@ -11452,10 +11456,10 @@ function plParticipantsOf(c) {
   const ex = plExecOf(c);
   const pm = PORTAL_USERS["himani@bimakavach.com"] || {};
   return [
-    { src: ex.avatar,  name: ex.name,     tone: "neutral" },
-    { src: pm.avatar,  name: pm.name,     tone: "neutral" },
-    { src: null,       name: c.client.rm, tone: "blue" },
-    { src: null,       name: (c.client.spoc || "").split(",")[0], tone: "green" },
+    { src: ex.avatar,  name: ex.name,     tone: "neutral", role: "Placement Executive" },
+    { src: pm.avatar,  name: pm.name,     tone: "neutral", role: "Placement Head" },
+    { src: null,       name: c.client.rm, tone: "blue",    role: "Relationship Manager" },
+    { src: null,       name: (c.client.spoc || "").split(",")[0], tone: "green", role: "Client SPOC" },
   ];
 }
 
@@ -12477,9 +12481,8 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
                   {c.id === "PC-1026" && (
-                    <PlChip tone="orange" leading={<IconStarCheck size={11} color={PL_T.orange} />}>
-                      Exclusive Mandate
-                    </PlChip>
+                    <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
+                      leading={<IconStarCheck size={13} color="#FF7700" />} />
                   )}
                   <Indicator big status size={16}
                     ind={PL_STATUS_IND[statusTone] || "info"}
@@ -12515,7 +12518,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
               {/* Right cluster: caseType pill + participant stack, above Contact RM. */}
               <div className="flex flex-col items-end gap-3 shrink-0">
                 <div className="flex items-center gap-2">
-                  <PlChip tone={c.meta.caseType === "Renewal" ? "purple" : "blue"} dot>{c.meta.caseType}</PlChip>
+                  <Indicator thick ind={c.meta.caseType === "Renewal" ? "brand" : "info"} label={c.meta.caseType} />
                   <PlAvatarStack participants={parts} size={22} />
                 </div>
                 <PlBtn size="sm">Contact RM</PlBtn>
