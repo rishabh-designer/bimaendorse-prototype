@@ -13958,7 +13958,17 @@ function PlHomeScreen({ cases, onOpen, setNav, user, scope, setScope }) {
  *  CASE WORKSPACE - one shell, every stage
  * ================================================================== */
 
-function PlCaseWorkspace({ c, api, onBack, initialTab }) {
+function PlCaseWorkspace({ c, api, onBack, initialTab, onOpen, cases }) {
+  /* §5 · Resolve a linked case's product-type short. `cases` is the
+     current runtime list from PlacementApp — falls back to PL_ALL_CASES
+     for the seeded pair (PC-1024 ↔ PC-1035). */
+  const plLinkedInfo = (lt) => {
+    const list = cases || PL_ALL_CASES;
+    const found = list.find((x) => x.id === lt.id);
+    if (!found) return null;
+    const code = plProductOf(found);
+    return code ? plProductType(code) : null;
+  };
   const na = plNextAction(c);
   /* Insurers + Insurer Threads are now nested under one "Insurance Contact"
      tab. `tab` still holds the top-level tab id; when it's "contact",
@@ -14051,6 +14061,36 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                     <PlAvatar name={c.client.rm} tone="blue" size={22} />
                     <span>RM: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{c.client.rm}</b></span>
                   </MetaHover>
+                  {/* §5 · Linked-tickets element. Placement Head only; hidden
+                      for Bhupendra even when he owns the ticket. Same
+                      row-2 pattern as the RM / PM items: lucide Link2
+                      icon + muted "Linked:" + one clickable PC id per
+                      link with the linked ticket's product short after
+                      it. Nothing renders when the case has no links. */}
+                  {PL_ME.role === "Placement Head" && (c.linkedTickets || []).length > 0 && (
+                    <MetaHover label="Same RFQ as this ticket" className="gap-2">
+                      <Link2 size={16} style={{ color: PL_T.ink }} />
+                      <span style={{ color: PL_T.ink3 }}>Linked:</span>
+                      <span>
+                        {c.linkedTickets.map((lt, i) => {
+                          const other = plLinkedInfo(lt);
+                          return (
+                            <span key={lt.id}>
+                              {i > 0 && <span style={{ color: PL_T.ink3 }}>, </span>}
+                              <button type="button"
+                                onClick={() => onOpen && onOpen(lt.id)}
+                                style={{ color: PL_T.purple, fontFamily: PL_MONO, fontWeight: 600, cursor: "pointer" }}>
+                                {lt.id}
+                              </button>
+                              {other && (
+                                <span style={{ color: PL_T.ink }}> · {other.short}</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </MetaHover>
+                  )}
                   <MetaHover label="Placement Manager" className="gap-2">
                     <PlAvatar src={pm.avatar} name={pmName} size={22} />
                     <span>Placement Manager: <b style={{ color: PL_T.ink, fontWeight: 600 }}>{pmName}</b></span>
@@ -19309,7 +19349,10 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
               />
             </div>
             {openCase
-              ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
+              ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api}
+                  initialTab={openTab} cases={cases}
+                  onOpen={(id) => openCaseAt(id)}
+                  onBack={() => { setOpenId(null); setOpenTab(null); }} />
               : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} onCreate={() => setCreateOpen(true)} />
               : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} api={api} />
               : (
