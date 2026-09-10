@@ -16582,7 +16582,6 @@ function PlQuotesTab({ c, api }) {
       </div>
     );
 
-  const q = all.find((x) => x.id === sel) || all[0];
   const byInsurer = c.panel.selected.filter((id) => all.some((x) => x.insurerId === id));
 
   /* Flatten insurers × their quotes into a single tab row. Revisions supersede,
@@ -16594,44 +16593,76 @@ function PlQuotesTab({ c, api }) {
     return qs.map((x) => ({ id: x.id, insurerId: id, quote: x, counted }));
   });
 
+  const cols = "minmax(160px,1.4fr) minmax(120px,1fr) 110px 100px 130px 20px";
+
   return (
     <div className="space-y-4">
       <PlTabHeader title="Quotes" meta={quotesMeta} />
 
-      {/* insurer-quote tabs - one pill per quote, segmented and scrollable */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {tabs.map((t) => {
-          const on = t.id === q.id;
-          const dead = t.quote.decision === "superseded";
+      {/* One table container — sunken header + white data rows separated by
+          hairlines. Click a row to expand into the PlQuoteWorkspace preview,
+          matching the Insurer Threads pattern. */}
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: PL_T.border, background: PL_T.card }}>
+        <div className="grid gap-2 items-center px-3 py-2.5"
+          style={{ gridTemplateColumns: cols,
+            background: PL_T.cardSunk, borderBottom: `1px solid ${PL_T.border}`,
+            fontSize: 12, color: PL_T.ink, fontWeight: 600 }}>
+          <span>Insurer &amp; Contact</span>
+          <span>Product</span>
+          <span>Status</span>
+          <span>Received</span>
+          <span className="text-right">Premium</span>
+          <span />
+        </div>
+
+        {tabs.map((t, rowIdx) => {
+          const insurer = PL_INSURERS[t.insurerId];
+          const qq = t.quote;
+          const on = t.id === sel;
+          const dead = qq.decision === "superseded";
           const showVer = tabs.filter((x) => x.insurerId === t.insurerId).length > 1;
-          const statusTone = dead ? null
-            : t.quote.decision ? PL_DECISION_CHIP[t.quote.decision].tone
-              : "purple";
-          const dotColor = t.counted ? PL_T.green : statusTone ? PL_TONES[statusTone].fg : PL_T.ink3;
-          const qThread = plThreadById(c, t.quote.threadId);
+          const chipTone = dead ? "neutral" : qq.decision ? PL_DECISION_CHIP[qq.decision].tone : "purple";
+          const chipLabel = dead ? "Superseded" : qq.decision ? PL_DECISION_CHIP[qq.decision].label : "Awaiting decision";
+          const qThread = plThreadById(c, qq.threadId);
           const showPoc = plInsurerHasManyThreads(c, t.insurerId);
           const pocFirst = qThread ? (qThread.poc || "").split(" ")[0] : "";
+          const premiumF = qq.fields.find((f) => f.key === "premium");
+          const premiumStr = premiumF ? (plFmtVal(premiumF) || "—") : "—";
+          const tf = premiumF && Number(premiumF.value) > 0 ? plTargetFlag(c, Number(premiumF.value)) : null;
+          const notLast = rowIdx < tabs.length - 1;
           return (
-            <button key={t.id} onClick={() => setSel(t.id)} disabled={dead}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-colors"
-              style={{
-                background: on ? PL_T.purple : PL_T.card,
-                color: on ? "#fff" : PL_T.ink,
-                border: `1px solid ${on ? PL_T.purple : PL_T.border}`,
-                fontSize: 12, fontWeight: 600,
-                opacity: dead ? 0.55 : 1,
-                cursor: dead ? "not-allowed" : "pointer",
-              }}>
-              <span className="rounded-full" style={{ width: 6, height: 6, background: on ? "#fff" : dotColor }} />
-              <span>{PL_INSURERS[t.insurerId].name}</span>
-              {showPoc && pocFirst && <span style={{ opacity: on ? 0.85 : 0.6, fontWeight: 500 }}>· {pocFirst}</span>}
-              {showVer && <span style={{ opacity: on ? 0.8 : 0.55, fontWeight: 500 }}>V{t.quote.version}</span>}
-            </button>
+            <div key={t.id} style={{ borderBottom: (notLast || on) ? `1px solid ${PL_T.border}` : "none", opacity: dead && !on ? 0.6 : 1 }}>
+              <div onClick={() => setSel(on ? null : t.id)}
+                className="grid gap-2 items-center px-3 py-2.5 cursor-pointer"
+                style={{ gridTemplateColumns: cols, background: on ? PL_T.cardAlt : PL_T.card }}>
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="min-w-0 truncate" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{insurer.name}</span>
+                  {showPoc && pocFirst && <PlChip size="xs">{pocFirst}</PlChip>}
+                  {showVer && <PlChip size="xs" mono>V{qq.version}</PlChip>}
+                </span>
+                <span className="min-w-0 truncate" style={{ fontSize: 12, color: PL_T.ink2 }}>
+                  {PL_PRODUCTS[qq.product]}
+                </span>
+                <span><PlChip size="xs" tone={chipTone} dot={chipTone !== "neutral"}>{chipLabel}</PlChip></span>
+                <span style={{ fontSize: 12, color: PL_T.ink3 }}>{qq.receivedAt || "—"}</span>
+                <span className="text-right flex items-center justify-end gap-1.5">
+                  <PlMono size={12.5} color={PL_T.ink} weight={650}>{premiumStr}</PlMono>
+                  {tf && <PlChip size="xs" tone={tf.tone}>{tf.label}</PlChip>}
+                </span>
+                <span className="flex items-center justify-end" style={{ color: PL_T.ink3 }}>
+                  <ChevronDown size={14} style={{ transform: on ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                </span>
+              </div>
+
+              {on && (
+                <div className="px-3 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.card }}>
+                  <PlQuoteWorkspace c={c} q={qq} api={api} />
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
-
-      <PlQuoteWorkspace c={c} q={q} api={api} />
     </div>
   );
 }
