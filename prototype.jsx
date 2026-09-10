@@ -10864,10 +10864,35 @@ const PL_CASE_META = {
   "PC-1031": { slaLeftMins: null, caseType: "Fresh", urgency: "Medium", targetPremium: 3600000, mandate: { type: "Exclusive Placement Mandate", ref: "MND-1031-E", note: "RM + Placement jointly approved the selected option." }, incumbent: null },
 };
 
-/* RFQ source url/name helpers (§6) — the rest of the §6 helpers land in
-   Phase 3, but plNormalizeSeed needs these two now. */
+/* RFQ source helpers (§6). The RFQ is never extracted — an Excel file
+   and/or a link ride on `rfq.source`. `plRfqAttachLine(c)` builds the
+   short "<file> attached + RFQ link in mail body" string that goes on
+   float / restart / mail-trail lines; `plRfqAttachNames(c, rfqV)` gives
+   the two-item list used as chips on the mail cards. */
 const plRfqLinkUrl = (id, v) => `https://rm.bimakavach.com/rfq/${id}/v${v}`;
 const plRfqFileName = (id, v) => `RFQ_${id}_V${v}.xlsx`;
+function plFileSize(bytes) {
+  const b = Math.max(0, Number(bytes) || 0);
+  if (b < 1024 * 1024) return `${Math.max(1, Math.round(b / 1024))} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+function plRfqAttachNames(c, rfqV) {
+  const v = rfqV ?? c.activeRfq;
+  const r = (c.rfqs || []).find((x) => x.v === v);
+  if (!r || !r.source) return [];
+  const out = [];
+  if (r.source.file) out.push(r.source.file.name);
+  if (r.source.link) out.push("RFQ link (in mail body)");
+  return out;
+}
+function plRfqAttachLine(c) {
+  const r = plActiveRfqOf(c);
+  if (!r || !r.source) return "";
+  const parts = [];
+  if (r.source.file) parts.push(`${r.source.file.name} attached`);
+  if (r.source.link) parts.push("RFQ link in mail body");
+  return parts.join(" + ");
+}
 
 /* §16.3 industry type per seed case. */
 const PL_INDUSTRY_BY_CASE = {
@@ -11269,6 +11294,78 @@ function makePlacementApi(setCases, say = () => {}) {
 
   return {
     say,
+
+    /* §7 manual ticket. Builds a fresh case shell in `rfq_review`, marks
+       insurerPick "master" so §9 lets it pick from the full Insurer
+       Master, and audits the create + assign. Runs through
+       plReconcileSla so the case joins SLA-02 with the seed clock. */
+    createCase: (d) => setCases((cs) => {
+      if (cs.some((x) => x.id === d.id)) return cs;
+      const at = plStamp();
+      const owner = d.owner === "himani" ? "himani" : "bhupendra";
+      const source = d.source || {};
+      const tmpl = plRfqTemplatesOf(d.products).join(" · ");
+      const attach = [
+        source.file ? source.file.name : null,
+        source.link ? `RFQ link ${source.link.url}` : null,
+      ].filter(Boolean).join(" · ");
+      const rfq0 = {
+        v: 1, status: "in_review", createdAt: at,
+        validatedAt: null, floatedAt: null,
+        source,
+        sections: [], missing: [], rmThread: [],
+        classification: { rmEntered: "", suggested: "", flagged: false, confirmed: "Not classified", basis: [], impact: "" },
+      };
+      const c = {
+        id: d.id,
+        stage: "rfq_review",
+        outcome: null,
+        createdVia: "manual",
+        createdBy: d.createdByName || PL_ME.name,
+        owner,
+        insurerPick: "master",
+        client: {
+          name: d.client.name,
+          industryType: d.client.industryType,
+          industry: "",
+          city: "",
+          headcount: null,
+          turnover: "",
+          spoc: d.client.spoc || "",
+          rm: PL_CONFIG.universalRm,
+        },
+        products: [...d.products],
+        receivedAt: at,
+        renewal: d.renewal || "",
+        activeRfq: 1,
+        rfqs: [rfq0],
+        panel: { locked: false, selected: [], excluded: [] },
+        recommend: [],
+        notRecommended: [],
+        threads: [],
+        threadSeq: 0,
+        quotes: [],
+        qcrs: [],
+        tasks: [{ text: "Review the RFQ and mail the RM for any gaps", by: PL_ME.name, at }],
+        audit: [
+          plAu(at, PL_ME.name, "PM", "Case created manually",
+            `RFQ V1 · ${attach || "no attachment recorded"} · ${tmpl}`),
+          plAu(at, "System", "System", "Case assigned",
+            `Owner ${PL_EXECS[owner]?.name || owner}`),
+        ],
+        meta: {
+          caseType: d.meta.caseType,
+          urgency: d.meta.urgency || "Medium",
+          targetPremium: d.meta.targetPremium == null ? null : Number(d.meta.targetPremium),
+          mandate: null,
+          incumbent: d.meta.incumbent || null,
+          slaLeftMins: PL_SLA_MASTER["SLA-02"].mins,
+        },
+      };
+      const seeded = plSeedSla(plReconcileSla(c));
+      say(`${d.id} created`, "green");
+      return [seeded, ...cs];
+    }),
 
     confirmClassification: (id, value, changed) => patch(id, (c) => {
       const rfqs = c.rfqs.map((r) => r.v !== c.activeRfq ? r
@@ -12007,6 +12104,48 @@ function PlDivider({ vertical = false }) {
     : <div style={{ height: 1, background: PL_T.border }} />;
 }
 
+/* RFQ upload — wraps the shared UploadField so accepted extensions and
+   the max-size label come from PL_CONFIG. Drag-drop is handled here; the
+   underlying UploadField owns the visual states (default/error/success).
+   `say` receives the extension-rejection toast so validation feels
+   inline. */
+function PlRfqUploadField({ label = "RFQ Excel or link", file, setFile, say = () => {} }) {
+  const accept = PL_CONFIG.rfqUpload.accept;
+  const maxBytes = PL_CONFIG.rfqUpload.maxMb * 1024 * 1024;
+  const [state, setState] = useState("default");
+  const inputRef = useRef(null);
+  const pickFile = (f) => {
+    if (!f) return;
+    const dot = f.name.lastIndexOf(".");
+    const ext = dot >= 0 ? f.name.slice(dot).toLowerCase() : "";
+    if (!accept.includes(ext)) {
+      setState("default");
+      say(`Upload the RFQ as an Excel file (${accept.join(", ")})`);
+      return;
+    }
+    if (f.size > maxBytes) {
+      setState("error");
+      setFile({ name: f.name, size: f.size, blob: f });
+      return;
+    }
+    setState("success");
+    setFile({ name: f.name, size: f.size, blob: f });
+  };
+  const onDrop = (e) => { e.preventDefault(); pickFile(e.dataTransfer.files && e.dataTransfer.files[0]); };
+  const stop = (e) => { e.preventDefault(); };
+  return (
+    <div onDrop={onDrop} onDragOver={stop} onDragEnter={stop}>
+      <UploadField label={label} doc="RFQ" state={state}
+        file={file?.name}
+        onPick={() => inputRef.current && inputRef.current.click()}
+        onReset={() => { setFile(null); setState("default"); if (inputRef.current) inputRef.current.value = ""; }}
+        maxLabel={`${PL_CONFIG.rfqUpload.maxMb}MB`} />
+      <input ref={inputRef} type="file" accept={accept.join(",")} style={{ display: "none" }}
+        onChange={(e) => pickFile(e.target.files && e.target.files[0])} />
+    </div>
+  );
+}
+
 function PlModal({ title, subtitle, children, onClose, footer, wide = false, size }) {
   const width = size === "xl" ? 1000 : wide ? 860 : 560;
   /* Portal to document.body so PlModal centers on the viewport instead of
@@ -12199,6 +12338,183 @@ function PlMenuPicker({ value, options, placeholder = "Select", onChange, width 
   );
 }
 
+/* Manual ticket intake (§7). One modal with an RFQ block at the top, a
+   2-column grid of fields, and a template hint driven by PL_PRODUCT_TYPES.
+   Everything is stored on the case; nothing is read from the RFQ. */
+function PlCreateCaseModal({ cases, api, user, onClose, onCreated }) {
+  const isHead = plIsAdmin(user);
+  const nextId = useMemo(() => {
+    const nums = cases.map((c) => parseInt(String(c.id).replace(/[^0-9]/g, ""), 10)).filter((n) => !isNaN(n));
+    const n = (nums.length ? Math.max(...nums) : 1000) + 1;
+    return `PC-${n}`;
+  }, [cases]);
+
+  const [file, setFile] = useState(null);
+  const [link, setLink] = useState("");
+  const [name, setName] = useState("");
+  const [industryType, setIndustryType] = useState("");
+  const [products, setProducts] = useState([]);
+  const [caseType, setCaseType] = useState("");
+  const [renewal, setRenewal] = useState("");            // yyyy-mm-dd from <input type="date">
+  const [incumbent, setIncumbent] = useState("");
+  const [spoc, setSpoc] = useState("");
+  const [urgency, setUrgency] = useState("Medium");
+  const [target, setTarget] = useState("");
+  const [owner, setOwner] = useState("bhupendra");
+
+  const hasRfq = !!(file || (link.trim() && /^https?:/i.test(link.trim())));
+  const linkInvalid = link.trim() && !/^https?:/i.test(link.trim());
+  const needsRenewalDate = caseType === "Renewal";
+  const showIncumbent = caseType === "Renewal" || caseType === "Rollover";
+  const canSubmit =
+    hasRfq &&
+    !linkInvalid &&
+    name.trim() &&
+    !!industryType &&
+    products.length > 0 &&
+    !!caseType &&
+    (!needsRenewalDate || !!renewal);
+
+  const industryOpts = PL_INDUSTRY_TYPES.map((v) => ({ value: v.value, label: v.value }));
+  const productOpts = PL_PRODUCT_TYPES.map((p) => ({ value: p.code, label: `${p.group} · ${p.label}` }));
+  const businessOpts = PL_BUSINESS_TYPES.map((b) => ({ value: b.value, label: `${b.value} - ${b.meaning}` }));
+  const incumbentOpts = Object.entries(PL_INSURERS).map(([id, v]) => ({ value: id, label: v.name }));
+  const rmOpts = [{ value: PL_CONFIG.universalRm, label: PL_CONFIG.universalRm }];
+  const urgencyOpts = ["High", "Medium", "Low"].map((v) => ({ value: v, label: v }));
+  const ownerOpts = [
+    { value: "bhupendra", label: `${PL_EXECS.bhupendra.name} (default)` },
+    { value: "himani",    label: `${PL_EXECS.himani.name} (you)` },
+  ];
+
+  const templateHint = products.length ? plRfqTemplatesOf(products).join(" · ") : "";
+
+  const asDdMonYyyy = (iso) => {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+    if (!y || !m || !d) return "";
+    const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m - 1];
+    return `${String(d).padStart(2, "0")} ${mon} ${y}`;
+  };
+
+  const submit = () => {
+    if (!canSubmit) return;
+    const source = {};
+    if (file) source.file = { name: file.name, size: plFileSize(file.size), by: PL_ME.name, at: plStamp(), blob: file.blob };
+    if (link.trim()) source.link = { url: link.trim(), at: plStamp() };
+    api.createCase({
+      id: nextId,
+      products,
+      client: {
+        name: name.trim(),
+        industryType,
+        spoc: spoc.trim(),
+      },
+      meta: {
+        caseType,
+        urgency,
+        targetPremium: target ? Number(String(target).replace(/[^\d.]/g, "")) : null,
+        incumbent: incumbent || null,
+      },
+      renewal: asDdMonYyyy(renewal),
+      owner: isHead ? owner : "bhupendra",
+      source,
+      createdByName: PL_ME.name,
+    });
+    onCreated && onCreated(nextId);
+  };
+
+  const Fld = ({ lbl, children }) => (
+    <div>
+      <PlLabel>{lbl}</PlLabel>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+
+  return (
+    <PlModal wide title="Create ticket" subtitle={`${nextId} · manual ticket`} onClose={onClose}
+      footer={<>
+        <PlBtn variant="ghost" onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" onClick={submit} disabled={!canSubmit}>Create ticket</PlBtn>
+      </>}>
+      <div className="space-y-4">
+        {/* RFQ (top) — Excel + link, at least one required. */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div>
+            <PlRfqUploadField label="RFQ Excel" file={file} setFile={setFile} say={api.say} />
+          </div>
+          <div className="min-w-0">
+            <PlLabel>RFQ link</PlLabel>
+            <div className="mt-1">
+              <PlInput value={link} onChange={setLink} placeholder="https://rm.bimakavach.com/rfq/..." mono />
+            </div>
+            {linkInvalid && (
+              <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.red }}>Link must start with http.</div>
+            )}
+            {!hasRfq && !linkInvalid && (
+              <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>Upload an Excel, share a link, or both.</div>
+            )}
+          </div>
+        </div>
+
+        {/* 2-column field grid. */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Fld lbl="Business name">
+            <PlInput value={name} onChange={setName} placeholder="e.g. Nutrigrain Foods Pvt Ltd" />
+          </Fld>
+          <Fld lbl="Industry type">
+            <PlMenuPicker value={industryType} options={industryOpts} onChange={setIndustryType} width="100%" placeholder="Select industry" />
+          </Fld>
+          <div className="md:col-span-2">
+            <PlLabel>Product type(s)</PlLabel>
+            <div className="mt-1">
+              <PlMultiPicker value={products} options={productOpts} onChange={setProducts} width="100%" placeholder="Pick one or more product types" />
+            </div>
+            {templateHint && (
+              <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.ink3 }}>
+                RFQ template: <span style={{ color: PL_T.ink2, fontWeight: 550 }}>{templateHint}</span>
+              </div>
+            )}
+          </div>
+          <Fld lbl="Business type">
+            <PlMenuPicker value={caseType} options={businessOpts} onChange={setCaseType} width="100%" placeholder="Fresh / Renewal / Rollover" />
+          </Fld>
+          {needsRenewalDate && (
+            <Fld lbl="Renewal date">
+              <PlInput value={renewal} onChange={setRenewal} type="date" />
+            </Fld>
+          )}
+          {showIncumbent && (
+            <Fld lbl="Incumbent insurer (optional)">
+              <PlMenuPicker value={incumbent} options={incumbentOpts} onChange={setIncumbent} width="100%" placeholder="Select insurer" />
+            </Fld>
+          )}
+          <Fld lbl="Relationship Manager">
+            <PlMenuPicker value={PL_CONFIG.universalRm} options={rmOpts} onChange={() => {}} width="100%" disabled />
+          </Fld>
+          <Fld lbl="Client SPOC (optional)">
+            <PlInput value={spoc} onChange={setSpoc} placeholder="e.g. Meenal Trivedi, Head HR" />
+          </Fld>
+          <Fld lbl="Urgency">
+            <PlMenuPicker value={urgency} options={urgencyOpts} onChange={setUrgency} width="100%" />
+          </Fld>
+          <Fld lbl="Target premium (optional)">
+            <PlInput value={target} onChange={setTarget} kind="money" placeholder="0" />
+          </Fld>
+          {isHead && (
+            <Fld lbl="Owner">
+              <PlMenuPicker value={owner} options={ownerOpts} onChange={setOwner} width="100%" />
+            </Fld>
+          )}
+        </div>
+
+        <PlCallout tone="neutral">
+          Nothing is read from the RFQ. It is stored on the case and sent to insurers when you float: the Excel as an attachment, the link in the mail body.
+        </PlCallout>
+      </div>
+    </PlModal>
+  );
+}
+
 function PlTick({ checked, onChange, label, sub }) {
   return (
     <label className="flex items-start gap-2.5 cursor-pointer py-1">
@@ -12306,7 +12622,7 @@ const PL_QTABS = [
   { id: "all", label: "All Cases" },
 ];
 
-function PlQueueScreen({ cases, onOpen, user }) {
+function PlQueueScreen({ cases, onOpen, user, onCreate }) {
   const isHead = plIsAdmin(user);
   const [tab, setTab] = useState("mine");
   const [sort, setSort] = useState("oldest");
@@ -12389,6 +12705,9 @@ function PlQueueScreen({ cases, onOpen, user }) {
         } />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
+        {onCreate && (
+          <PlBtn variant="primary" onClick={onCreate}>Create ticket</PlBtn>
+        )}
         <div className="relative" data-menu style={{ minWidth: 187 }}>
           <button onClick={() => setOpenKey(openKey === "sort" ? null : "sort")}
             className="flex w-full items-center gap-1 p-3"
@@ -17592,6 +17911,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
   const [role, setRole] = useState(plIsAdmin(user) ? "Placement Head" : "Placement Manager");
   const [toast, setToast] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const navItems = useMemo(() => plNavFor(user), [user]);
   /* Executive never lands on an admin-only screen even via a stale nav key. */
   const navAllowed = (n) => navItems.some((x) => x[0] === n);
@@ -17633,7 +17953,7 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
             </div>
             {openCase
               ? <PlCaseWorkspace key={openCase.id + (openTab || "")} c={openCase} api={api} initialTab={openTab} onBack={() => { setOpenId(null); setOpenTab(null); }} />
-              : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} />
+              : nav === "cases" ? <PlQueueScreen cases={visibleCases} onOpen={setOpenId} user={user} onCreate={() => setCreateOpen(true)} />
               : nav === "manual" ? <PlManualScreen cases={visibleCases} done={reviewDone} setDone={setReviewDone} onOpen={openCaseAt} />
               : (
                 <div className="px-6 py-6">
@@ -17659,6 +17979,12 @@ function PlacementApp({ user, onSignOut, setEnv, collapsed, setCollapsed }) {
 
       <PlSearchModal open={searchOpen} onClose={() => setSearchOpen(false)}
         cases={visibleCases} onOpen={(id) => { setSearchOpen(false); openCaseAt(id); }} />
+
+      {createOpen && (
+        <PlCreateCaseModal cases={cases} api={api} user={user}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => { setCreateOpen(false); openCaseAt(id, "rfq"); }} />
+      )}
     </div>
   );
 }
