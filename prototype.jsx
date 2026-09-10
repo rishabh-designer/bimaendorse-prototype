@@ -12634,7 +12634,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
                 {/* Row 1: PC-XXXX + status pill (Figma 1536:31841) */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
-                  {c.id === "PC-1026" && (
+                  {c.meta?.mandate?.type === "Exclusive Placement Mandate" && (
                     <PlMandateHover c={c}>
                       <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
                         leading={<IconStarCheck size={13} color="#FF7700" />} />
