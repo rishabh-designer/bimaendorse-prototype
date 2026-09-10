@@ -9839,9 +9839,10 @@ function EndorseApp({ collapsed, setCollapsed, onSignOut, user, setEnv }) {
  *    say confirmClassification requestRmInfo simulateRmReply validateRfq
  *    togglePanel floatRfq setPoc logCall followUp holdForRm rmAnswered
  *    replyToInsurer simulateInsurer editField decideQuote startDraftQcr
- *    releaseQcr newQcrVersion recordOutcome selectQuote openNegotiation
- *    sendNegotiation requestFinalRevision closeRound negotiationResponse
- *    newRfqVersion rmRequestMoreQuotes restartThreads toggleTask
+ *    releaseQcr newQcrVersion recordOutcome selectQuote
+ *    rmRequestMoreQuotes restartThreads toggleTask
+ *    copycatStarted copycatSucceeded copycatFailed regenerateQcr
+ *    resolveGap requestRmInfo simulateRmReply
  *  Internally it uses the ported `patch` + `withLog` (created per-factory).
  *
  *  --------------------------------------------------------------------
@@ -10283,7 +10284,7 @@ const PL_SEED = [
       { id: "oriental", reasons: ["No stated appetite for employee benefits in this segment."] },
       { id: "nia", reasons: ["Health and employee-benefit sections are written from a different branch - routing would split the submission."] },
     ],
-    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    threads: [], quotes: [], qcrs: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Review the RFQ and mail the RM for any gaps", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
@@ -10322,7 +10323,7 @@ const PL_SEED = [
       { id: "nia", reasons: ["No Cyber or D&O appetite in this segment."] },
       { id: "star", reasons: ["Health-only market. Neither product section is in appetite."] },
     ],
-    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    threads: [], quotes: [], qcrs: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Approve insurer panel and float RFQ", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
@@ -10417,7 +10418,7 @@ const PL_SEED_B = [
         excess: "₹50,000 each and every claim", validity: "30 days from 25 Aug 2026",
       }),
     ],
-    qcrs: [], negotiations: [], followUpsStopped: false,
+    qcrs: [], followUpsStopped: false,
     tasks: [
       { id: "t1", label: "Review ICICI Lombard Marine quote", due: "Today", owner: "You", done: false },
       { id: "t2", label: "Chase RM for warehouse fire-safety certificates", due: "Today", owner: "You", done: false },
@@ -10509,7 +10510,7 @@ const PL_SEED_B = [
         exclusions: "Cosmetic, dental, OPD, maternity for parents",
       }, { openItems: ["Room rent limit is blank in the quote document - material for comparison."] }),
     ],
-    qcrs: [], negotiations: [], followUpsStopped: false,
+    qcrs: [], followUpsStopped: false,
     tasks: [
       { id: "t1", label: "Review Bajaj Allianz GMC quote", due: "Today", owner: "You", done: false },
       { id: "t2", label: "Chase New India Assurance for room rent basis", due: "Today", owner: "You", done: false },
@@ -10555,7 +10556,7 @@ const PL_SEED_C = [
       plMkQuote("sompo", "FIRE_FACTORY", 1, 1, "25 Aug, 11:20", { premium: 4290000, si: 1860000000, basis: "Reinstatement value", excess: "5% of claim, min ₹10 L", addons: "Earthquake, STFI, terrorism", validity: "30 days from 25 Aug 2026" }),
     ],
     qcrs: [{ v: 1, status: "released", createdAt: "21 Aug, 16:31", releasedAt: "22 Aug, 10:15", releasedBy: "Bhupendra Singh", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Shubh Bangar (RM)" }],
-    negotiations: [], followUpsStopped: true,
+    followUpsStopped: true,
     tasks: [{ id: "t1", label: "Decide whether Universal Sompo quote warrants QCR V2", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("28 Jul, 09:00", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section"),
@@ -10627,7 +10628,7 @@ const PL_SEED_C = [
       { insurerId: "oriental", status: "declined", slaH: 0, paused: false, followUps: 2, followUpsActive: false, declineReason: "Export pharma PL not written on this desk.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("07 Aug, 14:00", "Insurer", "Declined")], clarifications: [] },
       { insurerId: "chola", status: "declined", slaH: 0, paused: false, followUps: 1, followUpsActive: false, declineReason: "Liability capacity insufficient for a USD 3 M limit.", events: [plEv("24 Jul, 15:01", "System", "RFQ V2 floated"), plEv("31 Jul, 12:00", "Insurer", "Declined")], clarifications: [] },
     ],
-    quotes: [], qcrs: [], negotiations: [], followUpsStopped: true, tasks: [],
+    quotes: [], qcrs: [], followUpsStopped: true, tasks: [],
     audit: [
       plAu("03 Jul, 14:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "6 insurer threads created"),
       plAu("23 Jul, 16:00", "Bhupendra Singh", "PM", "RFQ V2 created", "US jurisdiction removed to test appetite"),
@@ -10657,7 +10658,7 @@ const PL_SEED_C = [
       plMkQuote("bajaj", "PI_TECH", 1, 1, "26 Jul, 15:30", { premium: 1790000, si: 80000000, retention: 5000000, extensions: "BI, ransomware, regulatory defence", territory: "India only", validity: "21 days from 26 Jul 2026" }, { decision: "usable", decisionAt: "28 Jul, 11:00" }),
     ],
     qcrs: [{ v: 1, status: "released", createdAt: "28 Jul, 11:02", releasedAt: "28 Jul, 15:30", releasedBy: "Bhupendra Singh", quoteIds: [], notes: {}, earlyRelease: null, sentTo: "Shubh Bangar (RM)" }],
-    negotiations: [], followUpsStopped: true, tasks: [],
+    followUpsStopped: true, tasks: [],
     audit: [
       plAu("13 Jul, 10:00", "Bhupendra Singh", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("28 Jul, 11:00", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
@@ -10715,7 +10716,7 @@ const PL_SEED_C = [
       icici: { premium: 495000, si: 50000000, retention: 750000, basis: "Claims-made, 30-day discovery", extensions: "Side A/B/C, entity cover, investigations",                                  territory: "India only",              validity: "30 days", exclusions: "Bodily injury, property damage, prior/pending litigation, pollution" },
       bajaj: { premium: 540000, si: 50000000, retention: 500000, basis: "Claims-made, 90-day discovery", extensions: "Side A/B/C, entity cover, investigations, outside directorships",           territory: "India only",              validity: "45 days", exclusions: "Bodily injury, property damage, prior/pending litigation" },
     },
-    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    threads: [], quotes: [], qcrs: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("31 Aug, 10:05", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section (D&O) · web form"),
@@ -10770,7 +10771,7 @@ const PL_SEED_C = [
       icici: { premium: 440000, si: 50000000, retention: 750000, basis: "Claims-made, 30-day discovery",  extensions: "Side A/B/C, entity cover, investigations", territory: "Worldwide excl. USA / Canada", validity: "30 days", exclusions: "Bodily injury, property damage, prior/pending litigation, pollution" },
       bajaj: { premium: 490000, si: 50000000, retention: 500000, basis: "Claims-made, 90-day discovery",  extensions: "Side A/B/C, entity cover, cyber D&O overlap, investigations, outside directorships", territory: "Worldwide excl. USA / Canada", validity: "45 days", exclusions: "Bodily injury, property damage, prior/pending litigation" },
     },
-    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    threads: [], quotes: [], qcrs: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("01 Sep, 11:20", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section · web form"),
@@ -10828,7 +10829,7 @@ const PL_SEED_C = [
       nia:      ["Bengaluru Corporate", "Bandra Corporate", "Chennai RO"],
       united:   ["Koramangala Branch", "Mysuru Branch", "Hyderabad Branch"],
     },
-    threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
+    threads: [], quotes: [], qcrs: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification, then pick a branch per PSU insurer and float", due: "Today", owner: "You", done: false }],
     audit: [
       plAu("02 Sep, 09:45", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections · web form"),
@@ -11069,7 +11070,6 @@ const PL_STAGE = {
   quote_review: { label: "Quote Review", step: 3, tone: "amber" },
   qcr_draft: { label: "QCR Ready", step: 4, tone: "purple" },
   qcr_released: { label: "Pending RM Review", step: 5, tone: "green" },
-  negotiation: { label: "Negotiation", step: 5, tone: "orange" },
   closed: { label: "Closed", step: 6, tone: "neutral" },
 };
 const PL_RAIL = ["RFQ", "Insurers", "Insurer Threads", "Quotes", "QCR", "RM Decision"];
@@ -11103,7 +11103,6 @@ const PL_STAGE_PHASE = {
   quote_review:      4,
   qcr_draft:         4,
   qcr_released:      4,
-  negotiation:       4,
   closed:            5,
 };
 
@@ -11265,15 +11264,6 @@ function plNextAction(c) {
     if (late) return { label: "Late quote received - decide on QCR V2", tab: "qcr", tone: "orange" };
     return { label: "Awaiting client decision via RM", tab: "qcr", tone: "neutral" };
   }
-  if (c.stage === "negotiation") {
-    const latest = c.negotiations[c.negotiations.length - 1];
-    const pending = plLiveQuotes(c).filter((q) => !q.decision);
-    if (latest && latest.status === "draft") return { label: "Send the negotiation request", tab: "quotes", tone: "purple" };
-    if (pending.length) return { label: `Review revised quote from ${PL_INSURERS[pending[0].insurerId].name}`, tab: "quotes", tone: "purple" };
-    if (latest && latest.status === "open" && latest.items.every((it) => it.status === "awaiting"))
-      return { label: latest.final ? "Awaiting final revision from insurer" : "Awaiting revised quote from insurer", tab: "quotes", tone: "neutral" };
-    return { label: latest && latest.final ? "Record the client decision" : "Request final revision or record the client decision", tab: latest && latest.final ? "qcr" : "negotiation", tone: "purple" };
-  }
   return null;
 }
 
@@ -11306,7 +11296,6 @@ function plCaseStatus(c) {
     return P("QCR Generation In Progress", "Placement In Progress");
   }
   if (c.stage === "qcr_released") return P("Pending RM Review", "QCR Ready");
-  if (c.stage === "negotiation") return P("Negotiation In Progress", "Requote / Negotiation In Progress");
   return P("Placement In Progress", "Placement In Progress");
 }
 
@@ -11355,8 +11344,6 @@ function plSlaIdOf(c) {
     : c.stage === "rfq_review" ? "SLA-02"
     : c.stage === "awaiting_rm" ? "SLA-03"
     : c.stage === "insurer_selection" ? (c.panel.locked ? "SLA-05" : "SLA-04")
-    : c.stage === "negotiation" ? (c.negotiations.some((n) => n.status === "draft") ? "SLA-15"
-                                   : c.negotiations.some((n) => n.status === "open") ? "SLA-16" : "SLA-15")
     : c.stage === "qcr_released" ? "SLA-14"
     : c.stage === "qcr_draft" ? (plDraftQcr(c)?.copycat?.status === "ready" ? "SLA-12" : "SLA-11")
     : c.threads.some((t) => t.status === "awaiting_rm") ? "SLA-03"
@@ -11397,10 +11384,6 @@ function plTargetFlag(c, premium) {
  * ==================================================================== */
 
 const PL_TAXONOMY = [
-  { broad: "Commercial / Premium", route: "Negotiation with shortlisted insurers; optionally add new eligible markets.", kind: "negotiation",
-    details: ["Premium above client budget", "Competing broker quote is cheaper", "Loading on claims history disputed"] },
-  { broad: "Coverage / Terms", route: "Negotiation and/or additional insurer outreach.", kind: "negotiation",
-    details: ["Required cover missing", "Deductible too high", "Exclusion unacceptable", "Warranty or condition unacceptable"] },
   { broad: "Insurer Preference", route: "Request additional insurers / alternate QCR.", kind: "more_quotes",
     details: ["Client does not prefer this insurer", "Prior service concern", "Group-level insurer restriction"] },
   { broad: "Requirement Change", route: "Create RFQ Version 2, revalidate and requote.", kind: "rfq_v2",
@@ -11768,7 +11751,7 @@ function makePlacementApi(setCases, say = () => {}) {
         }));
         out = {
           ...out,
-          stage: c.stage === "qcr_released" || c.stage === "negotiation" ? "market" : c.stage,
+          stage: c.stage === "qcr_released" ? "market" : c.stage,
           threads: [...c.threads, ...newThreads],
           threadSeq: (c.threadSeq || 0) + newThreads.length,
           rmMoreQuotes: c.rmMoreQuotes ? { ...c.rmMoreQuotes, handled: true, handledBy: "Approached another insurer" } : c.rmMoreQuotes,
@@ -12071,86 +12054,42 @@ function makePlacementApi(setCases, say = () => {}) {
       return withLog(out, "System", "System", "Handed off to RM / Policy Journey", `Reference ${out.outcome.handoffRef}`);
     }),
 
-    openNegotiation: (id, items, brief) => patch(id, (c) => withLog(
-      { ...c, stage: "negotiation", negotiations: [...c.negotiations, { round: c.negotiations.length + 1, openedAt: plStamp(), status: "draft", brief, items }] },
-      PL_ME.name, "PM", `Negotiation round ${c.negotiations.length + 1} drafted`, `${items.length} insurer ask(s) · not yet sent`)),
-
-    /* Sending moves the round from PM-owned initiation (SLA-15) to insurer-owned revised quote (SLA-16). */
-    sendNegotiation: (id, round) => patch(id, (c) => {
-      const n = c.negotiations.find((x) => x.round === round);
-      if (!n || n.status !== "draft") return c;
-      const ids = n.items.map((it) => it.insurerId);
-      const out = {
-        ...c,
-        negotiations: c.negotiations.map((x) => x.round === round ? { ...x, status: "open", sentAt: plStamp() } : x),
-        threads: c.threads.map((t) => !ids.includes(t.insurerId) ? t
-          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, `Negotiation request sent - round ${round}`)] }),
-      };
-      return withLog(out, PL_ME.name, "PM", `Negotiation round ${round} sent`, ids.map((i) => PL_INSURERS[i].name).join(", "));
-    }),
-
-    /* Round 2 is one bounded ask, sent immediately: no new thread, no email composer.
-       The insurer's reply still lands as the next Quote Version through the existing path. */
-    requestFinalRevision: (id, reason, comment) => patch(id, (c) => {
-      const prev = c.negotiations[c.negotiations.length - 1];
-      if (!prev) return c;
-      const ids = prev.items.map((it) => it.insurerId);
-      const brief = comment ? `${reason} - ${comment}` : reason;
-      const round = {
-        round: c.negotiations.length + 1, openedAt: plStamp(), sentAt: plStamp(), status: "open", final: true, brief,
-        items: ids.map((i) => ({ insurerId: i, ask: `Final revision requested: ${brief}`, status: "awaiting" })),
-      };
-      const out = {
-        ...c, stage: "negotiation",
-        negotiations: [...c.negotiations.map((n) => n.round === prev.round && n.status === "open" ? { ...n, status: "closed", closedAt: plStamp() } : n), round],
-        threads: c.threads.map((t) => !ids.includes(t.insurerId) ? t
-          : { ...t, events: [...t.events, plEv(plStamp(), PL_ME.name, "Final revision requested by Placement Manager")] }),
-      };
-      return withLog(out, PL_ME.name, "PM", "Final revision requested by Placement Manager", `Round ${round.round} · ${brief}`);
-    }),
-
-    closeRound: (id, round) => patch(id, (c) => withLog(
-      { ...c, negotiations: c.negotiations.map((n) => n.round === round ? { ...n, status: "closed", closedAt: plStamp() } : n) },
-      PL_ME.name, "PM", `Negotiation round ${round} closed`, "")),
-
-    negotiationResponse: (id, round, insurerId, status, response) => patch(id, (c) => {
-      let out = { ...c, negotiations: c.negotiations.map((n) => n.round !== round ? n
-        : { ...n, items: n.items.map((it) => it.insurerId === insurerId ? { ...it, status, response, respondedAt: plStamp() } : it) }) };
-      out = withLog(out, PL_INSURERS[insurerId].name, "Insurer",
-        status === "improved" ? "Negotiation ask accepted" : "Negotiation ask declined", response);
-
-      /* Improved terms are a new quote version, reviewed in the Quotes workspace -
-         negotiation does not get a second quote-review system of its own. */
-      if (status === "improved") {
-        const prior = plQuotesOf(c, insurerId).filter((q) => q.decision !== "superseded").slice(-1)[0];
-        if (prior) {
-          const cut = (v) => (typeof v === "number" ? Math.round(v * 0.93) : v);
-          const base = {};
-          prior.fields.forEach((f) => { base[f.key] = f.key === "premium" ? cut(f.value) : f.key === "copay" ? "Nil" : f.value; });
-          const nq = plMkQuote(insurerId, prior.product, c.activeRfq, prior.version + 1, plStamp(), base);
-          out = {
-            ...out,
-            quotes: [...out.quotes.map((q) => (q.id === prior.id ? { ...q, decision: "superseded" } : q)),
-              { ...nq, supersedes: prior.version }],
-            threads: out.threads.map((t) => t.insurerId !== insurerId ? t
-              : { ...t, status: "quote_received", events: [...t.events, plEv(plStamp(), "Insurer", `Revised quote received - Quote V${prior.version + 1}`)] }),
-          };
-          out = withLog(out, PL_INSURERS[insurerId].name, "Insurer", `Revised quote received - Quote V${prior.version + 1}`,
-            `Quote V${prior.version} superseded · awaiting Placement Manager review`);
-        }
-      }
-      return out;
-    }),
-
-    newRfqVersion: (id, changeNote) => patch(id, (c) => {
+    /* §13 · A new RFQ version supersedes the old one end to end:
+       every QCR on the old version becomes superseded, any pending
+       "RM requested more quotes" ask is handled, the panel unlocks
+       (keeping the previous selection so the PM can tweak), threads
+       reset (threadSeq keeps its high-water mark), products stay,
+       and the new source rides along on the audit line. */
+    newRfqVersion: (id, changeNote, source) => patch(id, (c) => {
       const v = c.activeRfq + 1;
       const prev = plActiveRfqOf(c);
-      const rfqs = [...c.rfqs.map((r) => r.v === c.activeRfq ? { ...r, status: "superseded" } : r),
-        { ...prev, v, status: "in_review", createdAt: plStamp(), validatedAt: null, floatedAt: null, changeNote, rmThread: [] }];
-      let out = { ...c, rfqs, activeRfq: v, stage: "rfq_review", threads: [], followUpsStopped: false,
-        panel: { ...c.panel, locked: false } };
-      out = withLog(out, PL_ME.name, "PM", `RFQ V${v} created`, changeNote);
-      return withLog(out, "System", "System", "Insurer threads reset", `Quotes against RFQ V${c.activeRfq} retained for audit but no longer count toward the threshold`);
+      const prevV = c.activeRfq;
+      const src = source || {};
+      const rfqs = [
+        ...c.rfqs.map((r) => r.v === prevV ? { ...r, status: "superseded" } : r),
+        {
+          ...prev, v, status: "in_review", createdAt: plStamp(),
+          validatedAt: null, floatedAt: null, changeNote,
+          rmThread: [], missing: [], source: src,
+        },
+      ];
+      /* Every QCR on the old RFQ becomes superseded — plQcrsOnRfq
+         filters them out, so PlQcrDocument won't pick a stale row. */
+      const qcrs = (c.qcrs || []).map((q) => q.rfqV === prevV ? { ...q, status: "superseded" } : q);
+      const rmMoreQuotes = (c.rmMoreQuotes && !c.rmMoreQuotes.handled)
+        ? { ...c.rmMoreQuotes, handled: true, handledBy: `Superseded by RFQ V${v}` }
+        : c.rmMoreQuotes;
+      let out = {
+        ...c, rfqs, qcrs, activeRfq: v, stage: "rfq_review",
+        threads: [], followUpsStopped: false,
+        panel: { ...c.panel, locked: false },
+        rmMoreQuotes,
+      };
+      const bits = [changeNote];
+      if (src.file) bits.push(`${src.file.name} uploaded`);
+      if (src.link) bits.push(`New RFQ link ${src.link.url}`);
+      out = withLog(out, PL_ME.name, "PM", `RFQ V${v} created`, bits.filter(Boolean).join(" · "));
+      return withLog(out, "System", "System", "Insurer threads reset", `Quotes against RFQ V${prevV} retained for audit but no longer count toward the threshold`);
     }),
 
     rmRequestMoreQuotes: (id, reason) => patch(id, (c) => withLog(
@@ -14556,7 +14495,6 @@ const PL_IN_TABS = [
   { id: "all", label: "All" },
   { id: "quote", label: "Quotes" },
   { id: "clarify", label: "Clarifications" },
-  { id: "negotiation", label: "Negotiation" },
 ];
 
 function PlInboxScreen({ cases, onOpen }) {
@@ -14580,14 +14518,11 @@ function PlInboxScreen({ cases, onOpen }) {
       items.push({ c, group: "clarify", type: "RM requested more quotes", source: c.client.rm, at: c.rmMoreQuotes.at, cta: "Open threads", tab: "market" });
     plLiveQuotes(c).filter((q) => !q.decision).forEach((q) =>
       items.push({ c, group: "quote", type: "New quote received", source: PL_INSURERS[q.insurerId].name, at: q.receivedAt, cta: "Review quote", tab: "quotes" }));
-    c.negotiations.forEach((n) => (n.asks || []).forEach((a) => {
-      if (a.response) items.push({ c, group: "negotiation", type: "Negotiation response received", source: PL_INSURERS[a.insurerId].name, at: a.respondedAt || "-", cta: "Open negotiation", tab: "quotes" });
-    }));
   });
 
   const rows = tab === "all" ? items : items.filter((i) => i.group === tab);
   const counts = { all: items.length, quote: items.filter((i) => i.group === "quote").length,
-    clarify: items.filter((i) => i.group === "clarify").length, negotiation: items.filter((i) => i.group === "negotiation").length };
+    clarify: items.filter((i) => i.group === "clarify").length };
 
   return (
     <div>
@@ -14633,7 +14568,7 @@ function PlInboxScreen({ cases, onOpen }) {
             </span>
           </div>
         ))}
-        {rows.length === 0 && <PlEmpty icon={Inbox} title="Nothing waiting" body="No open clarifications, unreviewed quotes or negotiation responses." />}
+        {rows.length === 0 && <PlEmpty icon={Inbox} title="Nothing waiting" body="No open clarifications or unreviewed quotes." />}
       </PlCard>
     </div>
   );
@@ -14653,7 +14588,7 @@ const PL_MY_REVIEWS = [
     why: "Reads as a decline, but it also contains a conditional invitation to requote." },
 ];
 
-const PL_CLASSES_IN = ["Quote Received", "Clarification Required", "Declined", "Negotiation Response", "Not Applicable"];
+const PL_CLASSES_IN = ["Quote Received", "Clarification Required", "Declined", "Not Applicable"];
 
 const PL_UNMATCHED = [
   { id: "IN-4471", from: "underwriting.desk@icicilombard.com", subject: "Re: Quotation - corporate GMC (no case reference)", at: "26 Aug, 08:12",
@@ -17047,7 +16982,6 @@ function PlQcrTab({ c, api, goTo }) {
           <div className="grid grid-cols-2 gap-2">
             {[
               { k: "quote_selected", label: "Quote selected", sub: "Client picked a market - hand off to issuance", tone: "green" },
-              { k: "negotiation", label: "Negotiation", sub: "Client wants improved terms before deciding", tone: "orange" },
               { k: "more_quotes", label: "Request more quotes", sub: "Reopen the market and restart follow-ups", tone: "purple" },
               { k: "rfq_v2", label: "Requirement change", sub: `Create RFQ V${c.activeRfq + 1} and re-approach the market`, tone: "purple" },
               { k: "lost", label: "Lost", sub: "Client placed elsewhere or withdrew", tone: "red" },
@@ -17082,11 +17016,10 @@ function PlQcrTab({ c, api, goTo }) {
       {send && <PlSendQcrModal c={c} qcr={draft} api={api} onClose={() => setSend(false)} />}
       {outcome && (
         <PlOutcomeModal c={c} kind={outcome} api={api} onClose={() => {
-          /* Negotiation / more quotes / RFQ V2 all reopen insurer selection —
-             route the user back to the Insurers tab so the restart is
-             obvious. Terminal outcomes (quote_selected, lost,
-             unable_to_place, cancelled_inactivity) stay put. */
-          if (["negotiation", "more_quotes", "rfq_v2"].includes(outcome)) goTo("insurers");
+          /* more_quotes / RFQ V2 reopen insurer selection — route the user
+             back to the Insurers tab so the restart is obvious. Terminal
+             outcomes stay put. */
+          if (["more_quotes", "rfq_v2"].includes(outcome)) goTo("insurers");
           setOutcome(null);
         }} />
       )}
@@ -17317,15 +17250,33 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
   const [broad, setBroad] = useState("");
   const [detail, setDetail] = useState("");
   const [picked2, setPicked2] = useState([]);
-  const taxed = ["negotiation", "rfq_v2", "lost"].includes(kind);
+  const taxed = ["rfq_v2", "lost"].includes(kind);
   const fullReason = () => [broad, detail].filter(Boolean).join(" - ") + (reason.trim() ? ` · ${reason.trim()}` : "");
-  const [asks, setAsks] = useState(usable.map((id) => ({ insurerId: id, ask: "", status: "awaiting", response: null })));
+
+  /* §13 · RFQ V2 needs a fresh source of every type V1 had — the type
+     cannot switch. A V1 with a file needs a file; a V1 with a link
+     needs a link; a V1 with both needs both. */
+  const nextV = c.activeRfq + 1;
+  const activeRfq = plActiveRfqOf(c);
+  const v1Src = (activeRfq && activeRfq.source) || {};
+  const needFile = !!v1Src.file;
+  const needLink = !!v1Src.link;
+  const [v2File, setV2File] = useState(null);
+  const [v2Link, setV2Link] = useState(needLink ? plRfqLinkUrl(c.id, nextV) : "");
+  const v2LinkValid = !needLink || (v2Link.trim() && /^https?:/i.test(v2Link.trim()));
+  const v2FileValid = !needFile || !!v2File;
+  const v2SourceReady = v2FileValid && v2LinkValid;
+  const buildV2Source = () => {
+    const out = {};
+    if (needFile && v2File) out.file = { name: v2File.name, size: plFileSize(v2File.size), by: PL_ME.name, at: plStamp(), blob: v2File.blob };
+    if (needLink && v2Link.trim()) out.link = { url: v2Link.trim(), at: plStamp() };
+    return out;
+  };
 
   const meta = {
     quote_selected: { title: "Record quote selection", cta: "Confirm selection and hand off", tone: "success" },
-    negotiation: { title: "Open a negotiation round", cta: "Open round", tone: "primary" },
     more_quotes: { title: "Reopen the market", cta: "Restart selected threads", tone: "primary" },
-    rfq_v2: { title: `Create RFQ V${c.activeRfq + 1}`, cta: "Create new version", tone: "primary" },
+    rfq_v2: { title: `Create RFQ V${nextV}`, cta: "Create new version", tone: "primary" },
     lost: { title: "Close as lost", cta: "Close case", tone: "danger" },
     unable_to_place: { title: "Close as unable to place", cta: "Close case", tone: "danger" },
     cancelled_inactivity: { title: "Close as cancelled - inactivity", cta: "Close case", tone: "danger" },
@@ -17333,23 +17284,22 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
 
   const run = () => {
     if (kind === "quote_selected") { api.selectQuote(c.id, pick, reason || "Client selected these terms."); api.say("Selection recorded - handed off to RM / Policy Journey"); }
-    else if (kind === "negotiation") { api.openNegotiation(c.id, asks.filter((a) => a.ask.trim()), fullReason()); api.say("Negotiation round opened"); }
     else if (kind === "more_quotes") { api.restartThreads(c.id, picked2, reason.trim()); api.say(`${picked2.length} thread${picked2.length === 1 ? "" : "s"} restarted`); }
-    else if (kind === "rfq_v2") { api.newRfqVersion(c.id, fullReason()); api.say(`RFQ V${c.activeRfq + 1} created`); }
+    else if (kind === "rfq_v2") { api.newRfqVersion(c.id, fullReason(), buildV2Source()); api.say(`RFQ V${nextV} created`); }
     else { api.recordOutcome(c.id, kind, taxed ? fullReason() : reason); api.say("Case closed"); }
     onClose();
   };
 
-  /* A successful selection needs the market, not an essay. Terminal closures
-     (Lost, Unable to Place, Cancelled) still require a reason. */
+  /* A successful selection needs the market, not an essay. Terminal
+     closures still require a reason. RFQ V2 also needs the source. */
   const valid = kind === "more_quotes" ? (picked2.length > 0 && reason.trim().length > 0)
     : kind === "quote_selected" ? !!pick
-    : taxed ? (!!broad && (broad === "Other" ? reason.trim().length > 8 : !!detail) &&
-        (kind !== "negotiation" || asks.some((a) => a.ask.trim())))
+    : kind === "rfq_v2" ? (!!broad && (broad === "Other" ? reason.trim().length > 8 : !!detail) && v2SourceReady)
+    : taxed ? (!!broad && (broad === "Other" ? reason.trim().length > 8 : !!detail))
     : reason.trim().length > 8;
 
   return (
-    <PlModal title={meta.title} subtitle={`${c.id} · ${c.client.name}`} onClose={onClose} wide={kind === "negotiation"}
+    <PlModal title={meta.title} subtitle={`${c.id} · ${c.client.name}`} onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
         <PlBtn variant={meta.tone} disabled={!valid} onClick={run}>{meta.cta}</PlBtn></>}>
       {taxed && <PlTaxonomyPicker kind={kind} broad={broad} setBroad={setBroad} detail={detail} setDetail={setDetail} />}
@@ -17368,23 +17318,6 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
           </div>
           <PlLabel>Note from the RM</PlLabel>
           <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="What the client said, and anything issuance needs to know" /></div>
-        </>
-      )}
-
-      {kind === "negotiation" && (
-        <>
-          <PlLabel>What the client is asking for</PlLabel>
-          <div className="mt-1.5 mb-4"><PlTextArea value={reason} onChange={setReason} rows={2} placeholder="Summarise the client's position in one line" /></div>
-          <PlLabel>Ask per insurer</PlLabel>
-          <div className="mt-1.5 space-y-2">
-            {asks.map((a, i) => (
-              <div key={a.insurerId} className="rounded-lg border px-3 py-2" style={{ borderColor: PL_T.border }}>
-                <div style={{ fontSize: 12.5, fontWeight: 550 }} className="mb-1.5">{PL_INSURERS[a.insurerId].name}</div>
-                <PlTextArea rows={2} value={a.ask} placeholder="Leave blank to skip this market"
-                  onChange={(v) => setAsks((s) => s.map((x, j) => (j === i ? { ...x, ask: v } : x)))} />
-              </div>
-            ))}
-          </div>
         </>
       )}
 
@@ -17410,7 +17343,19 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
             </span>
           </PlCallout>
           <PlLabel>What changed</PlLabel>
-          <div className="mt-1.5"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="e.g. Sum insured raised to ₹10 L per family and parents moved in-scope" /></div>
+          <div className="mt-1.5 mb-4"><PlTextArea value={reason} onChange={setReason} rows={3} placeholder="e.g. Sum insured raised to ₹10 L per family and parents moved in-scope" /></div>
+          {needFile && (
+            <div className="mb-3">
+              <PlRfqUploadField label={`RFQ V${nextV} Excel`} file={v2File} setFile={setV2File} say={api.say} />
+            </div>
+          )}
+          {needLink && (
+            <div className="mb-1">
+              <PlLabel>RFQ V{nextV} link</PlLabel>
+              <div className="mt-1"><PlInput value={v2Link} onChange={setV2Link} mono placeholder="https://rm.bimakavach.com/rfq/..." /></div>
+              {!v2LinkValid && <div className="mt-1" style={{ fontSize: 11.5, color: PL_T.red }}>Link must start with http.</div>}
+            </div>
+          )}
         </>
       )}
 
@@ -17424,190 +17369,11 @@ function PlOutcomeModal({ c, kind, api, onClose }) {
   );
 }
 
-/* --------------------------- Negotiation + Activity ------------------------ */
-
-function PlNegotiationTab({ c, api }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(null);
-  const [history, setHistory] = useState(false);
-  const [finalOpen, setFinalOpen] = useState(false);
-  if (c.negotiations.length === 0)
-    return (
-      <div>
-        <PlEmpty icon={MessageSquare} title="No negotiation rounds"
-          body={plReleasedQcr(c)
-            ? "Open a round when the client comes back asking for improved terms. Each ask is tracked per insurer."
-            : "Negotiation starts after a QCR has been released and the client has responded."}
-          action={plReleasedQcr(c) && !c.outcome ? <PlBtn variant="primary" onClick={() => setOpen(true)}>Open a round</PlBtn> : null} />
-        {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
-      </div>
-    );
-
-  const latest = c.negotiations[c.negotiations.length - 1];
-  const responded = latest.items.some((it) => it.status !== "awaiting");
-  const canFinal = !c.outcome && !latest.final && latest.status !== "draft" && (latest.status === "closed" || responded);
-  const statusText = latest.status === "draft" ? "Draft - not sent"
-    : latest.final ? (latest.status === "open" ? "Final Revision Requested" : "Final revision - closed")
-    : latest.status === "open" ? "Awaiting insurer response" : "Closed";
-  const shown = history ? [...c.negotiations].reverse() : [latest];
-
-  return (
-    <div className="space-y-3">
-      <PlCard>
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <PlLabel>Current negotiation</PlLabel>
-            <div className="flex items-center gap-2 mt-1">
-              <span style={{ fontSize: 14, fontWeight: 650 }}>Negotiation Round {latest.round}</span>
-              <PlChip tone={latest.status === "draft" ? "purple" : latest.status === "open" ? "orange" : "neutral"} dot>{statusText}</PlChip>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mt-2.5" style={{ maxWidth: 560 }}>
-              <PlKV k="Latest request" v={latest.brief} />
-              <PlKV k="Expected response" v={latest.status === "draft" ? "- not sent yet" : latest.status === "open" ? `${PL_SLA_MASTER["SLA-16"].target} from ${latest.sentAt || latest.openedAt}` : latest.closedAt ? `Closed ${latest.closedAt}` : "-"} />
-              <PlKV k="Insurers" v={latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")} />
-              <PlKV k="SLA owner" v={latest.status === "draft" ? PL_SLA_MASTER["SLA-15"].owner : latest.status === "open" ? PL_SLA_MASTER["SLA-16"].owner : "-"} />
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {latest.status === "draft" && (
-              <PlBtn size="lg" variant="primary" onClick={() => { api.sendNegotiation(c.id, latest.round); api.say(`Negotiation request sent to ${latest.items.length} insurer${latest.items.length === 1 ? "" : "s"}`); }}>
-                Send negotiation request
-              </PlBtn>
-            )}
-            {canFinal && <PlBtn variant="primary" onClick={() => setFinalOpen(true)}>Request final revision</PlBtn>}
-            <PlBtn size="sm" variant="ghost" onClick={() => setHistory((v) => !v)}>{history ? "Hide history" : "View history"}</PlBtn>
-          </div>
-        </div>
-      </PlCard>
-
-      {shown.map((n) => (
-        <PlCard key={n.round} pad={false}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-            <div>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: 12.5, fontWeight: 600 }}>Round {n.round}</span>
-                <PlChip tone={n.status === "open" ? "orange" : n.status === "draft" ? "purple" : "neutral"} dot>
-                  {n.final ? (n.status === "open" ? "Final Revision Requested" : "Final revision - closed")
-                    : n.status === "open" ? "Sent - awaiting insurer" : n.status === "draft" ? "Draft - not sent" : "Closed"}
-                </PlChip>
-              </div>
-              <div style={{ fontSize: 11.5, color: PL_T.ink3 }} className="mt-0.5">{n.brief}</div>
-            </div>
-            <div className="text-right">
-              <PlMono size={10.5} color={PL_T.ink3}>{n.sentAt ? `Sent ${n.sentAt}` : `Drafted ${n.openedAt}`}</PlMono>
-              {n.status === "draft" && (
-                <div className="mt-1 flex gap-1.5 justify-end">
-                  <PlBtn size="sm" onClick={() => setDraft(n)}>Review draft email</PlBtn>
-                </div>
-              )}
-              {n.status === "open" && (
-                <div className="mt-1"><PlBtn size="sm" onClick={() => { api.closeRound(c.id, n.round); api.say(`Round ${n.round} closed`); }}>Close round</PlBtn></div>
-              )}
-            </div>
-          </div>
-          {n.items.map((it) => (
-            <div key={it.insurerId} className="px-4 py-3" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span style={{ fontSize: 12.5, fontWeight: 600 }}>{PL_INSURERS[it.insurerId].name}</span>
-                    <PlChip size="xs" tone={it.status === "improved" ? "green" : it.status === "declined" ? "red" : "orange"} dot>
-                      {it.status === "improved" ? "Improved" : it.status === "declined" ? "Held terms" : "Awaiting response"}
-                    </PlChip>
-                  </div>
-                  {(() => {
-                    const cur = plQuotesOf(c, it.insurerId).filter((q) => q.decision !== "superseded").slice(-1)[0];
-                    const prem = cur && cur.fields.find((f) => f.key === "premium");
-                    return cur ? (
-                      <div className="mt-1 flex items-center gap-3">
-                        <span style={{ fontSize: 11, color: PL_T.ink3 }}>Current</span>
-                        <PlMono size={12} color={PL_T.ink} weight={600}>{prem ? plFmtVal(prem) : "-"}</PlMono>
-                        <PlChip size="xs" mono>Quote V{cur.version}</PlChip>
-                      </div>
-                    ) : null;
-                  })()}
-                  <div style={{ fontSize: 11, color: PL_T.ink3 }} className="mt-1.5">Ask</div>
-                  <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.5 }}>{it.ask}</div>
-                  {it.response && (
-                    <div className="mt-2 rounded-lg px-3 py-2" style={{ background: it.status === "improved" ? PL_T.greenSoft : PL_T.cardSunk, border: `1px solid ${it.status === "improved" ? PL_T.greenLine : PL_T.border}` }}>
-                      <PlLabel>Insurer replied</PlLabel>
-                      <div style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }} className="mt-0.5">{it.response}</div>
-                      {it.status === "improved" && (
-                        <div className="mt-1.5" style={{ fontSize: 11, color: PL_T.green }}>
-                          A revised quote version was created. Review it on the Quotes tab like any other quote.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {n.status === "open" && it.status === "awaiting" && (
-                  <div className="shrink-0" style={{ width: 236 }}>
-                    <PlSimBlock title="Simulate negotiation response">
-                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "improved", "Terms improved as requested. Revised quote attached."); api.say("Revised terms received - Quote V2 created"); }}>
-                        Improved terms
-                      </PlSimBtn>
-                      <PlSimBtn onClick={() => { api.negotiationResponse(c.id, n.round, it.insurerId, "declined", "Cannot improve at this risk profile. Terms stand."); api.say("Insurer held terms"); }}>
-                        Holds terms
-                      </PlSimBtn>
-                    </PlSimBlock>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </PlCard>
-      ))}
-      {!c.outcome && (
-        <div><PlBtn onClick={() => setOpen(true)}>Open another round</PlBtn></div>
-      )}
-      {open && <PlOutcomeModal c={c} kind="negotiation" api={api} onClose={() => setOpen(false)} />}
-      {finalOpen && <PlFinalRevisionModal c={c} api={api} onClose={() => setFinalOpen(false)} />}
-      {draft && (
-        <PlModal title={`Draft - round ${draft.round}`} subtitle="Template INS-T05 · one email per insurer thread, sent from your mailbox" onClose={() => setDraft(null)} wide
-          footer={<><PlBtn onClick={() => setDraft(null)}>Cancel</PlBtn>
-            <PlBtn variant="primary" onClick={() => { api.sendNegotiation(c.id, draft.round); api.say("Negotiation request sent"); setDraft(null); }}>Send negotiation request</PlBtn></>}>
-          <div className="space-y-3">
-            {draft.items.map((it) => (
-              <div key={it.insurerId} className="rounded-lg px-3 py-2.5" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
-                <PlMono size={10.5} color={PL_T.ink3}>To: {plPocOf(c, it.insurerId)} · {PL_INSURERS[it.insurerId].name}</PlMono>
-                <div style={{ fontSize: 12, fontWeight: 600 }} className="mt-1">Reconsideration request: [{c.id}] {c.client.name} - {c.products.map((p) => PL_PRODUCTS[p]).join(", ")}</div>
-                <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.6 }} className="mt-1.5">
-                  Dear {plPocOf(c, it.insurerId).split(" ")[0]}, the client has requested improved commercial terms. Please reconsider and share your best revised quotation.
-                  Current feedback: {it.ask} Any revised quote will be stored as a new quote version. Regards, {PL_ME.name}.
-                </div>
-              </div>
-            ))}
-          </div>
-        </PlModal>
-      )}
-    </div>
-  );
-}
-
-
-const PL_FINAL_REASONS = ["Premium reduction required", "Coverage improvement required", "Client requirement", "Other"];
-
-function PlFinalRevisionModal({ c, api, onClose }) {
-  const [reason, setReason] = useState(PL_FINAL_REASONS[0]);
-  const [comment, setComment] = useState("");
-  const latest = c.negotiations[c.negotiations.length - 1];
-  return (
-    <PlModal title="Request Final Revision" subtitle={`Round ${latest.round + 1} · goes to ${latest.items.map((it) => PL_INSURERS[it.insurerId].name).join(", ")}`} onClose={onClose}
-      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
-        <PlBtn variant="primary" disabled={reason === "Other" && !comment.trim()}
-          onClick={() => { api.requestFinalRevision(c.id, reason, comment.trim()); api.say("Final revision requested"); onClose(); }}>
-          Send request
-        </PlBtn></>}>
-      <PlLabel>Reason</PlLabel>
-      <div className="mt-1.5 mb-3"><PlSelect value={reason} onChange={setReason} options={PL_FINAL_REASONS} /></div>
-      <PlLabel>Comment (optional{reason === "Other" ? " - required for Other" : ""})</PlLabel>
-      <div className="mt-1.5"><PlTextArea value={comment} onChange={setComment} rows={3} placeholder="Anything the insurer needs to know for this last pass." /></div>
-      <div className="mt-3" style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.5 }}>
-        One final ask to the same insurers on this round. Their reply arrives as the next Quote Version, reviewed on the Quotes tab.
-      </div>
-    </PlModal>
-  );
-}
+/* --------------------------- (Negotiation deleted §14) --------------------- */
+/* PlNegotiationTab, PlFinalRevisionModal and PL_FINAL_REASONS were removed
+   in Phase 7 alongside the negotiation api methods, seed field, status map
+   entries and taxonomy rows. PL_SLA_MASTER SLA-15 / SLA-16 stay because the
+   master mirrors the SLA sheet. */
 
 /* Mail Trail — pill toggle across every conversation on the case. The RFQ
    pill collects everything with the RM or QCR (the "internal" thread), and
