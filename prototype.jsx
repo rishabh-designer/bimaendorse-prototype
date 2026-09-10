@@ -12449,7 +12449,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
     { id: "quotes", label: "Quotes" },
     { id: "qcr", label: "QCR" },
     { id: "mail", label: "Mail Trail" },
-    { id: "activity", label: "Ticket History" },
+    { id: "activity", label: "Audit Trail" },
   ];
 
   const statusTone = c.outcome ? PL_OUTCOME[c.outcome.type].tone
@@ -16091,39 +16091,57 @@ function PlMailTab({ c }) {
   );
 }
 
+/* Audit Trail — matches Endorse's `Ticket History` shape (TrailRow at
+   L3303): reverse-chronological rows carry a bk-mark diamond, an event
+   line, optional detail note, and a right-side actor + timestamp cluster.
+   Rows are separated by the `bk-trail` dotted rule. The Everything / You
+   / Insurers / RM / System filter is Placement's addition (Endorse has no
+   equivalent) and rides in the header's meta slot as ThreadTab pills to
+   match the Mail Trail pattern. */
 function PlActivityTab({ c }) {
   const [f, setF] = useState("all");
-  const kinds = [["all", "Everything"], ["PM", "You"], ["Insurer", "Insurers"], ["RM", "RM"], ["System", "System"]];
+  const kinds = [["all", "All"], ["PM", "You"], ["Insurer", "Insurers"], ["RM", "RM"], ["System", "System"]];
   const rows = [...c.audit].reverse().filter((a) => f === "all" || a.actorType === f);
-  const total = (c.audit || []).length;
+  const ex = plExecOf(c);
+  const actorAvatar = (a) => {
+    if (a.actorType === "PM") return <PlAvatar src={ex.avatar} name={a.actor} size={20} />;
+    if (a.actorType === "Insurer") return <PlAvatar tone="purple" icon={IconShieldPlus} name={a.actor} size={20} />;
+    if (a.actorType === "System") return <PlAvatar tone="neutral" name="System" size={20} />;
+    return <PlAvatar tone="blue" name={a.actor} size={20} />;
+  };
   return (
     <div className="space-y-4">
-      <PlTabHeader title="Ticket History"
-        meta={`${total} ${total === 1 ? "event" : "events"}`} />
-      <PlCard pad={false}>
-      <div className="flex items-center gap-1 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
-        <PlLabel>Filter</PlLabel>
-        <span className="flex-1" />
-        {kinds.map(([id, label]) => (
-          <button key={id} onClick={() => setF(id)} className="rounded-lg px-2.5 py-1 border"
-            style={{ background: f === id ? PL_T.card : "transparent", borderColor: f === id ? PL_T.borderStrong : "transparent", fontSize: 11.5, fontWeight: f === id ? 550 : 450, color: f === id ? PL_T.ink : PL_T.ink2 }}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {rows.map((a, i) => (
-        <div key={i} className="flex items-start gap-3 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
-          <PlMono size={10.5} color={PL_T.ink3}>{a.at}</PlMono>
-          <span className="rounded-full shrink-0 mt-1.5"
-            style={{ width: 5, height: 5, background: a.actorType === "PM" ? PL_T.purple : a.actorType === "Insurer" ? PL_T.blue : a.actorType === "RM" ? PL_T.orange : PL_T.borderStrong }} />
-          <div className="flex-1 min-w-0">
-            <div style={{ fontSize: 12, color: PL_T.ink, fontWeight: 500 }}>{a.event}</div>
-            {a.detail && <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.4 }}>{a.detail}</div>}
-          </div>
-          <PlChip size="xs">{a.actor}</PlChip>
+      <PlTabHeader title="Audit Trail" meta={
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          {kinds.map(([id, label]) => (
+            <ThreadTab key={id} label={label} on={f === id} onClick={() => setF(id)} />
+          ))}
         </div>
-      ))}
-      </PlCard>
+      } />
+      <div>
+        {rows.length ? rows.map((a, i, all) => (
+          <div key={i}>
+            <div className="flex items-start justify-between gap-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-2">
+                  <span className="bk-mark shrink-0" style={{ marginTop: 7 }} aria-hidden />
+                  <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.4, color: PL_T.ink }}>{a.event}</span>
+                </div>
+                {a.detail && (
+                  <div style={{ paddingLeft: 20, fontSize: 12, fontWeight: 500, lineHeight: 1.4, color: PL_T.ink3 }}>{a.detail}</div>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                {actorAvatar(a)}
+                <span className="hidden sm:inline" style={{ fontSize: 13, fontWeight: 500, color: PL_T.ink }}>{a.actor}</span>
+                <span className="hidden sm:inline" style={{ fontSize: 13, color: PL_T.ink3 }}>·</span>
+                <span className="whitespace-nowrap" style={{ fontSize: 13, fontWeight: 500, color: PL_T.ink3, fontFamily: PL_MONO }}>{a.at}</span>
+              </div>
+            </div>
+            {i < all.length - 1 && <div className="bk-trail" aria-hidden />}
+          </div>
+        )) : <Empty>Nothing logged yet.</Empty>}
+      </div>
     </div>
   );
 }
