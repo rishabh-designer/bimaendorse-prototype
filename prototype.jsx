@@ -6147,7 +6147,13 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
         <div className={`bk-profile flex shrink-0 items-start rounded-xl border ${collapsed ? "justify-center p-1.5" : "w-full justify-between p-2"}`}
           style={{ background: C.white, borderColor: C.subtle, borderWidth: "0.5px" }}>
           <div className="flex shrink-0 flex-col gap-3">
-            <img src={identity.avatar} alt="" className="shrink-0 rounded-full object-cover" style={{ width: 36, height: 36, minWidth: 36 }} />
+            <span className="relative inline-flex shrink-0" style={{ lineHeight: 0 }}>
+              <img src={identity.avatar} alt="" className="rounded-full object-cover" style={{ width: 36, height: 36, minWidth: 36, display: "block" }} />
+              {collapsed && STATUS[presence] && (
+                <span title={STATUS[presence].label} className="absolute rounded-full"
+                  style={{ width: 10, height: 10, right: -1, bottom: -1, background: STATUS[presence].dot, border: `2px solid ${C.white}` }} />
+              )}
+            </span>
             {!collapsed && (
               <div className="leading-none">
                 <div className="flex items-center gap-1.5">
