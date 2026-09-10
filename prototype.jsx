@@ -11191,12 +11191,12 @@ const plProductCoverage = (c) => c.products.map((p) => {
   return { product: p, n: s.size };
 });
 
-/* a quote cannot be marked usable while material information is unresolved */
-const plGapsOf = (q) => {
-  const blanks = q.fields.filter((f) => f.required && String(f.value ?? "").trim() === "")
-    .map((f) => `${f.label} is missing from the quote document.`);
-  return [...blanks, ...(q.openItems || [])];
-};
+/* §12 · A quote cannot be marked usable while an open insurer
+   clarification is still on it. Blank required-field extractions
+   used to gate here too, but Copycat now owns the extraction path
+   and the correction UI on the workspace is gone — the residual
+   check would leave quotes stuck with no way out. */
+const plGapsOf = (q) => [...(q.openItems || [])];
 const plCanMarkUsable = (q) => plGapsOf(q).length === 0;
 
 const plLowConfidence = (q) => q.fields.filter((f) => f.confidence === "low");
