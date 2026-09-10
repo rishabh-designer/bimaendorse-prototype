@@ -12584,6 +12584,7 @@ function PlInsuranceContactTab({ c, api, sub, setSub, goTo }) {
       <PlTabHeader title="Insurance Contact"
         meta={`${c.threads.length} ${c.threads.length === 1 ? "thread" : "threads"} · ${plUsableCount(c)} usable`} />
       <PlSubTabs items={subs} value={sub} onChange={setSub} />
+      <div className="bk-rule" aria-hidden />
       {sub === "insurers" && <PlInsurersTab c={c} api={api} />}
       {sub === "market"   && <PlMarketTab   c={c} api={api} goTo={goTo} />}
     </div>
