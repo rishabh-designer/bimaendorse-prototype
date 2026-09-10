@@ -12661,7 +12661,7 @@ function PlSubTabs({ items, value, onChange }) {
    render one placement stage each with the fictitious SLA from
    PL_WORKFLOW_ROWS. */
 function PlOverviewTab({ c }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const currentStep = c.outcome ? 6 : (PL_STAGE[c.stage]?.step ?? 0);
   const rows = PL_WORKFLOW_ROWS.map((r) => {
     const done = r.step < currentStep;
