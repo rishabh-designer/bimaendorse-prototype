@@ -1052,7 +1052,7 @@ const ActorName = ({ a }) => a.kind === "product"
 /* Primitives ------------------------------------------------------ */
 const Eyebrow = ({ children, right }) => (
   <div className="flex items-baseline justify-between mb-2">
-    <div className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.figTert }}>{children}</div>{right}
+    <div className="text-xs font-semibold" style={{ color: C.figTert }}>{children}</div>{right}
   </div>
 );
 
@@ -1146,7 +1146,7 @@ const Chip = ({ children, color, bg, mono }) => (
 function KindTag({ kind, small }) {
   const fin = kind === "Financial";
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg font-semibold uppercase tracking-wide ${small ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"}`}
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg font-semibold ${small ? "px-1.5 py-0.5 text-xs" : "px-2 py-0.5 text-xs"}`}
       style={fin ? { background: C.warnSoft, color: C.warn } : { background: C.subtle, color: C.figHint }}>
       {fin ? <><IndianRupee size={9} />Financial</> : "Non-financial"}
     </span>
@@ -1156,7 +1156,7 @@ function KindTag({ kind, small }) {
 function PriorityTag({ p, big }) {
   const c = PRIORITY[p], hot = c.rank <= 1;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-lg font-bold uppercase tracking-wider ${big ? "px-2 py-1 text-xs" : "px-2 py-0.5 text-xs"}`}
+    <span className={`inline-flex items-center gap-1 rounded-lg font-bold ${big ? "px-2 py-1 text-xs" : "px-2 py-0.5 text-xs"}`}
       style={{ background: hot ? c.color : C.subtle, color: hot ? C.white : C.figHint }}>
       {p === "Critical" && <AlertTriangle size={big ? 12 : 10} />}{p}
     </span>
@@ -1193,7 +1193,7 @@ function Metric({ icon: Icon, label, value, tone, onClick, note }) {
     <button onClick={onClick} className="text-left p-4 rounded-xl border transition-colors hover:border-slate-400" style={{ background: C.white, borderColor: C.line }}>
       <div className="flex items-center gap-2">
         <Icon size={14} className="shrink-0" style={{ color: c[0] }} />
-        <span className="text-xs font-semibold uppercase tracking-wider leading-tight" style={{ color: C.figTert }}>{label}</span>
+        <span className="text-xs font-semibold leading-tight" style={{ color: C.figTert }}>{label}</span>
       </div>
       <div className="bk-num mt-2 leading-none" style={{ fontSize: 26, fontWeight: 600, color: c[0] }}>{value}</div>
       <div className="text-xs mt-2 flex items-center gap-0.5" style={{ color: C.figTert }}>{note || "open list"} <ChevronRight size={11} /></div>
@@ -2153,7 +2153,7 @@ function Home({ tickets, scope, setScope, go, openTicket, user }) {
             <div>
               <h2 className="mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
               <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-                <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+                <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 12, fontWeight: 600, color: C.figTert }}>
                   <span className="flex-1">Ticket</span>
                   <span className="hidden w-24 md:block">Owner</span>
                   <span className="hidden w-28 sm:block">Owed by</span>
@@ -2618,11 +2618,12 @@ function ModalShell({ icon: Icon, tint = C.brand, title, sub, onClose, children,
 
 const FIELD = { background: C.white, border: `0.5px solid ${C.line}`, borderRadius: 10,
   padding: "10px 12px", fontSize: 14, fontWeight: 500, color: C.figInk, outline: "none" };
-/* Field label voice unified with Placement's PlLabel — UPPERCASE, 10/600,
-   0.7 letter-spacing, secondary-hint color. One label voice across the file. */
+/* Field label voice — Title Case, 12/600, no letter-spacing, hint colour.
+   User reversed the earlier UPPERCASE choice (2026-09-10): "globally never
+   use all caps". One label voice across the file, mixed-case. */
 const FieldLabel = ({ children, className = "" }) => (
-  <span className={`block uppercase ${className}`}
-    style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.7, color: C.figHint }}>{children}</span>
+  <span className={`block ${className}`}
+    style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{children}</span>
 );
 /* A tinted note that says what the action will do before it is taken. */
 const Note = ({ icon: Icon, tone, bg, children }) => (
@@ -2699,7 +2700,7 @@ function DocViewer({ doc, onClose }) {
       <div style={{ background: C.canvas, borderRadius: 12, padding: 24 }}>
         <div className="mx-auto" style={{ background: C.white, borderRadius: 10, padding: 24, maxWidth: 460, minHeight: 300,
           boxShadow: "0 1px 3px rgba(28,29,31,0.08)" }}>
-          <div className="mb-4" style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: C.figTert }}>{doc.kind}</div>
+          <div className="mb-4" style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>{doc.kind}</div>
           <div className="mb-4" style={{ fontSize: 14, fontWeight: 600, color: C.figInk }}>{doc.name}</div>
           {[100, 92, 96, 60, 88, 94, 70, 84, 40].map((w, i) => (
             <div key={i} className="mb-2" style={{ height: 8, width: `${w}%`, borderRadius: 4, background: C.canvas }} />
@@ -4125,7 +4126,7 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
               : (NEXT_ACTION_COPY[t.stage] || advLabel || (simulate ? simulate.label : ""));
             return (
               <Card style={{ background: C.warnSoft, borderColor: "#F2DBBE" }}>
-                <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>Next action</div>
                 <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 600, color: C.figInk, lineHeight: 1.35 }}>{copy}</div>
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the audit trail"
                   className="mt-3 w-full outline-none"
@@ -4165,7 +4166,7 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
           })()}
           {!readOnly(t) && !advLabel && !simulate && (
             <Card alt>
-              <div className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Next action</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>Next action</div>
               <div className="mt-1.5" style={{ fontSize: 13, fontWeight: 500, color: C.figHint, lineHeight: 1.35 }}>
                 Waiting on {st.owner || "the counterparty"}. Nothing on your desk right now.
               </div>
@@ -4740,7 +4741,7 @@ function Detail({ t, user, scope, onAdvance, onAttachCopy, onChase, onQuery, onA
                     <div className="bk-rule" aria-hidden />
                     <div className="rounded-xl p-4" style={{ background: C.brandBg, border: `1.5px dashed ${C.brand}` }}>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="uppercase" style={{ fontSize: 10, letterSpacing: 0.7, fontWeight: 600, color: C.figTert }}>Simulate client on BimaKendra</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>Simulate client on BimaKendra</span>
                         <span className="flex-1" />
                         <span style={{ fontSize: 12, fontWeight: 500, color: C.figTert }}>ticket auto-updates when the client acts on the portal</span>
                       </div>
@@ -6176,14 +6177,14 @@ function Sidebar({ view, go, mails, openId, openTicket, collapsed, setCollapsed,
 function Breadcrumb({ segments, right }) {
   return (
     <div className="flex w-full items-center justify-between gap-3 rounded-xl px-3" style={{ background: C.canvas, height: 48 }}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase" style={{ letterSpacing: "0.12px" }}>
+      <div className="flex items-center gap-2 text-xs font-semibold" style={{ letterSpacing: "0.12px" }}>
         {segments.map((s, i) => {
           const last = i === segments.length - 1;
           return (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && <span style={{ color: C.figDisabled }}>/</span>}
               {s.onClick && !last
-                ? <button onClick={s.onClick} className="uppercase" style={{ color: C.figTert }}>{s.label}</button>
+                ? <button onClick={s.onClick} style={{ color: C.figTert }}>{s.label}</button>
                 : <span style={{ color: last ? C.figInk : C.figTert }}>{s.label}</span>}
             </span>
           );
@@ -6996,7 +6997,7 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
     <>
       <h2 className="mt-6 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
       <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-        <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+        <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 12, fontWeight: 600, color: C.figTert }}>
           <span className="flex-1">Claim</span><span className="hidden w-20 md:block">Manager</span>
           <span className="hidden w-28 sm:block">Owed by</span><span className="w-24">Escalations</span><span className="w-24 text-right">Stage due</span>
         </div>
@@ -7027,7 +7028,7 @@ function ClaimsHeadBody({ tickets, mrq, go, openTicket }) {
       <h2 className="mt-8 mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Team Load</h2>
       <div className="scroll-slim overflow-x-auto rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
         <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 640 }}>
-          <thead><tr style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+          <thead><tr style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>
             {["Claims Manager", "Open", "Load", "Overdue", "Escalated", "Dormant", "Closed", "Oldest open"].map((h) => (
               <th key={h} className="px-3 py-2 text-left" style={{ borderBottom: `0.5px solid ${C.lineSoft}` }}>{h}</th>))}
           </tr></thead>
@@ -8273,7 +8274,7 @@ function ClContest({ t, role, act }) {
 
   const Tile = ({ tone, k, v, m, children }) => (
     <div className="flex flex-col gap-1 rounded-xl border p-3.5" style={{ borderColor: tone === "us" ? C.brand : tone === "ins" ? IND.caution.line : tone === "wall" ? "#D8CDE9" : C.subtle, borderWidth: tone ? "1px" : "0.5px", background: tone === "us" ? C.brandBg : tone === "ins" ? C.warnSoft : tone === "wall" ? "#FCFBFE" : C.white }}>
-      <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.11em", color: C.figTert }}>{k}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: C.figTert }}>{k}</span>
       <span style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.figInk }}>{v}</span>
       {m && <span style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.5, color: C.figHint }}>{m}</span>}
       {children}
@@ -8378,7 +8379,7 @@ function ClInsights({ t }) {
   const c = clCust(t);
   const Table = ({ head, rows, empty }) => (
     <div className="mt-2 overflow-hidden rounded-lg border" style={{ borderColor: C.lineSoft, borderWidth: "0.5px" }}>
-      <div className="flex px-3 py-2" style={{ background: C.canvas, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+      <div className="flex px-3 py-2" style={{ background: C.canvas, fontSize: 12, fontWeight: 600, color: C.figTert }}>
         {head.map((h, i) => <span key={i} className="flex-1 truncate">{h}</span>)}
       </div>
       {rows.length === 0
@@ -8692,7 +8693,7 @@ function ClaimsReports({ tickets, mrq, role }) {
           {mrq.length ? <div className="flex flex-col gap-2">{Object.entries(mrq.reduce((a, m) => ({ ...a, [m.reason]: (a[m.reason] || 0) + 1 }), {})).map(([k, v]) => <Bar key={k} label={`${k} · ${CL_REASONS[k]}`} w={(v / mrq.length) * 100} col={C.brand} val={v} />)}</div> : <Empty>Queue is empty.</Empty>}
         </Card>
       </div>
-      <p className="mt-8 mb-3" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.4px", color: C.figTert }}>TAT breaches right now</p>
+      <p className="mt-8 mb-3" style={{ fontSize: 13, fontWeight: 600, color: C.figTert }}>TAT breaches right now</p>
       {breaches.length ? (
         <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
           {breaches.map((t, i) => {
@@ -8891,7 +8892,7 @@ function ClaimsSearch({ open, onClose, tickets, role, openTicket }) {
       <div className="bk-modal scroll-slim mt-6 w-full overflow-y-auto rounded-2xl" style={{ maxWidth: 1000, maxHeight: "86vh", background: C.white }} onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search claims by id, client, insurer, product or status" style={{ ...FIELD, width: "100%", fontSize: 16, padding: "12px 14px" }} />
-          <div className="mt-2" style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>{ql ? "Results" : "Recent claims"}</div>
+          <div className="mt-2" style={{ fontSize: 13, fontWeight: 600, color: C.figTert }}>{ql ? "Results" : "Recent claims"}</div>
           <div className="mt-3"><ClaimsTable rows={rows} onOpen={openTicket} showCM={role === "head"} empty="No claims match." /></div>
         </div>
       </div>
@@ -9327,7 +9328,7 @@ function ReportsView({ tickets }) {
       </div>
 
       <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.canvas }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint, letterSpacing: 0.4 }}>WHAT'S COMING</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.figHint }}>What's coming</div>
         <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2" style={{ fontSize: 13, fontWeight: 500, color: C.figHint }}>
           <div>· SLA compliance over time, per stage.</div>
           <div>· First-response time by insurer + POC.</div>
@@ -9877,6 +9878,15 @@ const PL_EXECS = {
 /* Three cases are permanently escalated to the Placement Head (Himani): their
    internal SLA has run out and the ladder is exhausted. See PL_CASE_META for
    the seeded breach clocks and each case's audit trail for the handover event. */
+/* Known RM avatars — used by PlKV etc. to render a photo before the RM
+   name on any surface that shows the RM. Unknown names fall back to the
+   monogram fallback in PlAvatar. */
+const PL_RM_AVATARS = {
+  "Shubh Bangar": AVATAR_SHUBH,
+  "Shubh Agarwal": AVATAR_SHUBH,
+};
+const plRmAvatar = (name) => PL_RM_AVATARS[name] || null;
+
 const PL_HEAD_ESCALATED_IDS = new Set(["PC-1024", "PC-1028", "PC-1029"]);
 const plExecOf = (c) => {
   if (PL_HEAD_ESCALATED_IDS.has(c.id)) return PL_EXECS.himani;
@@ -10152,7 +10162,7 @@ const PL_SEED = [
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm risk classification before floating", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("25 Aug, 09:40", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
       plAu("25 Aug, 09:41", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
       plAu("25 Aug, 09:41", "System", "System", "Classification flagged for review", "RM entry differs from suggested classification"),
       plAu("27 Aug, 15:20", "System", "System", "SLA breached", "RFQ classification still unconfirmed · material gaps unresolved"),
@@ -10191,7 +10201,7 @@ const PL_SEED = [
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Approve insurer panel and float RFQ", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("21 Aug, 15:02", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
       plAu("22 Aug, 11:18", "Ananya Rao", "PM", "Classification confirmed", "IT/ITES - Software services (unchanged)"),
       plAu("22 Aug, 11:20", "Ananya Rao", "PM", "RFQ V1 validated", "No missing information recorded"),
       plAu("22 Aug, 11:22", "System", "System", "Insurer recommendations generated", "5 eligible · 3 outside appetite"),
@@ -10290,7 +10300,7 @@ const PL_SEED_B = [
       { id: "t3", label: "Decide whether to replace Oriental after SLA breach", due: "Tomorrow", owner: "You", done: false },
     ],
     audit: [
-      plAu("14 Aug, 10:15", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("14 Aug, 10:15", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
       plAu("14 Aug, 16:40", "Ananya Rao", "PM", "RFQ V1 validated", ""),
       plAu("15 Aug, 09:28", "Ananya Rao", "PM", "Insurer panel approved", "5 insurers · Go Digit removed (no CGL appetite)"),
       plAu("15 Aug, 09:30", "Ananya Rao", "PM", "RFQ V1 floated", "5 independent insurer threads created"),
@@ -10381,7 +10391,7 @@ const PL_SEED_B = [
       { id: "t2", label: "Chase New India Assurance for room rent basis", due: "Today", owner: "You", done: false },
     ],
     audit: [
-      plAu("05 Aug, 11:30", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections"),
+      plAu("05 Aug, 11:30", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections"),
       plAu("05 Aug, 16:20", "Ananya Rao", "PM", "Clarification requested from RM", "Parents in-scope or buy-up"),
       plAu("06 Aug, 09:12", "Sneha Iyer", "RM", "Clarification answered", "Parents confirmed as voluntary buy-up"),
       plAu("06 Aug, 10:05", "Ananya Rao", "PM", "RFQ V1 validated", ""),
@@ -10424,7 +10434,7 @@ const PL_SEED_C = [
     negotiations: [], followUpsStopped: true,
     tasks: [{ id: "t1", label: "Decide whether Universal Sompo quote warrants QCR V2", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("28 Jul, 09:00", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section"),
+      plAu("28 Jul, 09:00", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section"),
       plAu("29 Jul, 10:00", "Ananya Rao", "PM", "RFQ V1 floated", "4 independent insurer threads created"),
       plAu("21 Aug, 16:30", "System", "System", "Usable-quote threshold reached", "3 usable quotes from 3 distinct insurers"),
       plAu("21 Aug, 16:30", "System", "System", "Automated follow-ups stopped", "Remaining open thread: Universal Sompo"),
@@ -10553,7 +10563,7 @@ const PL_SEED_C = [
      realistic differing quotes. Drive it end to end with the existing controls. */
   {
     id: "PC-1032", priority: "Standard", stage: "rfq_review", outcome: null, demo: true,
-    client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering - precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, CFO", rm: "Sneha Iyer" },
+    client: { name: "Trident Precision Tools Pvt Ltd", industry: "Engineering - precision components", city: "Coimbatore, TN", headcount: 310, turnover: "₹96 Cr", spoc: "Kavitha Raman, CFO", rm: "Shubh Bangar" },
     products: ["D&O"], receivedAt: "31 Aug, 10:05", renewal: "15 Oct 2026", activeRfq: 1,
     rfqs: [{
       v: 1, status: "in_review", createdAt: "31 Aug, 10:05",
@@ -10600,7 +10610,7 @@ const PL_SEED_C = [
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("31 Aug, 10:05", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section (D&O) · web form"),
+      plAu("31 Aug, 10:05", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section (D&O) · web form"),
       plAu("31 Aug, 10:06", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
       plAu("31 Aug, 10:06", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
     ],
@@ -10655,7 +10665,7 @@ const PL_SEED_C = [
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification and validate RFQ V1", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("01 Sep, 11:20", "System", "System", "RFQ received from RM portal", "RFQ V1 · 1 product section · web form"),
+      plAu("01 Sep, 11:20", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 1 product section · web form"),
       plAu("01 Sep, 11:21", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
       plAu("01 Sep, 11:21", "System", "System", "RFQ extraction complete", "All mandatory D&O fields present · classification consistent"),
     ],
@@ -10713,7 +10723,7 @@ const PL_SEED_C = [
     threads: [], quotes: [], qcrs: [], negotiations: [], followUpsStopped: false,
     tasks: [{ id: "t1", label: "Confirm classification, then pick a branch per PSU insurer and float", due: "Today", owner: "You", done: false }],
     audit: [
-      plAu("02 Sep, 09:45", "System", "System", "RFQ received from RM portal", "RFQ V1 · 2 product sections · web form"),
+      plAu("02 Sep, 09:45", "System", "System", "RFQ received from RM Interface™", "RFQ V1 · 2 product sections · web form"),
       plAu("02 Sep, 09:46", "System", "System", "Case created and assigned", "Assigned to Ananya Rao"),
       plAu("02 Sep, 09:46", "System", "System", "RFQ extraction complete", "All mandatory Fire + WC fields present · classification consistent"),
     ],
@@ -11669,13 +11679,16 @@ function PlCard({ children, pad = true, className = "", style = {}, alt = false 
 }
 
 function PlLabel({ children, className = "", size = "sm" }) {
+  /* Title Case, no uppercase transform. User reversed the earlier UPPERCASE
+     voice (2026-09-10): "globally never use all caps". Sizes stay so the
+     current call sites keep their footprint. */
   const style = size === "xs"
-    ? { fontSize: 9.5, letterSpacing: 0.6, fontWeight: 650 }
+    ? { fontSize: 11, fontWeight: 600 }
     : size === "md"
-      ? { fontSize: 10.5, letterSpacing: 0.6, fontWeight: 600 }
-      : { fontSize: 10, letterSpacing: 0.7, fontWeight: 600 };
+      ? { fontSize: 12.5, fontWeight: 600 }
+      : { fontSize: 12, fontWeight: 600 };
   return (
-    <div className={`uppercase ${className}`} style={{ ...style, color: PL_T.ink3 }}>
+    <div className={className} style={{ ...style, color: PL_T.ink3 }}>
       {children}
     </div>
   );
@@ -11792,13 +11805,20 @@ const plInsurerLogo = (name) => {
   const hit = Object.keys(INSURER_LOGO).find((k) => k.toLowerCase() === norm);
   return hit ? INSURER_LOGO[hit] : null;
 };
-function PlKV({ k, v, mono = false, img = null }) {
+function PlKV({ k, v, mono = false, img = null, avatar = null, avatarName = null, pill = false }) {
+  const value = pill ? <PlChip size="sm" tone="purple">{v}</PlChip> : <span className="min-w-0 truncate">{v}</span>;
+  /* If avatarName is set the field is a person: render PlAvatar (photo if
+     we have one, monogram fallback otherwise). Non-person fields use the
+     optional generic `img` slot. */
+  const leading = avatarName
+    ? <PlAvatar src={avatar} name={avatarName} size={20} tone="blue" />
+    : img ? <img src={img} alt="" className="shrink-0" style={{ height: 16, width: "auto" }} /> : null;
   return (
     <div>
       <PlLabel>{k}</PlLabel>
-      <div className="mt-0.5 flex items-center gap-2" style={{ fontSize: 13, color: PL_T.ink, fontWeight: 500, fontFamily: mono ? PL_MONO : FONT }}>
-        {img && <img src={img} alt="" className="shrink-0" style={{ height: 16, width: "auto" }} />}
-        <span className="min-w-0 truncate">{v}</span>
+      <div className="mt-1 flex items-center gap-2" style={{ fontSize: 13, color: PL_T.ink, fontWeight: 500, fontFamily: mono ? PL_MONO : FONT }}>
+        {leading}
+        {value}
       </div>
     </div>
   );
@@ -12478,7 +12498,7 @@ function PlHomeScreen({ cases, onOpen, setNav, user, scope, setScope }) {
           <div>
             <h2 className="mb-3" style={{ fontSize: 24, fontWeight: 600, color: C.brand }}>Escalated to You</h2>
             <div className="rounded-xl border" style={{ borderColor: C.subtle, borderWidth: "0.5px", background: C.white }}>
-              <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.3px", color: C.figTert }}>
+              <div className="flex items-center gap-3 px-3 py-2" style={{ borderBottom: `0.5px solid ${C.lineSoft}`, fontSize: 12, fontWeight: 600, color: C.figTert }}>
                 <span className="flex-1">Case</span>
                 <span className="hidden w-32 md:block">Owner</span>
                 <span className="hidden w-28 sm:block">Owed by</span>
@@ -13538,7 +13558,7 @@ function PlRightRail({ c, api, goTo }) {
           <div className="mt-2" style={{ fontSize: 11.5, color: PL_T.ink2, lineHeight: 1.45 }}>{c.outcome.reason}</div>
           {c.outcome.handoffRef && (
             <PlCallout tone="green" pad="sm" className="mt-2.5">
-              <div style={{ fontSize: 10, letterSpacing: 0.6, color: PL_T.green, fontWeight: 650 }}>HANDOFF COMPLETED</div>
+              <div style={{ fontSize: 12, color: PL_T.green, fontWeight: 600 }}>Handoff completed</div>
               <div style={{ fontSize: 11.5, color: PL_T.green, fontWeight: 550, marginTop: 2 }}>Handed off to RM / Policy Journey</div>
               <PlMono size={10.5} color={PL_T.green}>{c.outcome.handoffRef}</PlMono>
             </PlCallout>
@@ -13961,7 +13981,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
           boxShadow: "-16px 0 40px rgba(28,29,31,0.16)" }}>
         <header className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${PL_T.border}` }}>
           <div className="min-w-0">
-            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.4, textTransform: "uppercase" }}>Insurer Master · edit</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink3 }}>Insurer Master · edit</div>
             <div className="mt-0.5 truncate" style={{ fontSize: 18, fontWeight: 600, color: PL_T.ink }}>{insurer.name}</div>
           </div>
           <PlIconBtn icon={X} onClick={onClose} title="Close" />
@@ -13969,7 +13989,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
 
         <div className="scroll-slim flex-1 overflow-y-auto p-5 space-y-5">
           <section>
-            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>Insurer</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink3, marginBottom: 6 }}>Insurer</div>
             <label className="block">
               <FieldLabel>Insurer name</FieldLabel>
               <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
@@ -13986,7 +14006,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
 
           <section>
             <div className="flex items-center justify-between mb-2">
-              <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase" }}>Appetite · products written</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink3 }}>Appetite · products written</div>
               <span style={{ fontSize: 11, color: PL_T.ink3 }}>{appetite.size} selected</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -14015,7 +14035,7 @@ function PlInsurerEditDrawer({ k, insurer, contact, onClose, onSave }) {
           </section>
 
           <section>
-            <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>Routing & POC</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink3, marginBottom: 6 }}>Routing & POC</div>
             <label className="block">
               <FieldLabel>Branch / geography</FieldLabel>
               <input value={branch} onChange={(e) => setBranch(e.target.value)} style={{ ...FIELD, width: "100%", marginTop: 4 }} />
@@ -14212,12 +14232,15 @@ function PlRfqSummaryCard({ c, inline = false }) {
   const rfq = plActiveRfqOf(c);
   const body = (
     <>
-      <div className="space-y-2">
-        <PlKV k="Source" v="RM Portal - web form" />
-        <PlKV k="Submitted by" v={c.client.rm} />
+      {/* 2×3 grid — user asked for two columns instead of the stacked list,
+          with the RFQ version as a purple pill and person fields carrying
+          an avatar before the name. Source now reads "RM Interface™". */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+        <PlKV k="Source" v="RM Interface™" />
+        <PlKV k="Submitted by" v={c.client.rm} avatar={plRmAvatar(c.client.rm)} avatarName={c.client.rm} />
         <PlKV k="Received" v={c.receivedAt} mono />
-        <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} mono />
-        <PlKV k="Client SPOC" v={c.client.spoc} />
+        <PlKV k="RFQ version" v={`V${c.activeRfq} of ${c.rfqs.length}`} pill />
+        <PlKV k="Client SPOC" v={c.client.spoc} avatar={null} avatarName={c.client.spoc} />
       </div>
       {rfq.rmNote && (
         <div className="mt-2.5 rounded-lg px-2.5 py-2" style={{ background: PL_T.cardSunk, border: `1px solid ${PL_T.border}` }}>
@@ -14406,11 +14429,16 @@ function PlRfqTab({ c, api }) {
      Auto-treat the classification as confirmed for the validation gate —
      the only remaining precondition is that all material gaps are closed. */
   const canValidate = unresolvedMaterial.length === 0 && c.stage === "rfq_review";
-  const rfqMeta = `V${c.activeRfq} of ${c.rfqs.length} · ${rfq.sections.length} ${rfq.sections.length === 1 ? "product" : "products"}`;
+  const rfqMeta = (
+    <span className="inline-flex items-center gap-2">
+      <PlChip size="sm" tone="purple">V{c.activeRfq} of {c.rfqs.length}</PlChip>
+      <span>{rfq.sections.length} {rfq.sections.length === 1 ? "product" : "products"}</span>
+    </span>
+  );
 
   return (
     <div className="space-y-3">
-      <PlTabHeader title="Request for Quotation" meta={rfqMeta} />
+      <PlTabHeader title="Request for Quote" meta={rfqMeta} />
       <PlRfqSummaryAccordion c={c} />
       {c.rfqs.length > 1 && (
         <PlCard alt>
@@ -14582,7 +14610,7 @@ function PlSimRmModal({ c, api, onClose }) {
   const [text, setText] = useState(
     `Spoke to ${c.client.spoc.split(",")[0]}. Census with age bands and the three-year claims history are attached. Family definition to be quoted is 1+1+2 with parents as a voluntary buy-up. GPA multiple stays at 24×.`);
   return (
-    <PlModal title="Simulate RM reply" subtitle="Prototype control - stands in for the RM portal" onClose={onClose}
+    <PlModal title="Simulate RM reply" subtitle="Prototype control - stands in for the RM Interface™" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
         <PlBtn variant="primary" icon={Check} onClick={() => { api.simulateRmReply(c.id, text); api.say("RM responded - requested items resolved"); onClose(); }}>
           Post reply
@@ -15160,7 +15188,7 @@ function PlHoldForRmModal({ c, t, api, onClose }) {
 function PlSimThreadRmModal({ c, t, api, onClose }) {
   const [text, setText] = useState(`Certificates and the risk-control report are attached. ${c.client.spoc.split(",")[0]} has confirmed all locations are current.`);
   return (
-    <PlModal title="Simulate RM response" subtitle="Prototype control - stands in for the RM portal" onClose={onClose}
+    <PlModal title="Simulate RM response" subtitle="Prototype control - stands in for the RM Interface™" onClose={onClose}
       footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
         <PlBtn variant="primary" icon={Check} onClick={() => { api.rmAnswered(c.id, t.insurerId, text); api.say("RM response recorded"); onClose(); }}>Post response</PlBtn></>}>
       <PlLabel>Response from {c.client.rm}</PlLabel>
@@ -15650,7 +15678,7 @@ function PlQcrTab({ c, api, goTo }) {
             QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. In production the RM would relay the client's response - stand in for it here.
           </div>
 
-          <div style={{ fontSize: 10, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.5 }} className="uppercase mb-1.5">
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5">
             Client decision
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -15676,7 +15704,7 @@ function PlQcrTab({ c, api, goTo }) {
 
           {!(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.5 }} className="uppercase mb-1.5 mt-3">
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5 mt-3">
                 Or the RM comes back asking
               </div>
               <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
@@ -15748,7 +15776,7 @@ function PlQcrDocument({ c, qcr, locked }) {
         <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 620 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
-              <th className="text-left px-4 py-2.5" style={{ fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: PL_T.ink3, fontWeight: 600, width: 200 }}>Term</th>
+              <th className="text-left px-4 py-2.5" style={{ fontSize: 12, color: PL_T.ink3, fontWeight: 600, width: 200 }}>Term</th>
               {rows.map((q) => (
                 <th key={q.id} className="text-left px-4 py-2.5" style={{ minWidth: 170 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[q.insurerId].name}</div>
@@ -16923,7 +16951,7 @@ function OpsNextActionCard({ t, onDoIt }) {
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, background: bgTint }}>
       <div className="flex items-center justify-between">
-        <span style={{ fontSize: 11, fontWeight: 600, color: tint, letterSpacing: 0.4, textTransform: "uppercase" }}>Next action</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: tint }}>Next action</span>
         <span className="bk-num" style={{ fontSize: 11, fontWeight: 600, color: c.breached ? C.semError : c.atRisk ? "#B38F0A" : C.figHint }}>
           {OPS_SLA.code} · {c.done ? "delivered" : c.label}
         </span>
@@ -16941,7 +16969,7 @@ function OpsNextActionCard({ t, onDoIt }) {
 function OpsKV({ label, value, mono }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span style={{ fontSize: 11, fontWeight: 600, color: C.figHint, letterSpacing: 0.2, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>{label}</span>
       <span className={mono ? "bk-num" : ""} style={{ fontSize: 13.5, fontWeight: 500, color: C.figInk }}>{value}</span>
     </div>
   );
@@ -16976,7 +17004,7 @@ function OpsTabOverview({ t }) {
             <OpsKV label="POC" value={ins ? `${ins.poc.name} · ${ins.poc.desk}` : "—"} />
           </div>
           <div className="mt-3 rounded-lg border p-3" style={{ borderColor: C.subtle, background: C.canvas }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.figHint, letterSpacing: 0.2, textTransform: "uppercase" }}>Routing decision</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Routing decision</div>
             <p className="mt-1" style={{ fontSize: 13, fontWeight: 500, color: C.figInk, lineHeight: 1.5 }}>
               {t.method === "Payment Link"
                 ? (ins?.linkRoute === "portal"
@@ -17031,7 +17059,7 @@ function OpsTabBot({ t }) {
   const isFail = t.bot.status === "failed";
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: isFail ? IND.error.line : IND.info.line, background: isFail ? IND.error.tint : IND.info.tint }}>
-      <div className="mb-1 flex items-center gap-2" style={{ fontSize: 12, fontWeight: 600, color: isFail ? IND_TEXT.error : IND_TEXT.info, letterSpacing: 0.3, textTransform: "uppercase" }}>
+      <div className="mb-1 flex items-center gap-2" style={{ fontSize: 13, fontWeight: 600, color: isFail ? IND_TEXT.error : IND_TEXT.info }}>
         <Sparkles size={12} /> Mail bot {t.bot.status === "watching" ? "watching" : "review needed"}
       </div>
       <p style={{ fontSize: 13, fontWeight: 500, color: C.figInk, lineHeight: 1.5 }}>{t.bot.note}</p>
@@ -17059,7 +17087,7 @@ function OpsTabMail({ t }) {
           <div className="flex items-center justify-between">
             <div style={{ fontSize: 12, fontWeight: 600, color: C.figInk }}>
               {m.dir === "out" ? "→" : "←"} {m.subject}
-              {m.auto && <span className="ml-2" style={{ fontSize: 10.5, fontWeight: 600, color: C.figHint, textTransform: "uppercase", letterSpacing: 0.3 }}>Automated</span>}
+              {m.auto && <span className="ml-2" style={{ fontSize: 11, fontWeight: 600, color: C.figHint }}>Automated</span>}
             </div>
             <span className="bk-num" style={{ fontSize: 11, color: C.figHint }}>{m.at}</span>
           </div>
@@ -17139,7 +17167,7 @@ function OpsDetail({ t, onBack, onAct }) {
         <div className="space-y-3">
           <OpsNextActionCard t={t} onDoIt={onAct} />
           <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, background: C.white }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.figHint, letterSpacing: 0.4, textTransform: "uppercase" }}>SLA-P1 ladder</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>SLA-P1 ladder</div>
             <div className="mt-2 space-y-1.5" style={{ fontSize: 12.5, color: C.figInk }}>
               <div>Target · {OPS_SLA.minutes} BM</div>
               <div>Follow-up · every {OPS_SLA.followUpEveryMin} BM, max {OPS_SLA.followUpCount}</div>
@@ -17150,7 +17178,7 @@ function OpsDetail({ t, onBack, onAct }) {
             </div>
           </div>
           <div className="rounded-xl border p-4" style={{ borderColor: C.subtle, background: C.white }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.figHint, letterSpacing: 0.4, textTransform: "uppercase" }}>Assignment</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>Assignment</div>
             <div className="mt-2" style={{ fontSize: 13.5, fontWeight: 600, color: C.figInk }}>Jaishri · Payment Ops</div>
             <div style={{ fontSize: 11.5, color: C.figHint }}>Ownership never leaves this desk.</div>
           </div>
@@ -17193,7 +17221,7 @@ function OpsRequestModal({ t, onClose, onConfirm }) {
       </>}>
       <div className="space-y-4">
         <div className="rounded-lg border p-3" style={{ borderColor: C.subtle, background: C.canvas }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: C.figHint, letterSpacing: 0.3, textTransform: "uppercase" }}>What will happen</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.figHint }}>What will happen</div>
           <p className="mt-1" style={{ fontSize: 12.5, color: C.figInk, lineHeight: 1.5 }}>
             An automated reminder for the {t.method.toLowerCase()} against {t.policyNo} is queued to {ins?.poc?.email || "the POC"}.
             The 60 BM clock keeps running. Follow-ups so far · {t.followUps}/{OPS_SLA.followUpCount}.
