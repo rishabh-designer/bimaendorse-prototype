@@ -11627,7 +11627,7 @@ function plParticipantsOf(c) {
   ];
 }
 
-function PlBtn({ variant = "default", size = "md", onClick, disabled, children, icon: Icon, full, title }) {
+function PlBtn({ variant = "default", size = "md", onClick, disabled, children, icon: Icon, iconRight = false, full, title }) {
   const base = {
     primary: { bg: PL_T.purple, fg: "#fff", bd: PL_T.purple },
     default: { bg: PL_T.card, fg: PL_T.ink, bd: PL_T.borderStrong },
@@ -11649,8 +11649,9 @@ function PlBtn({ variant = "default", size = "md", onClick, disabled, children, 
         outline: "none",
       }}
     >
-      {Icon && <Icon size={size === "sm" ? 12 : 13.5} strokeWidth={2.1} />}
+      {Icon && !iconRight && <Icon size={size === "sm" ? 12 : 14} strokeWidth={2.1} />}
       {children}
+      {Icon && iconRight && <Icon size={size === "sm" ? 12 : 14} strokeWidth={2.1} />}
     </button>
   );
 }
@@ -14979,20 +14980,22 @@ function PlMarketTab({ c, api, goTo }) {
         </div>
       </div>
 
-      {/* Column header — sunken card-alt, sortable-looking (Figma 1559:46690).
-          Grid layout keeps rows locked to the same columns. */}
-      <div className="grid gap-2 items-center rounded-xl px-2 py-2"
-        style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px",
-          background: PL_T.cardSunk, fontSize: 12, color: PL_T.ink, fontWeight: 600 }}>
-        <span>Insurer & Activity</span>
-        <span>Status</span>
-        <span>Date & Time</span>
-        <span>Stage Due</span>
-        <span>Actions</span>
-      </div>
+      {/* One table container — a sunken header row + white data rows
+          separated by hairlines (Figma 1559:46710/46711). No per-row box;
+          rows are flush and divider-separated. */}
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: PL_T.border, background: PL_T.card }}>
+        <div className="grid gap-2 items-center px-3 py-2.5"
+          style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px",
+            background: PL_T.cardSunk, borderBottom: `1px solid ${PL_T.border}`,
+            fontSize: 12, color: PL_T.ink, fontWeight: 600 }}>
+          <span>Insurer &amp; Activity</span>
+          <span>Status</span>
+          <span>Date &amp; Time</span>
+          <span>Stage Due</span>
+          <span>Actions</span>
+        </div>
 
-      <div className="space-y-1">
-        {c.threads.map((t) => {
+        {c.threads.map((t, rowIdx) => {
           const I = PL_INSURERS[t.insurerId];
           const on = open === t.insurerId;
           const last = t.events[t.events.length - 1];
@@ -15059,12 +15062,13 @@ function PlMarketTab({ c, api, goTo }) {
               action = null;
           }
 
+          const notLast = rowIdx < c.threads.length - 1;
           return (
-            <div key={t.insurerId} className="rounded-xl border overflow-hidden"
-              style={{ borderColor: t.paused ? PL_T.orangeLine : on ? PL_T.borderStrong : PL_T.border, background: PL_T.card }}>
+            <div key={t.insurerId} style={{ borderBottom: (notLast || on) ? `1px solid ${PL_T.border}` : "none" }}>
               <div onClick={() => setOpen(on ? null : t.insurerId)}
-                className="grid gap-2 items-center px-2 py-2 cursor-pointer"
-                style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px" }}
+                className="grid gap-2 items-center px-3 py-2.5 cursor-pointer"
+                style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px",
+                  background: on ? PL_T.cardAlt : t.paused ? PL_T.orangeSoft : PL_T.card }}
                 title={nextLabel}>
                 <span className="flex items-center gap-2 min-w-0">
                   {logo
@@ -15077,7 +15081,7 @@ function PlMarketTab({ c, api, goTo }) {
                 <span style={{ fontSize: 12, fontWeight: 500, color: slaColour }}>{slaText}</span>
                 <span onClick={(e) => e.stopPropagation()}>
                   {action && (
-                    <PlBtn size="sm" variant={action.variant} disabled={action.disabled} onClick={action.onClick} full icon={ChevronRight}>
+                    <PlBtn size="sm" variant={action.variant} disabled={action.disabled} onClick={action.onClick} full icon={ChevronRight} iconRight>
                       {action.label}
                     </PlBtn>
                   )}
@@ -15085,7 +15089,7 @@ function PlMarketTab({ c, api, goTo }) {
               </div>
 
               {on && (
-                <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}` }}>
+                <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}`, background: PL_T.card }}>
                   <div>
                     <PlLabel className="mb-2">Thread history</PlLabel>
                     <div className="space-y-2 mt-2">
