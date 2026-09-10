@@ -5807,13 +5807,37 @@ const SESS_ENV  = { e: "BimaEndorse", c: "BimaClaim", p: "BimaPlacement", o: "Bi
 const emailOf   = (u) => Object.keys(PORTAL_USERS).find((k) => PORTAL_USERS[k] === u) || "";
 const codeOf    = (m, v) => Object.keys(m).find((k) => m[k] === v) || "";
 const sessHash  = (u, env) => { const uc = codeOf(SESS_USER, emailOf(u)), ec = codeOf(SESS_ENV, env); return uc && ec ? `#s=${uc}${ec}` : ""; };
+/* Session persistence — the URL hash carries the code (so bookmarks +
+   deep links work), and sessionStorage mirrors it (so a stripped or
+   cleared hash still keeps the tab signed in until the tab closes).
+   Both are best-effort: sandboxed frames and privacy modes silently
+   fall back to whichever side is available. */
+const SESS_KEY = "bk_session_v1";
+const readSessionStorage = () => {
+  try {
+    const raw = window.sessionStorage.getItem(SESS_KEY);
+    if (!raw) return null;
+    const { email, env } = JSON.parse(raw);
+    const user = PORTAL_USERS[email];
+    return user && env && SESS_ENV_VALUES.has(env) ? { user, env } : null;
+  } catch { return null; }
+};
+const writeSessionStorage = (user, env) => {
+  try {
+    if (user && env) window.sessionStorage.setItem(SESS_KEY, JSON.stringify({ email: emailOf(user), env }));
+    else window.sessionStorage.removeItem(SESS_KEY);
+  } catch { /* privacy mode / sandboxed — the URL hash still holds */ }
+};
+const SESS_ENV_VALUES = new Set(Object.values(SESS_ENV));
 const readSession = () => {
   try {
     const m = /^#s=([nrush])([ecp])$/.exec(window.location.hash || "");
-    if (!m) return null;
-    const user = PORTAL_USERS[SESS_USER[m[1]]], env = SESS_ENV[m[2]];
-    return user && env ? { user, env } : null;
-  } catch { return null; }
+    if (m) {
+      const user = PORTAL_USERS[SESS_USER[m[1]]], env = SESS_ENV[m[2]];
+      if (user && env) return { user, env };
+    }
+    return readSessionStorage();
+  } catch { return readSessionStorage(); }
 };
 
 const NAV = [
@@ -18825,12 +18849,16 @@ export default function App() {
   useAnek();
   useSquircle();
 
-  /* Keep the session code in the hash so a refresh stays signed in. */
+  /* Keep the session code in the hash so a refresh stays signed in,
+     and mirror it into sessionStorage as a fallback for the case
+     where the hash is stripped (a clean-URL reload, a share-copy,
+     etc). Both persist only for the life of the tab. */
   useEffect(() => {
     try {
       const h = authed && user && env ? sessHash(user, env) : "";
       if ((window.location.hash || "") !== h) window.history.replaceState({}, "", window.location.pathname + h);
     } catch { /* sandboxed frame */ }
+    writeSessionStorage(authed ? user : null, authed ? env : null);
   }, [authed, user, env]);
 
   if (!authed) {
