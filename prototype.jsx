@@ -16806,6 +16806,62 @@ function PlQuoteExcludeModal({ c, q, api, onClose }) {
 
 /* -------------------------------- QCR tab --------------------------------- */
 
+/* Primary CTA that opens the six client-decision options in a
+   portalled menu — mirrors the picks in the amber simulation block
+   so the PM can record the decision without scrolling. */
+function PlClientDecisionMenu({ options, onPick }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef(null);
+  const [rect, setRect] = useState(null);
+  useEffect(() => {
+    if (!open) return;
+    const measure = () => btnRef.current && setRect(btnRef.current.getBoundingClientRect());
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    const away = (e) => { if (!e.target.closest("[data-plcdmenu]")) setOpen(false); };
+    document.addEventListener("mousedown", away);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+      document.removeEventListener("mousedown", away);
+    };
+  }, [open]);
+  const menu = open && rect && (
+    <div data-plcdmenu className="rounded-2xl border shadow-2xl" style={{
+      position: "fixed", zIndex: 1000,
+      top: rect.bottom + 8, right: Math.max(8, window.innerWidth - rect.right),
+      background: PL_T.card, borderColor: PL_T.borderStrong,
+      fontFamily: FONT, width: 340, padding: 6,
+    }}>
+      {options.map((o) => (
+        <button key={o.k} onClick={() => { onPick(o.k); setOpen(false); }}
+          className="w-full text-left rounded-lg px-3 py-2 transition-colors"
+          style={{ background: "transparent" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = PL_T.cardAlt)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[o.tone].fg }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{o.label}</span>
+          </div>
+          <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }} className="mt-0.5">{o.sub}</div>
+        </button>
+      ))}
+    </div>
+  );
+  return (
+    <div data-plcdmenu className="inline-block">
+      <button ref={btnRef} type="button" onClick={() => setOpen((v) => !v)}
+        className="pl-focus inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5"
+        style={{ background: PL_T.purple, color: "#fff", borderColor: PL_T.purple, fontSize: 12.5, fontWeight: 600, cursor: "pointer", outline: "none" }}>
+        Record client decision
+        <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {menu && typeof document !== "undefined" && createPortal(menu, document.body)}
+    </div>
+  );
+}
+
 function PlQcrTab({ c, api, goTo }) {
   const draft = plDraftQcr(c);
   const released = plReleasedQcr(c);
@@ -17016,54 +17072,63 @@ function PlQcrTab({ c, api, goTo }) {
         </PlCard>
       )}
 
-      {released && !c.outcome && (
-        <div className="rounded-xl px-3.5 py-3"
-          style={{ background: PL_T.amberSoft, border: `1px dashed ${PL_T.amberLine}` }}>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Zap size={12} color={PL_T.amber} />
-            <span style={{ fontSize: 11, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.2 }}>
-              Simulate what the RM heard back
-            </span>
-          </div>
-          <div style={{ fontSize: 11.5, color: PL_T.amber, lineHeight: 1.45 }} className="mb-3">
-            QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. In production the RM would relay the client's response - stand in for it here.
-          </div>
+      {released && !c.outcome && (() => {
+        const options = [
+          { k: "quote_selected", label: "Quote selected", sub: "Client picked a market - hand off to issuance", tone: "green" },
+          { k: "more_quotes", label: "Request more quotes", sub: "Reopen the market and restart follow-ups", tone: "purple" },
+          { k: "rfq_v2", label: "Requirement change", sub: `Create RFQ V${c.activeRfq + 1} and re-approach the market`, tone: "purple" },
+          { k: "lost", label: "Lost", sub: "Client placed elsewhere or withdrew", tone: "red" },
+          { k: "unable_to_place", label: "Unable to place", sub: "No market available on this structure", tone: "red" },
+          { k: "cancelled_inactivity", label: "Cancelled - inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
+        ];
+        return (
+          <>
+            <div className="flex justify-end">
+              <PlClientDecisionMenu options={options} onPick={setOutcome} />
+            </div>
 
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5">
-            Client decision
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { k: "quote_selected", label: "Quote selected", sub: "Client picked a market - hand off to issuance", tone: "green" },
-              { k: "more_quotes", label: "Request more quotes", sub: "Reopen the market and restart follow-ups", tone: "purple" },
-              { k: "rfq_v2", label: "Requirement change", sub: `Create RFQ V${c.activeRfq + 1} and re-approach the market`, tone: "purple" },
-              { k: "lost", label: "Lost", sub: "Client placed elsewhere or withdrew", tone: "red" },
-              { k: "unable_to_place", label: "Unable to place", sub: "No market available on this structure", tone: "red" },
-              { k: "cancelled_inactivity", label: "Cancelled - inactivity", sub: "No client response within the follow-up window", tone: "neutral" },
-            ].map((o) => (
-              <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg px-3 py-2.5"
-                style={{ background: PL_T.card, border: `1px dashed ${PL_T.amberLine}` }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[o.tone].fg }} />
-                  <span style={{ fontSize: 12.5, fontWeight: 550 }}>{o.label}</span>
-                </div>
-                <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }} className="mt-0.5">{o.sub}</div>
-              </button>
-            ))}
-          </div>
-
-          {!(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
-            <>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5 mt-3">
-                Or the RM comes back asking
+            <div className="rounded-xl px-3.5 py-3"
+              style={{ background: PL_T.amberSoft, border: `1px dashed ${PL_T.amberLine}` }}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Zap size={12} color={PL_T.amber} />
+                <span style={{ fontSize: 11, fontWeight: 650, color: PL_T.amber, letterSpacing: 0.2 }}>
+                  Simulate what the RM heard back
+                </span>
               </div>
-              <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
-                RM asks for more options
-              </PlSimBtn>
-            </>
-          )}
-        </div>
-      )}
+              <div style={{ fontSize: 11.5, color: PL_T.amber, lineHeight: 1.45 }} className="mb-3">
+                QCR V{released.v} went to {released.sentTo} on {released.releasedAt}. In production the RM would relay the client's response - stand in for it here.
+              </div>
+
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5">
+                Client decision
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {options.map((o) => (
+                  <button key={o.k} onClick={() => setOutcome(o.k)} className="text-left rounded-lg px-3 py-2.5"
+                    style={{ background: PL_T.card, border: `1px dashed ${PL_T.amberLine}` }}>
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded-full" style={{ width: 6, height: 6, background: PL_TONES[o.tone].fg }} />
+                      <span style={{ fontSize: 12.5, fontWeight: 550 }}>{o.label}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: PL_T.ink3, lineHeight: 1.4 }} className="mt-0.5">{o.sub}</div>
+                  </button>
+                ))}
+              </div>
+
+              {!(c.rmMoreQuotes && !c.rmMoreQuotes.handled) && (
+                <>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: PL_T.amber }} className="mb-1.5 mt-3">
+                    Or the RM comes back asking
+                  </div>
+                  <PlSimBtn onClick={() => { api.rmRequestMoreQuotes(c.id, "Client would like additional market options."); api.say("RM request received - your decision is needed on Insurer Threads"); }}>
+                    RM asks for more options
+                  </PlSimBtn>
+                </>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {early && <PlEarlyReleaseModal c={c} api={api} onClose={() => setEarly(false)} />}
       {send && <PlSendQcrModal c={c} qcr={draft} api={api} onClose={() => setSend(false)} />}
