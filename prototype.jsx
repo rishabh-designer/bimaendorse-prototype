@@ -14882,8 +14882,6 @@ function PlRightRail({ c, api, goTo }) {
         </PlCard>
       )}
 
-      <PlBimaNetraCard c={c} />
-
       {/* Prototype-only: stand in for the RM raising an Exclusive Placement
           Mandate. Hidden once a mandate is on file or the case has closed. */}
       {!c.meta?.mandate && !c.outcome && (
