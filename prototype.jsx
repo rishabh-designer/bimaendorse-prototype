@@ -10572,7 +10572,7 @@ const PL_SEED_C = [
     ],
   },
 
-  /* 6 ── Negotiation */
+  /* 6 ── QCR released, awaiting RM decision */
   {
     id: "PC-1029", priority: "Standard", stage: "qcr_released", outcome: null,
     client: { name: "Halcyon Hospitality Group", industry: "Hotels & resorts", city: "Panaji, GA", headcount: 780, turnover: "₹265 Cr", spoc: "Farhan Qureshi, Director HR", rm: "Shubh Bangar" },
@@ -16524,7 +16524,7 @@ function PlReplyInsurerModal({ c, t, api, onClose }) {
 
 /* ---------- scratch_pl_tabs2.jsx ---------- */
 /* ================================================================== *
- *  BimaPlacement - Quotes / QCR / Negotiation / Activity tabs, ported
+ *  BimaPlacement - Quotes / QCR / Activity tabs, ported
  *  into the sister design system. Behaviour is FROZEN (see
  *  FUNCTIONAL-CONTRACT.md); only symbol names and visual primitives are
  *  remapped. Pl-/PL_-namespaced. Domain data, pure functions, api,
