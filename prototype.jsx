@@ -14087,7 +14087,15 @@ function PlQueueScreen({ cases, onOpen, user, onCreate, api, rfqMailLog = [] }) 
               <button onClick={() => onOpen(c.id)} className="bk-item pl-row-hover flex w-full items-center rounded-xl px-2 py-3 text-left" style={stagger(i)}>
                 <span className="bk-num truncate inline-flex items-center gap-1" style={cell(PCOLS.id, { fontSize: 14, fontWeight: 500, color: C.brand })}>
                   {c.id}
-                  {c.id === "PC-1026" && <IconStarCheck size={12} color="#FF7700" aria-label="Exclusive Mandate" />}
+                  {(() => {
+                    /* §3.6 · Queue row icon is state-driven now: orange
+                       when signed, ink3 when requested or considering,
+                       nothing otherwise. */
+                    const state = plMandateState(c);
+                    if (state === "signed") return <IconStarCheck size={12} color="#FF7700" aria-label="Exclusive Mandate" />;
+                    if (state === "requested" || state === "considering") return <IconStarCheck size={12} color={PL_T.ink3} aria-label="Mandate requested" />;
+                    return null;
+                  })()}
                   {c.demo && <span className="ml-1" title="Happy Path Demo" style={{ fontSize: 10, color: PL_T.green }}>•</span>}
                 </span>
                 <span className="flex" style={cell(PCOLS.stage)}><Indicator status label={plStageLabel(c)} ind={plStageInd(c)} /></span>
@@ -14504,12 +14512,31 @@ function PlCaseWorkspace({ c, api, onBack, initialTab, onOpen, cases }) {
                 {/* Row 1: PC-XXXX + status pill (Figma 1536:31841) */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontSize: 28, fontWeight: 650, letterSpacing: "-0.5px", color: PL_T.purple, fontFamily: PL_MONO }}>{c.id}</span>
-                  {c.meta?.mandate?.type === "Exclusive Placement Mandate" && (
-                    <PlMandateHover c={c}>
-                      <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
-                        leading={<IconStarCheck size={13} color="#FF7700" />} />
-                    </PlMandateHover>
-                  )}
+                  {(() => {
+                    /* §3.5 · Signed → the existing Exclusive Mandate
+                       pill with the mandate hover. Requested / considering
+                       → an ink3 pill with a request-scoped hover.
+                       Declined / none → no pill. */
+                    const state = plMandateState(c);
+                    if (state === "signed") {
+                      return (
+                        <PlMandateHover c={c}>
+                          <Indicator big status size={16} ind="orange" label="Exclusive Mandate"
+                            leading={<IconStarCheck size={13} color="#FF7700" />} />
+                        </PlMandateHover>
+                      );
+                    }
+                    if (state === "requested" || state === "considering") {
+                      return (
+                        <PlMandateRequestHover c={c}>
+                          <Indicator big status size={16} ind="neutral"
+                            label={state === "requested" ? "Mandate requested" : "Mandate: client considering"}
+                            leading={<IconStarCheck size={13} color={PL_T.ink3} />} />
+                        </PlMandateRequestHover>
+                      );
+                    }
+                    return null;
+                  })()}
                   <Indicator big status size={16}
                     ind={PL_STATUS_IND[statusTone] || "info"}
                     label={c.outcome ? PL_OUTCOME[c.outcome.type].label : st.internal} />
@@ -15420,16 +15447,68 @@ function PlMandateDetails({ c }) {
           </span>
         )}
       </div>
-      <div style={{ paddingTop: 4 }}>
+      <div className="flex items-center gap-2" style={{ paddingTop: 4 }}>
         <div style={{ fontSize: 18, fontWeight: 600, lineHeight: "21.6px", color: PL_T.orange }}>Exclusive Mandate Available</div>
+        {m.ref && <PlMono size={11} color={PL_T.orange}>{m.ref}</PlMono>}
       </div>
+      {m.requestedBy && (
+        <div style={{ fontSize: 12, color: PL_T.ink3, marginTop: 4 }}>
+          Requested by {m.requestedBy} · {m.requestedAt} · signed {m.at}
+        </div>
+      )}
       <div className="flex flex-col" style={{ paddingTop: 8, gap: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 500, color: PL_T.ink3, lineHeight: 1 }}>Preferred Insurer:</span>
-        {m.preferredInsurerId === "bajaj"
-          ? <img src={LOGO_BAJAJ} alt="Bajaj Allianz" style={{ height: 24, width: 51.333, display: "block" }} />
-          : <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[m.preferredInsurerId]?.name || "-"}</span>}
+        {!m.preferredInsurerId
+          ? <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink3 }}>No preferred insurer</span>
+          : m.preferredInsurerId === "bajaj"
+            ? <img src={LOGO_BAJAJ} alt="Bajaj Allianz" style={{ height: 24, width: 51.333, display: "block" }} />
+            : <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{PL_INSURERS[m.preferredInsurerId]?.name || "-"}</span>}
       </div>
     </>
+  );
+}
+
+/* §3.5 · Popover under the requested / considering header pill —
+   mirrors PlMandateHover's shape but reads from the open mandate
+   request instead of c.meta.mandate. */
+function PlMandateRequestHover({ c, children }) {
+  const [open, setOpen] = useState(false);
+  const req = plOpenMandateRequest(c);
+  if (!req) return children;
+  const insurerName = req.preferredInsurerId ? (PL_INSURERS[req.preferredInsurerId]?.name || req.preferredInsurerId) : "No preference";
+  const latest = (req.responses || []).slice(-1)[0];
+  return (
+    <span className="relative inline-block"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}>
+      {children}
+      {open && (
+        <div className="absolute z-40" style={{
+          top: "calc(100% + 8px)", left: 0, width: 320,
+          background: C.white,
+          border: `1px solid ${PL_T.orangeLine}`,
+          borderRadius: 16, padding: "14px 16px",
+          boxShadow: "0 12px 32px rgba(28,29,31,0.16)",
+          fontFamily: FONT,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: PL_T.ink3 }}>Exclusive Mandate</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: PL_T.orange, marginTop: 2 }}>
+            {req.status === "requested" ? "Requested" : "Client considering"}
+          </div>
+          <div style={{ fontSize: 12, color: PL_T.ink2, marginTop: 8, lineHeight: 1.5 }}>
+            Requested by <b>{req.requestedBy}</b> · {req.requestedAt}<br />
+            Preferred insurer: <b>{insurerName}</b><br />
+            Reason: <b>{req.reason || "-"}</b>
+          </div>
+          {latest && latest.kind === "considering" && (
+            <div className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.orangeSoft, border: `1px solid ${PL_T.orangeLine}` }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: PL_T.ink3 }}>{latest.actor} · {latest.at}</div>
+              <div style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45 }}>{latest.note}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -15460,6 +15539,241 @@ function PlMandateHover({ c, children }) {
   );
 }
 
+/* §3.1 · Rail card that drives the whole mandate flow. Hidden when
+   the case is closed OR when the state is "signed" (the header
+   pill + PlMandateHover carry that state). */
+function PlMandateCard({ c, api }) {
+  const [modal, setModal] = useState(null);
+  const state = plMandateState(c);
+  if (c.outcome) return null;
+  if (state === "signed") return null;
+  const canAct = PL_ME && (PL_ME.key === "bhupendra" || PL_ME.key === "himani");
+  const open = plOpenMandateRequest(c);
+  const last = plLastMandateRequest(c);
+  const rmFirst = (c.client.rm || "").split(" ")[0] || "the RM";
+  const isRequested = state === "requested";
+  const isConsidering = state === "considering";
+  const isDeclined = state === "declined";
+
+  const insurerLabel = (id) => id ? (PL_INSURERS[id]?.name || id) : "No preference";
+  const bg = state === "none" || state === "declined" ? PL_T.card : PL_T.orangeSoft;
+  const statusChip = isRequested ? { tone: "orange", label: "Requested" }
+    : isConsidering ? { tone: "orange", label: "Client considering" }
+    : isDeclined ? { tone: "red", label: "Declined" } : null;
+
+  return (
+    <PlCard style={{ borderColor: PL_T.orangeLine, background: bg }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5">
+          <IconStarCheck size={12} color={PL_T.orange} />
+          <PlLabel>Exclusive Mandate</PlLabel>
+        </span>
+        {statusChip && <PlChip size="xs" tone={statusChip.tone} dot>{statusChip.label}</PlChip>}
+      </div>
+
+      {state === "none" && (
+        <>
+          <div className="mt-2" style={{ fontSize: 13, fontWeight: 550, color: PL_T.ink, lineHeight: 1.35 }}>
+            Ask {rmFirst} for the client's Exclusive Placement Mandate.
+          </div>
+          <div style={{ fontSize: 11.5, color: PL_T.ink3, lineHeight: 1.4, marginTop: 4 }}>
+            For information only — it doesn't change insurers, quotes or the QCR.
+          </div>
+          {canAct && (
+            <div className="mt-2.5">
+              <PlBtn size="sm" full onClick={() => setModal({ kind: "request" })}>Request mandate</PlBtn>
+            </div>
+          )}
+        </>
+      )}
+
+      {(isRequested || isConsidering) && open && (
+        <>
+          <div className="mt-2" style={{ fontSize: 13, fontWeight: 550, color: PL_T.ink, lineHeight: 1.35 }}>
+            {isRequested ? `Waiting on ${rmFirst}` : "Client is still considering"}
+          </div>
+          {isConsidering && (open.responses || []).slice(-1).map((r, i) => (
+            <div key={i} className="mt-2 rounded-lg px-2.5 py-2" style={{ background: PL_T.card, border: `1px solid ${PL_T.orangeLine}` }}>
+              <div className="flex items-center gap-1.5">
+                <PlAvatar name={r.actor} tone="blue" size={18} />
+                <span style={{ fontSize: 11.5, fontWeight: 600 }}>{r.actor}</span>
+                <span style={{ fontSize: 10.5, color: PL_T.ink3 }}>· {r.at}</span>
+              </div>
+              <div className="mt-1" style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.note}</div>
+            </div>
+          ))}
+          <div className="mt-2 space-y-1" style={{ fontSize: 12, color: PL_T.ink2 }}>
+            <div className="flex items-center gap-1.5">
+              <PlAvatar name={open.requestedBy} tone="purple" size={18} />
+              <span>Requested by <b>{(open.requestedBy || "").split(" ")[0]}</b> · {open.requestedAt}</span>
+            </div>
+            <div>Preferred insurer: <b>{insurerLabel(open.preferredInsurerId)}</b></div>
+            <div>Reason: <b>{open.reason || "-"}</b></div>
+            {(open.reminders || []).length > 0 && (
+              <div>{open.reminders.length} reminder{open.reminders.length === 1 ? "" : "s"} sent · last {open.reminders[open.reminders.length - 1].at}</div>
+            )}
+          </div>
+          {canAct && (
+            <div className="mt-2.5 flex gap-1.5">
+              <PlBtn size="sm" onClick={() => setModal({ kind: "remind" })}>Send reminder</PlBtn>
+              <PlBtn size="sm" onClick={() => setModal({ kind: "withdraw" })}>Withdraw</PlBtn>
+            </div>
+          )}
+        </>
+      )}
+
+      {isDeclined && last && (
+        <>
+          <div className="mt-2" style={{ fontSize: 13, fontWeight: 550, color: PL_T.ink, lineHeight: 1.35 }}>
+            Declined by {rmFirst} · {last.closedAt}
+          </div>
+          <div style={{ fontSize: 11.5, color: PL_T.ink3, marginTop: 4 }}>
+            {(last.responses || []).slice(-1).map((r) => r.note).join(" ") || "-"}
+          </div>
+          {canAct && (
+            <div className="mt-2.5">
+              <PlBtn size="sm" full onClick={() => setModal({ kind: "request", prefill: last })}>Request again</PlBtn>
+            </div>
+          )}
+        </>
+      )}
+
+      {modal?.kind === "request" && <PlRequestMandateModal c={c} api={api} prefill={modal.prefill} onClose={() => setModal(null)} />}
+      {modal?.kind === "remind" && <PlMandateReminderModal c={c} api={api} onClose={() => setModal(null)} />}
+      {modal?.kind === "withdraw" && <PlWithdrawMandateModal c={c} api={api} onClose={() => setModal(null)} />}
+    </PlCard>
+  );
+}
+
+/* §3.7 · RM-response simulation, shown only while a request is open. */
+function PlMandateRmSimBlock({ c, api }) {
+  const open = plOpenMandateRequest(c);
+  if (!open) return null;
+  return (
+    <PlSimBlock title="Simulate RM response to mandate request">
+      {open.status === "requested" && (
+        <PlSimBtn onClick={() => { api.rmMandateConsidering(c.id, "Client wants a day to discuss internally."); api.say(`${c.client.rm}: client still considering`); }}>
+          Client still considering
+        </PlSimBtn>
+      )}
+      <PlSimBtn onClick={() => { api.rmMandateSigned(c.id, "Client signed the mandate letter."); api.say(`${c.client.rm} confirmed the client signed the Exclusive Placement Mandate`); }}>
+        Client signed
+      </PlSimBtn>
+      <PlSimBtn onClick={() => { api.rmMandateDeclined(c.id, PL_MANDATE_DECLINE_REASONS[0], ""); api.say(`${c.client.rm} says the client declined`); }}>
+        Client declined
+      </PlSimBtn>
+    </PlSimBlock>
+  );
+}
+
+/* §3.2 · Request modal. Optional preferred insurer, required reason,
+   required message. */
+function PlRequestMandateModal({ c, api, prefill, onClose }) {
+  const [insurer, setInsurer] = useState(prefill?.preferredInsurerId || "");
+  const [reason, setReason] = useState(prefill?.reason || "");
+  const rmFirst = (c.client.rm || "").split(" ")[0] || "the RM";
+  const spoc = plSpocFirst(c);
+  const insurerName = insurer ? (PL_INSURERS[insurer]?.name || insurer) : "";
+  const products = (c.products || []).map((p) => plProductType(p).label).join(" · ");
+  const [message, setMessage] = useState(prefill?.message
+    || `Hi ${rmFirst}, could you ask ${spoc} whether ${c.client.name} will give us an Exclusive Placement Mandate for ${products}? ${insurerName ? `Our recommendation is ${insurerName}. ` : ""}It lets us close placement on the client's behalf, with you confirming the final option.`);
+
+  /* Update the message when insurer changes so the recommendation line
+     tracks it — only when the operator hasn't hand-edited past a
+     recognisable snippet. */
+  useEffect(() => {
+    // Update recommendation phrase on insurer change without clobbering user edits.
+    setMessage((cur) => {
+      const base = `Hi ${rmFirst}, could you ask ${spoc} whether ${c.client.name} will give us an Exclusive Placement Mandate for ${products}? `;
+      const recPart = insurerName ? `Our recommendation is ${insurerName}. ` : "";
+      const tail = `It lets us close placement on the client's behalf, with you confirming the final option.`;
+      const expected = base + recPart + tail;
+      if (cur === expected) return cur;
+      /* If the operator hasn't diverged (message still matches a
+         previous template), rebuild; otherwise leave alone. */
+      const anyRecPart = /Our recommendation is [^.]+\. /;
+      if (cur.startsWith(base) && cur.endsWith(tail)) {
+        return base + recPart + tail;
+      }
+      return cur;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insurer]);
+
+  const canSend = !!reason && message.trim().length > 0;
+
+  /* §3.2 · Insurer options ordered by usable → panel → active contacts. */
+  const insurerOpts = (() => {
+    const usable = new Set(plUsableInsurers(c));
+    const panel = new Set(c.panel?.selected || []);
+    const active = Object.entries(PL_INSURERS).filter(([id]) => {
+      const contacts = (PL_CONTACTS && PL_CONTACTS[id]) || [];
+      return contacts.some((k) => (k.status || "Active") === "Active");
+    }).map(([id]) => id);
+    const seen = new Set();
+    const out = [{ value: "", label: "No preference yet" }];
+    usable.forEach((id) => { if (!seen.has(id)) { seen.add(id); out.push({ value: id, label: `${PL_INSURERS[id]?.name || id} · usable quote` }); } });
+    panel.forEach((id) => { if (!seen.has(id) && PL_INSURERS[id]) { seen.add(id); out.push({ value: id, label: `${PL_INSURERS[id]?.name || id} · on panel` }); } });
+    active.forEach((id) => { if (!seen.has(id) && PL_INSURERS[id]) { seen.add(id); out.push({ value: id, label: PL_INSURERS[id]?.name || id }); } });
+    return out;
+  })();
+
+  return (
+    <PlModal title="Request Exclusive Mandate" subtitle={`${c.id} · mail to ${c.client.rm}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" disabled={!canSend}
+          onClick={() => { api.requestMandate(c.id, { preferredInsurerId: insurer || null, reason, message }); api.say(`Mandate request sent to ${c.client.rm}`); onClose(); }}>
+          Send request
+        </PlBtn></>}>
+      <PlLabel>Preferred insurer (optional)</PlLabel>
+      <div className="mt-1.5"><PlMenuPicker value={insurer} onChange={setInsurer} options={insurerOpts} width="100%" placeholder="No preference yet" /></div>
+      <div className="mt-3">
+        <PlLabel>Reason (required)</PlLabel>
+        <div className="mt-1.5"><PlMenuPicker value={reason} onChange={setReason} options={PL_MANDATE_REQUEST_REASONS.map((v) => ({ value: v, label: v }))} width="100%" placeholder="Pick a reason" /></div>
+      </div>
+      <div className="mt-3">
+        <PlLabel>Message to RM (required)</PlLabel>
+        <div className="mt-1.5"><PlTextArea value={message} onChange={setMessage} rows={5} /></div>
+      </div>
+      <PlCallout tone="blue" className="mt-3">
+        <span style={{ fontSize: 11.5, color: PL_T.blue, lineHeight: 1.45 }}>
+          For information only. A signed mandate is shown on the case — it doesn't change insurers, quotes, the QCR or the client decision.
+        </span>
+      </PlCallout>
+    </PlModal>
+  );
+}
+
+/* §3.3 · Reminder + withdraw modals. */
+function PlMandateReminderModal({ c, api, onClose }) {
+  const rmFirst = (c.client.rm || "").split(" ")[0] || "the RM";
+  const [note, setNote] = useState(`Hi ${rmFirst}, following up on the Exclusive Mandate request for ${c.client.name}.`);
+  return (
+    <PlModal title="Send reminder" subtitle={`${c.id} · mail to ${c.client.rm}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="primary" onClick={() => { api.remindMandate(c.id, note); api.say(`Reminder sent to ${c.client.rm}`); onClose(); }}>
+          Send reminder
+        </PlBtn></>}>
+      <PlLabel>Reminder message</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} /></div>
+    </PlModal>
+  );
+}
+
+function PlWithdrawMandateModal({ c, api, onClose }) {
+  const [note, setNote] = useState("");
+  return (
+    <PlModal title="Withdraw mandate request" subtitle={`${c.id} · ${c.client.name}`} onClose={onClose}
+      footer={<><PlBtn onClick={onClose}>Cancel</PlBtn>
+        <PlBtn variant="danger" onClick={() => { api.withdrawMandateRequest(c.id, note); api.say("Mandate request withdrawn"); onClose(); }}>
+          Withdraw
+        </PlBtn></>}>
+      <PlLabel>Why are you withdrawing? (optional)</PlLabel>
+      <div className="mt-1.5"><PlTextArea value={note} onChange={setNote} rows={4} placeholder="e.g. Client will decide directly on our top pick." /></div>
+    </PlModal>
+  );
+}
+
 function PlRightRail({ c, api, goTo }) {
   const na = plNextAction(c);
   return (
@@ -15474,15 +15788,10 @@ function PlRightRail({ c, api, goTo }) {
         </PlCard>
       )}
 
-      {/* §2 · The RM-initiated "RM asks for mandate" sim block was
-          removed with rmAcceptExclusiveMandate; the mandate flow is
-          now Placement-initiated and the RM-response sim block sits
-          on the mandate rail card (§3.7). */}
-
-      {/* The Exclusive Mandate rail card was removed — its content now appears
-          as a hover popover under the "Exclusive Mandate" pill on the case
-          header (via PlMandateHover / PlMandateDetails). Kept the sim block
-          above so the RM-signs-mandate simulation still lives on this rail. */}
+      {/* §3.1 · Mandate rail card. Hidden when signed (the header
+          pill carries the signed state) or when the case is closed. */}
+      <PlMandateCard c={c} api={api} />
+      <PlMandateRmSimBlock c={c} api={api} />
 
       {c.outcome && (
         <PlCard style={{ borderColor: PL_TONES[PL_OUTCOME[c.outcome.type].tone].line }}>
