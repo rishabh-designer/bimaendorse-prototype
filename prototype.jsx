@@ -14979,19 +14979,19 @@ function PlMarketTab({ c, api, goTo }) {
         </div>
       </div>
 
-      {/* Column header row (mixed case) — grid layout keeps every cell
-          aligned with the row grid below. */}
-      <div className="grid gap-3 px-4 pb-1 items-center"
-        style={{ gridTemplateColumns: "minmax(0,1fr) 150px 100px 100px 160px 18px", fontSize: 11.5, color: PL_T.ink3, fontWeight: 600 }}>
-        <span>Insurer / Last activity</span>
+      {/* Column header — sunken card-alt, sortable-looking (Figma 1559:46690).
+          Grid layout keeps rows locked to the same columns. */}
+      <div className="grid gap-2 items-center rounded-xl px-2 py-2"
+        style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px",
+          background: PL_T.cardSunk, fontSize: 12, color: PL_T.ink, fontWeight: 600 }}>
+        <span>Insurer & Activity</span>
         <span>Status</span>
-        <span>Follow-up</span>
-        <span>SLA / Due</span>
-        <span>Next action</span>
-        <span />
+        <span>Date & Time</span>
+        <span>Stage Due</span>
+        <span>Actions</span>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         {c.threads.map((t) => {
           const I = PL_INSURERS[t.insurerId];
           const on = open === t.insurerId;
@@ -14999,36 +14999,65 @@ function PlMarketTab({ c, api, goTo }) {
           const qs = plLiveQuotes(c, t.insurerId);
           const cl = t.clarifications[t.clarifications.length - 1];
           const logo = plInsurerLogo(I.name);
-          const stopped = ["declined", "quote_usable", "quote_excluded"].includes(t.status) || !t.followUpsActive;
-          const followUpLabel = stopped
-            ? "Stopped"
-            : t.followUps >= 3 ? PL_FOLLOWUP_LADDER[2].label
-              : t.followUps > 0 ? PL_FOLLOWUP_LADDER[t.followUps - 1].label
-                : "None sent";
-          const followUpTone = stopped ? "green" : t.followUps > 0 ? "purple" : "neutral";
+          const terminal = ["declined", "quote_usable", "quote_excluded"].includes(t.status);
+          const followTone = terminal ? "neutral"
+            : t.followUps === 0 ? "neutral"
+            : t.followUps === 1 ? "green"
+            : t.followUps === 2 ? "amber" : "red";
+          const followLabel = terminal ? "N/A" : String(t.followUps);
+
+          /* Stage Due — plain coloured text, not a pill. Semantic colour reflects
+             the SLA state: over = error red, held = success green, else caution
+             amber. Terminal threads show "N/A" muted. */
+          const slaState = terminal ? "na"
+            : t.paused ? "held"
+            : t.slaH < 0 ? "over" : "left";
+          const slaColour = { over: C.semError, held: "#007B00", left: C.semCaution, na: C.figDisabled }[slaState];
+          const slaText = slaState === "na" ? "N/A"
+            : slaState === "held" ? `${plFmtH(t.slaH)} held`
+            : slaState === "over" ? `${plFmtH(Math.abs(t.slaH))} over`
+            : `${plFmtH(t.slaH)} left`;
+
+          /* Actions column — one primary action button per row, disabled or
+             hidden depending on state. onClick stops propagation so the row
+             itself remains the click target for expand. */
+          const nextLabel = plThreadNext(c, t);
+          const hasQuote = qs.some((q) => !q.decision);
+          const canFollowUp = ["rfq_sent", "acknowledged", "no_response"].includes(t.status) && t.followUpsActive;
+          const canReply = t.status === "awaiting_rm" && cl?.rmResponse;
+          let action = null;
+          if (hasQuote) action = { label: "Review Quote", variant: "primary", onClick: () => goTo("quotes") };
+          else if (canReply) action = { label: "Reply to insurer", variant: "primary", onClick: () => setModal({ kind: "reply", t }) };
+          else if (t.status === "insurer_clarification") action = { label: "Request from RM", variant: "primary", onClick: () => setModal({ kind: "askRm", t }) };
+          else if (canFollowUp) action = { label: "Send follow-up", variant: "default", onClick: () => { api.followUp(c.id, t.insurerId); api.say(`Follow-up sent to ${I.name}`); } };
+          else if (t.status === "awaiting_rm") action = { label: "RM Response", variant: "default", disabled: true };
+          else if (t.status === "declined") action = null;
+          else if (!terminal) action = { label: "Log call", variant: "default", onClick: () => { api.logCall(c.id, t.insurerId); api.say(`Call logged against ${I.name}`); } };
+
           return (
             <div key={t.insurerId} className="rounded-xl border overflow-hidden"
               style={{ borderColor: t.paused ? PL_T.orangeLine : on ? PL_T.borderStrong : PL_T.border, background: PL_T.card }}>
-              <button onClick={() => setOpen(on ? null : t.insurerId)} className="w-full text-left px-4 py-3 grid gap-3 items-center"
-                style={{ gridTemplateColumns: "minmax(0,1fr) 150px 100px 100px 160px 18px" }}>
-                <span className="flex items-center gap-2.5 min-w-0">
+              <div onClick={() => setOpen(on ? null : t.insurerId)}
+                className="grid gap-2 items-center px-2 py-2 cursor-pointer"
+                style={{ gridTemplateColumns: "180px 180px 100px minmax(0,1fr) 120px" }}
+                title={nextLabel}>
+                <span className="flex items-center gap-2 min-w-0">
                   {logo
-                    ? <img src={logo} alt="" className="shrink-0" style={{ height: 20, width: "auto", maxWidth: 56 }} />
-                    : <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: PL_TONES[PL_TSTAT[t.status].tone].fg }} />}
-                  <span className="min-w-0">
-                    <span className="block" style={{ fontSize: 13, fontWeight: 600, color: PL_T.ink }}>{I.name}</span>
-                    <span className="block truncate" style={{ fontSize: 11.5, color: PL_T.ink3 }}>{last ? `${last.at} · ${last.text}` : "—"}</span>
-                  </span>
+                    ? <img src={logo} alt={I.name} className="shrink-0" style={{ height: 24, width: "auto", maxWidth: 96, objectFit: "contain" }} />
+                    : <span className="min-w-0 truncate" style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>{I.name}</span>}
+                  <PlChip size="xs" tone={followTone}>{followLabel}</PlChip>
                 </span>
                 <span><PlChip tone={PL_TSTAT[t.status].tone}>{PL_TSTAT[t.status].label}</PlChip></span>
-                <span><PlChip tone={followUpTone}>{followUpLabel}</PlChip></span>
-                <span>
-                  <PlSlaChip hours={t.slaH} paused={t.paused} pauseReason={t.pauseReason}
-                    stopped={!t.paused && ["declined", "quote_usable", "quote_excluded"].includes(t.status)} />
+                <span style={{ fontSize: 12, color: PL_T.ink3 }}>{last ? last.at : "—"}</span>
+                <span style={{ fontSize: 12, fontWeight: 500, color: slaColour }}>{slaText}</span>
+                <span onClick={(e) => e.stopPropagation()}>
+                  {action && (
+                    <PlBtn size="sm" variant={action.variant} disabled={action.disabled} onClick={action.onClick} full icon={ChevronRight}>
+                      {action.label}
+                    </PlBtn>
+                  )}
                 </span>
-                <span style={{ fontSize: 12, color: PL_T.ink2, lineHeight: 1.3 }}>{plThreadNext(c, t)}</span>
-                {on ? <ChevronDown size={14} color={PL_T.ink3} /> : <ChevronRight size={14} color={PL_T.ink3} />}
-              </button>
+              </div>
 
               {on && (
                 <div className="grid grid-cols-2 gap-4 px-4 pb-4 pt-1" style={{ borderTop: `1px solid ${PL_T.border}` }}>
