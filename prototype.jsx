@@ -10087,6 +10087,13 @@ const plProductType = (code) =>
 const PL_PRODUCTS = Object.fromEntries(PL_PRODUCT_TYPES.map((p) => [p.code, p.label]));
 const plRfqTemplatesOf = (products) => products.map((code) => plProductType(code).template);
 
+/* §1 · Single-product invariant. Every Placement ticket carries
+   exactly one product type. `c.products` stays an array (the readers
+   are deep) but always holds one code. Use plProductOf when a single
+   caller only needs the one product; readers that already join / map
+   the array keep working. */
+const plProductOf = (c) => (c && c.products && c.products[0]) || null;
+
 /* §2.1.1 Email matcher — returns product type codes found in `text`.
    Longest phrase first, word-boundary; short all-caps aliases match
    case-sensitively so "please stop" is not Marine STOP. */
@@ -11636,6 +11643,10 @@ function makePlacementApi(setCases, say = () => {}) {
        plReconcileSla so the case joins SLA-02 with the seed clock. */
     createCase: (d) => setCases((cs) => {
       if (cs.some((x) => x.id === d.id)) return cs;
+      /* §1 · Single-product invariant. createCase now expects `d.products`
+         to hold exactly one code. The multi-product intake path belongs
+         to `createCases`, which fans one call to createCase per code. */
+      if (!d.products || d.products.length !== 1) return cs;
       const at = plStamp();
       const owner = d.owner === "himani" ? "himani" : "bhupendra";
       const source = d.source || {};
@@ -13591,7 +13602,7 @@ function PlCaseWorkspace({ c, api, onBack, initialTab }) {
           const pm = PORTAL_USERS["himani@bimakavach.com"] || {};
           const pmName = pm.name || "Himani Doshi";
           const parts = plParticipantsOf(c);
-          const products = c.products.map((p) => PL_PRODUCTS[p] || p).join(" · ");
+          const products = plProductType(plProductOf(c)).label;
           return (
             <div className="mb-4 flex items-start justify-between gap-6">
               <div className="min-w-0 flex-1">
@@ -15492,7 +15503,7 @@ function PlRfqSourceCard({ c, rfq }) {
         <PlCard pad={false}>
           <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${PL_T.border}`, background: PL_T.cardAlt }}>
             <LinkIcon size={13} color={PL_T.purple} />
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>RFQ V{rfq.v} · RFQ link</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: PL_T.ink }}>RFQ V{rfq.v} · RFQ link · {plProductType(plProductOf(c)).label}</span>
             <PlMono size={11.5} color={PL_T.ink2}>{src.link.url}</PlMono>
             <span className="flex-1" />
             {src.link.at && <span style={{ fontSize: 11, color: PL_T.ink3 }}>{src.link.at}</span>}
@@ -15503,7 +15514,7 @@ function PlRfqSourceCard({ c, rfq }) {
               <table className="w-full" style={{ borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${PL_T.borderStrong}` }}>
-                    {["#", "Product type", "Field", "Value"].map((h) => (
+                    {["#", "Field", "Value"].map((h) => (
                       <th key={h} className="text-left px-4 py-2.5" style={{ fontSize: 12, color: PL_T.ink3, fontWeight: 600 }}>{h}</th>
                     ))}
                   </tr>
@@ -15512,16 +15523,14 @@ function PlRfqSourceCard({ c, rfq }) {
                   {(() => {
                     let n = 0;
                     return (rfq.sections || []).flatMap((sec) => {
-                      const label = plProductType(sec.product).label;
                       const rows = [];
-                      rows.push({ product: label, field: "Sum insured", value: sec.si || "-" });
-                      (sec.detail || []).forEach(([k, v]) => rows.push({ product: label, field: k, value: v }));
+                      rows.push({ field: "Sum insured", value: sec.si || "-" });
+                      (sec.detail || []).forEach(([k, v]) => rows.push({ field: k, value: v }));
                       return rows.map((row, i) => {
                         n += 1;
                         return (
                           <tr key={`${sec.product}-${i}`} style={{ borderBottom: `1px solid ${PL_T.border}` }}>
                             <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink3, fontFamily: PL_MONO }}>{n}</td>
-                            <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink }}>{i === 0 ? row.product : ""}</td>
                             <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink2 }}>{row.field}</td>
                             <td className="px-4 py-2" style={{ fontSize: 12, color: PL_T.ink, fontWeight: 480 }}>{row.value}</td>
                           </tr>
@@ -15590,7 +15599,7 @@ function PlRfqTab({ c, api }) {
   const rfqMeta = (
     <span className="inline-flex items-center gap-2">
       <PlChip size="sm" tone="purple">V{c.activeRfq} of {c.rfqs.length}</PlChip>
-      <span>{c.products.length} {c.products.length === 1 ? "product" : "products"}</span>
+      <span>{plProductType(plProductOf(c)).short}</span>
     </span>
   );
   const showGapsCard = c.stage === "rfq_review" || c.stage === "awaiting_rm" || (rfq.missing || []).length > 0;
@@ -16047,9 +16056,9 @@ function PlInsurersTab({ c, api }) {
               <PlBtn variant="primary" onClick={() => { api.floatRfq(c.id); api.say(`RFQ floated to ${threadCount} thread${threadCount === 1 ? "" : "s"}`); setFloatOpen(false); }}>
                 Float to {threadCount} thread{threadCount === 1 ? "" : "s"}
               </PlBtn></>}>
-            <PlLabel>Product sections being floated</PlLabel>
-            <div className="mt-1.5 mb-4 flex flex-wrap gap-1.5">
-              {c.products.map((p) => <PlChip key={p} tone="purple">{plProductType(p).label}</PlChip>)}
+            <PlLabel>Product type</PlLabel>
+            <div className="mt-1.5 mb-4">
+              <PlChip tone="purple">{plProductType(plProductOf(c)).label}</PlChip>
             </div>
 
             <PlLabel>RFQ attached</PlLabel>
@@ -17268,13 +17277,15 @@ function PlQcrDocument({ c, qcr, locked }) {
    one product. */
 function PlQcrReportModal({ c, qcr, locked, onClose }) {
   const result = qcr.copycat?.result || { products: [] };
-  const products = result.products || [];
-  const shorts = products.map((p) => plProductType(p.product).short || p.product);
-  const [p, setP] = useState(products[0]?.product || null);
-  const active = products.find((x) => x.product === p) || products[0] || { columns: [], rows: [] };
+  const allProducts = result.products || [];
+  /* §1 single-product invariant · the QCR only ever renders the case's
+     product. If Copycat happens to return more (a legacy released QCR),
+     scope it down to the ticket's own product type. */
+  const caseProduct = plProductOf(c);
+  const active = allProducts.find((x) => x.product === caseProduct) || allProducts[0] || { columns: [], rows: [] };
   const columns = active.columns || [];
   const rows = active.rows || [];
-  const nQuotes = products.reduce((n, x) => n + (x.columns || []).length, 0);
+  const nQuotes = (active.columns || []).length;
   const gen = qcr.copycat?.generatedAt || qcr.copycat?.result?.generatedAt;
   return (
     <PlModal
@@ -17285,16 +17296,6 @@ function PlQcrReportModal({ c, qcr, locked, onClose }) {
       footer={<PlBtn onClick={onClose}>Close</PlBtn>}>
       <div className="flex items-center gap-2 mb-3">
         {locked ? <PlChip tone="green" dot><Lock size={9} /> Released and locked</PlChip> : <PlChip tone="purple" dot>Draft</PlChip>}
-        {products.length > 1 && (
-          <div className="flex gap-1 ml-auto">
-            {products.map((x, i) => (
-              <button key={x.product} onClick={() => setP(x.product)} className="rounded-lg px-2.5 py-1 border"
-                style={{ background: p === x.product ? PL_T.card : "transparent", borderColor: p === x.product ? PL_T.borderStrong : "transparent", fontSize: 12, fontWeight: p === x.product ? 550 : 450 }}>
-                {shorts[i]}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {products.length > 0 ? (
